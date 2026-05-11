@@ -70,24 +70,44 @@ export default function RoutingGuide() {
   };
 
   const buildAndSendEmail = async () => {
+    if (!emailForm.to) { toast.error("Recipient required"); return; }
+    try {
+      // Call the backend "real" send (currently mocked — logs to outbound_emails).
+      // The backend builds the subject and body from the active routing-guide
+      // metadata when client doesn't supply them.
+      const { data } = await api.post("/routing-guide/send-email", {
+        to: emailForm.to,
+        cc: emailForm.cc,
+        subject: "",
+        body_text: "",
+        kind: "routing_guide",
+      });
+      setEmailPreview({
+        subject: `Tennant Inbound Routing Guide — ${info?.revision || ""} (Eff. ${info?.effective_date || ""})`.trim(),
+        body: `Sent to ${data.to} from ${data.from}.\n\nMessage ID: ${data.message_id}\nProvider: ${data.status === "mocked" ? "MOCKED (no email actually sent)" : "SendGrid"}\n\nTo wire real delivery, paste your SendGrid API key into backend/.env as SENDGRID_API_KEY.`,
+      });
+      toast.success(`Routing guide queued for ${data.to}`, {
+        description: data.status === "mocked" ? "Email is MOCKED — see Email Log for full payload" : "Sent via SendGrid",
+      });
+    } catch (e) {
+      toast.error("Could not send — " + (e.response?.data?.detail || e.message));
+    }
+  };
+
+  const openMailto = async () => {
+    // Fall back to a real mailto: launch as well, in case the user wants
+    // their personal mail client open with the prefilled draft.
     try {
       const { data } = await api.get("/routing-guide/email-template", {
         params: { to: emailForm.to, cc: emailForm.cc },
       });
-      // Replace any relative pdf_url in the body with the absolute backend URL.
-      const absoluteBody = data.body.replace(
-        /\/api\/routing-guide\/pdf/g,
-        pdfHref
-      );
       const fullMailto = data.mailto.replace(
         encodeURIComponent("/api/routing-guide/pdf"),
         encodeURIComponent(pdfHref)
       );
-      setEmailPreview({ ...data, body: absoluteBody, mailto: fullMailto });
       window.location.href = fullMailto;
-      toast.success("Opening your mail client…");
     } catch (e) {
-      toast.error("Could not build email — " + (e.response?.data?.detail || e.message));
+      toast.error("Could not open mail client");
     }
   };
 
@@ -322,11 +342,21 @@ export default function RoutingGuide() {
               data-testid="rg-email-cancel"
             >Cancel</Button>
             <Button
+              onClick={openMailto}
+              variant="outline"
+              data-testid="rg-email-mailto"
+              className="border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+              disabled={!emailForm.to}
+            >
+              Open Mail Client
+            </Button>
+            <Button
               onClick={buildAndSendEmail}
               data-testid="rg-email-send"
               className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold"
+              disabled={!emailForm.to}
             >
-              <Mail size={14} className="mr-1.5" /> Open Mail Client
+              <Mail size={14} className="mr-1.5" /> Send Now (MOCKED)
             </Button>
           </DialogFooter>
           {emailPreview && (

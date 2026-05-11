@@ -1,0 +1,67 @@
+{
+  "summary": "Iteration 14 — Validated three P2 features. All 13 backend pytest cases PASS (auto-onboarding stub creation + dedupe + PATCH + XPO-existing-skip; calendar happy path + range>92d + bad-dates; shipments/truckload regression; mock email send + log + routing-guide auto-built subject/body + dispatcher allowed + no-auth 401/403). Frontend flows all confirmed in the live preview: MiniCalendar on /dashboard renders 24 day-badges, clicking day 1 opens [data-testid=mini-cal-events-panel] with 6 event links pointing to /shipments?focus=… ; the Truckload Booking Sheet carrier-cell blur fires a sonner toast 'New carrier sent to onboarding OB-FAF375CB · status: in_review · compliance team will gather W-9 + COI'; the Routing Guide → EMAIL TO CUSTOMER → Send Now (MOCKED) path produces toast 'Routing guide queued for test@vendor.com — Email is MOCKED — see Email Log for full payload'. No blocking issues found.",
+  "backend_results": {
+    "test_file": "/app/backend/tests/test_iter14.py",
+    "junit_xml": "/app/test_reports/pytest/iter14_results.xml",
+    "passed": 13,
+    "failed": 0,
+    "coverage": [
+      "POST /api/workbook/truckload-bookings with new carrier → auto_onboarding_id starts with 'OB-'; carrier_onboarding stub appears in /api/carriers/onboarding?status=in_review with auto_created=true and submitted_by='Test Admin'",
+      "Re-POST with same carrier (and uppercase variant) → auto_onboarding_id=null (dedupe via case-insensitive legal_name/dba regex)",
+      "PATCH /api/workbook/truckload-bookings/{id} setting carrier to a new unique name → auto_onboarding_id starts with 'OB-'",
+      "POST with 'XPO · XPOL', 'xpo', 'XPO LOGISTICS LLC' → auto_onboarding_id=null (existing XPO Logistics LLC record matches via dba='XPO' after splitting on '·')",
+      "GET /api/calendar/events?start=2026-05-01&end=2026-05-31 → 200 with {events,counts_by_date,start,end}; every event has date/kind/type/label/ref/link; kind∈{shipment,booking}; type∈{pickup,delivery,eta,bol_deadline}",
+      "GET /api/calendar/events with range>92 days → 400; bad date strings → 400",
+      "Regression: GET /api/shipments and GET /api/workbook/truckload-bookings → 200",
+      "POST /api/email/send → {ok:true, message_id:'mock_<hex>', status:'mocked', from:'transportation@tennantco.com'}; GET /api/email/log finds the entry with subject/to/status='mocked'",
+      "POST /api/routing-guide/send-email with empty subject/body → auto-builds 'Tennant Inbound Routing Guide — Revision 29 (Eff. 2026-01-09)' and body referencing Revision; logs entry with kind='routing_guide'",
+      "Dispatcher role can hit /api/email/send (200); no-auth hits 401/403 on both /api/email/send and /api/routing-guide/send-email"
+    ]
+  },
+  "frontend_results": {
+    "minicalendar_dashboard": {
+      "data-testid=mini-calendar": true,
+      "badge_count": 24,
+      "click_day_opens_panel": true,
+      "events_panel_visible_with_6_events": true,
+      "first_event_href": "/shipments?focus=SHP-IN-D87AE8"
+    },
+    "truckload_sheet_auto_onboarding": {
+      "sheet_present": true,
+      "carrier_cell_editable": true,
+      "toast_after_blur": "New carrier sent to onboarding OB-FAF375CB · status: in_review · compliance team will gather W-9 + COI",
+      "stub_persisted_in_db": true
+    },
+    "routing_guide_email": {
+      "rg-email-btn_present": true,
+      "rg-email-to_present": true,
+      "send_now_button_clickable": true,
+      "toast_after_send": "Routing guide queued for test@vendor.com  Email is MOCKED — see Email Log for full payload"
+    }
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter14.py",
+    "/app/test_reports/pytest/iter14_results.xml",
+    "/app/test_reports/iteration_14.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py _ensure_carrier_in_pipeline (lines 2535–2588) is correct: splits 'XPO · XPOL' on '·' first, then case-insensitive regex matches against legal_name OR dba. The second 'recent' query (lines 2556–2561) is redundant — it duplicates the same match the first query already does (both are case-insensitive on legal_name). Not a bug, just dead code that could be removed.",
+    "server.py line 2591 has 'import re' at module scope but placed mid-file with a noqa comment — works fine but cleaner if hoisted to the top of the file with the other stdlib imports.",
+    "/api/email/send and /api/routing-guide/send-email correctly persist to db.outbound_emails with status='mocked', provider='mock', sent_by_user_id — making the future swap to SendGrid a one-line change inside _do_send_email(). Good abstraction.",
+    "/api/calendar/events range check uses `(end_d - start_d).days > 92` — does not reject end<start (it'd produce a negative number that fails the >92 check but still returns 200 with empty events). Minor: consider adding `if end_d < start_d: raise 400` for clarity. Currently the in_range lambda just returns no events.",
+    "MiniCalendar.jsx fetches /api/calendar/events on month change and pre-computes counts_by_date for badge rendering — correct use of the server-aggregated counts to avoid client-side counting. Day click toggles the events panel below; event links use react-router <Link> so navigation stays SPA."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter14.py (created — 13 pytest cases for P2.1/P2.2/P2.3)"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% — all three P2 flows confirmed end-to-end via UI + toast + DB"},
+  "test_credentials": "Used /app/memory/test_credentials.md: test_session_admin_1 (admin, 'Test Admin') and test_disp_session (dispatcher).",
+  "seed_data_creation": "Each backend test creates a TLB row + carrier_onboarding stub with a uuid-suffixed unique name ('BrandNewCarrier_<hex>', 'DedupeCarrier_<hex>', 'PatchedCarrier_<hex>') and DELETEs the TLB row in cleanup. Carrier_onboarding stubs remain in_review (intentional — that's the feature). Frontend test created UITestCarrier_<timestamp>. No production data modified.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Re-run with `pytest backend/tests/test_iter14.py -v`. Email-log endpoints respect optional ?kind= filter. The MOCKED email flow is intentional and must stay until Tennant signs off on a real provider — verify mock receipt shape, not delivery. Auto-onboarding dedupe is case-insensitive on legal_name OR dba, so 'XPO', 'xpo', 'XPO · XPOL', 'XPO LOGISTICS LLC' all map to the seeded XPO Logistics LLC record. /api/calendar/events caps range at 92 days. data-testid map: mini-calendar, mini-cal-day-{n}, mini-cal-badge-{n}, mini-cal-events-panel, mini-cal-event-{i}, tlb-add-row, tlb-input-carrier-{rowId}, rg-email-btn, rg-email-to, rg-email-cc, rg-email-send.",
+  "rca of the issue": "No issues to RCA — all 13 backend tests and 3 frontend flows pass."
+}

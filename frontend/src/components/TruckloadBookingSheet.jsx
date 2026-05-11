@@ -104,6 +104,11 @@ export default function TruckloadBookingSheet({
       const { data } = await api.patch(`/workbook/truckload-bookings/${rowId}`, { data: { [key]: newVal } });
       if (data.row) setRows((rs) => rs.map((r) => (r.id === rowId ? data.row : r)));
       if (data.version) setVersion(data.version);
+      if (data.auto_onboarding_id) {
+        toast.success(`New carrier sent to onboarding`, {
+          description: `${data.auto_onboarding_id} · status: in_review · compliance team will gather W-9 + COI`,
+        });
+      }
     } catch (e) {
       toast.error("Save failed — reverting");
       fetchAll();

@@ -2524,6 +2524,73 @@ class TruckloadBookingPayload(BaseModel):
     data: Dict[str, Any] = {}
 
 
+def _stripped_carrier_label(label: Optional[str]) -> str:
+    """Carrier dropdown values look like 'XPO · XPOL' — split off the SCAC
+    suffix when we compare against existing onboarding records."""
+    if not label:
+        return ""
+    return str(label).split("·", 1)[0].strip()
+
+
+async def _ensure_carrier_in_pipeline(label: Optional[str], user: User) -> Optional[str]:
+    """If `label` references a carrier that's NOT already in carrier_onboarding
+    (case-insensitive match on legal_name OR dba), insert a fresh stub record
+    with status='in_review' so the new name shows up in /carrier-onboarding
+    for the compliance team to follow up on. Returns the new onboarding_id
+    (or None if nothing was created)."""
+    name = _stripped_carrier_label(label)
+    if not name:
+        return None
+    needle = name.lower()
+    existing = await db.carrier_onboarding.find_one(
+        {"$or": [
+            {"legal_name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}},
+            {"dba":        {"$regex": f"^{re.escape(name)}$", "$options": "i"}},
+        ]},
+        {"_id": 0, "onboarding_id": 1},
+    )
+    if existing:
+        return None
+    # Avoid duplicating "TestPytest · TPTC" style noise when several
+    # dispatchers paste the same new name concurrently.
+    recent = await db.carrier_onboarding.find_one(
+        {"legal_name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}, "status": "in_review"},
+        {"_id": 0, "onboarding_id": 1},
+    )
+    if recent:
+        return None
+    onboarding_id = f"OB-{uuid.uuid4().hex[:8].upper()}"
+    stub = {
+        "onboarding_id": onboarding_id,
+        "legal_name": name,
+        "dba": None,
+        "mc_number": None,
+        "dot_number": None,
+        "scac": None,
+        "mode": "TL",
+        "contact_name": "(pending)",
+        "contact_email": "(pending)",
+        "contact_phone": "(pending)",
+        "insurance_amount": 0.0,
+        "insurance_expiry": (datetime.now(timezone.utc) + timedelta(days=30)).date().isoformat(),
+        "safety_rating": "NotRated",
+        "csa_score": 0,
+        "w9_received": False,
+        "coi_received": False,
+        "contract_signed": False,
+        "status": "in_review",
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+        "submitted_by": user.name,
+        "notes": "Auto-created from Truckload Booking Sheet — dispatcher entered a new carrier name. Compliance to gather W-9, COI, contract.",
+        "auto_created": True,
+    }
+    await db.carrier_onboarding.insert_one(dict(stub))
+    return onboarding_id
+
+
+import re  # noqa: E402  (used by _ensure_carrier_in_pipeline)
+
+
 @api_router.post("/workbook/truckload-bookings")
 async def create_truckload_booking(
     payload: TruckloadBookingPayload,
@@ -2542,8 +2609,9 @@ async def create_truckload_booking(
     }
     await db.truckload_bookings.insert_one(dict(doc))
     version = await _bump_tlb_version(user.name)
+    auto_obid = await _ensure_carrier_in_pipeline(doc.get("carrier"), user)
     doc.pop("_id", None)
-    return {"row": doc, "version": version}
+    return {"row": doc, "version": version, "auto_onboarding_id": auto_obid}
 
 
 @api_router.patch("/workbook/truckload-bookings/{row_id}")
@@ -2561,8 +2629,11 @@ async def update_truckload_booking(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Booking row not found")
     version = await _bump_tlb_version(user.name)
+    auto_obid = None
+    if "carrier" in clean:
+        auto_obid = await _ensure_carrier_in_pipeline(clean["carrier"], user)
     fresh = await db.truckload_bookings.find_one({"id": row_id}, {"_id": 0})
-    return {"row": fresh, "version": version}
+    return {"row": fresh, "version": version, "auto_onboarding_id": auto_obid}
 
 
 @api_router.delete("/workbook/truckload-bookings/{row_id}")
@@ -3702,6 +3773,238 @@ async def routing_guide_delete(file_id: str, _: User = Depends(require_role("adm
         raise HTTPException(status_code=404, detail="File not found")
     return {"ok": True}
 
+
+# -------------------- CALENDAR EVENTS --------------------
+# Powers the Command Center's MiniCalendar. Aggregates dated items from
+# shipments (eta, pickup_date, delivery_date) AND truckload_bookings
+# (pickup_date, delivery_date) into a single per-date list.
+#
+#   GET /api/calendar/events?start=YYYY-MM-DD&end=YYYY-MM-DD
+#   →  { events: [ { date, kind, type, label, ref, link } ] }
+#
+# `kind` ∈ {shipment, booking}; `type` ∈ {pickup, delivery, eta, bol_deadline}.
+# The frontend uses date strings as map keys → it doesn't have to parse ISO
+# back into UTC midnight.
+
+def _norm_date(v: Any) -> Optional[str]:
+    """Coerce a value into a YYYY-MM-DD string. Tolerates ISO datetimes,
+    bare date strings, and None. Returns None for unparseable / empty."""
+    if not v:
+        return None
+    s = str(v).strip()
+    if not s:
+        return None
+    # Already a bare date
+    if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+        return s[:10]
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).date().isoformat()
+    except Exception:
+        return None
+
+
+@api_router.get("/calendar/events")
+async def calendar_events(
+    start: str,
+    end: str,
+    _: User = Depends(get_current_user),
+):
+    """Return calendar events in [start, end] inclusive (YYYY-MM-DD)."""
+    try:
+        start_d = datetime.fromisoformat(start).date()
+        end_d = datetime.fromisoformat(end).date()
+    except Exception:
+        raise HTTPException(status_code=400, detail="start/end must be YYYY-MM-DD")
+    if (end_d - start_d).days > 92:
+        raise HTTPException(status_code=400, detail="Range > 92 days not allowed")
+
+    in_range = lambda iso: bool(iso) and start <= iso <= end  # noqa: E731
+
+    out: List[Dict[str, Any]] = []
+
+    # ---- Shipments ----
+    cursor = db.shipments.find(
+        {}, {
+            "_id": 0, "reference": 1, "shipment_id": 1, "mode": 1, "carrier": 1,
+            "status": 1, "origin": 1, "destination": 1,
+            "eta": 1, "pickup_date": 1, "delivery_date": 1,
+        }
+    )
+    async for s in cursor:
+        ref = s.get("reference") or s.get("shipment_id")
+        carrier = s.get("carrier") or "—"
+        lane = f"{(s.get('origin') or {}).get('city', '?')} → {(s.get('destination') or {}).get('city', '?')}"
+        sid = s.get("shipment_id")
+        link = f"/shipments?focus={sid}" if sid else "/shipments"
+        for (field, ev_type, prefix) in (
+            ("pickup_date", "pickup",   "Pickup"),
+            ("delivery_date", "delivery", "Delivery"),
+            ("eta",          "eta",      "ETA"),
+        ):
+            d = _norm_date(s.get(field))
+            if in_range(d):
+                out.append({
+                    "date": d, "kind": "shipment", "type": ev_type,
+                    "label": f"{prefix} · {ref} · {carrier}",
+                    "sublabel": lane, "ref": ref, "link": link,
+                    "mode": s.get("mode"), "status": s.get("status"),
+                })
+
+    # ---- Truckload bookings ----
+    cursor = db.truckload_bookings.find(
+        {}, {
+            "_id": 0, "id": 1, "bol_no": 1, "carrier": 1, "origin": 1,
+            "destination": 1, "pickup_date": 1, "delivery_date": 1, "status": 1,
+        }
+    )
+    async for b in cursor:
+        ref = b.get("bol_no") or b.get("id")
+        carrier = b.get("carrier") or "—"
+        lane = f"{b.get('origin') or '?'} → {b.get('destination') or '?'}"
+        link = "/workbook"
+        for (field, ev_type, prefix) in (
+            ("pickup_date",   "pickup",   "TL Pickup"),
+            ("delivery_date", "delivery", "TL Delivery"),
+        ):
+            d = _norm_date(b.get(field))
+            if in_range(d):
+                out.append({
+                    "date": d, "kind": "booking", "type": ev_type,
+                    "label": f"{prefix} · {ref} · {carrier}",
+                    "sublabel": lane, "ref": ref, "link": link,
+                    "mode": "TL", "status": b.get("status"),
+                })
+
+    # Sort by date then type for stable rendering
+    out.sort(key=lambda e: (e["date"], e["type"], e["ref"] or ""))
+    # Aggregate by date so the calendar can render a single badge per day
+    by_date: Dict[str, int] = {}
+    for e in out:
+        by_date[e["date"]] = by_date.get(e["date"], 0) + 1
+    return {"events": out, "counts_by_date": by_date, "start": start, "end": end}
+
+
+# -------------------- EMAIL SEND (MOCKED) --------------------
+# Tennant chose to keep the email integration mocked for now. This helper
+# logs every "send" into db.outbound_emails with status='mocked' and a
+# faux message_id. When SendGrid (or Resend) is wired up later, swap the
+# body of _do_send_email() with the real SDK call and flip status to
+# 'queued'/'delivered'. All call sites stay identical.
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "transportation@tennantco.com")
+
+
+async def _do_send_email(
+    to: str,
+    subject: str,
+    body_text: str,
+    body_html: Optional[str] = None,
+    cc: Optional[str] = None,
+    attachments: Optional[List[Dict[str, Any]]] = None,
+    user: Optional[User] = None,
+    kind: str = "generic",
+    ref: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Mocked email send. Logs to db.outbound_emails and returns a fake
+    delivery receipt. Production swap: replace this body with the SendGrid
+    SDK call (Mail() + SendGridAPIClient(...).send(message))."""
+    msg_id = f"mock_{uuid.uuid4().hex}"
+    entry = {
+        "message_id": msg_id,
+        "to": to,
+        "cc": cc or "",
+        "from": EMAIL_FROM,
+        "subject": subject,
+        "body_text": body_text,
+        "body_html": body_html,
+        "kind": kind,
+        "ref": ref,
+        "attachment_names": [a.get("filename") for a in (attachments or [])],
+        "status": "mocked",  # would be 'queued' once SendGrid is wired
+        "provider": "mock",
+        "sent_by": (user.name if user else "system"),
+        "sent_by_user_id": (user.user_id if user else None),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.outbound_emails.insert_one(dict(entry))
+    return {
+        "ok": True,
+        "message_id": msg_id,
+        "status": "mocked",
+        "to": to,
+        "subject": subject,
+        "from": EMAIL_FROM,
+    }
+
+
+class EmailSendPayload(BaseModel):
+    to: str
+    cc: Optional[str] = ""
+    subject: str
+    body_text: str
+    body_html: Optional[str] = None
+    kind: Optional[str] = "generic"
+    ref: Optional[str] = None
+    attachment_urls: Optional[List[str]] = None
+
+
+@api_router.post("/email/send")
+async def email_send(payload: EmailSendPayload, user: User = Depends(require_role("admin", "dispatcher", "auditor"))):
+    """Generic send endpoint usable by any frontend module that previously
+    relied on mailto. Currently mocked — returns a stub receipt and logs
+    the would-be email to db.outbound_emails so dispatch can audit what
+    *would* have gone out."""
+    result = await _do_send_email(
+        to=payload.to, cc=payload.cc, subject=payload.subject,
+        body_text=payload.body_text, body_html=payload.body_html,
+        user=user, kind=payload.kind or "generic", ref=payload.ref,
+        attachments=[{"filename": u.rsplit("/", 1)[-1]} for u in (payload.attachment_urls or [])],
+    )
+    return result
+
+
+@api_router.get("/email/log")
+async def email_log(
+    kind: Optional[str] = None,
+    limit: int = 100,
+    _: User = Depends(get_current_user),
+):
+    q: Dict[str, Any] = {}
+    if kind:
+        q["kind"] = kind
+    docs = await db.outbound_emails.find(q, {"_id": 0}).sort("created_at", -1).limit(min(limit, 500)).to_list(min(limit, 500))
+    return {"log": docs, "provider": "mock", "from": EMAIL_FROM}
+
+
+@api_router.post("/routing-guide/send-email")
+async def routing_guide_send_email(
+    payload: EmailSendPayload,
+    user: User = Depends(require_role("admin", "dispatcher", "auditor")),
+):
+    """Send the active routing guide PDF as an actual email (currently mocked).
+    Auto-builds subject/body from the active revision metadata if the client
+    didn't supply them, then attaches the PDF link."""
+    await _seed_routing_guide_if_empty()
+    f = await _latest_routing_guide()
+    if not f:
+        raise HTTPException(status_code=404, detail="No routing guide on file")
+    md = f.get("metadata") or {}
+    base = (os.environ.get("PUBLIC_BASE_URL") or "").rstrip("/")
+    pdf_link = f"{base}/api/routing-guide/pdf" if base else "/api/routing-guide/pdf"
+    subject = payload.subject or f"Tennant Inbound Routing Guide — {md.get('revision','')} (Eff. {md.get('effective_date','')})".strip(" —")
+    body_text = payload.body_text or (
+        "Hello,\n\n"
+        f"Please find Tennant Company's current Inbound Routing Guide: {md.get('title')}.\n\n"
+        f"Revision: {md.get('revision') or 'N/A'}\n"
+        f"Effective Date: {md.get('effective_date') or 'N/A'}\n\n"
+        f"Download the PDF: {pdf_link}\n\n"
+        f"— {user.name}\nTennant Company · Transportation"
+    )
+    return await _do_send_email(
+        to=payload.to, cc=payload.cc, subject=subject,
+        body_text=body_text, body_html=payload.body_html,
+        user=user, kind="routing_guide", ref=md.get("revision"),
+        attachments=[{"filename": f.get("filename")}],
+    )
 # -------------------- CLAIMS & RECONCILIATION --------------------
 class Claim(BaseModel):
     claim_id: str
