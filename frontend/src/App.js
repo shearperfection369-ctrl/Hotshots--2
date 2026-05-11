@@ -39,6 +39,7 @@ import TradeCompliance from "@/pages/TradeCompliance";
 import SupplierSourcing from "@/pages/SupplierSourcing";
 import Arcade from "@/pages/Arcade";
 import Machines from "@/pages/Machines";
+import Equipment from "@/pages/Equipment";
 import { ThemeProvider } from "@/lib/theme";
 import { MusicProvider } from "@/lib/music";
 import MiniPlayer from "@/components/MiniPlayer";
@@ -87,6 +88,7 @@ function AppRouter() {
         <Route path="/trade-compliance" element={<TradeCompliance />} />
         <Route path="/suppliers" element={<SupplierSourcing />} />
         <Route path="/machines" element={<Machines />} />
+        <Route path="/equipment" element={<Equipment />} />
         <Route path="/arcade" element={<Arcade />} />
         <Route path="/admin/users" element={<AdminUsers />} />
       </Route>

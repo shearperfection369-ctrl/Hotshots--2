@@ -28,7 +28,7 @@ from reportlab.lib.units import inch
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
-from openpyxl import Workbook as XLWorkbook
+from openpyxl import Workbook as XLWorkbook, load_workbook as load_xlsx
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 ROOT_DIR = Path(__file__).parent
@@ -4528,6 +4528,10 @@ async def download_manual(_: User = Depends(get_current_user)):
 @api_router.get("/")
 async def root():
     return {"service": "Tennant TMS API", "status": "ok", "time": datetime.now(timezone.utc).isoformat()}
+
+# -------------------- EQUIPMENT / YARD MODULE --------------------
+from equipment_module import register_equipment_routes  # noqa: E402
+register_equipment_routes(api_router, db, get_current_user, require_role)
 
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
