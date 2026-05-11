@@ -1,54 +1,75 @@
-import { useEffect } from "react";
-import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import React from "react";
+import "@/index.css";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/lib/auth";
+import Layout from "@/components/Layout";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Login from "@/pages/Login";
+import AuthCallback from "@/pages/AuthCallback";
+import Dashboard from "@/pages/Dashboard";
+import Shipments from "@/pages/Shipments";
+import BookLoad from "@/pages/BookLoad";
+import Documents from "@/pages/Documents";
+import Tracking from "@/pages/Tracking";
+import HSLookup from "@/pages/HSLookup";
+import Trailers from "@/pages/Trailers";
+import Integrations from "@/pages/Integrations";
+import Reports from "@/pages/Reports";
+import Chat from "@/pages/Chat";
+import QuickLinks from "@/pages/QuickLinks";
+import FreightPay from "@/pages/FreightPay";
+import CarrierOnboarding from "@/pages/CarrierOnboarding";
+import DriverConsole from "@/pages/DriverConsole";
+import DriverMobile from "@/pages/DriverMobile";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
+function AppRouter() {
+  const location = useLocation();
+  // Synchronous check (before useEffects) — handle Emergent OAuth fragment
+  if (location.hash?.includes("session_id=")) {
+    return <AuthCallback />;
+  }
   return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      {/* Driver mobile is auth-free */}
+      <Route path="/driver" element={<DriverMobile />} />
+      <Route path="/driver/:shipmentId" element={<DriverMobile />} />
 
-function App() {
-  return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </div>
+      <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/shipments" element={<Shipments />} />
+        <Route path="/book-load" element={<BookLoad />} />
+        <Route path="/documents" element={<Documents />} />
+        <Route path="/tracking" element={<Tracking />} />
+        <Route path="/hs-lookup" element={<HSLookup />} />
+        <Route path="/trailers" element={<Trailers />} />
+        <Route path="/integrations" element={<Integrations />} />
+        <Route path="/reports" element={<Reports />} />
+        <Route path="/chat" element={<Chat />} />
+        <Route path="/links" element={<QuickLinks />} />
+        <Route path="/freight-pay" element={<FreightPay />} />
+        <Route path="/carrier-onboarding" element={<CarrierOnboarding />} />
+        <Route path="/driver-console" element={<DriverConsole />} />
+      </Route>
+    </Routes>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRouter />
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          toastOptions={{
+            style: { background: "#131821", border: "1px solid rgba(0,229,255,0.3)", color: "#F8FAFC" }
+          }}
+        />
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
