@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Package, PlusSquare, FileText, MapPinned,
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
-  Receipt, ShieldCheck, Smartphone, Users, Database
+  Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -11,6 +11,7 @@ import { useAuth } from "../lib/auth";
 // Each item declares which roles can see it. Admin always sees everything.
 const NAV = [
   { to: "/dashboard", label: "Command Center", icon: LayoutDashboard, tid: "nav-dashboard", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/ai-assistant", label: "HUDLINK AI", icon: Sparkles, tid: "nav-ai-assistant", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/shipments", label: "Shipments", icon: Package, tid: "nav-shipments", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/book-load", label: "Book Load", icon: PlusSquare, tid: "nav-book-load", roles: ["admin", "dispatcher"] },
   { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher"] },
@@ -22,9 +23,11 @@ const NAV = [
   { to: "/trailers", label: "Trailer Specs", icon: Truck, tid: "nav-trailers", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/integrations", label: "Integrations", icon: Plug, tid: "nav-integrations", roles: ["admin"] },
   { to: "/sap-sync", label: "SAP S/4HANA", icon: Database, tid: "nav-sap-sync", roles: ["admin", "dispatcher"] },
+  { to: "/webex", label: "Cisco Webex", icon: Video, tid: "nav-webex", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/reports", label: "KPI Reports", icon: BarChart3, tid: "nav-reports", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/chat", label: "Team Chat", icon: MessagesSquare, tid: "nav-chat", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/links", label: "Quick Links", icon: ExternalLink, tid: "nav-links", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/promo", label: "Launch Promo", icon: Film, tid: "nav-promo", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/admin/users", label: "Admin · Users", icon: Users, tid: "nav-admin-users", roles: ["admin"] },
 ];
 

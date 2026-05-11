@@ -25,6 +25,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib.units import inch
 
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -431,6 +433,7 @@ INTEGRATIONS = [
     {"id": "xpo", "name": "XPO Logistics", "category": "LTL", "status": "warning", "last_sync": "1h ago", "endpoint": "api.xpo.com"},
     {"id": "saia", "name": "SAIA LTL Freight", "category": "LTL", "status": "connected", "last_sync": "7m ago", "endpoint": "api.saia.com"},
     {"id": "kuehne", "name": "Kuehne+Nagel", "category": "Ocean/Air", "status": "connected", "last_sync": "3m ago", "endpoint": "api.kuehne-nagel.com"},
+    {"id": "webex", "name": "Cisco Webex", "category": "Communication", "status": "connected", "last_sync": "1m ago", "endpoint": "webexapis.com/v1"},
 ]
 
 @api_router.get("/integrations")
@@ -1255,6 +1258,163 @@ async def sap_sync(_: User = Depends(require_role("admin", "dispatcher"))):
 async def sap_sync_logs(_: User = Depends(get_current_user)):
     docs = await db.sap_sync_logs.find({}, {"_id": 0}).sort("started_at", -1).limit(30).to_list(30)
     return docs
+
+# -------------------- SEED --------------------
+# -------------------- AI ASSISTANT (Claude Sonnet 4.5) --------------------
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+
+AI_SYSTEM_PROMPT = """You are HUDLINK, the AI co-pilot inside the Tennant Companies Transportation Management System (TMS).
+
+Tennant Company is a Minnesota-based manufacturer of industrial and commercial floor scrubbers and cleaners with manufacturing facilities in Louisville KY, Holland MI, and Golden Valley MN (HQ). Parts are imported via Kuehne+Nagel.
+
+You help dispatchers, freight auditors, and operations leaders with:
+- Shipment status, lane-level decisions, mode selection (TL, LTL, Parcel, Ocean, Air, Rail)
+- Freight bill audit: accessorial charges, fuel surcharge norms, when to dispute
+- Carrier scorecards and routing recommendations
+- HS code classification for cleaning machinery, lithium batteries, motors, brushes (HTS chapter 8479, 8508, 8507, etc.)
+- Document requirements: BOL, Commercial Invoice, Packing Slip, Weight Certificate, Certificate of Origin
+- Compliance: DOT/FMCSA, ACE filings, Incoterms 2020, CBP
+- SAP S/4HANA SO/PO context — sales orders ship from plants 1010 (Golden Valley), 1020 (Holland), 1030 (Louisville)
+
+Style: terse, technical, action-oriented. Use bullet points and numbers. When asked for recommendations, give a clear primary answer, then 1-2 alternatives. Cite HS codes, Incoterms, and section names when relevant. Never invent data — if asked for live shipment IDs, tell the user to query the dashboard.
+"""
+
+class AIMessageIn(BaseModel):
+    session_id: str
+    message: str
+
+@api_router.post("/ai/chat")
+async def ai_chat(payload: AIMessageIn, user: User = Depends(get_current_user)):
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
+    # Persist user message
+    user_msg_doc = {
+        "session_id": payload.session_id,
+        "user_id": user.user_id,
+        "role": "user",
+        "text": payload.message,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.ai_messages.insert_one(dict(user_msg_doc))
+
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=payload.session_id,
+            system_message=AI_SYSTEM_PROMPT,
+        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+        reply = await chat.send_message(UserMessage(text=payload.message))
+    except Exception as e:
+        logger.exception("AI chat failed")
+        raise HTTPException(status_code=502, detail=f"AI provider error: {e}")
+
+    assistant_doc = {
+        "session_id": payload.session_id,
+        "user_id": user.user_id,
+        "role": "assistant",
+        "text": reply,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.ai_messages.insert_one(dict(assistant_doc))
+    return {"reply": reply}
+
+@api_router.get("/ai/history")
+async def ai_history(session_id: str, user: User = Depends(get_current_user)):
+    docs = await db.ai_messages.find(
+        {"session_id": session_id, "user_id": user.user_id},
+        {"_id": 0}
+    ).sort("created_at", 1).limit(200).to_list(200)
+    return docs
+
+@api_router.delete("/ai/history")
+async def ai_clear(session_id: str, user: User = Depends(get_current_user)):
+    await db.ai_messages.delete_many({"session_id": session_id, "user_id": user.user_id})
+    return {"ok": True}
+
+# -------------------- WEBEX INTEGRATION (mocked) --------------------
+WEBEX_CONFIG = {
+    "org_id": "Y2lzY29zcGFyazovL3VzL09SR0FOSVpBVElPTi90ZW5uYW50Y28",
+    "site": "tennantco.webex.com",
+    "bot_email": "tms-bot@tennantco.webex.bot",
+    "scopes": ["spark:rooms_read", "spark:messages_write", "meetings:schedules_write"],
+    "status": "connected",
+}
+
+WEBEX_SPACES = [
+    {"id": "SPC-OPS-DISP", "title": "Ops Dispatch — Daily Stand-up", "type": "group", "members": 14, "last_activity": "8m"},
+    {"id": "SPC-IMPORT", "title": "Import / K+N Coordination", "type": "group", "members": 9, "last_activity": "22m"},
+    {"id": "SPC-CARR-ESC", "title": "Carrier Escalations", "type": "group", "members": 22, "last_activity": "1h"},
+    {"id": "SPC-PLANT-LVK", "title": "Louisville Plant Logistics", "type": "group", "members": 11, "last_activity": "3h"},
+    {"id": "SPC-PLANT-HOM", "title": "Holland Plant Logistics", "type": "group", "members": 8, "last_activity": "5h"},
+    {"id": "SPC-PLANT-GVM", "title": "Golden Valley HQ — All-Hands", "type": "group", "members": 47, "last_activity": "Yesterday"},
+    {"id": "SPC-KIRK-1on1", "title": "Kirk Juergins — Direct Messages", "type": "direct", "members": 2, "last_activity": "2d"},
+]
+
+WEBEX_MEETINGS = [
+    {"id": "MTG-7821", "title": "Weekly Carrier Performance Review", "host": "Kirk Juergins", "start": "2026-05-12T14:00:00Z", "duration_min": 60, "attendees": 8, "join_url": "https://tennantco.webex.com/meet/kirk.j/MTG-7821"},
+    {"id": "MTG-7822", "title": "K+N Import Coordination — May Cycle", "host": "Avery Lindgren", "start": "2026-05-13T15:30:00Z", "duration_min": 45, "attendees": 6, "join_url": "https://tennantco.webex.com/meet/avery.l/MTG-7822"},
+    {"id": "MTG-7825", "title": "SAP S/4HANA TMS Integration — Sprint Demo", "host": "Devon Marquez", "start": "2026-05-14T17:00:00Z", "duration_min": 30, "attendees": 12, "join_url": "https://tennantco.webex.com/meet/devon.m/MTG-7825"},
+    {"id": "MTG-7830", "title": "Q2 Freight Spend Audit Findings", "host": "Avery Lindgren", "start": "2026-05-15T19:00:00Z", "duration_min": 60, "attendees": 5, "join_url": "https://tennantco.webex.com/meet/avery.l/MTG-7830"},
+]
+
+@api_router.get("/webex/config")
+async def webex_config(_: User = Depends(get_current_user)):
+    return WEBEX_CONFIG
+
+@api_router.get("/webex/spaces")
+async def webex_spaces(_: User = Depends(get_current_user)):
+    return WEBEX_SPACES
+
+@api_router.get("/webex/meetings")
+async def webex_meetings(_: User = Depends(get_current_user)):
+    return WEBEX_MEETINGS
+
+class WebexNotifyIn(BaseModel):
+    space_id: str
+    text: str
+    shipment_ref: Optional[str] = None
+
+@api_router.post("/webex/notify")
+async def webex_notify(payload: WebexNotifyIn, user: User = Depends(get_current_user)):
+    """Simulate posting a message to a Webex space."""
+    record = {
+        "log_id": f"WBX-{uuid.uuid4().hex[:8].upper()}",
+        "space_id": payload.space_id,
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "text": payload.text,
+        "shipment_ref": payload.shipment_ref,
+        "posted_at": datetime.now(timezone.utc).isoformat(),
+        "status": "delivered",
+    }
+    await db.webex_log.insert_one(dict(record))
+    return record
+
+@api_router.get("/webex/log")
+async def webex_log(_: User = Depends(get_current_user)):
+    docs = await db.webex_log.find({}, {"_id": 0}).sort("posted_at", -1).limit(50).to_list(50)
+    return docs
+
+class WebexScheduleIn(BaseModel):
+    title: str
+    when: str  # ISO datetime
+    duration_min: int = 30
+    invitees: List[str] = []
+
+@api_router.post("/webex/schedule")
+async def webex_schedule(payload: WebexScheduleIn, user: User = Depends(get_current_user)):
+    meeting = {
+        "id": f"MTG-{random.randint(8000, 9999)}",
+        "title": payload.title,
+        "host": user.name,
+        "start": payload.when,
+        "duration_min": payload.duration_min,
+        "attendees": len(payload.invitees),
+        "join_url": f"https://tennantco.webex.com/meet/{user.user_id}/MTG-{uuid.uuid4().hex[:6].upper()}",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.webex_meetings.insert_one(dict(meeting))
+    return meeting
 
 # -------------------- SEED --------------------
 @api_router.post("/admin/seed")
