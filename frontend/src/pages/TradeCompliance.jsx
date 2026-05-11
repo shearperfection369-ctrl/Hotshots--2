@@ -402,10 +402,31 @@ export default function TradeCompliance() {
             </div>
           </Card>
 
-          {/* Broker */}
+          {/* Broker — full Customs Broker contact card, relocated from the
+              Command tab so all broker info lives here. */}
           <Card className="hud-surface p-5" id="tc-broker" data-testid="tc-broker">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 flex items-center gap-2"><Anchor size={12} /> Customs Broker & ACE</div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 flex items-center gap-2">
+                  <Anchor size={12} /> Customs Broker & ACE
+                </div>
+                <h3 className="font-display text-lg font-bold mt-0.5">
+                  {data.broker_filings.primary_broker}
+                  <span className="ml-2 text-xs font-mono text-slate-500">· UPS Supply Chain Solutions</span>
+                </h3>
+              </div>
+              <a
+                href="https://www.ups.com/us/en/supplychain/services/customs-brokerage.page"
+                target="_blank" rel="noreferrer"
+                data-testid="broker-portal-link"
+                className="text-[10px] font-mono uppercase tracking-wider text-cyan-300 hover:text-cyan-200 inline-flex items-center gap-1"
+              >
+                Open UPS_SCS Portal <ExternalLink size={10} />
+              </a>
+            </div>
+
+            {/* Activity metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
               <Tile label="Primary Broker" value={data.broker_filings.primary_broker} accent="text-cyan-300" />
               <Tile label="ACE Portal ID" value={data.broker_filings.ace_portal_id} accent="text-emerald-300" />
               <Tile label="Entries YTD" value={data.broker_filings.ytd_entry_summaries} />
@@ -413,6 +434,25 @@ export default function TradeCompliance() {
               <Tile label="Avg Clearance" value={`${data.broker_filings.average_clearance_hrs} h`} accent="text-emerald-300" />
               <Tile label="Exam Rate" value={`${data.broker_filings.exam_rate_pct}%`} accent="text-yellow-400" />
               <Tile label="PSC Corrections YTD" value={data.broker_filings.post_summary_corrections_ytd} accent="text-yellow-400" />
+              <Tile label="Account #" value="TENNANT-CCM-04287" accent="text-cyan-300" />
+            </div>
+
+            {/* Account / contact details */}
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="broker-contact">
+              <div className="p-3 rounded border border-white/5 bg-white/[0.02]">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 mb-2">Account & Bond</div>
+                <BrokerRow k="POA on File" v="Active" green />
+                <BrokerRow k="Bond Type" v="Continuous · $250K" />
+                <BrokerRow k="Account #" v="TENNANT-CCM-04287" mono />
+                <BrokerRow k="ACE Portal ID" v="UPS_SCS_001" mono />
+              </div>
+              <div className="p-3 rounded border border-white/5 bg-white/[0.02]">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 mb-2">Contact (24/7)</div>
+                <BrokerRow k="Primary Contact" v="Amanda Reyes" />
+                <BrokerRow k="Phone" v="+1-800-555-2227" mono />
+                <BrokerRow k="Email" v="tennant@ups-scs.com" mono />
+                <BrokerRow k="Escalation" v="Sr. Trade Compliance Mgr · Joe Carlsson" />
+              </div>
             </div>
           </Card>
 
@@ -483,6 +523,17 @@ function IncoRow({ label, value, accent = "text-slate-300" }) {
     <div>
       <div className="text-[9px] font-mono uppercase tracking-wider text-slate-500">{label}</div>
       <div className={`mt-0.5 leading-snug ${accent}`}>{value}</div>
+    </div>
+  );
+}
+
+function BrokerRow({ k, v, mono = false, green = false }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-1 border-b border-white/5 last:border-b-0">
+      <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 shrink-0">{k}</span>
+      <span className={`${mono ? "font-mono text-xs" : "text-xs"} ${green ? "text-emerald-400" : "text-slate-200"} text-right truncate`}>
+        {green && <span className="mr-1">✓</span>}{v}
+      </span>
     </div>
   );
 }

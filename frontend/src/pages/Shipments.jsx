@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Search, AlertTriangle, ExternalLink, ArrowDownToLine, ArrowUpFromLine,
-  CheckCircle2, Pencil, XCircle, Mail, Settings2, Upload, FileText
+  CheckCircle2, Pencil, XCircle, Mail, Settings2, Upload, FileText, GripVertical
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 
@@ -111,6 +111,24 @@ export default function Shipments() {
   const colMeta = useMemo(() => Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.id, c])), []);
   const visibleCols = cols.filter((c) => c.visible);
   useEffect(() => { saveColPrefs(cols); }, [cols]);
+
+  // Drag-and-drop reordering of column headers. The cols array order drives
+  // render order, so reordering it instantly repositions the column.
+  const [dragColId, setDragColId] = useState(null);
+  const [overColId, setOverColId] = useState(null);
+
+  const reorderCol = (sourceId, targetId) => {
+    if (!sourceId || sourceId === targetId) return;
+    setCols((arr) => {
+      const next = [...arr];
+      const from = next.findIndex((x) => x.id === sourceId);
+      const to = next.findIndex((x) => x.id === targetId);
+      if (from === -1 || to === -1) return arr;
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
 
   const load = async () => {
     const { data } = await api.get("/shipments?limit=500");
@@ -287,7 +305,9 @@ export default function Shipments() {
         <div className="flex items-center justify-between gap-3 px-1">
           <div className="text-[10px] font-mono text-slate-500">
             <ExternalLink size={10} className="inline mr-1 text-cyan-400" />
-            Cyan-underlined fields deep-link to <span className="text-cyan-400">SAP S/4HANA</span> for the full record. {canEdit && <span className="ml-2 text-emerald-400">Edit / Cancel / Email / BOL actions on the right →</span>}
+            Cyan-underlined fields deep-link to <span className="text-cyan-400">SAP S/4HANA</span>.{" "}
+            <span className="text-cyan-300">Drag any column header by its grip handle to reposition</span> · drag the right edge to resize.
+            {canEdit && <span className="ml-2 text-emerald-400">Edit / Cancel / Email / BOL actions on the right →</span>}
           </div>
           <button
             onClick={() => setColCustomizerOpen(true)}
@@ -306,12 +326,47 @@ export default function Shipments() {
                   {visibleCols.map((c) => {
                     const m = colMeta[c.id] || {};
                     const align = m.align === "right" ? "text-right" : m.align === "center" ? "text-center" : "text-left";
+                    const isDragging = dragColId === c.id;
+                    const isOver = overColId === c.id && dragColId && dragColId !== c.id;
                     return (
-                      <th key={c.id} className={`py-3 px-3 ${align} relative group`} style={{ width: c.width }}>
-                        <span>{m.label}</span>
+                      <th
+                        key={c.id}
+                        data-testid={`col-header-${c.id}`}
+                        className={`py-3 px-3 ${align} relative group transition-colors ${isOver ? "bg-cyan-500/15" : ""} ${isDragging ? "opacity-50" : ""}`}
+                        style={{ width: c.width }}
+                        onDragOver={(e) => {
+                          if (!dragColId) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                          if (overColId !== c.id) setOverColId(c.id);
+                        }}
+                        onDragLeave={() => { if (overColId === c.id) setOverColId(null); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const src = e.dataTransfer.getData("text/plain");
+                          reorderCol(src, c.id);
+                          setDragColId(null); setOverColId(null);
+                        }}
+                      >
+                        <span
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", c.id);
+                            e.dataTransfer.effectAllowed = "move";
+                            setDragColId(c.id);
+                          }}
+                          onDragEnd={() => { setDragColId(null); setOverColId(null); }}
+                          data-testid={`col-drag-${c.id}`}
+                          className="inline-flex items-center gap-1 cursor-grab active:cursor-grabbing select-none hover:text-cyan-300"
+                          title="Drag to reorder column"
+                        >
+                          <GripVertical size={10} className="opacity-30 group-hover:opacity-70" />
+                          {m.label}
+                        </span>
                         <span
                           onMouseDown={(e) => {
                             e.preventDefault();
+                            e.stopPropagation();
                             const startX = e.clientX; const startW = c.width;
                             const onMove = (ev) => {
                               const w = Math.max(50, startW + (ev.clientX - startX));
@@ -426,27 +481,53 @@ export default function Shipments() {
         <DialogContent className="bg-[#131821] border border-cyan-500/30 text-white max-w-lg" data-testid="column-customizer-dialog">
           <DialogHeader>
             <DialogTitle className="font-display text-cyan-300 flex items-center gap-2"><Settings2 size={16} /> Customize Columns</DialogTitle>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Toggle visibility · drag header edges to resize widths</div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Toggle visibility · drag grip to reorder · edit width</div>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-2 max-h-[55vh] overflow-y-auto">
+          <div className="grid grid-cols-1 gap-2 max-h-[55vh] overflow-y-auto">
             {cols.map((c) => {
               const m = colMeta[c.id] || {};
+              const isDragging = dragColId === c.id;
+              const isOver = overColId === c.id && dragColId && dragColId !== c.id;
               return (
-                <label key={c.id} className="flex items-center gap-2 p-2 rounded border border-white/5 hover:border-cyan-500/30 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={c.visible}
-                    onChange={() => setCols((arr) => arr.map((x) => x.id === c.id ? { ...x, visible: !x.visible } : x))}
-                    className="accent-cyan-500"
-                    data-testid={`col-toggle-${c.id}`}
-                  />
-                  <span className="text-sm text-slate-200 flex-1">{m.label}</span>
+                <div
+                  key={c.id}
+                  data-testid={`col-row-${c.id}`}
+                  onDragOver={(e) => { if (!dragColId) return; e.preventDefault(); if (overColId !== c.id) setOverColId(c.id); }}
+                  onDragLeave={() => { if (overColId === c.id) setOverColId(null); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const src = e.dataTransfer.getData("text/plain");
+                    reorderCol(src, c.id);
+                    setDragColId(null); setOverColId(null);
+                  }}
+                  className={`flex items-center gap-2 p-2 rounded border ${isOver ? "border-cyan-400 bg-cyan-500/10" : "border-white/5"} ${isDragging ? "opacity-50" : ""} hover:border-cyan-500/30 transition-colors`}
+                >
+                  <span
+                    draggable
+                    onDragStart={(e) => { e.dataTransfer.setData("text/plain", c.id); e.dataTransfer.effectAllowed = "move"; setDragColId(c.id); }}
+                    onDragEnd={() => { setDragColId(null); setOverColId(null); }}
+                    data-testid={`col-row-drag-${c.id}`}
+                    className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-cyan-300 p-1"
+                    title="Drag to reorder"
+                  >
+                    <GripVertical size={14} />
+                  </span>
+                  <label className="flex items-center gap-2 flex-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={c.visible}
+                      onChange={() => setCols((arr) => arr.map((x) => x.id === c.id ? { ...x, visible: !x.visible } : x))}
+                      className="accent-cyan-500"
+                      data-testid={`col-toggle-${c.id}`}
+                    />
+                    <span className="text-sm text-slate-200 flex-1">{m.label}</span>
+                  </label>
                   <input
                     type="number" min={50} max={400} value={c.width}
                     onChange={(e) => setCols((arr) => arr.map((x) => x.id === c.id ? { ...x, width: parseInt(e.target.value || 50) } : x))}
                     className="w-16 bg-[#0B0E14] border border-white/10 rounded px-2 py-0.5 text-xs font-mono"
                   />
-                </label>
+                </div>
               );
             })}
           </div>

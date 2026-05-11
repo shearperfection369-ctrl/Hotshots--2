@@ -1,0 +1,44 @@
+{
+  "summary": "Comprehensive testing of the 4 user-requested features. Backend smoke (auth/me, shipments, workbook/tabs) all 200. Frontend P0 results: (1) /promo now serves a real local /promo.mp4 (HEAD content-type=video/mp4, 808 KB) and the page renders the HTML5 <video data-testid=promo-video> tag; the YouTube iframe is NOT rendered — pass. (2) Dashboard SortableTiles: all 12 expected tile testids present, reset-tile-layout present, old customs-broker-widget removed from Dashboard, localStorage-driven tile order works (verified by writing tms-dashboard-tile-order with map first and confirming DOM order). HTML5 dispatchEvent DnD also updated localStorage to ['video','map',...]. (3) YouTubeVideoTile: default src is mTxE3g7o4aY, typing https://www.youtube.com/watch?v=dQw4w9WgXcQ + Load updates iframe src to dQw4w9WgXcQ and persists localStorage tms-dashboard-video=dQw4w9WgXcQ. (4) /trade-compliance broker section: tc-broker, broker-contact, broker-portal-link (UPS SCS) all present; Account #, POA, Bond, Phone, Email labels all rendered; all 11 Incoterms still rendered. (5) /shipments: all col-header-*, col-drag-*, col-resize-* testids present (14 of each); LS-driven column reorder confirmed working (forced 'carrier' to index 0 in tennant_shipments_cols_v1, page reloaded with carrier as first <th>). (6) /workbook OUTBOUND TL tab: 12 wb-col-header-* and 12 wb-col-drag-* testids present; LS-driven reorder via tennant_workbook_col_order_v1 confirmed working (reversed columns persisted across reload); reset-workbook-cols button appeared after reorder and restored original order on click. All 4 P0 features verified working.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_v15.py"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SortableTiles.jsx (114 lines), YouTubeVideoTile.jsx (128 lines), Dashboard.jsx (430 lines) are all well under the 700-line guideline.",
+    "YouTubeVideoTile.parseYouTubeId is robust — covers /watch?v=, youtu.be, /embed/, /shorts/, /v/, /live/, and bare 11-char IDs; bad input shows a localized error and does not clobber state. Good.",
+    "SortableTiles merge logic correctly handles legacy saved orders that contain unknown ids and tiles added after the save (appended at the end). Good.",
+    "Shipments.jsx column reorder persists the whole column descriptor array (id, visible, width) in localStorage — keeps width and visibility intact across reorder. Good.",
+    "Workbook.jsx scopes the reorder per tab_id under tennant_workbook_col_order_v1, so reordering 'Outbound TL' does not affect 'Outbound LTL'. Good.",
+    "Iframe allow attribute includes 'web-share' which Chrome flags as 'Unrecognized feature' (harmless console warning). Optional: drop it from the allow list to silence the warning.",
+    "Leaflet MapContainer occasionally throws a non-fatal React error (caught) on hot-reload of the Dashboard; not regression-blocking but recommend wrapping MapTile in an ErrorBoundary."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (3/3 smoke)", "frontend": "100% on functional verification (4/4 P0 features + P1 regressions)"},
+  "test_credentials": "test_session_admin_1 (admin) via session_token cookie + Authorization header",
+  "seed_data_creation": "none beyond previous iterations",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 4 user-requested fixes are verified working on the preview URL. Note: synthetic HTML5 DnD via page.evaluate(dispatchEvent(new DragEvent(..., dataTransfer))) is unreliable for verifying React DnD handlers — the DataTransfer payload does not consistently round-trip through setData/getData. Use the localStorage path instead (write the order, reload, verify DOM) — this directly validates the persistence + render pipeline that the DnD handlers feed. tms-dashboard-tile-order, tennant_shipments_cols_v1, tennant_workbook_col_order_v1, tms-dashboard-video are the four LS keys. promo.mp4 is served via Cloudflare with cache-control: no-store; force-refresh is not needed.",
+  "verification_evidence": {
+    "promo_mp4_head": {"status": 200, "content_type": "video/mp4", "content_length": 808899},
+    "promo_video_tag_count": 1,
+    "promo_iframe_count": 0,
+    "dashboard_tiles_count": 12,
+    "dashboard_tile_order_via_ls": ["tile-map","tile-kpis","tile-video","tile-news-window","tile-weather"],
+    "video_iframe_default_src_contains": "mTxE3g7o4aY",
+    "video_iframe_after_load_contains": "dQw4w9WgXcQ",
+    "video_localStorage_value": "dQw4w9WgXcQ",
+    "broker_portal_href": "https://www.ups.com/us/en/supplychain/services/customs-brokerage.page",
+    "incoterm_count": 11,
+    "shipments_col_headers": 14,
+    "shipments_after_ls_force_first": "col-header-carrier",
+    "workbook_headers_count_outbound_tl": 12,
+    "workbook_after_ls_force_first": "wb-col-header-bol_no",
+    "workbook_reset_restores_default": true
+  }
+}

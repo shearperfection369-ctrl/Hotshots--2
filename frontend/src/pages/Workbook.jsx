@@ -9,8 +9,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { toast } from "sonner";
 import {
-  Plus, FileSpreadsheet, Download, Pencil, Trash2, Search
+  Plus, FileSpreadsheet, Download, Pencil, Trash2, Search, GripVertical
 } from "lucide-react";
+
+// Per-tab column-order memory. We persist `{ [tab_id]: string[] }` of column
+// keys. On load we reconcile with the actual columns coming from the server
+// (drop missing, append new), so reordering survives schema additions.
+const COL_ORDER_KEY = "tennant_workbook_col_order_v1";
+const loadColOrder = () => {
+  try { return JSON.parse(localStorage.getItem(COL_ORDER_KEY) || "{}") || {}; }
+  catch (e) { return {}; }
+};
+const saveColOrder = (map) => {
+  try { localStorage.setItem(COL_ORDER_KEY, JSON.stringify(map)); } catch (e) { /* ignore */ }
+};
 
 const KIND_OPTIONS = [
   { value: "shipments_tl", label: "Shipments — TL" },
@@ -39,6 +51,11 @@ export default function Workbook() {
   const [newTabName, setNewTabName] = useState("");
   const [newTabKind, setNewTabKind] = useState("info");
   const renameInputRef = useRef(null);
+  // Column order memory (per tab) + drag state
+  const [colOrderMap, setColOrderMap] = useState(() => loadColOrder());
+  const [dragColKey, setDragColKey] = useState(null);
+  const [overColKey, setOverColKey] = useState(null);
+  useEffect(() => { saveColOrder(colOrderMap); }, [colOrderMap]);
 
   const loadTabs = async () => {
     const { data } = await api.get("/workbook/tabs");
@@ -54,6 +71,45 @@ export default function Workbook() {
 
   useEffect(() => { loadTabs(); }, []);
   useEffect(() => { if (activeTab) loadRows(activeTab); }, [activeTab]);
+
+  // Compute the rendered column list for the active tab, reconciling any saved
+  // drag-reorder with the schema currently returned by the API.
+  const orderedColumns = React.useMemo(() => {
+    const cols = data?.columns || [];
+    if (!cols.length || !activeTab) return cols;
+    const saved = colOrderMap[activeTab] || [];
+    const byKey = Object.fromEntries(cols.map((c) => [c.key, c]));
+    const seen = new Set();
+    const out = [];
+    for (const key of saved) {
+      if (byKey[key]) { out.push(byKey[key]); seen.add(key); }
+    }
+    for (const c of cols) {
+      if (!seen.has(c.key)) out.push(c);
+    }
+    return out;
+  }, [data, activeTab, colOrderMap]);
+
+  const reorderWorkbookCol = (src, target) => {
+    if (!src || !target || src === target || !activeTab) return;
+    const currentOrder = orderedColumns.map((c) => c.key);
+    const from = currentOrder.indexOf(src);
+    const to = currentOrder.indexOf(target);
+    if (from === -1 || to === -1) return;
+    const next = [...currentOrder];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setColOrderMap((m) => ({ ...m, [activeTab]: next }));
+  };
+
+  const resetWorkbookColumnOrder = () => {
+    if (!activeTab) return;
+    setColOrderMap((m) => {
+      const next = { ...m };
+      delete next[activeTab];
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (renamingId && renameInputRef.current) {
@@ -206,6 +262,16 @@ export default function Workbook() {
               <Badge className="bg-white/[0.02] text-slate-300 border border-white/5 font-mono text-[10px]">
                 {filteredRows.length} of {data.rows.length} rows
               </Badge>
+              {colOrderMap[activeTab]?.length > 0 && (
+                <Button
+                  onClick={resetWorkbookColumnOrder}
+                  data-testid="reset-workbook-cols"
+                  variant="outline"
+                  className="text-[10px] font-mono uppercase tracking-wider border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10"
+                >
+                  Reset Column Order
+                </Button>
+              )}
               <Button
                 onClick={() => downloadTab(data.tab.tab_id, data.tab.name)}
                 data-testid="export-tab-btn"
@@ -224,22 +290,58 @@ export default function Workbook() {
               <thead className="bg-[#0B0E14] text-[10px] font-mono text-cyan-400 uppercase tracking-wider sticky top-0">
                 <tr>
                   <th className="text-left py-3 px-3 w-12 text-slate-500">#</th>
-                  {(data?.columns || []).map((c) => (
-                    <th key={c.key} className="text-left py-3 px-3 whitespace-nowrap">{c.label}</th>
-                  ))}
+                  {orderedColumns.map((c) => {
+                    const isDragging = dragColKey === c.key;
+                    const isOver = overColKey === c.key && dragColKey && dragColKey !== c.key;
+                    return (
+                      <th
+                        key={c.key}
+                        data-testid={`wb-col-header-${c.key}`}
+                        className={`text-left py-3 px-3 whitespace-nowrap transition-colors ${isOver ? "bg-cyan-500/15" : ""} ${isDragging ? "opacity-50" : ""}`}
+                        onDragOver={(e) => {
+                          if (!dragColKey) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                          if (overColKey !== c.key) setOverColKey(c.key);
+                        }}
+                        onDragLeave={() => { if (overColKey === c.key) setOverColKey(null); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          reorderWorkbookCol(e.dataTransfer.getData("text/plain"), c.key);
+                          setDragColKey(null); setOverColKey(null);
+                        }}
+                      >
+                        <span
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", c.key);
+                            e.dataTransfer.effectAllowed = "move";
+                            setDragColKey(c.key);
+                          }}
+                          onDragEnd={() => { setDragColKey(null); setOverColKey(null); }}
+                          data-testid={`wb-col-drag-${c.key}`}
+                          className="inline-flex items-center gap-1 cursor-grab active:cursor-grabbing select-none hover:text-cyan-300"
+                          title="Drag to reorder column"
+                        >
+                          <GripVertical size={10} className="opacity-30" />
+                          {c.label}
+                        </span>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="font-mono">
                 {filteredRows.map((r, i) => (
                   <tr key={i} className="border-t border-white/5 hover:bg-white/[0.02]">
                     <td className="py-2.5 px-3 text-slate-600">{i + 1}</td>
-                    {(data?.columns || []).map((c) => {
+                    {orderedColumns.map((c) => {
                       let v = r[c.key];
                       if (v == null) v = "—";
                       else if (typeof v === "number") v = Number.isInteger(v) ? v.toLocaleString() : v.toLocaleString(undefined, { maximumFractionDigits: 2 });
                       else if (typeof v === "string" && v.length > 22 && (v.match(/^\d{4}-\d{2}-\d{2}T/) || v.match(/^\d{4}-\d{2}-\d{2}/))) {
                         // shorten ISO timestamps to date only
-                        try { v = new Date(v).toLocaleDateString(); } catch (_) {}
+                        try { v = new Date(v).toLocaleDateString(); } catch (_) { /* ignore */ }
                       }
                       return (
                         <td key={c.key} className={`py-2.5 px-3 ${c.key === "carrier" || c.key === "name" ? "text-white" : "text-slate-300"} whitespace-nowrap`}>
@@ -250,7 +352,7 @@ export default function Workbook() {
                   </tr>
                 ))}
                 {data && filteredRows.length === 0 && (
-                  <tr><td colSpan={(data?.columns?.length || 0) + 1} className="text-center py-12 text-slate-500">No rows match your search.</td></tr>
+                  <tr><td colSpan={(orderedColumns.length || 0) + 1} className="text-center py-12 text-slate-500">No rows match your search.</td></tr>
                 )}
                 {!data && (
                   <tr><td colSpan={2} className="text-center py-12 text-slate-500">Select a tab above.</td></tr>
