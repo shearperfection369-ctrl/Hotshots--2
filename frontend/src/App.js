@@ -22,6 +22,8 @@ import FreightPay from "@/pages/FreightPay";
 import CarrierOnboarding from "@/pages/CarrierOnboarding";
 import DriverConsole from "@/pages/DriverConsole";
 import DriverMobile from "@/pages/DriverMobile";
+import AdminUsers from "@/pages/AdminUsers";
+import SapSync from "@/pages/SapSync";
 
 function AppRouter() {
   const location = useLocation();
@@ -52,6 +54,8 @@ function AppRouter() {
         <Route path="/freight-pay" element={<FreightPay />} />
         <Route path="/carrier-onboarding" element={<CarrierOnboarding />} />
         <Route path="/driver-console" element={<DriverConsole />} />
+        <Route path="/sap-sync" element={<SapSync />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
       </Route>
     </Routes>
   );

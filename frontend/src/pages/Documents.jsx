@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Topbar from "../components/Topbar";
-import { api } from "../lib/api";
+import { api, BACKEND_URL } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
-import { FileText, FileSignature, FileSpreadsheet, FileCheck2, Globe2, Plus } from "lucide-react";
+import { FileText, FileSignature, FileSpreadsheet, FileCheck2, Globe2, Plus, Download } from "lucide-react";
 
 const DOC_TYPES = [
   { id: "BOL", label: "Bill of Lading", icon: FileText, accent: "cyan" },
@@ -31,8 +31,16 @@ export default function Documents() {
 
   const create = async () => {
     try {
-      await api.post("/documents", { type: form.type, shipment_ref: form.shipment_ref, data: form });
-      toast.success("Document generated");
+      const { data } = await api.post("/documents", { type: form.type, shipment_ref: form.shipment_ref, data: form });
+      toast.success("Document generated", {
+        description: (
+          <a
+            href={`${BACKEND_URL}/api/documents/${data.document_id}/pdf`}
+            target="_blank" rel="noreferrer"
+            className="text-cyan-300 underline"
+          >Download PDF →</a>
+        ),
+      });
       setOpen(false);
       load();
     } catch (e) { toast.error("Failed to generate"); }
@@ -104,7 +112,7 @@ export default function Documents() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[#0B0E14] text-[10px] font-mono text-slate-500 uppercase tracking-wider">
-                <tr><th className="text-left py-3 px-4">Doc ID</th><th className="text-left py-3 px-4">Type</th><th className="text-left py-3 px-4">Shipment</th><th className="text-left py-3 px-4">Created By</th><th className="text-right py-3 px-4">Created</th></tr>
+                <tr><th className="text-left py-3 px-4">Doc ID</th><th className="text-left py-3 px-4">Type</th><th className="text-left py-3 px-4">Shipment</th><th className="text-left py-3 px-4">Created By</th><th className="text-right py-3 px-4">Created</th><th className="text-right py-3 px-4">PDF</th></tr>
               </thead>
               <tbody className="font-mono">
                 {docs.map((d) => (
@@ -114,9 +122,19 @@ export default function Documents() {
                     <td className="py-2.5 px-4 text-slate-400">{d.shipment_ref}</td>
                     <td className="py-2.5 px-4 text-slate-400">{d.created_by}</td>
                     <td className="py-2.5 px-4 text-right text-slate-500 text-xs">{new Date(d.created_at).toLocaleString()}</td>
+                    <td className="py-2.5 px-4 text-right">
+                      <a
+                        href={`${BACKEND_URL}/api/documents/${d.document_id}/pdf`}
+                        target="_blank" rel="noreferrer"
+                        data-testid={`download-pdf-${d.document_id}`}
+                        className="inline-flex items-center gap-1 text-xs font-mono text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 hover:border-cyan-500/60 rounded px-2 py-1 transition-all"
+                      >
+                        <Download size={12} /> PDF
+                      </a>
+                    </td>
                   </tr>
                 ))}
-                {docs.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-slate-500">No documents yet. Click NEW to generate one.</td></tr>}
+                {docs.length === 0 && <tr><td colSpan={6} className="text-center py-10 text-slate-500">No documents yet. Click NEW to generate one.</td></tr>}
               </tbody>
             </table>
           </div>

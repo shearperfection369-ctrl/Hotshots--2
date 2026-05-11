@@ -3,10 +3,12 @@ Tennant Companies — Transportation Management System (TMS)
 HUD-style command center backend
 """
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Response, WebSocket, WebSocketDisconnect, Query
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import io
 import logging
 import uuid
 import json
@@ -16,6 +18,12 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
+
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.lib.units import inch
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -36,7 +44,7 @@ class User(BaseModel):
     email: str
     name: str
     picture: Optional[str] = None
-    role: str = "dispatcher"
+    role: str = "dispatcher"  # admin | auditor | dispatcher | driver
 
 class Shipment(BaseModel):
     shipment_id: str
@@ -106,6 +114,19 @@ async def get_optional_user(request: Request) -> Optional[User]:
     except HTTPException:
         return None
 
+# RBAC helpers
+ROLE_HIERARCHY = {"driver": 0, "dispatcher": 1, "auditor": 2, "admin": 3}
+
+def require_role(*allowed_roles: str):
+    """Dependency factory: ensure current user has one of the allowed roles, or admin (which can do anything)."""
+    async def _checker(user: User = Depends(get_current_user)) -> User:
+        if user.role == "admin":
+            return user
+        if user.role in allowed_roles:
+            return user
+        raise HTTPException(status_code=403, detail=f"Requires one of roles: {', '.join(allowed_roles)}")
+    return _checker
+
 # -------------------- AUTH ENDPOINTS --------------------
 @api_router.post("/auth/session")
 async def create_session(request: Request, response: Response):
@@ -135,12 +156,15 @@ async def create_session(request: Request, response: Response):
         )
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
+        # First user in the system becomes admin automatically
+        user_count = await db.users.count_documents({})
+        initial_role = "admin" if user_count == 0 else "dispatcher"
         await db.users.insert_one({
             "user_id": user_id,
             "email": email,
             "name": name,
             "picture": picture,
-            "role": "dispatcher",
+            "role": initial_role,
             "created_at": datetime.now(timezone.utc).isoformat()
         })
 
@@ -590,7 +614,7 @@ async def list_bills(_: User = Depends(get_current_user), status: Optional[str] 
     return docs
 
 @api_router.post("/freight-bills/{bill_id}/pay")
-async def pay_bill(bill_id: str, user: User = Depends(get_current_user)):
+async def pay_bill(bill_id: str, user: User = Depends(require_role("auditor"))):
     bill = await db.freight_bills.find_one({"bill_id": bill_id}, {"_id": 0})
     if not bill:
         raise HTTPException(status_code=404, detail="Bill not found")
@@ -603,12 +627,18 @@ async def pay_bill(bill_id: str, user: User = Depends(get_current_user)):
     return {"ok": True, "bill_id": bill_id}
 
 @api_router.post("/freight-bills/{bill_id}/approve")
-async def approve_bill(bill_id: str, user: User = Depends(get_current_user)):
+async def approve_bill(bill_id: str, user: User = Depends(require_role("auditor"))):
+    bill = await db.freight_bills.find_one({"bill_id": bill_id}, {"_id": 0})
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
     await db.freight_bills.update_one({"bill_id": bill_id}, {"$set": {"status": "approved", "approved_by": user.name}})
     return {"ok": True}
 
 @api_router.post("/freight-bills/{bill_id}/dispute")
-async def dispute_bill(bill_id: str, request: Request, user: User = Depends(get_current_user)):
+async def dispute_bill(bill_id: str, request: Request, user: User = Depends(require_role("auditor"))):
+    bill = await db.freight_bills.find_one({"bill_id": bill_id}, {"_id": 0})
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
     body = await request.json()
     await db.freight_bills.update_one(
         {"bill_id": bill_id},
@@ -696,11 +726,14 @@ async def create_onboarding(payload: CarrierOnboardingCreate, user: User = Depen
     return doc
 
 @api_router.post("/carriers/onboarding/{oid}/decision")
-async def decide_onboarding(oid: str, request: Request, user: User = Depends(get_current_user)):
+async def decide_onboarding(oid: str, request: Request, user: User = Depends(require_role("admin"))):
     body = await request.json()
     decision = body.get("decision")  # approved | rejected
     if decision not in ("approved", "rejected"):
         raise HTTPException(status_code=400, detail="Invalid decision")
+    target = await db.carrier_onboarding.find_one({"onboarding_id": oid}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="Onboarding not found")
     await db.carrier_onboarding.update_one(
         {"onboarding_id": oid},
         {"$set": {"status": decision, "decided_by": user.name, "decision_notes": body.get("notes", "")}}
@@ -805,6 +838,422 @@ async def list_checkins(_: User = Depends(get_current_user), shipment_id: Option
     q: Dict[str, Any] = {}
     if shipment_id: q["shipment_id"] = shipment_id
     docs = await db.driver_checkins.find(q, {"_id": 0}).sort("created_at", -1).limit(200).to_list(200)
+    return docs
+
+# -------------------- PDF DOCUMENT RENDERING --------------------
+TENNANT_BLUE = colors.HexColor("#00A4E4")
+TENNANT_DARK = colors.HexColor("#0B0E14")
+
+def _doc_styles():
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="TennantTitle", parent=styles["Heading1"], fontSize=22, leading=26, textColor=TENNANT_DARK, alignment=0, spaceAfter=4))
+    styles.add(ParagraphStyle(name="TennantSubtitle", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#475569"), spaceAfter=12))
+    styles.add(ParagraphStyle(name="SectionLabel", parent=styles["Normal"], fontSize=7, textColor=TENNANT_BLUE, leading=9))
+    styles.add(ParagraphStyle(name="FieldLabel", parent=styles["Normal"], fontSize=7, textColor=colors.HexColor("#64748B"), leading=9))
+    styles.add(ParagraphStyle(name="FieldValue", parent=styles["Normal"], fontSize=10, textColor=TENNANT_DARK, leading=13))
+    styles.add(ParagraphStyle(name="DocFooter", parent=styles["Normal"], fontSize=7, textColor=colors.HexColor("#94A3B8"), alignment=1))
+    return styles
+
+DOC_TYPE_TITLES = {
+    "BOL": ("BILL OF LADING", "Straight Bill of Lading — Original Domestic"),
+    "COMMERCIAL_INVOICE": ("COMMERCIAL INVOICE", "Export / Customs Invoice"),
+    "PACKING_SLIP": ("PACKING SLIP", "Shipment Pack List"),
+    "WEIGHT_CERT": ("WEIGHT CERTIFICATE", "Certified Scale Ticket"),
+    "COO": ("CERTIFICATE OF ORIGIN", "Statement of Country of Origin"),
+}
+
+def _header_block(doc_id: str, doc_type: str):
+    styles = _doc_styles()
+    title, subtitle = DOC_TYPE_TITLES.get(doc_type, (doc_type, ""))
+    header_data = [
+        [
+            Paragraph("<b><font color='#00A4E4'>TENNANT</font></b> COMPANY", styles["TennantTitle"]),
+            Paragraph(f"<b>{title}</b><br/><font size=8 color='#64748B'>{subtitle}</font><br/><font size=7 color='#94A3B8'>Document ID: {doc_id}</font>", styles["FieldValue"]),
+        ]
+    ]
+    t = Table(header_data, colWidths=[3.2 * inch, 3.8 * inch])
+    t.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("LINEBELOW", (0, 0), (-1, -1), 2, TENNANT_BLUE),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+    ]))
+    return t
+
+def _kv_table(rows, col_widths=None):
+    styles = _doc_styles()
+    data = []
+    for row in rows:
+        data.append([
+            Paragraph(row[0].upper(), styles["FieldLabel"]),
+            Paragraph(str(row[1] or "—"), styles["FieldValue"]),
+        ])
+    t = Table(data, colWidths=col_widths or [1.4 * inch, 2.3 * inch])
+    t.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    return t
+
+def _build_pdf(doc: Dict[str, Any]) -> bytes:
+    buf = io.BytesIO()
+    pdf = SimpleDocTemplate(buf, pagesize=letter, leftMargin=0.6 * inch, rightMargin=0.6 * inch, topMargin=0.6 * inch, bottomMargin=0.6 * inch, title=doc["document_id"])
+    styles = _doc_styles()
+    data = doc.get("data", {}) or {}
+    elements = []
+    elements.append(_header_block(doc["document_id"], doc["type"]))
+    elements.append(Spacer(1, 14))
+
+    # Shipper / Consignee block
+    parties_rows = [
+        ["Shipper", data.get("shipper") or "Tennant Company"],
+        ["Consignee", data.get("consignee")],
+        ["Origin", data.get("origin")],
+        ["Destination", data.get("destination")],
+    ]
+    shipment_rows = [
+        ["Shipment Ref", doc.get("shipment_ref")],
+        ["Carrier", data.get("carrier")],
+        ["Commodity", data.get("commodity")],
+        ["Pieces", data.get("pieces")],
+        ["Weight (lbs)", data.get("weight")],
+        ["Value (USD)", data.get("value") and f"${data.get('value')}"],
+    ]
+
+    parties_t = _kv_table(parties_rows, col_widths=[1.0 * inch, 2.4 * inch])
+    shipment_t = _kv_table(shipment_rows, col_widths=[1.1 * inch, 2.3 * inch])
+    columns = Table([[parties_t, shipment_t]], colWidths=[3.5 * inch, 3.5 * inch])
+    columns.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOX", (0, 0), (0, 0), 0.5, colors.HexColor("#E2E8F0")),
+        ("BOX", (1, 0), (1, 0), 0.5, colors.HexColor("#E2E8F0")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    elements.append(columns)
+    elements.append(Spacer(1, 16))
+
+    # Type-specific section
+    dtype = doc["type"]
+    if dtype == "BOL":
+        line_items = [["#", "Pieces", "Description", "Weight (lbs)", "Class"]]
+        line_items.append(["1", data.get("pieces") or "—", data.get("commodity") or "Tennant industrial cleaning equipment", data.get("weight") or "—", "85"])
+        items = Table(line_items, colWidths=[0.4 * inch, 0.8 * inch, 3.6 * inch, 1.0 * inch, 0.7 * inch])
+        items.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), TENNANT_BLUE),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#E2E8F0")),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(Paragraph("<b><font color='#00A4E4'>LINE ITEMS</font></b>", styles["FieldLabel"]))
+        elements.append(Spacer(1, 4))
+        elements.append(items)
+        elements.append(Spacer(1, 14))
+        elements.append(Paragraph("<font size=8 color='#475569'>RECEIVED, subject to the classifications and tariffs in effect on the date of issue, the property described above in apparent good order, except as noted (contents and condition of contents of packages unknown).</font>", styles["FieldValue"]))
+
+    elif dtype == "COMMERCIAL_INVOICE":
+        try:
+            qty = float(data.get("pieces") or 0)
+            total = float(data.get("value") or 0)
+            unit_price = total / qty if qty else total
+        except Exception:
+            qty, total, unit_price = "—", "—", "—"
+        rows = [["Qty", "HS Code (suggested)", "Description", "Unit Price", "Total"]]
+        rows.append([data.get("pieces") or "—", "8479.89.94", data.get("commodity") or "—",
+                     f"${unit_price:,.2f}" if isinstance(unit_price, float) else unit_price,
+                     f"${total:,.2f}" if isinstance(total, float) else total])
+        items = Table(rows, colWidths=[0.6 * inch, 1.3 * inch, 3.0 * inch, 1.0 * inch, 1.1 * inch])
+        items.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), TENNANT_BLUE),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#E2E8F0")),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(Paragraph("<b><font color='#00A4E4'>INVOICE LINES</font></b>", styles["FieldLabel"]))
+        elements.append(Spacer(1, 4))
+        elements.append(items)
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph(f"<b>TOTAL INVOICE VALUE: ${data.get('value', '—')} USD</b>", styles["FieldValue"]))
+        elements.append(Spacer(1, 8))
+        elements.append(Paragraph("<font size=7 color='#64748B'>Terms: Incoterms 2020 — DAP. No commission. Country of Origin: USA unless otherwise noted.</font>", styles["FieldValue"]))
+
+    elif dtype == "PACKING_SLIP":
+        rows = [["Carton", "Qty", "Description", "Weight", "Dimensions"]]
+        pcs = int(data.get("pieces") or 1) if str(data.get("pieces") or "1").isdigit() else 1
+        for i in range(1, min(pcs, 8) + 1):
+            rows.append([f"#{i:03d}", "1", data.get("commodity") or "—", f"{(float(data.get('weight') or 0) / max(1, pcs)):,.0f} lbs" if data.get("weight") else "—", "48×40×60 in"])
+        items = Table(rows, colWidths=[0.7 * inch, 0.5 * inch, 3.6 * inch, 0.9 * inch, 1.3 * inch])
+        items.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), TENNANT_BLUE),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#E2E8F0")),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(items)
+
+    elif dtype == "WEIGHT_CERT":
+        elements.append(Paragraph("<b><font color='#00A4E4'>CERTIFIED WEIGHT</font></b>", styles["FieldLabel"]))
+        elements.append(Spacer(1, 4))
+        wt_rows = [
+            ["Gross Weight", f"{data.get('weight') or '—'} lbs"],
+            ["Tare Weight", "14,200 lbs"],
+            ["Net Weight (calc)", f"{(float(data.get('weight') or 0) - 14200):,.0f} lbs" if data.get('weight') else "—"],
+            ["Scale ID", "MN-CERT-04287"],
+            ["Operator", doc.get("created_by") or "—"],
+            ["Date / Time", doc.get("created_at") or "—"],
+        ]
+        elements.append(_kv_table(wt_rows, col_widths=[1.6 * inch, 2.4 * inch]))
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("<font size=7 color='#475569'>I hereby certify that the weights shown above were obtained on a scale certified by the State of Minnesota and accurate within tolerance NIST Handbook 44.</font>", styles["FieldValue"]))
+
+    elif dtype == "COO":
+        coo_rows = [
+            ["Country of Origin", data.get("country_origin") or "USA"],
+            ["Producer", "Tennant Company"],
+            ["Producer Address", "10400 Clean Street, Eden Prairie, MN 55344, USA"],
+            ["Exporter", "Tennant Company"],
+            ["Marks & Numbers", doc.get("shipment_ref") or "—"],
+        ]
+        elements.append(_kv_table(coo_rows, col_widths=[1.6 * inch, 4.0 * inch]))
+        elements.append(Spacer(1, 14))
+        elements.append(Paragraph("<font size=8 color='#475569'>The undersigned hereby declares that the above-mentioned goods originate from the country shown above and meet all applicable origin criteria. This certificate is issued in accordance with applicable Free Trade Agreement rules of origin where claimed.</font>", styles["FieldValue"]))
+
+    # Signature block
+    elements.append(Spacer(1, 26))
+    sig_data = [
+        [Paragraph("<font size=7 color='#64748B'>Authorized Signature</font><br/><br/>______________________________", styles["FieldValue"]),
+         Paragraph(f"<font size=7 color='#64748B'>Date</font><br/><br/>{datetime.now(timezone.utc).strftime('%Y-%m-%d')}", styles["FieldValue"]),
+         Paragraph(f"<font size=7 color='#64748B'>Prepared By</font><br/><br/>{doc.get('created_by') or '—'}", styles["FieldValue"])],
+    ]
+    sig = Table(sig_data, colWidths=[2.7 * inch, 1.4 * inch, 2.7 * inch])
+    sig.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    elements.append(sig)
+    elements.append(Spacer(1, 8))
+    elements.append(Paragraph(f"Tennant Company · TMS Generated Document · {datetime.now(timezone.utc).isoformat(timespec='seconds')}Z", styles["DocFooter"]))
+
+    pdf.build(elements)
+    buf.seek(0)
+    return buf.getvalue()
+
+@api_router.get("/documents/{document_id}/pdf")
+async def download_document_pdf(document_id: str, _: User = Depends(get_current_user)):
+    doc = await db.documents.find_one({"document_id": document_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    try:
+        pdf_bytes = _build_pdf(doc)
+    except Exception as e:
+        logger.exception("PDF render failed")
+        raise HTTPException(status_code=500, detail=f"PDF render failed: {e}")
+    filename = f"{doc['type']}_{doc['document_id']}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+# -------------------- ADMIN / RBAC --------------------
+@api_router.get("/admin/users")
+async def list_users(_: User = Depends(require_role("admin"))):
+    docs = await db.users.find({}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    return docs
+
+class RoleChange(BaseModel):
+    role: str  # admin | auditor | dispatcher | driver
+
+@api_router.post("/admin/users/{user_id}/role")
+async def change_role(user_id: str, payload: RoleChange, actor: User = Depends(require_role("admin"))):
+    if payload.role not in ROLE_HIERARCHY:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    target = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    # Don't allow the actor to demote themselves if they are the only admin
+    if target["user_id"] == actor.user_id and payload.role != "admin":
+        admin_count = await db.users.count_documents({"role": "admin"})
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot demote the only remaining admin")
+    await db.users.update_one({"user_id": user_id}, {"$set": {"role": payload.role}})
+    return {"ok": True, "user_id": user_id, "role": payload.role}
+
+@api_router.post("/admin/seed-team")
+async def seed_team_users(_: User = Depends(require_role("admin"))):
+    """Seed sample team members across roles for demo."""
+    samples = [
+        {"name": "Avery Lindgren", "email": "avery.lindgren@tennantco.com", "role": "auditor"},
+        {"name": "Devon Marquez", "email": "devon.marquez@tennantco.com", "role": "dispatcher"},
+        {"name": "Priya Iyer", "email": "priya.iyer@tennantco.com", "role": "dispatcher"},
+        {"name": "Sam Chen", "email": "sam.chen@tennantco.com", "role": "driver"},
+        {"name": "Riley Park", "email": "riley.park@tennantco.com", "role": "driver"},
+    ]
+    inserted = 0
+    for s in samples:
+        if await db.users.find_one({"email": s["email"]}):
+            continue
+        await db.users.insert_one({
+            "user_id": f"user_{uuid.uuid4().hex[:12]}",
+            "email": s["email"], "name": s["name"], "picture": None,
+            "role": s["role"], "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        inserted += 1
+    return {"ok": True, "inserted": inserted}
+
+# -------------------- SAP S/4HANA OData CONNECTOR (mocked) --------------------
+SAP_MOCK_CONFIG = {
+    "system_id": "S4P",
+    "host": "https://s4hana.tennantco.sap.com",
+    "service": "/sap/opu/odata/sap/API_SALES_ORDER_SRV",
+    "client": "100",
+    "user": "TMS_SVC_ACCT",
+    "auth_type": "OAuth 2.0 (SAML Bearer Assertion)",
+}
+
+def _gen_sap_sales_orders(n: int = 24) -> List[Dict[str, Any]]:
+    """Deterministic-ish sales order data (uses random but reseeded per call for stable demo)."""
+    random.seed(42)
+    customers = [
+        ("CUST-100214", "Walmart Distribution — Bentonville"),
+        ("CUST-100755", "Amazon Fulfillment — Phoenix"),
+        ("CUST-100928", "FedEx Freight HQ — Memphis"),
+        ("CUST-101044", "U.S. Postal Service — Washington DC"),
+        ("CUST-101188", "Target Distribution — Minneapolis"),
+        ("CUST-101332", "Costco Wholesale — Issaquah"),
+        ("CUST-101501", "Boeing Everett Plant"),
+        ("CUST-101677", "Ford F-150 Plant — Dearborn"),
+    ]
+    materials = [
+        ("MAT-T16AMR", "Tennant T16 AMR Ride-On Scrubber", 38500.00),
+        ("MAT-M30", "Tennant M30 Integrated Sweeper-Scrubber", 52000.00),
+        ("MAT-S30", "Tennant S30 Industrial Sweeper", 41200.00),
+        ("MAT-T7AMR", "Tennant T7 AMR Compact Robotic", 28900.00),
+        ("MAT-M17", "Tennant M17 Mid-Size Sweeper-Scrubber", 33400.00),
+        ("MAT-PARTS-BAT", "Tennant Lithium-Ion Battery Pack (Service Part)", 2150.00),
+    ]
+    plants = [("1010", "Golden Valley, MN"), ("1020", "Holland, MI"), ("1030", "Louisville, KY")]
+    statuses = ["Open", "Open", "In Production", "Released to Shipping", "Confirmed", "Partial Delivery"]
+    out = []
+    for i in range(n):
+        c = random.choice(customers)
+        m = random.choice(materials)
+        p = random.choice(plants)
+        qty = random.randint(1, 6)
+        net = round(m[2] * qty, 2)
+        order_date = (datetime.now(timezone.utc) - timedelta(days=random.randint(0, 45))).date().isoformat()
+        req_date = (datetime.now(timezone.utc) + timedelta(days=random.randint(7, 60))).date().isoformat()
+        out.append({
+            "SalesOrder": f"SO-{500000 + i}",
+            "SalesOrderType": "OR",
+            "SoldToParty": c[0],
+            "SoldToPartyName": c[1],
+            "PurchaseOrderByCustomer": f"PO-{random.randint(70000, 99999)}",
+            "Material": m[0],
+            "MaterialDescription": m[1],
+            "RequestedQuantity": qty,
+            "NetAmount": net,
+            "Currency": "USD",
+            "Plant": p[0],
+            "PlantName": p[1],
+            "RequestedDeliveryDate": req_date,
+            "CreationDate": order_date,
+            "OverallStatus": random.choice(statuses),
+            "IncoTerms": random.choice(["FCA", "DAP", "DDP", "EXW"]),
+        })
+    return out
+
+def _gen_sap_purchase_orders(n: int = 16) -> List[Dict[str, Any]]:
+    random.seed(7)
+    vendors = [
+        ("VEND-KNS", "Kuehne+Nagel Services (Import Logistics)"),
+        ("VEND-MOTREX", "Motrex Co. Ltd — Drive Motors (KR)"),
+        ("VEND-BATTCO", "BattCo Industries — Battery Cells (DE)"),
+        ("VEND-PLASTIC", "Premier Polymers — Tank Bodies (US)"),
+        ("VEND-STEEL", "Midwest Steel Frame Co (US)"),
+        ("VEND-WIRING", "Yazaki Wiring Harness (JP)"),
+    ]
+    components = [
+        ("CMP-DCMOT-750W", "DC Drive Motor 750W"),
+        ("CMP-BATT-LI24V", "Li-ion Battery Module 24V 100Ah"),
+        ("CMP-TANK-50G", "Solution Tank 50 Gallon — Molded"),
+        ("CMP-FRAME-T16", "Chassis Frame Assy T16AMR"),
+        ("CMP-HARNESS-S30", "Wiring Harness S30 Master Assy"),
+        ("CMP-BRUSH-32", "Cylindrical Brush 32-inch"),
+    ]
+    plants = [("1010", "Golden Valley, MN"), ("1020", "Holland, MI"), ("1030", "Louisville, KY")]
+    statuses = ["Open", "Released", "Goods Issued", "In Transit", "Partial GR", "Closed"]
+    out = []
+    for i in range(n):
+        v = random.choice(vendors)
+        c = random.choice(components)
+        p = random.choice(plants)
+        qty = random.randint(40, 800)
+        unit_price = round(random.uniform(38, 1450), 2)
+        net = round(unit_price * qty, 2)
+        out.append({
+            "PurchaseOrder": f"PO-{4500000 + i}",
+            "Supplier": v[0],
+            "SupplierName": v[1],
+            "Material": c[0],
+            "MaterialDescription": c[1],
+            "OrderQuantity": qty,
+            "NetPriceAmount": unit_price,
+            "NetAmount": net,
+            "Currency": "USD",
+            "Plant": p[0],
+            "PlantName": p[1],
+            "CreationDate": (datetime.now(timezone.utc) - timedelta(days=random.randint(2, 30))).date().isoformat(),
+            "DeliveryDate": (datetime.now(timezone.utc) + timedelta(days=random.randint(5, 45))).date().isoformat(),
+            "OverallStatus": random.choice(statuses),
+            "IncoTerms": random.choice(["FCA", "DAP", "DDP"]),
+            "IsImport": v[0] == "VEND-KNS" or "(KR)" in v[1] or "(DE)" in v[1] or "(JP)" in v[1],
+        })
+    return out
+
+@api_router.get("/sap/config")
+async def sap_config(_: User = Depends(get_current_user)):
+    return SAP_MOCK_CONFIG
+
+@api_router.get("/sap/sales-orders")
+async def sap_sales_orders(_: User = Depends(get_current_user), plant: Optional[str] = None, status: Optional[str] = None):
+    orders = _gen_sap_sales_orders()
+    if plant: orders = [o for o in orders if o["Plant"] == plant]
+    if status: orders = [o for o in orders if o["OverallStatus"] == status]
+    return {"value": orders, "@odata.count": len(orders), "source": SAP_MOCK_CONFIG["host"] + SAP_MOCK_CONFIG["service"]}
+
+@api_router.get("/sap/purchase-orders")
+async def sap_purchase_orders(_: User = Depends(get_current_user), plant: Optional[str] = None, only_imports: bool = False):
+    orders = _gen_sap_purchase_orders()
+    if plant: orders = [o for o in orders if o["Plant"] == plant]
+    if only_imports: orders = [o for o in orders if o["IsImport"]]
+    return {"value": orders, "@odata.count": len(orders), "source": SAP_MOCK_CONFIG["host"] + "/sap/opu/odata/sap/API_PURCHASEORDER_PROCESS_SRV"}
+
+@api_router.post("/sap/sync")
+async def sap_sync(_: User = Depends(require_role("admin", "dispatcher"))):
+    """Simulate triggering an OData sync — records timestamp in db.sync_logs."""
+    sales = _gen_sap_sales_orders()
+    purch = _gen_sap_purchase_orders()
+    log = {
+        "log_id": f"SYNC-{uuid.uuid4().hex[:8].upper()}",
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "sales_count": len(sales),
+        "purchase_count": len(purch),
+        "duration_ms": random.randint(820, 1850),
+        "status": "success",
+    }
+    await db.sap_sync_logs.insert_one(dict(log))
+    return log
+
+@api_router.get("/sap/sync-logs")
+async def sap_sync_logs(_: User = Depends(get_current_user)):
+    docs = await db.sap_sync_logs.find({}, {"_id": 0}).sort("started_at", -1).limit(30).to_list(30)
     return docs
 
 # -------------------- SEED --------------------

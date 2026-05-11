@@ -3,26 +3,29 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Package, PlusSquare, FileText, MapPinned,
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
-  Receipt, ShieldCheck, Smartphone
+  Receipt, ShieldCheck, Smartphone, Users, Database
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
 
+// Each item declares which roles can see it. Admin always sees everything.
 const NAV = [
-  { to: "/dashboard", label: "Command Center", icon: LayoutDashboard, tid: "nav-dashboard" },
-  { to: "/shipments", label: "Shipments", icon: Package, tid: "nav-shipments" },
-  { to: "/book-load", label: "Book Load", icon: PlusSquare, tid: "nav-book-load" },
-  { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking" },
-  { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console" },
-  { to: "/freight-pay", label: "Freight Audit & Pay", icon: Receipt, tid: "nav-freight-pay" },
-  { to: "/carrier-onboarding", label: "Carrier Onboarding", icon: ShieldCheck, tid: "nav-carrier-onboarding" },
-  { to: "/documents", label: "Documents", icon: FileText, tid: "nav-documents" },
-  { to: "/hs-lookup", label: "HS Code Lookup", icon: Search, tid: "nav-hs-lookup" },
-  { to: "/trailers", label: "Trailer Specs", icon: Truck, tid: "nav-trailers" },
-  { to: "/integrations", label: "Integrations", icon: Plug, tid: "nav-integrations" },
-  { to: "/reports", label: "KPI Reports", icon: BarChart3, tid: "nav-reports" },
-  { to: "/chat", label: "Team Chat", icon: MessagesSquare, tid: "nav-chat" },
-  { to: "/links", label: "Quick Links", icon: ExternalLink, tid: "nav-links" },
+  { to: "/dashboard", label: "Command Center", icon: LayoutDashboard, tid: "nav-dashboard", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/shipments", label: "Shipments", icon: Package, tid: "nav-shipments", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/book-load", label: "Book Load", icon: PlusSquare, tid: "nav-book-load", roles: ["admin", "dispatcher"] },
+  { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console", roles: ["admin", "dispatcher"] },
+  { to: "/freight-pay", label: "Freight Audit & Pay", icon: Receipt, tid: "nav-freight-pay", roles: ["admin", "auditor"] },
+  { to: "/carrier-onboarding", label: "Carrier Onboarding", icon: ShieldCheck, tid: "nav-carrier-onboarding", roles: ["admin", "dispatcher"] },
+  { to: "/documents", label: "Documents", icon: FileText, tid: "nav-documents", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/hs-lookup", label: "HS Code Lookup", icon: Search, tid: "nav-hs-lookup", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/trailers", label: "Trailer Specs", icon: Truck, tid: "nav-trailers", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/integrations", label: "Integrations", icon: Plug, tid: "nav-integrations", roles: ["admin"] },
+  { to: "/sap-sync", label: "SAP S/4HANA", icon: Database, tid: "nav-sap-sync", roles: ["admin", "dispatcher"] },
+  { to: "/reports", label: "KPI Reports", icon: BarChart3, tid: "nav-reports", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/chat", label: "Team Chat", icon: MessagesSquare, tid: "nav-chat", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/links", label: "Quick Links", icon: ExternalLink, tid: "nav-links", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/admin/users", label: "Admin · Users", icon: Users, tid: "nav-admin-users", roles: ["admin"] },
 ];
 
 export default function Sidebar() {
@@ -40,7 +43,7 @@ export default function Sidebar() {
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <div className="text-[10px] font-mono text-slate-500 uppercase tracking-[0.2em] px-3 mb-2">Operations</div>
-        {NAV.map(({ to, label, icon: Icon, tid }) => (
+        {NAV.filter((n) => !n.roles || n.roles.includes(user?.role || "dispatcher")).map(({ to, label, icon: Icon, tid }) => (
           <NavLink
             key={to}
             to={to}
@@ -71,7 +74,7 @@ export default function Sidebar() {
             )}
             <div className="flex-1 min-w-0">
               <div className="text-sm text-white truncate" data-testid="sidebar-username">{user.name}</div>
-              <div className="text-[10px] font-mono text-slate-500 truncate">{user.email}</div>
+              <div className="text-[10px] font-mono text-cyan-400 truncate uppercase tracking-wider" data-testid="sidebar-role">{user.role}</div>
             </div>
             <button
               onClick={logout}
