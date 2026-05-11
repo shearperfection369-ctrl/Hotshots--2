@@ -49,7 +49,8 @@ class User(BaseModel):
     email: str
     name: str
     picture: Optional[str] = None
-    role: str = "dispatcher"  # admin | auditor | dispatcher | driver
+    role: str = "dispatcher"  # admin | auditor | dispatcher | driver | carrier
+    carrier_company: Optional[str] = None  # for role=carrier — scopes their visibility
 
 class Shipment(BaseModel):
     shipment_id: str
@@ -57,9 +58,9 @@ class Shipment(BaseModel):
     mode: str  # TL, LTL, Parcel, Ocean, Air, Rail
     carrier: str
     status: str  # in_transit, delayed, delivered, pending, at_origin, at_dest
-    origin: Dict[str, Any]   # { name, city, lat, lng, facility? }
+    origin: Dict[str, Any]
     destination: Dict[str, Any]
-    current_location: Dict[str, Any]  # { lat, lng, city }
+    current_location: Dict[str, Any]
     eta: str
     pickup_date: str
     weight_lbs: float
@@ -70,6 +71,43 @@ class Shipment(BaseModel):
     bol_no: Optional[str] = None
     pro_no: Optional[str] = None
     progress: float = 0.0
+    # Excel-aligned fields
+    direction: str = "outbound"  # outbound | inbound
+    hazmat: bool = False
+    hazmat_class: Optional[str] = None
+    supplier: Optional[str] = None
+    consignee: Optional[str] = None
+    ship_date: Optional[str] = None
+    ship_day: Optional[str] = None  # MON, TUE, WED, THR, FRI
+    skids: Optional[int] = None
+    material_controller: Optional[str] = None
+    po_numbers: Optional[str] = None
+    booking_number: Optional[str] = None
+    bid_cost: Optional[float] = None
+    fsc_pct: Optional[float] = None
+    extras: Optional[str] = None
+    done: bool = False
+    shipping_hours: Optional[str] = None
+    pickup_no: Optional[str] = None
+    # Accessorials & NMFC classification
+    liftgate_required: bool = False
+    pallet_count: Optional[int] = None
+    nmfc_code: Optional[str] = None
+    freight_class: Optional[str] = None  # 50, 55, 60, 65, 70, 77.5, 85, 92.5, 100, 110, 125, 150, 175, 200, 250, 300, 400, 500
+    accessorials: Optional[List[str]] = None  # e.g., ["liftgate", "residential", "inside_delivery"]
+    # Dimensions (inches) — used for LTL density / freight class
+    length_in: Optional[float] = None
+    width_in: Optional[float] = None
+    height_in: Optional[float] = None
+    # SAP S/4HANA linkage
+    sap_delivery_no: Optional[str] = None
+    sap_material_numbers: Optional[List[str]] = None
+    # Customer-facing
+    customer_contact_email: Optional[str] = None
+    carrier_contact_email: Optional[str] = None
+    # File references (GridFS ids)
+    carrier_bol_file_id: Optional[str] = None
+    carrier_bol_filename: Optional[str] = None
 
 class Document(BaseModel):
     document_id: str
@@ -216,20 +254,29 @@ async def get_facilities(_: User = Depends(get_current_user)):
 
 # -------------------- SHIPMENTS --------------------
 @api_router.get("/shipments", response_model=List[Shipment])
-async def list_shipments(_: User = Depends(get_current_user), mode: Optional[str] = None, status: Optional[str] = None, limit: int = 200):
+async def list_shipments(user: User = Depends(get_current_user), mode: Optional[str] = None, status: Optional[str] = None, direction: Optional[str] = None, hazmat: Optional[bool] = None, limit: int = 500):
     q: Dict[str, Any] = {}
     if mode:
         q["mode"] = mode
     if status:
         q["status"] = status
+    if direction:
+        q["direction"] = direction
+    if hazmat is not None:
+        q["hazmat"] = hazmat
+    # Scope: carriers only see their own loads
+    if user.role == "carrier" and user.carrier_company:
+        q["carrier"] = user.carrier_company
     docs = await db.shipments.find(q, {"_id": 0}).limit(limit).to_list(limit)
     return [Shipment(**d) for d in docs]
 
 @api_router.get("/shipments/{shipment_id}", response_model=Shipment)
-async def get_shipment(shipment_id: str, _: User = Depends(get_current_user)):
+async def get_shipment(shipment_id: str, user: User = Depends(get_current_user)):
     doc = await db.shipments.find_one({"shipment_id": shipment_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Shipment not found")
+    if user.role == "carrier" and user.carrier_company and doc.get("carrier") != user.carrier_company:
+        raise HTTPException(status_code=403, detail="Not your shipment")
     return Shipment(**doc)
 
 class ShipmentCreate(BaseModel):
@@ -246,6 +293,144 @@ class ShipmentCreate(BaseModel):
     pieces: int
     commodity: str
     value_usd: float
+    # Optional booking extras
+    liftgate_required: Optional[bool] = False
+    pallet_count: Optional[int] = None
+    nmfc_code: Optional[str] = None
+    freight_class: Optional[str] = None
+    accessorials: Optional[List[str]] = None
+    # Dimensions
+    length_in: Optional[float] = None
+    width_in: Optional[float] = None
+    height_in: Optional[float] = None
+    # SAP linkage (populated when "pull from SAP" is used)
+    sap_delivery_no: Optional[str] = None
+    sap_material_numbers: Optional[List[str]] = None
+    # Customer-facing
+    customer_contact_email: Optional[str] = None
+    carrier_contact_email: Optional[str] = None
+
+class ShipmentUpdate(BaseModel):
+    """All fields optional — only the keys present are applied."""
+    reference: Optional[str] = None
+    mode: Optional[str] = None
+    carrier: Optional[str] = None
+    status: Optional[str] = None
+    eta: Optional[str] = None
+    pickup_date: Optional[str] = None
+    ship_date: Optional[str] = None
+    ship_day: Optional[str] = None
+    weight_lbs: Optional[float] = None
+    pieces: Optional[int] = None
+    skids: Optional[int] = None
+    commodity: Optional[str] = None
+    value_usd: Optional[float] = None
+    container_no: Optional[str] = None
+    bol_no: Optional[str] = None
+    pro_no: Optional[str] = None
+    direction: Optional[str] = None
+    hazmat: Optional[bool] = None
+    hazmat_class: Optional[str] = None
+    supplier: Optional[str] = None
+    consignee: Optional[str] = None
+    material_controller: Optional[str] = None
+    po_numbers: Optional[str] = None
+    booking_number: Optional[str] = None
+    bid_cost: Optional[float] = None
+    fsc_pct: Optional[float] = None
+    extras: Optional[str] = None
+    done: Optional[bool] = None
+    shipping_hours: Optional[str] = None
+    pickup_no: Optional[str] = None
+    progress: Optional[float] = None
+    # Accessorials & NMFC classification
+    liftgate_required: Optional[bool] = None
+    pallet_count: Optional[int] = None
+    nmfc_code: Optional[str] = None
+    freight_class: Optional[str] = None
+    accessorials: Optional[List[str]] = None
+    # Dimensions
+    length_in: Optional[float] = None
+    width_in: Optional[float] = None
+    height_in: Optional[float] = None
+    sap_delivery_no: Optional[str] = None
+    customer_contact_email: Optional[str] = None
+    carrier_contact_email: Optional[str] = None
+    # Nested overrides
+    origin_city: Optional[str] = None
+    origin_facility: Optional[str] = None
+    destination_city: Optional[str] = None
+    destination_lat: Optional[float] = None
+    destination_lng: Optional[float] = None
+
+@api_router.put("/shipments/{shipment_id}", response_model=Shipment)
+async def update_shipment(shipment_id: str, payload: ShipmentUpdate, user: User = Depends(require_role("admin", "dispatcher"))):
+    existing = await db.shipments.find_one({"shipment_id": shipment_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    raw = payload.model_dump(exclude_unset=True)
+    updates: Dict[str, Any] = {}
+    # Nested origin/destination handling
+    if "origin_facility" in raw or "origin_city" in raw:
+        origin = dict(existing.get("origin") or {})
+        if raw.get("origin_facility"):
+            f = next((x for x in TENNANT_FACILITIES if x["id"] == raw["origin_facility"]), None)
+            if f:
+                origin = {"name": f["name"], "city": f["city"], "lat": f["lat"], "lng": f["lng"], "facility": f["id"]}
+        if raw.get("origin_city"):
+            origin["city"] = raw["origin_city"]
+            origin["name"] = raw["origin_city"]
+        updates["origin"] = origin
+    if any(k in raw for k in ("destination_city", "destination_lat", "destination_lng")):
+        dest = dict(existing.get("destination") or {})
+        if raw.get("destination_city"):
+            dest["city"] = raw["destination_city"]
+            dest["name"] = raw["destination_city"]
+        if raw.get("destination_lat") is not None:
+            dest["lat"] = raw["destination_lat"]
+        if raw.get("destination_lng") is not None:
+            dest["lng"] = raw["destination_lng"]
+        updates["destination"] = dest
+    # Status normalization
+    if raw.get("status") == "delivered" and "done" not in raw:
+        updates["done"] = True
+    # Flat fields
+    for k in ("reference", "mode", "carrier", "status", "eta", "pickup_date", "ship_date", "ship_day",
+              "weight_lbs", "pieces", "skids", "commodity", "value_usd", "container_no", "bol_no", "pro_no",
+              "direction", "hazmat", "hazmat_class", "supplier", "consignee", "material_controller",
+              "po_numbers", "booking_number", "bid_cost", "fsc_pct", "extras", "done", "shipping_hours",
+              "pickup_no", "progress", "liftgate_required", "pallet_count", "nmfc_code", "freight_class",
+              "accessorials", "length_in", "width_in", "height_in", "sap_delivery_no",
+              "customer_contact_email", "carrier_contact_email"):
+        if k in raw:
+            updates[k] = raw[k]
+    updates["updated_by"] = user.user_id
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.shipments.update_one({"shipment_id": shipment_id}, {"$set": updates})
+    fresh = await db.shipments.find_one({"shipment_id": shipment_id}, {"_id": 0})
+    return Shipment(**fresh)
+
+class ShipmentCancel(BaseModel):
+    reason: Optional[str] = None
+
+@api_router.delete("/shipments/{shipment_id}")
+async def cancel_shipment(shipment_id: str, payload: Optional[ShipmentCancel] = None, user: User = Depends(require_role("admin", "dispatcher"))):
+    """Soft delete — marks the shipment as cancelled. Does NOT remove the row."""
+    existing = await db.shipments.find_one({"shipment_id": shipment_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    reason = (payload.reason if payload else None) or "Cancelled by dispatcher"
+    await db.shipments.update_one(
+        {"shipment_id": shipment_id},
+        {"$set": {
+            "status": "cancelled",
+            "done": False,
+            "cancelled_at": datetime.now(timezone.utc).isoformat(),
+            "cancelled_by": user.user_id,
+            "cancel_reason": reason,
+        }},
+    )
+    return {"ok": True, "shipment_id": shipment_id, "status": "cancelled", "reason": reason}
 
 @api_router.post("/shipments", response_model=Shipment)
 async def create_shipment(payload: ShipmentCreate, user: User = Depends(get_current_user)):
@@ -278,6 +463,19 @@ async def create_shipment(payload: ShipmentCreate, user: User = Depends(get_curr
         "bol_no": f"BOL{random.randint(100000,999999)}",
         "pro_no": f"PRO{random.randint(100000,999999)}",
         "progress": 0.0,
+        "liftgate_required": bool(payload.liftgate_required),
+        "pallet_count": payload.pallet_count if payload.pallet_count is not None else payload.pieces,
+        "nmfc_code": payload.nmfc_code,
+        "freight_class": payload.freight_class,
+        "accessorials": payload.accessorials or ([] if not payload.liftgate_required else ["liftgate"]),
+        "skids": payload.pallet_count if payload.pallet_count is not None else payload.pieces,
+        "length_in": payload.length_in,
+        "width_in": payload.width_in,
+        "height_in": payload.height_in,
+        "sap_delivery_no": payload.sap_delivery_no,
+        "sap_material_numbers": payload.sap_material_numbers,
+        "customer_contact_email": payload.customer_contact_email,
+        "carrier_contact_email": payload.carrier_contact_email,
         "created_by": user.user_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -361,6 +559,88 @@ async def get_kpis(_: User = Depends(get_current_user)):
         "trend": trend,
     }
 
+# -------------------- KPIs · Weekly Weights --------------------
+def _facility_for_shipment(s: Dict[str, Any]) -> Optional[str]:
+    """Return facility id (GVM/HOM/LVK) tied to a shipment.
+    Outbound -> origin.facility; Inbound -> destination.facility."""
+    if s.get("direction") == "inbound":
+        return (s.get("destination") or {}).get("facility")
+    return (s.get("origin") or {}).get("facility")
+
+@api_router.get("/kpis/weekly-weights")
+async def get_weekly_weights(_: User = Depends(get_current_user)):
+    """Weekly average shipped weight per facility (GVM, HOM, LVK) over the past 12 ISO weeks.
+    Returns:
+      {
+        "series": [{ "week": "2026-W18", "GVM": float, "HOM": float, "LVK": float }, ...]   # 12 oldest -> newest
+        "summary": {
+          "GVM": { current_week_avg_lbs, twelve_wk_avg_lbs, wow_delta_lbs, twelve_wk_total_lbs },
+          ...
+        }
+      }
+    """
+    today = datetime.now(timezone.utc).date()
+    # Build the 12 most recent ISO week keys (oldest -> newest)
+    week_keys: List[str] = []
+    week_starts: List[datetime] = []
+    for i in range(11, -1, -1):
+        ref = today - timedelta(weeks=i)
+        iso_year, iso_week, _ = ref.isocalendar()
+        key = f"{iso_year}-W{iso_week:02d}"
+        if key not in week_keys:
+            week_keys.append(key)
+            week_starts.append(datetime.combine(ref, datetime.min.time(), tzinfo=timezone.utc))
+
+    facilities = ["GVM", "HOM", "LVK"]
+    # week_key -> facility -> [weights]
+    buckets: Dict[str, Dict[str, List[float]]] = {wk: {f: [] for f in facilities} for wk in week_keys}
+
+    all_shipments = await db.shipments.find({}, {"_id": 0}).to_list(5000)
+    for s in all_shipments:
+        if s.get("status") == "cancelled":
+            continue
+        fac = _facility_for_shipment(s)
+        if fac not in facilities:
+            continue
+        date_str = s.get("ship_date") or s.get("pickup_date")
+        if not date_str:
+            continue
+        try:
+            d = datetime.fromisoformat(date_str.replace("Z", "+00:00")).date() if "T" in date_str else datetime.strptime(date_str[:10], "%Y-%m-%d").date()
+        except Exception:
+            continue
+        iso_year, iso_week, _ = d.isocalendar()
+        key = f"{iso_year}-W{iso_week:02d}"
+        if key in buckets:
+            try:
+                buckets[key][fac].append(float(s.get("weight_lbs") or 0))
+            except (TypeError, ValueError):
+                continue
+
+    series: List[Dict[str, Any]] = []
+    for wk in week_keys:
+        row: Dict[str, Any] = {"week": wk}
+        for f in facilities:
+            arr = buckets[wk][f]
+            row[f] = round(sum(arr) / len(arr), 0) if arr else 0
+        series.append(row)
+
+    summary: Dict[str, Dict[str, float]] = {}
+    for f in facilities:
+        all_weights: List[float] = []
+        for wk in week_keys:
+            all_weights.extend(buckets[wk][f])
+        current_avg = series[-1][f]
+        prev_avg = series[-2][f] if len(series) >= 2 else 0
+        summary[f] = {
+            "current_week_avg_lbs": float(current_avg),
+            "twelve_wk_avg_lbs": round(sum(all_weights) / len(all_weights), 0) if all_weights else 0.0,
+            "wow_delta_lbs": float(current_avg) - float(prev_avg),
+            "twelve_wk_total_lbs": round(sum(all_weights), 0),
+            "shipment_count": len(all_weights),
+        }
+    return {"series": series, "summary": summary}
+
 # -------------------- LIVE FEEDS --------------------
 @api_router.get("/weather")
 async def get_weather(_: User = Depends(get_current_user)):
@@ -442,6 +722,202 @@ INTEGRATIONS = [
 @api_router.get("/integrations")
 async def get_integrations(_: User = Depends(get_current_user)):
     return INTEGRATIONS
+
+# -------------------- CARRIER RATES & FSC --------------------
+CARRIER_RATES = [
+    # TL lanes — base rate per mile + min charge + fuel surcharge
+    {"lane_id": "GVM-DAL-TL", "mode": "TL", "origin": "Golden Valley, MN", "destination": "Dallas, TX", "miles": 970,
+     "carriers": [
+         {"carrier": "XPO Logistics", "scac": "XPOL", "base_rate": 2150.00, "rate_per_mile": 2.22, "fsc_pct": 28.5, "min_charge": 1200, "transit_days": 3, "fak": "85"},
+         {"carrier": "ArcBest", "scac": "ABFS", "base_rate": 2280.00, "rate_per_mile": 2.35, "fsc_pct": 27.2, "min_charge": 1200, "transit_days": 3, "fak": "85"},
+         {"carrier": "Schneider", "scac": "SNDR", "base_rate": 2090.00, "rate_per_mile": 2.15, "fsc_pct": 29.0, "min_charge": 1200, "transit_days": 3, "fak": "85"},
+         {"carrier": "J.B. Hunt", "scac": "JBHT", "base_rate": 2210.00, "rate_per_mile": 2.28, "fsc_pct": 28.0, "min_charge": 1200, "transit_days": 3, "fak": "85"},
+     ]},
+    {"lane_id": "HOM-ATL-TL", "mode": "TL", "origin": "Holland, MI", "destination": "Atlanta, GA", "miles": 820,
+     "carriers": [
+         {"carrier": "XPO Logistics", "scac": "XPOL", "base_rate": 1980.00, "rate_per_mile": 2.41, "fsc_pct": 27.8, "min_charge": 1200, "transit_days": 2, "fak": "85"},
+         {"carrier": "ArcBest", "scac": "ABFS", "base_rate": 2050.00, "rate_per_mile": 2.50, "fsc_pct": 27.0, "min_charge": 1200, "transit_days": 2, "fak": "85"},
+         {"carrier": "Schneider", "scac": "SNDR", "base_rate": 1920.00, "rate_per_mile": 2.34, "fsc_pct": 28.5, "min_charge": 1200, "transit_days": 2, "fak": "85"},
+         {"carrier": "J.B. Hunt", "scac": "JBHT", "base_rate": 2010.00, "rate_per_mile": 2.45, "fsc_pct": 28.2, "min_charge": 1200, "transit_days": 2, "fak": "85"},
+     ]},
+    {"lane_id": "LVK-PHX-TL", "mode": "TL", "origin": "Louisville, KY", "destination": "Phoenix, AZ", "miles": 1810,
+     "carriers": [
+         {"carrier": "XPO Logistics", "scac": "XPOL", "base_rate": 3680.00, "rate_per_mile": 2.03, "fsc_pct": 29.2, "min_charge": 1500, "transit_days": 4, "fak": "85"},
+         {"carrier": "ArcBest", "scac": "ABFS", "base_rate": 3920.00, "rate_per_mile": 2.17, "fsc_pct": 28.0, "min_charge": 1500, "transit_days": 4, "fak": "85"},
+         {"carrier": "Schneider", "scac": "SNDR", "base_rate": 3540.00, "rate_per_mile": 1.96, "fsc_pct": 29.8, "min_charge": 1500, "transit_days": 4, "fak": "85"},
+         {"carrier": "J.B. Hunt", "scac": "JBHT", "base_rate": 3780.00, "rate_per_mile": 2.09, "fsc_pct": 28.8, "min_charge": 1500, "transit_days": 4, "fak": "85"},
+     ]},
+    # LTL lanes — rates per 100 lbs (CWT)
+    {"lane_id": "HOM-DAL-LTL", "mode": "LTL", "origin": "Holland, MI", "destination": "Dallas, TX", "miles": 1130,
+     "carriers": [
+         {"carrier": "SAIA", "scac": "SAIA", "base_rate": 720.00, "rate_per_cwt": 18.50, "fsc_pct": 31.5, "min_charge": 145, "transit_days": 4, "fak": "85"},
+         {"carrier": "R&L Carriers", "scac": "RLCA", "base_rate": 685.00, "rate_per_cwt": 17.20, "fsc_pct": 32.0, "min_charge": 125, "transit_days": 4, "fak": "85"},
+         {"carrier": "ArcBest", "scac": "ABFS", "base_rate": 745.00, "rate_per_cwt": 19.10, "fsc_pct": 30.8, "min_charge": 150, "transit_days": 4, "fak": "85"},
+         {"carrier": "XPO Logistics", "scac": "XPOL", "base_rate": 760.00, "rate_per_cwt": 19.50, "fsc_pct": 31.0, "min_charge": 155, "transit_days": 5, "fak": "85"},
+         {"carrier": "Consolidated Fastfrate", "scac": "CFAT", "base_rate": 705.00, "rate_per_cwt": 18.05, "fsc_pct": 32.5, "min_charge": 140, "transit_days": 5, "fak": "85"},
+     ]},
+    {"lane_id": "GVM-SEA-LTL", "mode": "LTL", "origin": "Golden Valley, MN", "destination": "Seattle, WA", "miles": 1670,
+     "carriers": [
+         {"carrier": "SAIA", "scac": "SAIA", "base_rate": 1180.00, "rate_per_cwt": 22.40, "fsc_pct": 32.5, "min_charge": 165, "transit_days": 5, "fak": "85"},
+         {"carrier": "R&L Carriers", "scac": "RLCA", "base_rate": 1095.00, "rate_per_cwt": 20.80, "fsc_pct": 33.0, "min_charge": 140, "transit_days": 5, "fak": "85"},
+         {"carrier": "XPO Logistics", "scac": "XPOL", "base_rate": 1245.00, "rate_per_cwt": 23.20, "fsc_pct": 31.8, "min_charge": 170, "transit_days": 6, "fak": "85"},
+         {"carrier": "ArcBest", "scac": "ABFS", "base_rate": 1220.00, "rate_per_cwt": 22.95, "fsc_pct": 32.0, "min_charge": 165, "transit_days": 5, "fak": "85"},
+     ]},
+    # Parcel — flat per-package + fuel surcharge
+    {"lane_id": "GVM-DOMESTIC-PARCEL", "mode": "Parcel", "origin": "Golden Valley, MN", "destination": "U.S. Domestic Avg.", "miles": 0,
+     "carriers": [
+         {"carrier": "UPS", "scac": "UPSN", "base_rate": 18.40, "rate_per_lb": 1.85, "fsc_pct": 18.5, "min_charge": 12.00, "transit_days": 3, "fak": "Ground"},
+         {"carrier": "FedEx", "scac": "FXFE", "base_rate": 19.10, "rate_per_lb": 1.92, "fsc_pct": 18.0, "min_charge": 12.50, "transit_days": 3, "fak": "Ground"},
+         {"carrier": "DHL Express", "scac": "DHLC", "base_rate": 24.80, "rate_per_lb": 2.20, "fsc_pct": 22.5, "min_charge": 18.00, "transit_days": 2, "fak": "Express"},
+     ]},
+    # Ocean — per container
+    {"lane_id": "POL-SHA-OCEAN", "mode": "Ocean", "origin": "Long Beach, CA", "destination": "Shanghai, CN", "miles": 6500,
+     "carriers": [
+         {"carrier": "Kuehne+Nagel", "scac": "KNAA", "base_rate": 3850.00, "rate_per_container": 3850.00, "fsc_pct": 12.0, "min_charge": 3850, "transit_days": 16, "fak": "40HC"},
+         {"carrier": "Maersk", "scac": "MAEU", "base_rate": 3680.00, "rate_per_container": 3680.00, "fsc_pct": 12.5, "min_charge": 3680, "transit_days": 17, "fak": "40HC"},
+         {"carrier": "MSC", "scac": "MSCU", "base_rate": 3740.00, "rate_per_container": 3740.00, "fsc_pct": 13.0, "min_charge": 3740, "transit_days": 18, "fak": "40HC"},
+     ]},
+    # Inbound from Korea
+    {"lane_id": "BUS-LVK-OCEAN", "mode": "Ocean", "origin": "Busan, KR", "destination": "Louisville, KY (via LA)", "miles": 6200,
+     "carriers": [
+         {"carrier": "Kuehne+Nagel", "scac": "KNAA", "base_rate": 4180.00, "rate_per_container": 4180.00, "fsc_pct": 13.5, "min_charge": 4180, "transit_days": 22, "fak": "40HC"},
+         {"carrier": "Maersk", "scac": "MAEU", "base_rate": 4020.00, "rate_per_container": 4020.00, "fsc_pct": 14.0, "min_charge": 4020, "transit_days": 24, "fak": "40HC"},
+     ]},
+]
+
+@api_router.get("/carrier-rates")
+async def get_carrier_rates(_: User = Depends(get_current_user), mode: Optional[str] = None):
+    if mode:
+        return [l for l in CARRIER_RATES if l["mode"] == mode]
+    return CARRIER_RATES
+
+@api_router.get("/carrier-rates/fsc")
+async def get_fsc_index(_: User = Depends(get_current_user)):
+    """Returns the current fuel surcharge index per carrier (national diesel + carrier matrix)."""
+    return {
+        "doe_diesel_avg_per_gallon": 3.84,
+        "doe_week": "2026-05-11",
+        "fsc_table": [
+            {"carrier": "XPO Logistics", "scac": "XPOL", "current_fsc_pct": 28.5, "trend": "flat", "week_change_pct": 0.0},
+            {"carrier": "ArcBest", "scac": "ABFS", "current_fsc_pct": 27.2, "trend": "down", "week_change_pct": -0.3},
+            {"carrier": "Schneider", "scac": "SNDR", "current_fsc_pct": 29.0, "trend": "up", "week_change_pct": 0.5},
+            {"carrier": "J.B. Hunt", "scac": "JBHT", "current_fsc_pct": 28.0, "trend": "flat", "week_change_pct": 0.0},
+            {"carrier": "SAIA", "scac": "SAIA", "current_fsc_pct": 31.5, "trend": "up", "week_change_pct": 0.2},
+            {"carrier": "R&L Carriers", "scac": "RLCA", "current_fsc_pct": 32.0, "trend": "down", "week_change_pct": -0.4},
+            {"carrier": "UPS", "scac": "UPSN", "current_fsc_pct": 18.5, "trend": "flat", "week_change_pct": 0.0},
+            {"carrier": "FedEx", "scac": "FXFE", "current_fsc_pct": 18.0, "trend": "up", "week_change_pct": 0.25},
+            {"carrier": "DHL Express", "scac": "DHLC", "current_fsc_pct": 22.5, "trend": "up", "week_change_pct": 0.5},
+            {"carrier": "Kuehne+Nagel", "scac": "KNAA", "current_fsc_pct": 12.5, "trend": "flat", "week_change_pct": 0.0},
+            {"carrier": "Consolidated Fastfrate", "scac": "CFAT", "current_fsc_pct": 32.5, "trend": "down", "week_change_pct": -0.2},
+        ],
+    }
+
+# -------------------- MUSIC (Radio Browser proxy + curated genres) --------------------
+RADIO_BROWSER_BASE = "https://de1.api.radio-browser.info"
+
+MUSIC_GENRES = [
+    {"id": "lofi", "label": "Lo-Fi / Focus", "tag": "lofi", "icon": "🎧"},
+    {"id": "jazz", "label": "Jazz", "tag": "jazz", "icon": "🎷"},
+    {"id": "classical", "label": "Classical", "tag": "classical", "icon": "🎻"},
+    {"id": "ambient", "label": "Ambient", "tag": "ambient", "icon": "🌊"},
+    {"id": "electronic", "label": "Electronic", "tag": "electronic", "icon": "⚡"},
+    {"id": "house", "label": "House", "tag": "house", "icon": "🏠"},
+    {"id": "pop", "label": "Pop", "tag": "pop", "icon": "✨"},
+    {"id": "rock", "label": "Rock", "tag": "rock", "icon": "🎸"},
+    {"id": "indie", "label": "Indie", "tag": "indie", "icon": "🎤"},
+    {"id": "country", "label": "Country", "tag": "country", "icon": "🤠"},
+    {"id": "blues", "label": "Blues", "tag": "blues", "icon": "🎺"},
+    {"id": "folk", "label": "Folk", "tag": "folk", "icon": "🪕"},
+    {"id": "reggae", "label": "Reggae", "tag": "reggae", "icon": "🌴"},
+    {"id": "latin", "label": "Latin", "tag": "latin", "icon": "💃"},
+    {"id": "soundtrack", "label": "Soundtrack", "tag": "soundtrack", "icon": "🎬"},
+    {"id": "world", "label": "World", "tag": "world", "icon": "🌍"},
+    {"id": "instrumental", "label": "Instrumental", "tag": "instrumental", "icon": "🎼"},
+    {"id": "chillout", "label": "Chillout", "tag": "chillout", "icon": "🧘"},
+    {"id": "acoustic", "label": "Acoustic", "tag": "acoustic", "icon": "🪗"},
+    {"id": "smooth-jazz", "label": "Smooth Jazz", "tag": "smooth jazz", "icon": "🎶"},
+]
+
+@api_router.get("/music/genres")
+async def music_genres(_: User = Depends(get_current_user)):
+    return MUSIC_GENRES
+
+@api_router.get("/music/stations")
+async def music_stations(
+    _: User = Depends(get_current_user),
+    genre: Optional[str] = None,
+    q: Optional[str] = None,
+    country: Optional[str] = None,
+    limit: int = 60,
+):
+    """Search work-appropriate radio stations via Radio Browser. Filters out explicit/talk content."""
+    params: Dict[str, Any] = {
+        "limit": limit,
+        "hidebroken": "true",
+        "order": "clickcount",
+        "reverse": "true",
+    }
+    # Build search params
+    if genre:
+        # Find genre tag from our list
+        g = next((x for x in MUSIC_GENRES if x["id"] == genre), None)
+        if g:
+            params["tag"] = g["tag"]
+    if q:
+        params["name"] = q
+    if country:
+        params["countrycode"] = country
+
+    try:
+        async with httpx.AsyncClient(timeout=12.0) as http:
+            url = f"{RADIO_BROWSER_BASE}/json/stations/search"
+            r = await http.get(url, params=params, headers={"User-Agent": "TennantTMS/1.0"})
+            stations = r.json()
+    except Exception as e:
+        logger.warning(f"Radio Browser fetch failed: {e}")
+        return []
+
+    # Filter to work-appropriate: skip stations whose name/tags contain explicit/talk markers
+    BLOCKLIST = ["explicit", "talk", "news talk", "religion", "religious", "sermons", "preacher", "rap explicit"]
+    out = []
+    for s in stations:
+        name = (s.get("name") or "").lower()
+        tags = (s.get("tags") or "").lower()
+        if any(b in name or b in tags for b in BLOCKLIST):
+            continue
+        url_stream = s.get("url_resolved") or s.get("url")
+        if not url_stream:
+            continue
+        out.append({
+            "id": s.get("stationuuid"),
+            "name": s.get("name", "").strip(),
+            "url": url_stream,
+            "homepage": s.get("homepage"),
+            "favicon": s.get("favicon"),
+            "country": s.get("country"),
+            "countrycode": s.get("countrycode"),
+            "tags": s.get("tags", "").split(",")[:5],
+            "bitrate": s.get("bitrate", 0),
+            "codec": s.get("codec"),
+            "language": s.get("language"),
+            "clickcount": s.get("clickcount", 0),
+            "votes": s.get("votes", 0),
+        })
+    return out
+
+@api_router.post("/music/click")
+async def music_click(request: Request, _: User = Depends(get_current_user)):
+    """Report a click-through to the source for analytics-friendly use."""
+    body = await request.json()
+    station_id = body.get("station_id")
+    if not station_id:
+        return {"ok": False}
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as http:
+            await http.get(f"{RADIO_BROWSER_BASE}/json/url/{station_id}", headers={"User-Agent": "TennantTMS/1.0"})
+    except Exception:
+        pass
+    return {"ok": True}
 
 # -------------------- TRAILER SPECS --------------------
 TRAILER_SPECS = [
@@ -1770,14 +2246,31 @@ async def seed_data(force: bool = False):
     ]
     statuses = ["in_transit", "in_transit", "in_transit", "delayed", "delivered", "delivered", "pending", "at_origin"]
 
+    # Inbound seed pool (matches the supplier XLSX columns)
+    suppliers = [
+        ("Monahan Filaments", "USA", "Brushes & filaments"),
+        ("Trojan Battery — CA", "USA", "Lead-acid batteries"),
+        ("Trojan Battery — GA", "USA", "Lead-acid batteries"),
+        ("East Penn Manufacturing", "USA", "Lead-acid batteries"),
+        ("Amer Electric Motion", "USA", "DC drive motors"),
+        ("Motrex Co. Ltd", "South Korea", "DC drive motors"),
+        ("BattCo Industries GmbH", "Germany", "Li-ion battery cells"),
+        ("Yazaki Wiring Harness", "Japan", "Wiring harnesses"),
+        ("Premier Polymers", "USA", "Solution tanks"),
+        ("Midwest Steel Frame Co", "USA", "Chassis frames"),
+    ]
+    material_controllers = ["Katherine Markley", "Tim Strube", "Devon Marquez", "Priya Iyer"]
+    inbound_carriers = ["RYNK", "XPO Logistics", "SAIA", "ArcBest", "R&L Carriers", "Schneider", "FedEx Freight", "Kuehne+Nagel"]
+    days_map = ["MON", "TUE", "WED", "THR", "FRI"]
+
     shipments = []
-    for i in range(48):
+    # 32 outbound (existing pattern, slightly slimmer)
+    for i in range(32):
         mode = random.choice(["TL", "LTL", "Parcel", "Ocean", "Air", "Rail", "LTL", "TL"])
         carrier = random.choice(carriers_by_mode[mode])
         origin_facility = random.choice(TENNANT_FACILITIES)
         dest = random.choice(destinations)
         status = random.choice(statuses)
-        # Compute current location based on status / progress
         if status in ("pending", "at_origin"):
             progress = 0.0
             cur = {"lat": origin_facility["lat"], "lng": origin_facility["lng"], "city": origin_facility["city"]}
@@ -1794,29 +2287,95 @@ async def seed_data(force: bool = False):
         sid = f"SHP-{uuid.uuid4().hex[:8].upper()}"
         pickup = datetime.now(timezone.utc) - timedelta(days=random.randint(0, 10))
         eta = pickup + timedelta(days=random.randint(2, 16))
+        is_haz = random.random() < 0.18  # ~18% hazmat
+        haz_class = random.choice(["Class 9 (Li-ion)", "Class 8 (Corrosive)", "Class 3 (Flammable)"]) if is_haz else None
+        bid_cost = round(random.uniform(420, 4200), 2)
         shipments.append({
             "shipment_id": sid,
             "reference": f"TN-{random.randint(10000, 99999)}",
-            "mode": mode,
-            "carrier": carrier,
-            "status": status,
-            "origin": {
-                "name": origin_facility["name"], "city": origin_facility["city"],
-                "lat": origin_facility["lat"], "lng": origin_facility["lng"],
-                "facility": origin_facility["id"],
-            },
+            "mode": mode, "carrier": carrier, "status": status,
+            "origin": {"name": origin_facility["name"], "city": origin_facility["city"], "lat": origin_facility["lat"], "lng": origin_facility["lng"], "facility": origin_facility["id"]},
             "destination": {"name": dest["city"], "city": dest["city"], "lat": dest["lat"], "lng": dest["lng"]},
             "current_location": cur,
-            "eta": eta.isoformat(),
-            "pickup_date": pickup.date().isoformat(),
+            "eta": eta.isoformat(), "pickup_date": pickup.date().isoformat(),
             "weight_lbs": round(random.uniform(800, 42000), 0),
-            "pieces": random.randint(1, 26),
-            "commodity": random.choice(commodities),
+            "pieces": random.randint(1, 26), "commodity": random.choice(commodities),
             "value_usd": round(random.uniform(2500, 285000), 2),
             "container_no": f"TCLU{random.randint(1000000,9999999)}" if mode == "Ocean" else None,
-            "bol_no": f"BOL{random.randint(100000,999999)}",
-            "pro_no": f"PRO{random.randint(100000,999999)}",
+            "bol_no": f"BOL{random.randint(100000,999999)}", "pro_no": f"PRO{random.randint(5980000, 6010000)}",
             "progress": progress,
+            "direction": "outbound", "hazmat": is_haz, "hazmat_class": haz_class,
+            "supplier": None, "consignee": None,
+            "ship_date": pickup.date().isoformat(),
+            "ship_day": days_map[pickup.weekday()] if pickup.weekday() < 5 else "MON",
+            "skids": random.randint(1, 26), "material_controller": random.choice(material_controllers),
+            "po_numbers": None,
+            "booking_number": f"PRO {random.randint(5980000, 6010000)}",
+            "bid_cost": bid_cost, "fsc_pct": round(random.uniform(18, 32), 1),
+            "extras": "plus FSC" if random.random() < 0.3 else None,
+            "done": status == "delivered", "shipping_hours": "0700-1500" if mode in ("TL", "LTL") else None,
+            "pickup_no": f"SFS{random.randint(79000, 79999)}" if random.random() < 0.4 else None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+    # 16 inbound shipments — supplier → Tennant facility (matches uploaded screenshot)
+    for i in range(16):
+        sup = random.choice(suppliers)
+        plant = random.choice(TENNANT_FACILITIES)
+        plant_short = {"GVM": "Tennant - GV", "HOM": "Tennant - HO", "LVK": "Tennant - LV"}[plant["id"]]
+        carrier = random.choice(inbound_carriers)
+        # Origin city depends on supplier country
+        if "Korea" in sup[1] or "Japan" in sup[1] or "Germany" in sup[1]:
+            origin_city, lat, lng = {"South Korea": ("Busan, KR", 35.18, 129.07), "Japan": ("Yokohama, JP", 35.44, 139.64), "Germany": ("Hamburg, DE", 53.55, 9.99)}[sup[1]]
+            mode = "Ocean"
+        else:
+            origin_choice = random.choice([("Atlanta, GA", 33.75, -84.39), ("Reading, PA", 40.34, -75.93), ("Phoenix, AZ", 33.45, -112.07), ("Dallas, TX", 32.78, -96.80), ("Charlotte, NC", 35.23, -80.84)])
+            origin_city, lat, lng = origin_choice
+            mode = random.choice(["TL", "LTL", "LTL"])
+        status = random.choice(["in_transit", "in_transit", "delivered", "pending", "at_origin"])
+        progress = 0.5 if status == "in_transit" else (1.0 if status == "delivered" else 0.0)
+        ship_dt = datetime.now(timezone.utc) - timedelta(days=random.randint(0, 14))
+        eta = ship_dt + timedelta(days=random.randint(3, 18))
+        is_haz = "Battery" in sup[0] or "Trojan" in sup[0] or "Penn" in sup[0] or "BattCo" in sup[0]
+        haz_class = "Class 8 (Lead-acid)" if "Trojan" in sup[0] or "Penn" in sup[0] else ("Class 9 (Li-ion)" if "BattCo" in sup[0] else ("Class 9 (Li-ion)" if is_haz else None))
+        sid = f"SHP-IN-{uuid.uuid4().hex[:6].upper()}"
+        skids = random.randint(7, 26)
+        weight = round(random.uniform(15000, 40000), 0)
+        pos = [f"4500{random.randint(20000, 29999)}" for _ in range(random.randint(1, 4))]
+        # Spread current_location along route
+        cur = {
+            "lat": lat + (plant["lat"] - lat) * progress,
+            "lng": lng + (plant["lng"] - lng) * progress,
+            "city": origin_city if progress == 0 else (plant["city"] if progress == 1 else "En route"),
+        }
+        shipments.append({
+            "shipment_id": sid,
+            "reference": f"IN-{random.randint(10000, 99999)}",
+            "mode": mode, "carrier": carrier, "status": status,
+            "origin": {"name": sup[0], "city": origin_city, "lat": lat, "lng": lng},
+            "destination": {"name": plant["name"], "city": plant["city"], "lat": plant["lat"], "lng": plant["lng"], "facility": plant["id"]},
+            "current_location": cur,
+            "eta": eta.isoformat(), "pickup_date": ship_dt.date().isoformat(),
+            "weight_lbs": weight,
+            "pieces": skids, "commodity": sup[2],
+            "value_usd": round(random.uniform(8500, 145000), 2),
+            "container_no": f"KKFU{random.randint(1000000,9999999)}" if mode == "Ocean" else None,
+            "bol_no": f"BOL{random.randint(100000,999999)}",
+            "pro_no": f"PRO {random.randint(5980000, 6010000)}",
+            "progress": progress,
+            "direction": "inbound", "hazmat": is_haz, "hazmat_class": haz_class,
+            "supplier": sup[0], "consignee": plant_short,
+            "ship_date": ship_dt.date().isoformat(),
+            "ship_day": days_map[ship_dt.weekday()] if ship_dt.weekday() < 5 else "MON",
+            "skids": skids, "material_controller": random.choice(material_controllers),
+            "po_numbers": "po#" + "_".join(pos),
+            "booking_number": f"PRO {random.randint(5980000, 6010000)}",
+            "bid_cost": round(random.uniform(680, 3200), 2),
+            "fsc_pct": round(random.uniform(20, 34), 1),
+            "extras": random.choice([None, "plus FSC", "plus FSC + Liftgate"]),
+            "done": status == "delivered",
+            "shipping_hours": "0700-1500",
+            "pickup_no": f"SFS{random.randint(79000, 79999)}" if random.random() < 0.5 else None,
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
     await db.shipments.insert_many([dict(s) for s in shipments])
@@ -1926,7 +2485,1819 @@ async def seed_data(force: bool = False):
         })
     await db.carrier_onboarding.insert_many([dict(o) for o in onboarding_docs])
 
-    return {"ok": True, "shipments": len(shipments), "documents": len(docs), "messages": len(chat_docs), "bills": len(bills), "onboardings": len(onboarding_docs)}
+    # Seed Claims (idempotent — only if collection empty)
+    claim_count = await db.claims.count_documents({})
+    claims_seeded = 0
+    if claim_count == 0 and shipments:
+        sample = random.sample(shipments, min(8, len(shipments)))
+        claim_types_seed = ["damage", "shortage", "loss", "freight_overcharge", "damage", "freight_overcharge", "shortage", "damage"]
+        statuses_seed = ["settled", "filed", "open", "acknowledged", "denied", "partial", "settled", "open"]
+        claim_seeds = []
+        for s, ct, st in zip(sample, claim_types_seed, statuses_seed):
+            claimed = round(random.uniform(450, 8500), 2)
+            recovered = 0.0
+            if st == "settled":
+                recovered = claimed
+            elif st == "partial":
+                recovered = round(claimed * random.uniform(0.4, 0.85), 2)
+            claim_seeds.append({
+                "claim_id": f"CLM-{uuid.uuid4().hex[:8].upper()}",
+                "shipment_id": s["shipment_id"],
+                "carrier": s["carrier"],
+                "bol_no": s.get("bol_no"),
+                "claim_type": ct,
+                "amount_claimed_usd": claimed,
+                "amount_recovered_usd": recovered,
+                "status": st,
+                "filed_date": (datetime.now(timezone.utc) - timedelta(days=random.randint(1, 60))).date().isoformat(),
+                "incident_date": s.get("ship_date") or s.get("pickup_date"),
+                "description": {
+                    "damage": "Two skids crushed — forklift damage at delivery",
+                    "shortage": "1 of 4 skids missing on delivery",
+                    "loss": "Cargo not delivered — last GPS ping 96h ago",
+                    "freight_overcharge": "Accessorial billed but not authorized",
+                    "overage": "Extra pallets received beyond manifest",
+                }.get(ct, "Exception filed"),
+                "created_by": "seed",
+                "notes": "",
+            })
+            claims_seeded += 1
+        if claim_seeds:
+            await db.claims.insert_many(claim_seeds)
+
+    return {"ok": True, "shipments": len(shipments), "documents": len(docs), "messages": len(chat_docs), "bills": len(bills), "onboardings": len(onboarding_docs), "claims": claims_seeded}
+
+# -------------------- NMFC REFERENCE (Tennant products) --------------------
+# Curated NMFC codes most relevant to Tennant industrial cleaning products & inbound components.
+# Source: NMFTA NMFC + standard LTL freight classes. Class is density/value/handling-based.
+TENNANT_NMFC_CODES = [
+    {"nmfc": "105820", "description": "Floor maintenance machines (scrubbers, sweepers, polishers)", "freight_class": "85", "category": "Finished Goods"},
+    {"nmfc": "105823", "description": "Vacuum cleaners, industrial (electric/battery)", "freight_class": "92.5", "category": "Finished Goods"},
+    {"nmfc": "105825", "description": "Carpet extractors / shampoo machines", "freight_class": "100", "category": "Finished Goods"},
+    {"nmfc": "60590-2", "description": "Batteries, electric storage, lead-acid (wet/AGM)", "freight_class": "60", "category": "Hazmat · Class 8"},
+    {"nmfc": "60585", "description": "Batteries, lithium-ion, packaged with equipment", "freight_class": "92.5", "category": "Hazmat · Class 9"},
+    {"nmfc": "60600", "description": "Battery chargers, electric", "freight_class": "85", "category": "Electrical"},
+    {"nmfc": "133300", "description": "Motors, electric, AC/DC, NOI", "freight_class": "85", "category": "Components"},
+    {"nmfc": "133420", "description": "Motors, electric, hermetically sealed", "freight_class": "70", "category": "Components"},
+    {"nmfc": "16030", "description": "Brushes, machine, rotary", "freight_class": "150", "category": "Consumables"},
+    {"nmfc": "16035", "description": "Brushes, sweeping, cylindrical", "freight_class": "175", "category": "Consumables"},
+    {"nmfc": "156600", "description": "Plastic articles, solution tanks (HDPE)", "freight_class": "150", "category": "Components"},
+    {"nmfc": "156605", "description": "Plastic articles, recovery tanks", "freight_class": "175", "category": "Components"},
+    {"nmfc": "44970", "description": "Frames, steel, machinery, welded", "freight_class": "70", "category": "Components"},
+    {"nmfc": "44890", "description": "Castings, iron or steel, machinery parts", "freight_class": "70", "category": "Components"},
+    {"nmfc": "70030", "description": "Wiring harnesses, automotive/industrial", "freight_class": "92.5", "category": "Components"},
+    {"nmfc": "84510", "description": "Hoses, rubber or plastic, with fittings", "freight_class": "100", "category": "Components"},
+    {"nmfc": "84580", "description": "Squeegee blades, rubber/urethane", "freight_class": "125", "category": "Consumables"},
+    {"nmfc": "49880", "description": "Pumps, electric, water/solution", "freight_class": "85", "category": "Components"},
+    {"nmfc": "189870", "description": "Tires, solid rubber, industrial", "freight_class": "85", "category": "Components"},
+    {"nmfc": "186200", "description": "Tools, hand, NOI (parts & spares)", "freight_class": "100", "category": "Parts & Spares"},
+]
+
+FREIGHT_CLASSES = ["50", "55", "60", "65", "70", "77.5", "85", "92.5", "100", "110", "125", "150", "175", "200", "250", "300", "400", "500"]
+
+ACCESSORIAL_OPTIONS = [
+    {"id": "liftgate", "label": "Liftgate Service"},
+    {"id": "residential", "label": "Residential Delivery"},
+    {"id": "inside_delivery", "label": "Inside Delivery"},
+    {"id": "limited_access", "label": "Limited Access (school/church/storage)"},
+    {"id": "appointment", "label": "Appointment Required"},
+    {"id": "notify_consignee", "label": "Notify Consignee Prior to Delivery"},
+    {"id": "tradeshow", "label": "Tradeshow Delivery"},
+    {"id": "construction_site", "label": "Construction Site Delivery"},
+    {"id": "single_shipment", "label": "Single Shipment Charge"},
+    {"id": "hazmat_handling", "label": "Hazmat Handling Fee"},
+    {"id": "blind_shipment", "label": "Blind Shipment"},
+    {"id": "sort_segregate", "label": "Sort & Segregate"},
+]
+
+@api_router.get("/nmfc/codes")
+async def get_nmfc_codes(_: User = Depends(get_current_user)):
+    return {"codes": TENNANT_NMFC_CODES, "freight_classes": FREIGHT_CLASSES, "accessorials": ACCESSORIAL_OPTIONS}
+
+# -------------------- SAP S/4HANA: Open Deliveries (for Book Load auto-fill) --------------------
+SAP_OPEN_DELIVERIES = [
+    {"delivery_no": "8000234", "so_no": "1010234", "customer": "Ferguson Enterprises — Atlanta, GA", "material": "TENN-T16AMR-LI", "material_desc": "T16 AMR · Lithium-ion", "qty": 2, "plant": "1010", "requested_date": "2026-05-14", "incoterms": "FOB Origin"},
+    {"delivery_no": "8000241", "so_no": "1010241", "customer": "Sysco Corp — Houston, TX", "material": "TENN-T7AMR", "material_desc": "T7 AMR · 32 in scrubber", "qty": 1, "plant": "1020", "requested_date": "2026-05-15", "incoterms": "FOB Destination"},
+    {"delivery_no": "8000256", "so_no": "1010256", "customer": "Home Depot DC — Atlanta, GA", "material": "TENN-S30", "material_desc": "S30 Industrial Sweeper", "qty": 3, "plant": "1030", "requested_date": "2026-05-16", "incoterms": "FCA Plant"},
+    {"delivery_no": "8000263", "so_no": "1010263", "customer": "Walmart DC #5024 — Bentonville, AR", "material": "TENN-T350-PROPANE", "material_desc": "T350 LPG Scrubber", "qty": 4, "plant": "1010", "requested_date": "2026-05-17", "incoterms": "FOB Origin"},
+    {"delivery_no": "8000275", "so_no": "1010275", "customer": "Costco Wholesale — Issaquah, WA", "material": "TENN-T16AMR-LI", "material_desc": "T16 AMR · Lithium-ion", "qty": 1, "plant": "1020", "requested_date": "2026-05-18", "incoterms": "FOB Destination"},
+    {"delivery_no": "8000284", "so_no": "1010284", "customer": "Boeing Everett — Everett, WA", "material": "TENN-M30-PARTS", "material_desc": "M30 Replacement Parts Kit", "qty": 8, "plant": "1010", "requested_date": "2026-05-19", "incoterms": "FCA Plant"},
+    {"delivery_no": "8000291", "so_no": "1010291", "customer": "FedEx Memphis Hub — Memphis, TN", "material": "TENN-S20", "material_desc": "S20 Compact Sweeper", "qty": 2, "plant": "1030", "requested_date": "2026-05-20", "incoterms": "DAP Destination"},
+    {"delivery_no": "8000302", "so_no": "1010302", "customer": "GM Lansing Plant — Lansing, MI", "material": "TENN-T681", "material_desc": "T681 Rider Scrubber", "qty": 1, "plant": "1020", "requested_date": "2026-05-21", "incoterms": "FOB Origin"},
+]
+
+@api_router.get("/sap/open-deliveries")
+async def sap_open_deliveries(user: User = Depends(get_current_user)):
+    """Returns open deliveries from SAP S/4HANA (mocked) for Book Load reference auto-fill."""
+    if user.role == "carrier":
+        raise HTTPException(status_code=403, detail="Not available for carrier role")
+    return {"deliveries": SAP_OPEN_DELIVERIES, "fetched_at": datetime.now(timezone.utc).isoformat()}
+
+@api_router.get("/sap/materials")
+async def sap_materials(_: User = Depends(get_current_user)):
+    """Top part numbers (mock) for the Command Center widget."""
+    return {"materials": [
+        {"part_no": "TENN-T16AMR-LI", "description": "T16 AMR · Lithium-ion", "plant": "1010", "on_hand": 47, "open_orders": 12, "nmfc": "105820", "freight_class": "85"},
+        {"part_no": "TENN-T7AMR", "description": "T7 AMR Scrubber 32 in", "plant": "1020", "on_hand": 86, "open_orders": 18, "nmfc": "105820", "freight_class": "85"},
+        {"part_no": "TENN-T350-PROPANE", "description": "T350 LPG Scrubber", "plant": "1010", "on_hand": 22, "open_orders": 9, "nmfc": "105820", "freight_class": "85"},
+        {"part_no": "TENN-S30", "description": "S30 Industrial Sweeper", "plant": "1030", "on_hand": 31, "open_orders": 14, "nmfc": "105820", "freight_class": "85"},
+        {"part_no": "TENN-S20", "description": "S20 Compact Sweeper", "plant": "1030", "on_hand": 64, "open_orders": 21, "nmfc": "105820", "freight_class": "85"},
+        {"part_no": "TENN-BATT-LION-48V", "description": "Battery Pack · Li-ion · 48V", "plant": "1010", "on_hand": 142, "open_orders": 38, "nmfc": "60585", "freight_class": "92.5"},
+        {"part_no": "TENN-BATT-AGM-36V", "description": "Battery Pack · AGM · 36V", "plant": "1010", "on_hand": 89, "open_orders": 24, "nmfc": "60590-2", "freight_class": "60"},
+        {"part_no": "TENN-BRUSH-CYL-32", "description": "Cylindrical Brush · 32 in", "plant": "1020", "on_hand": 312, "open_orders": 56, "nmfc": "16035", "freight_class": "175"},
+        {"part_no": "TENN-SQGE-URETH-40", "description": "Squeegee Blade · Urethane · 40 in", "plant": "1020", "on_hand": 218, "open_orders": 41, "nmfc": "84580", "freight_class": "125"},
+        {"part_no": "TENN-TANK-SOL-HDPE-30G", "description": "Solution Tank · HDPE · 30 gal", "plant": "1030", "on_hand": 56, "open_orders": 15, "nmfc": "156600", "freight_class": "150"},
+    ]}
+
+# -------------------- CARRIER INVITES (admin-gated) --------------------
+class CarrierInviteCreate(BaseModel):
+    carrier_company: str
+    invitee_email: str
+    invitee_name: Optional[str] = None
+    expires_days: int = 14
+
+@api_router.post("/carrier-invites")
+async def create_carrier_invite(payload: CarrierInviteCreate, admin: User = Depends(require_role("admin"))):
+    token = uuid.uuid4().hex
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=payload.expires_days)).isoformat()
+    invite = {
+        "invite_id": f"INV-{uuid.uuid4().hex[:10].upper()}",
+        "token": token,
+        "carrier_company": payload.carrier_company,
+        "invitee_email": payload.invitee_email,
+        "invitee_name": payload.invitee_name,
+        "created_by": admin.user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": expires_at,
+        "status": "pending",  # pending | accepted | revoked | expired
+        "accepted_user_id": None,
+    }
+    await db.carrier_invites.insert_one(dict(invite))
+    base = os.environ.get("PUBLIC_APP_URL", "")
+    invite_link = f"/accept-invite?token={token}" if not base else f"{base}/accept-invite?token={token}"
+    email_body = (
+        f"Hello {payload.invitee_name or payload.invitee_email},\n\n"
+        f"You've been invited by Tennant Companies to access the Tennant TMS Carrier Portal as a representative of "
+        f"{payload.carrier_company}.\n\n"
+        f"This portal lets you view loads tendered to {payload.carrier_company}, check pickup/delivery status, "
+        f"download BOLs, and submit shipment updates.\n\n"
+        f"Accept your invite here (expires in {payload.expires_days} days):\n{invite_link}\n\n"
+        f"— Tennant Transportation Team"
+    )
+    return {"invite": {k: v for k, v in invite.items() if k != "token"}, "invite_link": invite_link, "token": token, "email_body": email_body}
+
+@api_router.get("/carrier-invites")
+async def list_carrier_invites(_: User = Depends(require_role("admin"))):
+    docs = await db.carrier_invites.find({}, {"_id": 0}).sort("created_at", -1).limit(200).to_list(200)
+    return docs
+
+@api_router.delete("/carrier-invites/{invite_id}")
+async def revoke_carrier_invite(invite_id: str, _: User = Depends(require_role("admin"))):
+    res = await db.carrier_invites.update_one({"invite_id": invite_id}, {"$set": {"status": "revoked"}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    return {"ok": True}
+
+class CarrierInviteAccept(BaseModel):
+    token: str
+    email: str
+    name: str
+
+@api_router.post("/carrier-invites/accept")
+async def accept_carrier_invite(payload: CarrierInviteAccept):
+    """Auth-free endpoint — the invite token IS the auth. Creates the user + a 7-day session."""
+    invite = await db.carrier_invites.find_one({"token": payload.token}, {"_id": 0})
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invalid invite token")
+    if invite["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Invite already {invite['status']}")
+    expires_at = invite["expires_at"]
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        await db.carrier_invites.update_one({"token": payload.token}, {"$set": {"status": "expired"}})
+        raise HTTPException(status_code=400, detail="Invite has expired")
+    # Find or create the user
+    existing = await db.users.find_one({"email": payload.email.lower()}, {"_id": 0})
+    if existing:
+        user_id = existing["user_id"]
+        await db.users.update_one({"user_id": user_id}, {"$set": {
+            "role": "carrier",
+            "carrier_company": invite["carrier_company"],
+            "name": payload.name,
+        }})
+    else:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        await db.users.insert_one({
+            "user_id": user_id,
+            "email": payload.email.lower(),
+            "name": payload.name,
+            "picture": None,
+            "role": "carrier",
+            "carrier_company": invite["carrier_company"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    session_token = uuid.uuid4().hex
+    session_expires = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+    await db.user_sessions.insert_one({
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": session_expires,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    await db.carrier_invites.update_one(
+        {"token": payload.token},
+        {"$set": {"status": "accepted", "accepted_user_id": user_id, "accepted_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    return {"session_token": session_token, "user_id": user_id, "role": "carrier", "carrier_company": invite["carrier_company"]}
+
+# -------------------- ONBOARDING: Send Tennant requirements packet --------------------
+@api_router.post("/carrier-onboarding/{onboarding_id}/send-packet")
+async def send_onboarding_packet(onboarding_id: str, admin: User = Depends(require_role("admin", "dispatcher"))):
+    doc = await db.carrier_onboarding.find_one({"onboarding_id": onboarding_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Onboarding record not found")
+    subject = f"Tennant Companies — Carrier Onboarding Requirements Packet · {doc['name']}"
+    body = (
+        f"Hello {doc.get('contact_name') or doc['name']},\n\n"
+        f"Thank you for your interest in becoming a Tennant Companies approved carrier.\n"
+        f"To complete the onboarding process please return the following documents within 14 days:\n\n"
+        f"  1. Signed Carrier Master Agreement (Tennant standard, attached)\n"
+        f"  2. Certificate of Insurance · Auto Liability $1M / Cargo $250K min / WC statutory · naming Tennant Company as additional insured\n"
+        f"  3. W-9 Tax Form (current year)\n"
+        f"  4. SCAC verification & MC# / DOT# documentation\n"
+        f"  5. Most recent CSA / SMS safety scorecard (≤6 months)\n"
+        f"  6. EDI 204/214/210 capability confirmation (yes/no/in development)\n"
+        f"  7. Lane & equipment matrix (capacity by lane, trailer types)\n\n"
+        f"Submit all documents to: carriers@tennantco.com\n\n"
+        f"Once received, our team will review and notify you of approval status within 5 business days.\n\n"
+        f"Carrier reference info we already have on file:\n"
+        f"  · MC#: {doc.get('mc_number','—')}    DOT#: {doc.get('dot_number','—')}    SCAC: {doc.get('scac','—')}\n"
+        f"  · Mode: {doc.get('mode','—')}    Insurance amt: ${doc.get('insurance_amount',0):,}\n\n"
+        f"— Tennant Transportation Team\n  carriers@tennantco.com · (763) 540-1200"
+    )
+    await db.carrier_onboarding.update_one(
+        {"onboarding_id": onboarding_id},
+        {"$set": {"packet_sent_at": datetime.now(timezone.utc).isoformat(), "packet_sent_by": admin.user_id}},
+    )
+    mailto = f"mailto:{doc.get('contact_email','')}?subject={subject}&body={body}"
+    return {"to": doc.get("contact_email", ""), "subject": subject, "body": body, "mailto": mailto}
+
+# -------------------- SHIPMENTS: Email composers --------------------
+@api_router.post("/shipments/{shipment_id}/email-routing-guide")
+async def email_routing_guide(shipment_id: str, user: User = Depends(require_role("admin", "dispatcher"))):
+    s = await db.shipments.find_one({"shipment_id": shipment_id}, {"_id": 0})
+    if not s:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    to = s.get("customer_contact_email") or ""
+    subject = f"Routing Guide — Tennant Shipment {s.get('reference')} ({s.get('shipment_id')})"
+    body = (
+        f"Hello,\n\n"
+        f"Please find below the routing instructions for your upcoming shipment from Tennant Companies.\n\n"
+        f"Shipment ID:        {s.get('shipment_id')}\n"
+        f"Reference / SO#:    {s.get('reference')}\n"
+        f"Delivery #:         {s.get('sap_delivery_no') or '—'}\n"
+        f"Mode:               {s.get('mode')}\n"
+        f"Carrier:            {s.get('carrier')}\n"
+        f"BOL #:              {s.get('bol_no')}\n"
+        f"PRO #:              {s.get('pro_no')}\n"
+        f"Container #:        {s.get('container_no') or '—'}\n\n"
+        f"Origin:             {s.get('origin', {}).get('name')} · {s.get('origin', {}).get('city')}\n"
+        f"Destination:        {s.get('destination', {}).get('name')} · {s.get('destination', {}).get('city')}\n"
+        f"Pickup Date:        {s.get('pickup_date')}\n"
+        f"ETA:                {s.get('eta')}\n\n"
+        f"Commodity:          {s.get('commodity')}\n"
+        f"Weight:             {int(s.get('weight_lbs') or 0):,} lbs\n"
+        f"Pieces / Pallets:   {s.get('pieces')} / {s.get('pallet_count') or s.get('skids') or '—'}\n"
+        f"NMFC:               {s.get('nmfc_code') or '—'}    Freight Class: {s.get('freight_class') or '—'}\n"
+        f"Hazmat:             {'YES — ' + (s.get('hazmat_class') or '') if s.get('hazmat') else 'No'}\n"
+        f"Accessorials:       {', '.join(s.get('accessorials') or []) or 'None'}\n\n"
+        f"ROUTING REQUIREMENTS\n"
+        f"  • Carrier must check in at the gate with this BOL #\n"
+        f"  • Driver must call dispatch 30 min prior to ETA\n"
+        f"  • All deliveries 0700-1500 local unless prior approval\n"
+        f"  • Photo POD required for cargo > $50K value\n"
+        f"  • Exception reporting: dispatch@tennantco.com / (763) 540-1200\n\n"
+        f"Thank you,\nTennant Transportation Team"
+    )
+    await db.shipments.update_one(
+        {"shipment_id": shipment_id},
+        {"$set": {"routing_guide_sent_at": datetime.now(timezone.utc).isoformat(), "routing_guide_sent_by": user.user_id}},
+    )
+    mailto = f"mailto:{to}?subject={subject}&body={body}"
+    return {"to": to, "subject": subject, "body": body, "mailto": mailto}
+
+class CarrierEmailRequest(BaseModel):
+    template: str = "request_eta"  # request_eta | request_pod | exception_inquiry | rate_confirmation
+
+@api_router.post("/shipments/{shipment_id}/email-carrier")
+async def email_carrier(shipment_id: str, payload: CarrierEmailRequest, user: User = Depends(require_role("admin", "dispatcher"))):
+    s = await db.shipments.find_one({"shipment_id": shipment_id}, {"_id": 0})
+    if not s:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    to = s.get("carrier_contact_email") or ""
+    templates = {
+        "request_eta": {
+            "subject": f"ETA Update Request — {s.get('carrier')} · {s.get('shipment_id')}",
+            "body": (
+                f"Hello {s.get('carrier')} dispatch,\n\n"
+                f"Please provide an updated ETA for the following Tennant load:\n\n"
+                f"  Shipment:   {s.get('shipment_id')} / {s.get('reference')}\n"
+                f"  BOL:        {s.get('bol_no')}    PRO: {s.get('pro_no')}\n"
+                f"  Origin:     {s.get('origin', {}).get('city')}\n"
+                f"  Destination:{s.get('destination', {}).get('city')}\n"
+                f"  Current ETA:{s.get('eta')}    Current Status: {s.get('status')}\n\n"
+                f"Kindly confirm latest GPS location, driver name & phone, and revised ETA.\n\n"
+                f"Reply to dispatch@tennantco.com — Thank you."
+            ),
+        },
+        "request_pod": {
+            "subject": f"POD Request — {s.get('carrier')} · {s.get('shipment_id')}",
+            "body": (
+                f"Hello {s.get('carrier')} team,\n\n"
+                f"Please send a signed Proof of Delivery for the load below at your earliest convenience.\n\n"
+                f"  Shipment:   {s.get('shipment_id')} / {s.get('reference')}\n"
+                f"  BOL:        {s.get('bol_no')}    PRO: {s.get('pro_no')}\n"
+                f"  Delivered:  {s.get('destination', {}).get('city')}\n\n"
+                f"POD is required to release final freight payment. Email signed POD to ap@tennantco.com.\n\n"
+                f"Thank you,\nTennant Audit & Payables"
+            ),
+        },
+        "exception_inquiry": {
+            "subject": f"Exception Inquiry — {s.get('carrier')} · {s.get('shipment_id')}",
+            "body": (
+                f"Hello {s.get('carrier')},\n\n"
+                f"Our system shows this shipment as {s.get('status').upper()} — please advise on the cause and corrective action:\n\n"
+                f"  Shipment:   {s.get('shipment_id')} / {s.get('reference')}\n"
+                f"  BOL:        {s.get('bol_no')}    PRO: {s.get('pro_no')}\n"
+                f"  Origin:     {s.get('origin', {}).get('city')}\n"
+                f"  Destination:{s.get('destination', {}).get('city')}\n\n"
+                f"Provide cause code, recovery plan, and revised ETA within 4 hours.\n\nThanks — Tennant Dispatch"
+            ),
+        },
+        "rate_confirmation": {
+            "subject": f"Rate Confirmation — {s.get('carrier')} · {s.get('shipment_id')}",
+            "body": (
+                f"{s.get('carrier')} — please confirm acceptance of the following load:\n\n"
+                f"  Shipment:   {s.get('shipment_id')} / {s.get('reference')}\n"
+                f"  Mode:       {s.get('mode')}\n"
+                f"  Pickup:     {s.get('origin', {}).get('city')} · {s.get('pickup_date')}\n"
+                f"  Delivery:   {s.get('destination', {}).get('city')} · ETA {s.get('eta')[:10]}\n"
+                f"  Weight:     {int(s.get('weight_lbs') or 0):,} lbs · {s.get('pieces')} pcs\n"
+                f"  Commodity:  {s.get('commodity')}\n"
+                f"  Hazmat:     {'YES' if s.get('hazmat') else 'No'}\n"
+                f"  Rate:       ${(s.get('bid_cost') or 0):,.2f} + {s.get('fsc_pct') or 0}% FSC\n\n"
+                f"Reply with driver, equipment #, MC#, and signed rate con.\nDispatch@tennantco.com"
+            ),
+        },
+    }
+    tpl = templates.get(payload.template, templates["request_eta"])
+    await db.shipments.update_one(
+        {"shipment_id": shipment_id},
+        {"$push": {"carrier_emails_log": {"template": payload.template, "sent_at": datetime.now(timezone.utc).isoformat(), "sent_by": user.user_id}}},
+    )
+    mailto = f"mailto:{to}?subject={tpl['subject']}&body={tpl['body']}"
+    return {"to": to, "subject": tpl["subject"], "body": tpl["body"], "mailto": mailto}
+
+# -------------------- DOCUMENT VAULT (GridFS) --------------------
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+from fastapi import UploadFile, File, Form
+
+vault_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="vault")
+bol_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="carrier_bols")
+
+VAULT_CATEGORIES = ["Insurance COI", "W-9", "Carrier Agreement", "MSDS/SDS", "Onboarding Packet", "Tariff", "Quote", "Bid", "Other"]
+
+@api_router.get("/vault/categories")
+async def get_vault_categories(_: User = Depends(get_current_user)):
+    return {"categories": VAULT_CATEGORIES}
+
+@api_router.post("/vault/upload")
+async def vault_upload(
+    file: UploadFile = File(...),
+    category: str = Form("Other"),
+    related_to: str = Form(""),
+    expires_at: Optional[str] = Form(None),
+    notes: str = Form(""),
+    user: User = Depends(require_role("admin", "dispatcher", "auditor")),
+):
+    data = await file.read()
+    file_id = await vault_bucket.upload_from_stream(file.filename or "untitled", data, metadata={
+        "content_type": file.content_type or "application/octet-stream",
+        "category": category,
+        "related_to": related_to,
+        "uploaded_by": user.user_id,
+        "uploaded_by_name": user.name,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "size_bytes": len(data),
+        "expires_at": expires_at,
+        "notes": notes,
+    })
+    return {"file_id": str(file_id), "filename": file.filename, "size_bytes": len(data), "category": category}
+
+@api_router.get("/vault/files")
+async def list_vault_files(category: Optional[str] = None, related_to: Optional[str] = None, _: User = Depends(get_current_user)):
+    q: Dict[str, Any] = {}
+    if category:
+        q["metadata.category"] = category
+    if related_to:
+        q["metadata.related_to"] = related_to
+    files = await db["vault.files"].find(q, {"chunkSize": 0}).sort("uploadDate", -1).limit(500).to_list(500)
+    out = []
+    for f in files:
+        md = f.get("metadata") or {}
+        out.append({
+            "file_id": str(f["_id"]),
+            "filename": f.get("filename"),
+            "length": f.get("length"),
+            "upload_date": (f.get("uploadDate") or datetime.now(timezone.utc)).isoformat() if hasattr(f.get("uploadDate"), "isoformat") else str(f.get("uploadDate")),
+            "category": md.get("category"),
+            "related_to": md.get("related_to"),
+            "uploaded_by_name": md.get("uploaded_by_name"),
+            "expires_at": md.get("expires_at"),
+            "notes": md.get("notes"),
+            "content_type": md.get("content_type"),
+        })
+    return out
+
+@api_router.get("/vault/files/{file_id}")
+async def download_vault_file(file_id: str, _: User = Depends(get_current_user)):
+    from bson import ObjectId
+    try:
+        oid = ObjectId(file_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid file_id")
+    grid_out = await vault_bucket.open_download_stream(oid)
+    data = await grid_out.read()
+    md = grid_out.metadata or {}
+    content_type = md.get("content_type", "application/octet-stream")
+    headers = {"Content-Disposition": f'attachment; filename="{grid_out.filename}"'}
+    return Response(content=data, media_type=content_type, headers=headers)
+
+@api_router.delete("/vault/files/{file_id}")
+async def delete_vault_file(file_id: str, _: User = Depends(require_role("admin"))):
+    from bson import ObjectId
+    try:
+        oid = ObjectId(file_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid file_id")
+    try:
+        await vault_bucket.delete(oid)
+    except Exception:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {"ok": True}
+
+# -------------------- CARRIER BOL STORAGE (per-shipment) --------------------
+@api_router.post("/shipments/{shipment_id}/bol-upload")
+async def upload_carrier_bol(shipment_id: str, file: UploadFile = File(...), user: User = Depends(require_role("admin", "dispatcher", "carrier"))):
+    s = await db.shipments.find_one({"shipment_id": shipment_id}, {"_id": 0})
+    if not s:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    if user.role == "carrier" and user.carrier_company and s.get("carrier") != user.carrier_company:
+        raise HTTPException(status_code=403, detail="Not your shipment")
+    data = await file.read()
+    fid = await bol_bucket.upload_from_stream(
+        file.filename or f"BOL_{shipment_id}.pdf", data,
+        metadata={"content_type": file.content_type or "application/pdf", "shipment_id": shipment_id, "uploaded_by_name": user.name, "uploaded_at": datetime.now(timezone.utc).isoformat()},
+    )
+    await db.shipments.update_one(
+        {"shipment_id": shipment_id},
+        {"$set": {"carrier_bol_file_id": str(fid), "carrier_bol_filename": file.filename}},
+    )
+    return {"file_id": str(fid), "filename": file.filename, "size_bytes": len(data)}
+
+@api_router.get("/shipments/{shipment_id}/bol-download")
+async def download_carrier_bol(shipment_id: str, user: User = Depends(get_current_user)):
+    from bson import ObjectId
+    s = await db.shipments.find_one({"shipment_id": shipment_id}, {"_id": 0})
+    if not s:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    if user.role == "carrier" and user.carrier_company and s.get("carrier") != user.carrier_company:
+        raise HTTPException(status_code=403, detail="Not your shipment")
+    fid = s.get("carrier_bol_file_id")
+    if not fid:
+        raise HTTPException(status_code=404, detail="No BOL on file")
+    grid_out = await bol_bucket.open_download_stream(ObjectId(fid))
+    data = await grid_out.read()
+    md = grid_out.metadata or {}
+    headers = {"Content-Disposition": f'attachment; filename="{grid_out.filename}"'}
+    return Response(content=data, media_type=md.get("content_type", "application/pdf"), headers=headers)
+
+# -------------------- CLAIMS & RECONCILIATION --------------------
+class Claim(BaseModel):
+    claim_id: str
+    shipment_id: Optional[str] = None
+    carrier: str
+    bol_no: Optional[str] = None
+    claim_type: str  # damage | shortage | loss | overage | freight_overcharge
+    amount_claimed_usd: float
+    amount_recovered_usd: float = 0.0
+    status: str  # open | filed | acknowledged | denied | settled | partial
+    filed_date: str
+    incident_date: str
+    description: str
+    created_by: Optional[str] = None
+    notes: Optional[str] = None
+
+class ClaimCreate(BaseModel):
+    shipment_id: Optional[str] = None
+    carrier: str
+    bol_no: Optional[str] = None
+    claim_type: str
+    amount_claimed_usd: float
+    incident_date: str
+    description: str
+    notes: Optional[str] = None
+
+class ClaimUpdate(BaseModel):
+    status: Optional[str] = None
+    amount_recovered_usd: Optional[float] = None
+    notes: Optional[str] = None
+
+CLAIM_TYPES = ["damage", "shortage", "loss", "overage", "freight_overcharge"]
+CLAIM_STATUSES = ["open", "filed", "acknowledged", "denied", "settled", "partial"]
+
+@api_router.get("/claims")
+async def list_claims(_: User = Depends(get_current_user)):
+    docs = await db.claims.find({}, {"_id": 0}).sort("filed_date", -1).limit(500).to_list(500)
+    # Summary
+    open_count = sum(1 for c in docs if c["status"] in ("open", "filed", "acknowledged"))
+    settled_count = sum(1 for c in docs if c["status"] in ("settled", "partial"))
+    denied_count = sum(1 for c in docs if c["status"] == "denied")
+    total_claimed = sum(c.get("amount_claimed_usd", 0) for c in docs)
+    total_recovered = sum(c.get("amount_recovered_usd", 0) for c in docs)
+    return {
+        "claims": docs,
+        "summary": {
+            "total_claims": len(docs),
+            "open_count": open_count,
+            "settled_count": settled_count,
+            "denied_count": denied_count,
+            "total_claimed_usd": round(total_claimed, 2),
+            "total_recovered_usd": round(total_recovered, 2),
+            "recovery_rate_pct": round((total_recovered / total_claimed * 100) if total_claimed else 0, 1),
+        },
+        "claim_types": CLAIM_TYPES,
+        "claim_statuses": CLAIM_STATUSES,
+    }
+
+@api_router.post("/claims")
+async def create_claim(payload: ClaimCreate, user: User = Depends(require_role("admin", "auditor", "dispatcher"))):
+    claim = {
+        "claim_id": f"CLM-{uuid.uuid4().hex[:8].upper()}",
+        "shipment_id": payload.shipment_id,
+        "carrier": payload.carrier,
+        "bol_no": payload.bol_no,
+        "claim_type": payload.claim_type,
+        "amount_claimed_usd": payload.amount_claimed_usd,
+        "amount_recovered_usd": 0.0,
+        "status": "open",
+        "filed_date": datetime.now(timezone.utc).date().isoformat(),
+        "incident_date": payload.incident_date,
+        "description": payload.description,
+        "created_by": user.user_id,
+        "notes": payload.notes,
+    }
+    await db.claims.insert_one(dict(claim))
+    return claim
+
+@api_router.put("/claims/{claim_id}")
+async def update_claim(claim_id: str, payload: ClaimUpdate, _: User = Depends(require_role("admin", "auditor"))):
+    raw = payload.model_dump(exclude_unset=True)
+    if not raw:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    res = await db.claims.update_one({"claim_id": claim_id}, {"$set": raw})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Claim not found")
+    doc = await db.claims.find_one({"claim_id": claim_id}, {"_id": 0})
+    return doc
+
+# -------------------- TENNANT MACHINE CATALOG --------------------
+TENNANT_MACHINES = [
+    # AMR / Robotics
+    {"model": "T16AMR", "category": "AMR Scrubber", "type": "Autonomous", "size": "32 in",
+     "power": "Lithium-ion 36V", "runtime": "5–6 hrs", "deck_width_in": 32, "tank_gal": 22,
+     "weight_lbs": 1480, "list_price_usd": 56000, "use_case": "Large facility autonomous scrubbing — warehouses, retail",
+     "image_url": "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800",
+     "highlights": ["AI-NAV mapping", "Auto fill/drain", "Multi-shift Li-ion", "FOB-style controls"]},
+    {"model": "T7AMR", "category": "AMR Scrubber", "type": "Autonomous", "size": "26-32 in",
+     "power": "Lithium-ion 36V", "runtime": "5 hrs", "deck_width_in": 28, "tank_gal": 18,
+     "weight_lbs": 1100, "list_price_usd": 42000, "use_case": "Mid-size autonomous scrubbing",
+     "image_url": "https://images.unsplash.com/photo-1589923188900-85dae523342b?w=800",
+     "highlights": ["Compact AMR", "Auto dock & charge", "Cloud fleet mgmt", "AI obstacle avoidance"]},
+    # Rider scrubbers
+    {"model": "T681", "category": "Rider Scrubber", "type": "Rider", "size": "40-44 in",
+     "power": "AGM / Li-ion 36V", "runtime": "6–8 hrs", "deck_width_in": 42, "tank_gal": 60,
+     "weight_lbs": 2100, "list_price_usd": 38000, "use_case": "Large industrial floors",
+     "image_url": "https://images.unsplash.com/photo-1581092446327-9b52bd1570c2?w=800",
+     "highlights": ["ec-H2O NanoClean", "Dual cyl/disc brush options", "60-gal tank"]},
+    {"model": "T500", "category": "Rider Scrubber", "type": "Rider", "size": "28-32 in",
+     "power": "AGM / Li-ion 36V", "runtime": "5–7 hrs", "deck_width_in": 32, "tank_gal": 40,
+     "weight_lbs": 1650, "list_price_usd": 32000, "use_case": "Manufacturing, distribution centers",
+     "image_url": "https://images.unsplash.com/photo-1581091870622-2c6e2ef0e1e3?w=800",
+     "highlights": ["Smart-Fill", "Pro-Panel touchscreen", "Quiet-mode 65 dBA"]},
+    {"model": "T350", "category": "Walk-Behind Scrubber", "type": "LPG / Battery", "size": "20-26 in",
+     "power": "LPG / 24V Battery", "runtime": "Up to 8 hrs (LPG)", "deck_width_in": 24, "tank_gal": 17,
+     "weight_lbs": 720, "list_price_usd": 18500, "use_case": "Education, healthcare, retail",
+     "image_url": "https://images.unsplash.com/photo-1610563166150-b34df4f3bcd6?w=800",
+     "highlights": ["Stand-on platform option", "ec-H2O NanoClean", "Honda LPG"]},
+    {"model": "T300", "category": "Walk-Behind Scrubber", "type": "Walk-Behind", "size": "17-20 in",
+     "power": "24V Battery", "runtime": "3.5 hrs", "deck_width_in": 20, "tank_gal": 11,
+     "weight_lbs": 295, "list_price_usd": 7800, "use_case": "Small to mid-size facilities",
+     "image_url": "https://images.unsplash.com/photo-1559511260-66a654ae982a?w=800",
+     "highlights": ["Insta-Adjust pressure", "Tool-free maintenance"]},
+    {"model": "T2", "category": "Compact Scrubber", "type": "Walk-Behind", "size": "17 in",
+     "power": "AGM 12V", "runtime": "2.5 hrs", "deck_width_in": 17, "tank_gal": 6,
+     "weight_lbs": 180, "list_price_usd": 4200, "use_case": "Tight spaces, small retail",
+     "image_url": "https://images.unsplash.com/photo-1607082351193-aa2c1faf75ab?w=800",
+     "highlights": ["Lightweight & portable", "Single-pass", "ec-H2O option"]},
+    # Sweepers
+    {"model": "S30", "category": "Industrial Sweeper", "type": "Rider", "size": "50-60 in",
+     "power": "LPG / Diesel / Battery", "runtime": "8+ hrs", "deck_width_in": 58, "tank_gal": 0,
+     "weight_lbs": 3200, "list_price_usd": 52000, "use_case": "Heavy-duty warehouse, factory sweeping",
+     "image_url": "https://images.unsplash.com/photo-1592983864329-fafa5d2a8632?w=800",
+     "highlights": ["SweepMax Plus filtration", "100 cu ft hopper", "Cab option"]},
+    {"model": "S20", "category": "Industrial Sweeper", "type": "Rider", "size": "44 in",
+     "power": "LPG / Diesel / Battery", "runtime": "6–8 hrs", "deck_width_in": 44, "tank_gal": 0,
+     "weight_lbs": 2200, "list_price_usd": 36000, "use_case": "Mid-size warehouse sweeping",
+     "image_url": "https://images.unsplash.com/photo-1610891015018-30a04dac8eeb?w=800",
+     "highlights": ["Dust control system", "Multi-debris hopper", "Compact turn radius"]},
+    {"model": "S10", "category": "Walk-Behind Sweeper", "type": "Walk-Behind", "size": "30 in",
+     "power": "12V Battery / Manual", "runtime": "1.5 hrs", "deck_width_in": 30, "tank_gal": 0,
+     "weight_lbs": 165, "list_price_usd": 3800, "use_case": "Small facilities, parking lots",
+     "image_url": "https://images.unsplash.com/photo-1572799454858-c1f6c4e4e3b9?w=800",
+     "highlights": ["Lift-off hopper", "Side broom option"]},
+    # Combo scrubber/sweeper
+    {"model": "M30", "category": "Sweeper-Scrubber Combo", "type": "Rider", "size": "44-52 in",
+     "power": "LPG / Diesel", "runtime": "6+ hrs", "deck_width_in": 50, "tank_gal": 70,
+     "weight_lbs": 3850, "list_price_usd": 78000, "use_case": "Heavy industrial — one-pass clean",
+     "image_url": "https://images.unsplash.com/photo-1612626617068-d28d4fac3e8f?w=800",
+     "highlights": ["Single-pass sweep & scrub", "70-gal tank", "Severe-duty"]},
+    {"model": "M17", "category": "Sweeper-Scrubber Combo", "type": "Rider", "size": "40 in",
+     "power": "LPG", "runtime": "6 hrs", "deck_width_in": 40, "tank_gal": 50,
+     "weight_lbs": 2700, "list_price_usd": 58000, "use_case": "Manufacturing combo cleaning",
+     "image_url": "https://images.unsplash.com/photo-1610563083373-4d4d6b3edb5e?w=800",
+     "highlights": ["IRIS asset mgmt telemetry", "Dual-mode sweep+scrub"]},
+    # Power burnisher
+    {"model": "B7", "category": "Burnisher", "type": "Rider", "size": "27 in",
+     "power": "LPG / Battery", "runtime": "5 hrs", "deck_width_in": 27, "tank_gal": 0,
+     "weight_lbs": 660, "list_price_usd": 12500, "use_case": "High-gloss floor maintenance",
+     "image_url": "https://images.unsplash.com/photo-1581094288338-2314dddb7ece?w=800",
+     "highlights": ["High RPM pad", "Dust control optional"]},
+    {"model": "B5", "category": "Burnisher", "type": "Walk-Behind", "size": "20 in",
+     "power": "AC corded", "runtime": "Unlimited", "deck_width_in": 20, "tank_gal": 0,
+     "weight_lbs": 95, "list_price_usd": 2400, "use_case": "Retail, small commercial buff",
+     "image_url": "https://images.unsplash.com/photo-1571987502227-9231b837d92a?w=800",
+     "highlights": ["1500-2000 RPM", "Active dust control"]},
+    # Pressure washer / outdoor
+    {"model": "Green Machine 414HS", "category": "Outdoor Sweeper", "type": "Compact Outdoor", "size": "44 in",
+     "power": "Diesel", "runtime": "8 hrs", "deck_width_in": 44, "tank_gal": 0,
+     "weight_lbs": 1700, "list_price_usd": 64000, "use_case": "Urban streets, sidewalks, parking lots",
+     "image_url": "https://images.unsplash.com/photo-1620891549027-942fdc95d3f5?w=800",
+     "highlights": ["Vacuum-assist", "Compact urban footprint", "Cab w/ heat & A/C"]},
+    {"model": "ATLV 4300", "category": "Outdoor Litter Vacuum", "type": "Compact Outdoor", "size": "—",
+     "power": "Gasoline", "runtime": "6 hrs", "deck_width_in": 0, "tank_gal": 0,
+     "weight_lbs": 1100, "list_price_usd": 38000, "use_case": "Parks, campuses, parking lots",
+     "image_url": "https://images.unsplash.com/photo-1601758174931-cab3b88c0017?w=800",
+     "highlights": ["High-suction litter pickup", "Compact maneuverable"]},
+    # Carpet
+    {"model": "EX-CAN-7", "category": "Carpet Extractor", "type": "Canister", "size": "—",
+     "power": "AC corded", "runtime": "Unlimited", "deck_width_in": 0, "tank_gal": 7,
+     "weight_lbs": 65, "list_price_usd": 2100, "use_case": "Hotels, offices, restoration",
+     "image_url": "https://images.unsplash.com/photo-1620114050751-eb8ef8d6aaf6?w=800",
+     "highlights": ["Deep-soak extraction", "Heated water option", "Wand & hose"]},
+]
+
+TENNANT_MACHINE_CATEGORIES = sorted(set(m["category"] for m in TENNANT_MACHINES))
+
+@api_router.get("/machines")
+async def list_machines(_: User = Depends(get_current_user), category: Optional[str] = None):
+    out = TENNANT_MACHINES if not category else [m for m in TENNANT_MACHINES if m["category"] == category]
+    return {"machines": out, "categories": TENNANT_MACHINE_CATEGORIES, "count": len(out)}
+
+# -------------------- ARCADE: Connect Four · Tournaments · Trophies --------------------
+ROWS_C4, COLS_C4 = 6, 7
+
+def _empty_c4_board():
+    return [[0] * COLS_C4 for _ in range(ROWS_C4)]
+
+def _c4_drop(board: List[List[int]], col: int, player: int) -> Optional[int]:
+    """Drops a piece; returns the row it landed in or None if column full."""
+    for r in range(ROWS_C4 - 1, -1, -1):
+        if board[r][col] == 0:
+            board[r][col] = player
+            return r
+    return None
+
+def _c4_winner(board: List[List[int]]) -> int:
+    # horizontal
+    for r in range(ROWS_C4):
+        for c in range(COLS_C4 - 3):
+            v = board[r][c]
+            if v and v == board[r][c+1] == board[r][c+2] == board[r][c+3]:
+                return v
+    # vertical
+    for r in range(ROWS_C4 - 3):
+        for c in range(COLS_C4):
+            v = board[r][c]
+            if v and v == board[r+1][c] == board[r+2][c] == board[r+3][c]:
+                return v
+    # diag /
+    for r in range(3, ROWS_C4):
+        for c in range(COLS_C4 - 3):
+            v = board[r][c]
+            if v and v == board[r-1][c+1] == board[r-2][c+2] == board[r-3][c+3]:
+                return v
+    # diag \
+    for r in range(ROWS_C4 - 3):
+        for c in range(COLS_C4 - 3):
+            v = board[r][c]
+            if v and v == board[r+1][c+1] == board[r+2][c+2] == board[r+3][c+3]:
+                return v
+    return 0
+
+def _c4_full(board) -> bool:
+    return all(board[0][c] != 0 for c in range(COLS_C4))
+
+class C4GameCreate(BaseModel):
+    opponent_email: Optional[str] = None  # if None → open lobby
+
+class C4MoveBody(BaseModel):
+    column: int
+
+@api_router.post("/arcade/connect4/games")
+async def c4_create(payload: C4GameCreate, user: User = Depends(get_current_user)):
+    game = {
+        "game_id": f"C4-{uuid.uuid4().hex[:8].upper()}",
+        "kind": "connect4",
+        "player1_id": user.user_id,
+        "player1_name": user.name,
+        "player2_id": None,
+        "player2_name": None,
+        "player2_email": payload.opponent_email,
+        "board": _empty_c4_board(),
+        "turn": 1,
+        "status": "open",  # open | active | finished | draw
+        "winner_id": None,
+        "winner_name": None,
+        "tournament_id": None,
+        "moves": [],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.arcade_games.insert_one(dict(game))
+    return {k: v for k, v in game.items() if k != "_id"}
+
+@api_router.get("/arcade/connect4/games")
+async def c4_list(user: User = Depends(get_current_user), status: Optional[str] = None):
+    q: Dict[str, Any] = {"kind": "connect4"}
+    if status:
+        q["status"] = status
+    docs = await db.arcade_games.find(q, {"_id": 0}).sort("updated_at", -1).limit(50).to_list(50)
+    # Only show mine + open lobby
+    out = [d for d in docs if d["status"] == "open" or user.user_id in (d.get("player1_id"), d.get("player2_id"))]
+    return out
+
+@api_router.get("/arcade/connect4/games/{game_id}")
+async def c4_get(game_id: str, _: User = Depends(get_current_user)):
+    doc = await db.arcade_games.find_one({"game_id": game_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Game not found")
+    return doc
+
+@api_router.post("/arcade/connect4/games/{game_id}/join")
+async def c4_join(game_id: str, user: User = Depends(get_current_user)):
+    doc = await db.arcade_games.find_one({"game_id": game_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Game not found")
+    if doc["status"] != "open":
+        raise HTTPException(400, "Game not open")
+    if doc["player1_id"] == user.user_id:
+        raise HTTPException(400, "Cannot join your own game")
+    await db.arcade_games.update_one(
+        {"game_id": game_id},
+        {"$set": {"player2_id": user.user_id, "player2_name": user.name, "status": "active", "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    return await db.arcade_games.find_one({"game_id": game_id}, {"_id": 0})
+
+@api_router.post("/arcade/connect4/games/{game_id}/move")
+async def c4_move(game_id: str, payload: C4MoveBody, user: User = Depends(get_current_user)):
+    doc = await db.arcade_games.find_one({"game_id": game_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Game not found")
+    if doc["status"] != "active":
+        raise HTTPException(400, "Game not active")
+    if doc["turn"] == 1 and doc["player1_id"] != user.user_id:
+        raise HTTPException(403, "Not your turn")
+    if doc["turn"] == 2 and doc["player2_id"] != user.user_id:
+        raise HTTPException(403, "Not your turn")
+    if payload.column < 0 or payload.column >= COLS_C4:
+        raise HTTPException(400, "Invalid column")
+    board = doc["board"]
+    row = _c4_drop(board, payload.column, doc["turn"])
+    if row is None:
+        raise HTTPException(400, "Column full")
+    win = _c4_winner(board)
+    now = datetime.now(timezone.utc).isoformat()
+    moves = doc.get("moves", []) + [{"player": doc["turn"], "col": payload.column, "row": row, "at": now}]
+    update = {"board": board, "moves": moves, "updated_at": now}
+    if win:
+        update["status"] = "finished"
+        update["winner_id"] = doc["player1_id"] if win == 1 else doc["player2_id"]
+        update["winner_name"] = doc["player1_name"] if win == 1 else doc["player2_name"]
+    elif _c4_full(board):
+        update["status"] = "draw"
+    else:
+        update["turn"] = 2 if doc["turn"] == 1 else 1
+    await db.arcade_games.update_one({"game_id": game_id}, {"$set": update})
+
+    # Award trophy / record win in leaderboard
+    if win:
+        winner_id = update["winner_id"]
+        winner_name = update["winner_name"]
+        loser_id = doc["player2_id"] if win == 1 else doc["player1_id"]
+        await db.arcade_leaderboard.update_one(
+            {"user_id": winner_id},
+            {"$inc": {"wins": 1, "games": 1, "trophies": 1},
+             "$set": {"name": winner_name, "last_played_at": now},
+             "$setOnInsert": {"created_at": now, "losses": 0, "draws": 0}},
+            upsert=True,
+        )
+        if loser_id:
+            await db.arcade_leaderboard.update_one(
+                {"user_id": loser_id},
+                {"$inc": {"losses": 1, "games": 1},
+                 "$set": {"last_played_at": now},
+                 "$setOnInsert": {"created_at": now, "wins": 0, "draws": 0, "trophies": 0,
+                                  "name": doc["player2_name"] if win == 1 else doc["player1_name"]}},
+                upsert=True,
+            )
+    elif _c4_full(board):
+        for pid, pname in [(doc["player1_id"], doc["player1_name"]), (doc["player2_id"], doc["player2_name"])]:
+            if pid:
+                await db.arcade_leaderboard.update_one(
+                    {"user_id": pid},
+                    {"$inc": {"draws": 1, "games": 1},
+                     "$set": {"name": pname, "last_played_at": now},
+                     "$setOnInsert": {"created_at": now, "wins": 0, "losses": 0, "trophies": 0}},
+                    upsert=True,
+                )
+
+    fresh = await db.arcade_games.find_one({"game_id": game_id}, {"_id": 0})
+
+    # Tournament advance
+    if fresh.get("tournament_id") and fresh["status"] in ("finished",):
+        await _advance_tournament(fresh["tournament_id"], fresh["game_id"], fresh["winner_id"], fresh["winner_name"])
+    return fresh
+
+@api_router.get("/arcade/leaderboard")
+async def arcade_leaderboard(_: User = Depends(get_current_user)):
+    rows = await db.arcade_leaderboard.find({}, {"_id": 0}).sort([("trophies", -1), ("wins", -1)]).limit(100).to_list(100)
+    # Trophy tiers
+    for r in rows:
+        t = r.get("trophies", 0)
+        r["tier"] = "Legend" if t >= 25 else "Champion" if t >= 10 else "Contender" if t >= 3 else "Rookie"
+    return {"rows": rows}
+
+# -------------------- ARCADE: Tournaments --------------------
+class TournamentCreate(BaseModel):
+    name: str
+    kind: str = "connect4"
+    participant_user_ids: List[str] = []
+
+async def _advance_tournament(tid: str, game_id: str, winner_id: Optional[str], winner_name: Optional[str]):
+    t = await db.arcade_tournaments.find_one({"tournament_id": tid}, {"_id": 0})
+    if not t:
+        return
+    bracket = t.get("bracket") or []
+    # Mark the finished match
+    for r_idx, rnd in enumerate(bracket):
+        for m_idx, match in enumerate(rnd["matches"]):
+            if match.get("game_id") == game_id:
+                match["status"] = "done"
+                match["winner_id"] = winner_id
+                match["winner_name"] = winner_name
+                # Promote winner to next round if exists
+                if r_idx + 1 < len(bracket):
+                    next_match_idx = m_idx // 2
+                    side = "p1" if m_idx % 2 == 0 else "p2"
+                    next_match = bracket[r_idx + 1]["matches"][next_match_idx]
+                    next_match[f"{side}_id"] = winner_id
+                    next_match[f"{side}_name"] = winner_name
+                else:
+                    # Final winner
+                    t["status"] = "completed"
+                    t["champion_id"] = winner_id
+                    t["champion_name"] = winner_name
+                    if winner_id:
+                        await db.arcade_leaderboard.update_one(
+                            {"user_id": winner_id},
+                            {"$inc": {"trophies": 3, "tournaments_won": 1},
+                             "$set": {"name": winner_name, "last_played_at": datetime.now(timezone.utc).isoformat()}},
+                            upsert=True,
+                        )
+                break
+    await db.arcade_tournaments.update_one({"tournament_id": tid}, {"$set": {"bracket": bracket, "status": t.get("status", "active"), "champion_id": t.get("champion_id"), "champion_name": t.get("champion_name")}})
+
+@api_router.post("/arcade/tournaments")
+async def create_tournament(payload: TournamentCreate, admin: User = Depends(require_role("admin", "dispatcher"))):
+    if not (4 <= len(payload.participant_user_ids) <= 16) or (len(payload.participant_user_ids) & (len(payload.participant_user_ids) - 1)) != 0:
+        raise HTTPException(400, "Participants must be a power of 2 between 4 and 16")
+    # Lookup user names
+    user_docs = await db.users.find({"user_id": {"$in": payload.participant_user_ids}}, {"_id": 0}).to_list(20)
+    user_map = {u["user_id"]: u["name"] for u in user_docs}
+    participants = [{"user_id": uid, "name": user_map.get(uid, "Unknown")} for uid in payload.participant_user_ids]
+    random.shuffle(participants)
+    # Build bracket
+    rounds = []
+    current = participants
+    round_idx = 0
+    while len(current) >= 2:
+        matches = []
+        for i in range(0, len(current), 2):
+            p1 = current[i]; p2 = current[i + 1] if i + 1 < len(current) else {"user_id": None, "name": "BYE"}
+            game = {
+                "game_id": f"C4-{uuid.uuid4().hex[:8].upper()}",
+                "kind": "connect4",
+                "player1_id": p1["user_id"], "player1_name": p1["name"],
+                "player2_id": p2["user_id"], "player2_name": p2["name"],
+                "board": _empty_c4_board(), "turn": 1,
+                "status": "active" if (p1["user_id"] and p2["user_id"]) else "pending",
+                "winner_id": None, "winner_name": None,
+                "moves": [], "tournament_id": None,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            matches.append({
+                "match_id": f"M-{uuid.uuid4().hex[:6].upper()}",
+                "p1_id": p1["user_id"], "p1_name": p1["name"],
+                "p2_id": p2["user_id"], "p2_name": p2["name"],
+                "game_id": game["game_id"], "status": "pending",
+                "winner_id": None, "winner_name": None,
+            })
+            if round_idx == 0:
+                await db.arcade_games.insert_one(dict(game))
+                await db.arcade_games.update_one({"game_id": game["game_id"]}, {"$set": {"tournament_id": "PENDING"}})
+        rounds.append({"round": round_idx + 1, "matches": matches})
+        current = [{"user_id": None, "name": "TBD"} for _ in range(len(current) // 2)]
+        round_idx += 1
+
+    tid = f"TRN-{uuid.uuid4().hex[:8].upper()}"
+    tournament = {
+        "tournament_id": tid,
+        "name": payload.name,
+        "kind": payload.kind,
+        "participants": participants,
+        "bracket": rounds,
+        "status": "active",
+        "champion_id": None,
+        "champion_name": None,
+        "created_by": admin.user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    # Tag round-1 games with tournament_id
+    for m in rounds[0]["matches"]:
+        await db.arcade_games.update_one({"game_id": m["game_id"]}, {"$set": {"tournament_id": tid}})
+    await db.arcade_tournaments.insert_one(dict(tournament))
+    return {k: v for k, v in tournament.items() if k != "_id"}
+
+@api_router.get("/arcade/tournaments")
+async def list_tournaments(_: User = Depends(get_current_user)):
+    docs = await db.arcade_tournaments.find({}, {"_id": 0}).sort("created_at", -1).limit(20).to_list(20)
+    return docs
+
+@api_router.get("/arcade/tournaments/{tournament_id}")
+async def get_tournament(tournament_id: str, _: User = Depends(get_current_user)):
+    doc = await db.arcade_tournaments.find_one({"tournament_id": tournament_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Tournament not found")
+    return doc
+
+@api_router.get("/arcade/users")
+async def arcade_users(_: User = Depends(get_current_user)):
+    """List active users available for tournament invitations."""
+    docs = await db.users.find({}, {"_id": 0, "user_id": 1, "name": 1, "email": 1, "role": 1}).to_list(100)
+    return docs
+
+# -------------------- ARCADE: Challenges --------------------
+class ChallengeCreate(BaseModel):
+    opponent_user_id: str
+    kind: str = "connect4"
+    message: Optional[str] = None
+
+@api_router.post("/arcade/challenges")
+async def create_challenge(payload: ChallengeCreate, user: User = Depends(get_current_user)):
+    if payload.opponent_user_id == user.user_id:
+        raise HTTPException(400, "Cannot challenge yourself")
+    opp = await db.users.find_one({"user_id": payload.opponent_user_id}, {"_id": 0})
+    if not opp:
+        raise HTTPException(404, "Opponent not found")
+    challenge = {
+        "challenge_id": f"CHG-{uuid.uuid4().hex[:8].upper()}",
+        "kind": payload.kind,
+        "from_user_id": user.user_id,
+        "from_user_name": user.name,
+        "to_user_id": payload.opponent_user_id,
+        "to_user_name": opp["name"],
+        "message": payload.message,
+        "status": "pending",  # pending | accepted | declined | expired
+        "game_id": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.arcade_challenges.insert_one(dict(challenge))
+    return {k: v for k, v in challenge.items() if k != "_id"}
+
+@api_router.get("/arcade/challenges")
+async def list_challenges(user: User = Depends(get_current_user)):
+    """Returns inbox (challenges sent TO me) and outbox (FROM me)."""
+    inbox = await db.arcade_challenges.find({"to_user_id": user.user_id}, {"_id": 0}).sort("created_at", -1).limit(30).to_list(30)
+    outbox = await db.arcade_challenges.find({"from_user_id": user.user_id}, {"_id": 0}).sort("created_at", -1).limit(30).to_list(30)
+    return {"inbox": inbox, "outbox": outbox, "pending_count": sum(1 for c in inbox if c["status"] == "pending")}
+
+@api_router.post("/arcade/challenges/{challenge_id}/accept")
+async def accept_challenge(challenge_id: str, user: User = Depends(get_current_user)):
+    c = await db.arcade_challenges.find_one({"challenge_id": challenge_id}, {"_id": 0})
+    if not c:
+        raise HTTPException(404, "Challenge not found")
+    if c["to_user_id"] != user.user_id:
+        raise HTTPException(403, "Not your challenge")
+    if c["status"] != "pending":
+        raise HTTPException(400, f"Challenge already {c['status']}")
+    game = {
+        "game_id": f"C4-{uuid.uuid4().hex[:8].upper()}",
+        "kind": c["kind"],
+        "player1_id": c["from_user_id"], "player1_name": c["from_user_name"],
+        "player2_id": user.user_id, "player2_name": user.name,
+        "board": _empty_c4_board(), "turn": 1, "status": "active",
+        "winner_id": None, "winner_name": None,
+        "moves": [], "tournament_id": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.arcade_games.insert_one(dict(game))
+    await db.arcade_challenges.update_one(
+        {"challenge_id": challenge_id},
+        {"$set": {"status": "accepted", "game_id": game["game_id"], "accepted_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    return {"game_id": game["game_id"], "status": "accepted"}
+
+@api_router.post("/arcade/challenges/{challenge_id}/decline")
+async def decline_challenge(challenge_id: str, user: User = Depends(get_current_user)):
+    c = await db.arcade_challenges.find_one({"challenge_id": challenge_id}, {"_id": 0})
+    if not c:
+        raise HTTPException(404, "Challenge not found")
+    if c["to_user_id"] != user.user_id:
+        raise HTTPException(403, "Not your challenge")
+    await db.arcade_challenges.update_one({"challenge_id": challenge_id}, {"$set": {"status": "declined"}})
+    return {"ok": True}
+
+# -------------------- KPI REPORTS · Download & Email --------------------
+async def _compute_kpis() -> Dict[str, Any]:
+    """Reuse the same calc as /kpis."""
+    all_shipments = await db.shipments.find({}, {"_id": 0}).to_list(2000)
+    total = len(all_shipments)
+    in_transit = sum(1 for s in all_shipments if s["status"] == "in_transit")
+    delayed = sum(1 for s in all_shipments if s["status"] == "delayed")
+    delivered = sum(1 for s in all_shipments if s["status"] == "delivered")
+    pending = sum(1 for s in all_shipments if s["status"] == "pending")
+    by_mode: Dict[str, int] = {}
+    by_carrier: Dict[str, Dict[str, int]] = {}
+    total_weight = 0.0
+    total_value = 0.0
+    for s in all_shipments:
+        by_mode[s["mode"]] = by_mode.get(s["mode"], 0) + 1
+        c = s["carrier"]
+        by_carrier.setdefault(c, {"total": 0, "on_time": 0, "delayed": 0})
+        by_carrier[c]["total"] += 1
+        if s["status"] == "delivered":
+            by_carrier[c]["on_time"] += 1
+        if s["status"] == "delayed":
+            by_carrier[c]["delayed"] += 1
+        total_weight += s.get("weight_lbs", 0)
+        total_value += s.get("value_usd", 0)
+    on_time_rate = round((delivered / max(1, total)) * 100, 1)
+    return {
+        "total": total, "in_transit": in_transit, "delayed": delayed,
+        "delivered": delivered, "pending": pending,
+        "weight_lbs": round(total_weight, 0), "value_usd": round(total_value, 0),
+        "on_time_rate": on_time_rate,
+        "by_mode": by_mode,
+        "by_carrier": sorted([{"carrier": k, **v, "on_time_pct": round(v["on_time"] / max(1, v["total"]) * 100, 1)} for k, v in by_carrier.items()], key=lambda x: -x["total"]),
+    }
+
+@api_router.get("/reports/kpi/download.pdf")
+async def kpi_report_pdf(user: User = Depends(get_current_user)):
+    """Tennant-branded KPI report as PDF."""
+    kpi = await _compute_kpis()
+    weekly = await get_weekly_weights(_=user)
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch, leftMargin=0.5 * inch, rightMargin=0.5 * inch)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("title", parent=styles["Heading1"], textColor=colors.HexColor("#00E5FF"), fontSize=20, spaceAfter=8)
+    sub_style = ParagraphStyle("sub", parent=styles["Normal"], textColor=colors.HexColor("#475569"), fontSize=9, spaceAfter=14)
+    section_style = ParagraphStyle("sec", parent=styles["Heading2"], textColor=colors.HexColor("#0F172A"), fontSize=13, spaceBefore=14, spaceAfter=8)
+    body_style = ParagraphStyle("body", parent=styles["Normal"], textColor=colors.HexColor("#0F172A"), fontSize=10)
+    elements = []
+    elements.append(Paragraph("TENNANT COMPANIES · TMS KPI Report", title_style))
+    elements.append(Paragraph(f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} · Operations Snapshot · All Modes", sub_style))
+
+    # KPI grid as a 4x2 table
+    elements.append(Paragraph("Headline Metrics", section_style))
+    kpi_table = Table([
+        ["Total Shipments", f"{kpi['total']:,}", "In Transit", f"{kpi['in_transit']:,}"],
+        ["Delivered", f"{kpi['delivered']:,}", "Delayed", f"{kpi['delayed']:,}"],
+        ["Pending", f"{kpi['pending']:,}", "On-Time Rate", f"{kpi['on_time_rate']}%"],
+        ["Total Weight (lbs)", f"{int(kpi['weight_lbs']):,}", "Total Value (USD)", f"${int(kpi['value_usd']):,}"],
+    ], colWidths=[1.6 * inch, 1.4 * inch, 1.6 * inch, 1.4 * inch])
+    kpi_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR", (1, 0), (1, -1), colors.HexColor("#0891B2")),
+        ("TEXTCOLOR", (3, 0), (3, -1), colors.HexColor("#0891B2")),
+        ("FONTSIZE", (0, 0), (-1, -1), 11),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("ALIGN", (3, 0), (3, -1), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(kpi_table)
+
+    # Carrier scorecard
+    elements.append(Paragraph("Carrier Scorecard", section_style))
+    carrier_rows = [["Carrier", "Total", "Delivered", "Delayed", "On-Time %"]]
+    for c in kpi["by_carrier"][:15]:
+        carrier_rows.append([c["carrier"], str(c["total"]), str(c["on_time"]), str(c["delayed"]), f"{c['on_time_pct']}%"])
+    carrier_table = Table(carrier_rows, colWidths=[2.4 * inch, 1.0 * inch, 1.0 * inch, 1.0 * inch, 1.2 * inch])
+    carrier_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F172A")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#F8FAFC")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 10),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#FFFFFF")),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#E2E8F0")),
+        ("FONTSIZE", (0, 1), (-1, -1), 9),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+    ]))
+    elements.append(carrier_table)
+
+    # Mode mix
+    elements.append(Paragraph("Volume by Mode", section_style))
+    mode_rows = [["Mode", "Shipments", "% of Total"]]
+    for m, v in sorted(kpi["by_mode"].items(), key=lambda x: -x[1]):
+        mode_rows.append([m, str(v), f"{round(v / max(1, kpi['total']) * 100, 1)}%"])
+    table_style = TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F172A")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#F8FAFC")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 10),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#E2E8F0")),
+        ("FONTSIZE", (0, 1), (-1, -1), 9),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+    ])
+    mode_table = Table(mode_rows, colWidths=[2.0 * inch, 1.4 * inch, 1.4 * inch])
+    mode_table.setStyle(table_style)
+    elements.append(mode_table)
+
+    # Weekly weights summary
+    elements.append(Paragraph("Weekly Avg Weight per Shipment · by Facility (12-wk)", section_style))
+    ww_rows = [["Facility", "Current Wk Avg (lbs)", "12-Wk Avg (lbs)", "WoW Δ", "Total (lbs)"]]
+    for fac in ["GVM", "HOM", "LVK"]:
+        d = weekly["summary"].get(fac, {})
+        ww_rows.append([fac, f"{int(d.get('current_week_avg_lbs') or 0):,}", f"{int(d.get('twelve_wk_avg_lbs') or 0):,}", f"{int(d.get('wow_delta_lbs') or 0):+,}", f"{int(d.get('twelve_wk_total_lbs') or 0):,}"])
+    ww_table = Table(ww_rows, colWidths=[1.0 * inch, 1.5 * inch, 1.5 * inch, 1.0 * inch, 1.5 * inch])
+    ww_table.setStyle(table_style)
+    elements.append(ww_table)
+
+    elements.append(Spacer(1, 0.3 * inch))
+    elements.append(Paragraph(f"<font size=7 color='#475569'>Tennant Companies · TMS · Generated by {user.name} · Confidential — Internal Use Only</font>", body_style))
+
+    doc.build(elements)
+    buf.seek(0)
+    headers = {"Content-Disposition": f'attachment; filename="Tennant_KPI_Report_{datetime.now(timezone.utc).strftime("%Y%m%d")}.pdf"'}
+    return StreamingResponse(buf, media_type="application/pdf", headers=headers)
+
+@api_router.get("/reports/kpi/download.xlsx")
+async def kpi_report_xlsx(user: User = Depends(get_current_user)):
+    """KPI report as a multi-sheet Excel."""
+    kpi = await _compute_kpis()
+    weekly = await get_weekly_weights(_=user)
+    wb = XLWorkbook()
+    header_fill = PatternFill("solid", fgColor="0F172A")
+    header_font = Font(name="Calibri", size=11, bold=True, color="F8FAFC")
+    cyan_font = Font(name="Calibri", size=11, color="0891B2", bold=True)
+    border = Border(left=Side(style="thin", color="CBD5E1"), right=Side(style="thin", color="CBD5E1"),
+                    top=Side(style="thin", color="CBD5E1"), bottom=Side(style="thin", color="CBD5E1"))
+
+    ws1 = wb.active; ws1.title = "Headline"
+    ws1["A1"] = "TENNANT COMPANIES · TMS KPI Report"; ws1["A1"].font = Font(size=14, bold=True, color="00E5FF")
+    ws1["A2"] = f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"; ws1["A2"].font = Font(size=9, color="475569")
+    headline = [
+        ("Total Shipments", kpi["total"]),
+        ("In Transit", kpi["in_transit"]),
+        ("Delivered", kpi["delivered"]),
+        ("Delayed", kpi["delayed"]),
+        ("Pending", kpi["pending"]),
+        ("On-Time Rate %", kpi["on_time_rate"]),
+        ("Total Weight (lbs)", kpi["weight_lbs"]),
+        ("Total Value (USD)", kpi["value_usd"]),
+    ]
+    for i, (k, v) in enumerate(headline, start=4):
+        ws1.cell(row=i, column=1, value=k).font = Font(bold=True)
+        c = ws1.cell(row=i, column=2, value=v); c.font = cyan_font; c.border = border
+    ws1.column_dimensions["A"].width = 26; ws1.column_dimensions["B"].width = 18
+
+    ws2 = wb.create_sheet("Carrier Scorecard")
+    for j, h in enumerate(["Carrier", "Total", "Delivered", "Delayed", "On-Time %"], start=1):
+        c = ws2.cell(row=1, column=j, value=h); c.fill = header_fill; c.font = header_font
+    for i, c in enumerate(kpi["by_carrier"], start=2):
+        ws2.cell(row=i, column=1, value=c["carrier"])
+        ws2.cell(row=i, column=2, value=c["total"])
+        ws2.cell(row=i, column=3, value=c["on_time"])
+        ws2.cell(row=i, column=4, value=c["delayed"])
+        ws2.cell(row=i, column=5, value=c["on_time_pct"])
+    for col_letter in "ABCDE":
+        ws2.column_dimensions[col_letter].width = 18
+    ws2.freeze_panes = "A2"
+
+    ws3 = wb.create_sheet("Mode Mix")
+    for j, h in enumerate(["Mode", "Shipments", "% of Total"], start=1):
+        c = ws3.cell(row=1, column=j, value=h); c.fill = header_fill; c.font = header_font
+    for i, (m, v) in enumerate(sorted(kpi["by_mode"].items(), key=lambda x: -x[1]), start=2):
+        ws3.cell(row=i, column=1, value=m)
+        ws3.cell(row=i, column=2, value=v)
+        ws3.cell(row=i, column=3, value=round(v / max(1, kpi["total"]) * 100, 1))
+
+    ws4 = wb.create_sheet("Weekly Weights")
+    for j, h in enumerate(["Week", "GVM", "HOM", "LVK"], start=1):
+        c = ws4.cell(row=1, column=j, value=h); c.fill = header_fill; c.font = header_font
+    for i, row in enumerate(weekly["series"], start=2):
+        ws4.cell(row=i, column=1, value=row["week"])
+        ws4.cell(row=i, column=2, value=row["GVM"])
+        ws4.cell(row=i, column=3, value=row["HOM"])
+        ws4.cell(row=i, column=4, value=row["LVK"])
+
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    headers = {"Content-Disposition": f'attachment; filename="Tennant_KPI_Report_{datetime.now(timezone.utc).strftime("%Y%m%d")}.xlsx"'}
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
+
+class KPIEmailRequest(BaseModel):
+    to: Optional[str] = None
+    cc: Optional[str] = None
+    note: Optional[str] = None
+    format: str = "pdf"  # pdf | xlsx | both
+
+@api_router.post("/reports/kpi/email")
+async def email_kpi_report(payload: KPIEmailRequest, user: User = Depends(get_current_user)):
+    kpi = await _compute_kpis()
+    subject = f"Tennant TMS · KPI Report · {datetime.now(timezone.utc).strftime('%b %d, %Y')}"
+    fmt_label = {"pdf": "PDF", "xlsx": "Excel", "both": "PDF + Excel"}.get(payload.format, "PDF")
+    body = (
+        f"Hello,\n\n"
+        f"Please find attached the latest Tennant TMS KPI snapshot ({fmt_label}).\n\n"
+        f"HEADLINE METRICS\n"
+        f"  Total Shipments:    {kpi['total']:,}\n"
+        f"  In Transit:         {kpi['in_transit']:,}\n"
+        f"  Delivered:          {kpi['delivered']:,}\n"
+        f"  Delayed:            {kpi['delayed']:,}\n"
+        f"  Pending:            {kpi['pending']:,}\n"
+        f"  On-Time Rate:       {kpi['on_time_rate']}%\n"
+        f"  Total Weight:       {int(kpi['weight_lbs']):,} lbs\n"
+        f"  Total Value:        ${int(kpi['value_usd']):,}\n\n"
+        f"TOP 5 CARRIERS BY VOLUME\n"
+    )
+    for c in kpi["by_carrier"][:5]:
+        body += f"  • {c['carrier']:30s}  total {c['total']:4d}   on-time {c['on_time_pct']}%\n"
+    if payload.note:
+        body += f"\nNote from {user.name}:\n{payload.note}\n"
+    body += "\n— Tennant Transportation Team\n  generated automatically from the Tennant TMS"
+    base = os.environ.get("PUBLIC_APP_URL", "")
+    pdf_link = f"{base}/api/reports/kpi/download.pdf" if base else "/api/reports/kpi/download.pdf"
+    xlsx_link = f"{base}/api/reports/kpi/download.xlsx" if base else "/api/reports/kpi/download.xlsx"
+    body += f"\n\nDownload links (active for authenticated users):\n  PDF: {pdf_link}\n  XLSX: {xlsx_link}\n"
+    await db.report_audit_log.insert_one({
+        "report_type": "kpi",
+        "to": payload.to or "",
+        "cc": payload.cc or "",
+        "format": payload.format,
+        "generated_by": user.user_id,
+        "generated_by_name": user.name,
+        "at": datetime.now(timezone.utc).isoformat(),
+    })
+    to = payload.to or ""
+    cc = payload.cc or ""
+    mailto_qs = []
+    if cc:
+        mailto_qs.append(f"cc={cc}")
+    mailto_qs.append(f"subject={subject}")
+    mailto_qs.append(f"body={body}")
+    mailto = f"mailto:{to}?" + "&".join(mailto_qs)
+    return {"to": to, "cc": cc, "subject": subject, "body": body, "mailto": mailto, "pdf_link": pdf_link, "xlsx_link": xlsx_link}
+
+# -------------------- SUPPLIER SOURCING --------------------
+# Tracks every supplier Tennant currently sources from — components, lead times, risk, dual-source coverage.
+TENNANT_SUPPLIERS = [
+    {"supplier_id": "SUP-001", "name": "Samsung SDI", "country": "South Korea", "category": "Battery · Li-ion",
+     "components": ["TENN-BATT-LION-48V", "TENN-BATT-LION-36V"], "annual_spend_usd": 4_200_000,
+     "lead_time_days": 42, "moq": 100, "on_time_pct": 96.4, "quality_ppm": 142,
+     "risk_score": 12, "fta_eligible": "KORUS", "primary": True, "alt_suppliers": ["LG Energy Solution"],
+     "contract_expiry": "2027-03-31", "contact": "Hyun-woo Kim · hkim@samsungsdi.com · +82-2-3458-7000",
+     "notes": "Primary 48V Li-ion. KORUS-eligible — 0% duty."},
+    {"supplier_id": "SUP-002", "name": "LG Energy Solution", "country": "South Korea", "category": "Battery · Li-ion",
+     "components": ["TENN-BATT-LION-48V-ALT"], "annual_spend_usd": 1_100_000,
+     "lead_time_days": 38, "moq": 50, "on_time_pct": 94.1, "quality_ppm": 178,
+     "risk_score": 18, "fta_eligible": "KORUS", "primary": False, "alt_suppliers": ["Samsung SDI"],
+     "contract_expiry": "2026-12-31", "contact": "Min-jun Park · mpark@lgensol.com · +82-2-3773-1114",
+     "notes": "Backup source for 48V pack."},
+    {"supplier_id": "SUP-003", "name": "Trojan Battery Co.", "country": "USA", "category": "Battery · AGM/Flooded",
+     "components": ["TENN-BATT-AGM-36V", "TENN-BATT-FLOODED-36V"], "annual_spend_usd": 2_650_000,
+     "lead_time_days": 21, "moq": 25, "on_time_pct": 97.8, "quality_ppm": 89,
+     "risk_score": 8, "fta_eligible": "Domestic", "primary": True, "alt_suppliers": ["East Penn Mfg"],
+     "contract_expiry": "2028-06-30", "contact": "Sarah Bennett · sb@trojanbattery.com · +1-562-236-3000",
+     "notes": "Primary AGM. Domestic = no duty exposure."},
+    {"supplier_id": "SUP-004", "name": "East Penn Manufacturing", "country": "USA", "category": "Battery · AGM",
+     "components": ["TENN-BATT-AGM-36V-ALT"], "annual_spend_usd": 580_000,
+     "lead_time_days": 18, "moq": 25, "on_time_pct": 98.5, "quality_ppm": 65,
+     "risk_score": 6, "fta_eligible": "Domestic", "primary": False, "alt_suppliers": ["Trojan Battery"],
+     "contract_expiry": "2027-09-15", "contact": "Dale Krug · dkrug@dekabatteries.com · +1-610-682-6361"},
+    {"supplier_id": "SUP-005", "name": "Yura Corporation", "country": "South Korea", "category": "Wiring Harness",
+     "components": ["TENN-WH-T16", "TENN-WH-T350", "TENN-WH-S30"], "annual_spend_usd": 1_870_000,
+     "lead_time_days": 35, "moq": 200, "on_time_pct": 95.2, "quality_ppm": 215,
+     "risk_score": 22, "fta_eligible": "KORUS", "primary": True, "alt_suppliers": ["Yazaki Japan"],
+     "contract_expiry": "2026-11-30", "contact": "Ji-hoon Lee · jlee@yura.kr · +82-31-280-7000",
+     "notes": "Primary harness supplier. Quality PPM trending up — under review."},
+    {"supplier_id": "SUP-006", "name": "Yazaki Corporation", "country": "Japan", "category": "Wiring Harness",
+     "components": ["TENN-WH-INDUSTRIAL", "TENN-WH-CONTROL"], "annual_spend_usd": 925_000,
+     "lead_time_days": 45, "moq": 100, "on_time_pct": 98.1, "quality_ppm": 95,
+     "risk_score": 14, "fta_eligible": "JP-FTA", "primary": True, "alt_suppliers": ["Yura"],
+     "contract_expiry": "2027-04-30", "contact": "Takeshi Mori · tmori@yazaki.com · +81-538-32-2114"},
+    {"supplier_id": "SUP-007", "name": "Honda Power Equipment", "country": "Japan", "category": "Engine · LPG/Gas",
+     "components": ["TENN-ENG-LPG-T350", "TENN-ENG-LPG-T500"], "annual_spend_usd": 3_400_000,
+     "lead_time_days": 55, "moq": 50, "on_time_pct": 99.2, "quality_ppm": 32,
+     "risk_score": 9, "fta_eligible": "JP-FTA", "primary": True, "alt_suppliers": ["Kubota"],
+     "contract_expiry": "2029-03-31", "contact": "Tennant Account Mgr · tennant@honda-na.com · +1-770-497-6400",
+     "notes": "Long-standing partner. Best quality in class."},
+    {"supplier_id": "SUP-008", "name": "Premier Polymers", "country": "USA", "category": "Plastic · HDPE Tanks",
+     "components": ["TENN-TANK-SOL-HDPE-30G", "TENN-TANK-REC-HDPE-30G", "TENN-TANK-SOL-HDPE-50G"], "annual_spend_usd": 1_240_000,
+     "lead_time_days": 14, "moq": 50, "on_time_pct": 96.7, "quality_ppm": 156,
+     "risk_score": 11, "fta_eligible": "Domestic", "primary": True, "alt_suppliers": ["Olympic Plastics"],
+     "contract_expiry": "2027-12-31", "contact": "Mike Davenport · md@premierpoly.com · +1-616-877-2200"},
+    {"supplier_id": "SUP-009", "name": "Midwest Steel Frame Co.", "country": "USA", "category": "Steel Frames",
+     "components": ["TENN-FRAME-T16", "TENN-FRAME-T350", "TENN-FRAME-S30"], "annual_spend_usd": 2_100_000,
+     "lead_time_days": 28, "moq": 20, "on_time_pct": 97.5, "quality_ppm": 71,
+     "risk_score": 7, "fta_eligible": "Domestic", "primary": True, "alt_suppliers": ["Heartland Fabrication"],
+     "contract_expiry": "2028-01-31", "contact": "Robert Chen · rchen@midwestframe.com · +1-815-555-2900"},
+    {"supplier_id": "SUP-010", "name": "Penn Battery Industries", "country": "USA", "category": "Battery · Lead-acid",
+     "components": ["TENN-BATT-LA-36V-INDUSTRIAL"], "annual_spend_usd": 480_000,
+     "lead_time_days": 16, "moq": 30, "on_time_pct": 95.4, "quality_ppm": 188,
+     "risk_score": 19, "fta_eligible": "Domestic", "primary": False, "alt_suppliers": ["Trojan Battery"],
+     "contract_expiry": "2026-08-31", "contact": "Jim Walker · jw@pennbattery.com · +1-610-555-3300"},
+    {"supplier_id": "SUP-011", "name": "Bosch Rexroth", "country": "Germany", "category": "Hydraulics & Pumps",
+     "components": ["TENN-PUMP-HYD-T16AMR", "TENN-VALVE-HYD-T500"], "annual_spend_usd": 1_640_000,
+     "lead_time_days": 49, "moq": 75, "on_time_pct": 97.9, "quality_ppm": 48,
+     "risk_score": 13, "fta_eligible": "MFN (no FTA)", "primary": True, "alt_suppliers": ["Parker Hannifin"],
+     "contract_expiry": "2027-06-30", "contact": "Klaus Weber · kweber@boschrexroth.de · +49-9352-180"},
+    {"supplier_id": "SUP-012", "name": "Parker Hannifin", "country": "USA", "category": "Hydraulics & Pumps",
+     "components": ["TENN-PUMP-HYD-ALT"], "annual_spend_usd": 720_000,
+     "lead_time_days": 24, "moq": 25, "on_time_pct": 98.6, "quality_ppm": 38,
+     "risk_score": 6, "fta_eligible": "Domestic", "primary": False, "alt_suppliers": ["Bosch Rexroth"],
+     "contract_expiry": "2027-12-31", "contact": "Andrew Mills · amills@parker.com · +1-216-896-3000"},
+    {"supplier_id": "SUP-013", "name": "ABB Motors & Drives", "country": "Sweden", "category": "Motors · DC/AC",
+     "components": ["TENN-MOTOR-DC-AMR", "TENN-MOTOR-AC-3PH"], "annual_spend_usd": 1_980_000,
+     "lead_time_days": 56, "moq": 100, "on_time_pct": 96.2, "quality_ppm": 124,
+     "risk_score": 16, "fta_eligible": "MFN", "primary": True, "alt_suppliers": ["WEG"],
+     "contract_expiry": "2027-09-30", "contact": "Erik Lindberg · elindberg@abb.se · +46-21-32-50-00"},
+    {"supplier_id": "SUP-014", "name": "WEG Industries", "country": "Brazil", "category": "Motors · AC",
+     "components": ["TENN-MOTOR-AC-3PH-ALT"], "annual_spend_usd": 420_000,
+     "lead_time_days": 60, "moq": 50, "on_time_pct": 93.8, "quality_ppm": 230,
+     "risk_score": 28, "fta_eligible": "MFN", "primary": False, "alt_suppliers": ["ABB"],
+     "contract_expiry": "2026-10-31", "contact": "Carlos Silva · csilva@weg.net · +55-47-3276-4000"},
+    {"supplier_id": "SUP-015", "name": "Industrial Brush Co.", "country": "USA", "category": "Brushes",
+     "components": ["TENN-BRUSH-CYL-32", "TENN-BRUSH-DISC-20", "TENN-BRUSH-CYL-40"], "annual_spend_usd": 380_000,
+     "lead_time_days": 12, "moq": 100, "on_time_pct": 98.9, "quality_ppm": 42,
+     "risk_score": 5, "fta_eligible": "Domestic", "primary": True, "alt_suppliers": ["Tucel Industries"],
+     "contract_expiry": "2028-04-30", "contact": "Linda Foster · lfoster@indbrush.com · +1-414-555-7800"},
+    {"supplier_id": "SUP-016", "name": "Tucel Industries", "country": "USA", "category": "Brushes",
+     "components": ["TENN-BRUSH-DISC-ALT"], "annual_spend_usd": 95_000,
+     "lead_time_days": 14, "moq": 50, "on_time_pct": 97.4, "quality_ppm": 88,
+     "risk_score": 9, "fta_eligible": "Domestic", "primary": False, "alt_suppliers": ["Industrial Brush"],
+     "contract_expiry": "2027-02-28", "contact": "Mark Lyons · mlyons@tucel.com · +1-802-247-3300"},
+    {"supplier_id": "SUP-017", "name": "Urethane Specialties Intl.", "country": "USA", "category": "Squeegees / Urethane",
+     "components": ["TENN-SQGE-URETH-40", "TENN-SQGE-URETH-32", "TENN-SQGE-URETH-26"], "annual_spend_usd": 312_000,
+     "lead_time_days": 10, "moq": 100, "on_time_pct": 99.1, "quality_ppm": 28,
+     "risk_score": 4, "fta_eligible": "Domestic", "primary": True, "alt_suppliers": ["Polymer Sciences"],
+     "contract_expiry": "2028-12-31", "contact": "Greg Holt · gholt@uretspec.com · +1-330-555-4400"},
+    {"supplier_id": "SUP-018", "name": "Schneider Electric", "country": "France", "category": "Electronics · PLCs/Controllers",
+     "components": ["TENN-PLC-AMR-NAVIGATION", "TENN-CONTROLLER-SCRUB"], "annual_spend_usd": 1_450_000,
+     "lead_time_days": 42, "moq": 50, "on_time_pct": 96.5, "quality_ppm": 102,
+     "risk_score": 14, "fta_eligible": "MFN", "primary": True, "alt_suppliers": ["Siemens"],
+     "contract_expiry": "2027-07-31", "contact": "Marie Dubois · mdubois@se.com · +33-1-41-29-70-00"},
+    {"supplier_id": "SUP-019", "name": "Siemens AG", "country": "Germany", "category": "Electronics · Drives",
+     "components": ["TENN-DRIVE-VFD-T16AMR"], "annual_spend_usd": 880_000,
+     "lead_time_days": 49, "moq": 25, "on_time_pct": 98.4, "quality_ppm": 56,
+     "risk_score": 11, "fta_eligible": "MFN", "primary": False, "alt_suppliers": ["Schneider"],
+     "contract_expiry": "2027-05-31", "contact": "Hans Mueller · hmueller@siemens.de · +49-89-636-00"},
+    {"supplier_id": "SUP-020", "name": "Goodyear Industrial", "country": "USA", "category": "Tires · Industrial",
+     "components": ["TENN-TIRE-IND-T16", "TENN-TIRE-IND-S30"], "annual_spend_usd": 290_000,
+     "lead_time_days": 21, "moq": 50, "on_time_pct": 97.0, "quality_ppm": 84,
+     "risk_score": 8, "fta_eligible": "Domestic", "primary": True, "alt_suppliers": ["Trelleborg"],
+     "contract_expiry": "2027-11-30", "contact": "Mary Lou Carson · mlc@goodyear.com · +1-330-796-2121"},
+]
+
+@api_router.get("/suppliers")
+async def list_suppliers(_: User = Depends(get_current_user), country: Optional[str] = None, category: Optional[str] = None, risk_max: Optional[int] = None):
+    """List Tennant suppliers with optional filters by country / category / max risk score."""
+    out = list(TENNANT_SUPPLIERS)
+    if country:
+        out = [s for s in out if s["country"].lower() == country.lower()]
+    if category:
+        out = [s for s in out if category.lower() in s["category"].lower()]
+    if risk_max is not None:
+        out = [s for s in out if s["risk_score"] <= risk_max]
+    # Summary stats
+    total_spend = sum(s["annual_spend_usd"] for s in TENNANT_SUPPLIERS)
+    countries = {}
+    categories = {}
+    for s in TENNANT_SUPPLIERS:
+        countries[s["country"]] = countries.get(s["country"], 0) + s["annual_spend_usd"]
+        categories[s["category"]] = categories.get(s["category"], 0) + 1
+    return {
+        "suppliers": out,
+        "summary": {
+            "total_suppliers": len(TENNANT_SUPPLIERS),
+            "primary_count": sum(1 for s in TENNANT_SUPPLIERS if s["primary"]),
+            "total_annual_spend_usd": total_spend,
+            "single_source_components": sum(1 for s in TENNANT_SUPPLIERS if not s["alt_suppliers"]),
+            "high_risk_count": sum(1 for s in TENNANT_SUPPLIERS if s["risk_score"] >= 20),
+            "expiring_contracts_12mo": sum(1 for s in TENNANT_SUPPLIERS if s["contract_expiry"] and datetime.fromisoformat(s["contract_expiry"]).date() < (datetime.now(timezone.utc).date() + timedelta(days=365))),
+            "by_country": [{"country": k, "spend": v} for k, v in sorted(countries.items(), key=lambda x: -x[1])],
+            "by_category": [{"category": k, "count": v} for k, v in sorted(categories.items(), key=lambda x: -x[1])],
+        },
+    }
+
+# -------------------- INSPIRATIONAL QUOTES (Command Center subtle ticker) --------------------
+INSPIRATIONAL_QUOTES = [
+    {"text": "The only way to do great work is to love what you do.", "author": "Steve Jobs"},
+    {"text": "Success is not final, failure is not fatal: it is the courage to continue that counts.", "author": "Winston Churchill"},
+    {"text": "Logistics is the lifeline of every industry.", "author": "Anonymous"},
+    {"text": "It does not matter how slowly you go as long as you do not stop.", "author": "Confucius"},
+    {"text": "Quality means doing it right when no one is looking.", "author": "Henry Ford"},
+    {"text": "Without continuous improvement, there can be no excellence.", "author": "W. Edwards Deming"},
+    {"text": "Excellence is not a destination; it is a continuous journey.", "author": "Brian Tracy"},
+    {"text": "The supply chain stuff is really tricky.", "author": "Elon Musk"},
+    {"text": "Hard work beats talent when talent doesn't work hard.", "author": "Tim Notke"},
+    {"text": "Discipline is the bridge between goals and accomplishment.", "author": "Jim Rohn"},
+    {"text": "If everything seems under control, you're not going fast enough.", "author": "Mario Andretti"},
+    {"text": "Done is better than perfect.", "author": "Sheryl Sandberg"},
+    {"text": "Plans are worthless, but planning is everything.", "author": "Dwight D. Eisenhower"},
+    {"text": "Amateurs talk strategy; professionals talk logistics.", "author": "Gen. Omar Bradley"},
+    {"text": "Whether you think you can or think you can't, you're right.", "author": "Henry Ford"},
+    {"text": "Action is the foundational key to all success.", "author": "Pablo Picasso"},
+    {"text": "Continuous effort — not strength or intelligence — is the key to unlocking our potential.", "author": "Winston Churchill"},
+    {"text": "Don't watch the clock; do what it does — keep going.", "author": "Sam Levenson"},
+    {"text": "Strive not to be a success, but rather to be of value.", "author": "Albert Einstein"},
+    {"text": "Out of clutter, find simplicity.", "author": "Albert Einstein"},
+    {"text": "The pessimist sees difficulty in every opportunity. The optimist sees opportunity in every difficulty.", "author": "Winston Churchill"},
+    {"text": "Quality is never an accident; it is always the result of intelligent effort.", "author": "John Ruskin"},
+    {"text": "The man who moves a mountain begins by carrying away small stones.", "author": "Confucius"},
+    {"text": "Efficiency is doing things right; effectiveness is doing the right things.", "author": "Peter Drucker"},
+    {"text": "Genius is one percent inspiration and ninety-nine percent perspiration.", "author": "Thomas Edison"},
+    {"text": "Either you run the day, or the day runs you.", "author": "Jim Rohn"},
+    {"text": "Innovation distinguishes between a leader and a follower.", "author": "Steve Jobs"},
+    {"text": "Wherever you go, no matter what the weather, always bring your own sunshine.", "author": "Anthony J. D'Angelo"},
+    {"text": "If you cannot do great things, do small things in a great way.", "author": "Napoleon Hill"},
+    {"text": "Success is walking from failure to failure with no loss of enthusiasm.", "author": "Winston Churchill"},
+    {"text": "The only place where success comes before work is in the dictionary.", "author": "Vidal Sassoon"},
+    {"text": "Believe you can and you're halfway there.", "author": "Theodore Roosevelt"},
+    {"text": "The best way to predict the future is to create it.", "author": "Peter Drucker"},
+    {"text": "Coming together is a beginning; staying together is progress; working together is success.", "author": "Henry Ford"},
+    {"text": "Don't be afraid to give up the good to go for the great.", "author": "John D. Rockefeller"},
+    {"text": "Energy and persistence conquer all things.", "author": "Benjamin Franklin"},
+    {"text": "Setting goals is the first step in turning the invisible into the visible.", "author": "Tony Robbins"},
+    {"text": "Quality is doing the right thing even when no one is watching.", "author": "Henry Ford"},
+    {"text": "The future depends on what you do today.", "author": "Mahatma Gandhi"},
+    {"text": "Opportunities don't happen. You create them.", "author": "Chris Grosser"},
+    {"text": "It's not whether you get knocked down, it's whether you get up.", "author": "Vince Lombardi"},
+    {"text": "Perfection is not attainable, but if we chase perfection we can catch excellence.", "author": "Vince Lombardi"},
+    {"text": "Logistics is the ball and chain of armored warfare.", "author": "Heinz Guderian"},
+    {"text": "What you do today can improve all your tomorrows.", "author": "Ralph Marston"},
+    {"text": "Start where you are. Use what you have. Do what you can.", "author": "Arthur Ashe"},
+    {"text": "An ounce of action is worth a ton of theory.", "author": "Friedrich Engels"},
+    {"text": "The harder you work for something, the greater you'll feel when you achieve it.", "author": "Anonymous"},
+    {"text": "Trust the process.", "author": "Anonymous"},
+    {"text": "Behind every successful logistics operation is a great team.", "author": "Anonymous"},
+    {"text": "Every load matters. Every mile counts.", "author": "Trucking proverb"},
+    {"text": "Excellence is the gradual result of always striving to do better.", "author": "Pat Riley"},
+    {"text": "Do not wait to strike till the iron is hot, but make it hot by striking.", "author": "William Butler Yeats"},
+    {"text": "Great things are done by a series of small things brought together.", "author": "Vincent Van Gogh"},
+    {"text": "The road to success and the road to failure are almost exactly the same.", "author": "Colin R. Davis"},
+    {"text": "Don't let yesterday take up too much of today.", "author": "Will Rogers"},
+    {"text": "Logistics: where the rubber meets the road.", "author": "Anonymous"},
+    {"text": "Productivity is never an accident. It is always the result of a commitment to excellence.", "author": "Paul J. Meyer"},
+    {"text": "Stop being afraid of what could go wrong; start being excited about what could go right.", "author": "Tony Robbins"},
+    {"text": "Move fast and ship things.", "author": "Anonymous"},
+    {"text": "A goal without a plan is just a wish.", "author": "Antoine de Saint-Exupéry"},
+    {"text": "It always seems impossible until it's done.", "author": "Nelson Mandela"},
+    {"text": "If you want something you've never had, you must be willing to do something you've never done.", "author": "Thomas Jefferson"},
+    {"text": "The journey of a thousand miles begins with one step.", "author": "Lao Tzu"},
+    {"text": "Don't count the days, make the days count.", "author": "Muhammad Ali"},
+    {"text": "Champions keep playing until they get it right.", "author": "Billie Jean King"},
+    {"text": "Take chances, make mistakes. That's how you grow.", "author": "Mary Tyler Moore"},
+    {"text": "The successful warrior is the average man, with laser-like focus.", "author": "Bruce Lee"},
+    {"text": "Concentrate all your thoughts upon the work in hand.", "author": "Alexander Graham Bell"},
+    {"text": "Knowing is not enough; we must apply. Willing is not enough; we must do.", "author": "Goethe"},
+    {"text": "Failure is the condiment that gives success its flavor.", "author": "Truman Capote"},
+    {"text": "The expert in anything was once a beginner.", "author": "Helen Hayes"},
+    {"text": "We become what we think about.", "author": "Earl Nightingale"},
+    {"text": "Slow progress is still progress.", "author": "Anonymous"},
+    {"text": "The harder I work, the luckier I get.", "author": "Samuel Goldwyn"},
+    {"text": "Be the change you want to see in the world.", "author": "Mahatma Gandhi"},
+    {"text": "When everything seems to be going against you, remember that the airplane takes off against the wind.", "author": "Henry Ford"},
+    {"text": "There are no traffic jams along the extra mile.", "author": "Roger Staubach"},
+    {"text": "If you don't risk anything, you risk even more.", "author": "Erica Jong"},
+    {"text": "Success usually comes to those who are too busy to be looking for it.", "author": "Henry David Thoreau"},
+    {"text": "Don't be busy. Be productive.", "author": "Anonymous"},
+    {"text": "Cargo doesn't sleep — neither do great dispatchers.", "author": "Trucking proverb"},
+    {"text": "What gets measured gets managed.", "author": "Peter Drucker"},
+    {"text": "Lead, follow, or get out of the way.", "author": "Thomas Paine"},
+    {"text": "If opportunity doesn't knock, build a door.", "author": "Milton Berle"},
+    {"text": "A ship in harbor is safe — but that is not what ships are built for.", "author": "John A. Shedd"},
+    {"text": "Yesterday's home runs don't win today's games.", "author": "Babe Ruth"},
+    {"text": "The two most important days in your life are the day you are born and the day you find out why.", "author": "Mark Twain"},
+    {"text": "Whatever you are, be a good one.", "author": "Abraham Lincoln"},
+    {"text": "Every truck driver carries a piece of the economy on their back.", "author": "Anonymous"},
+    {"text": "Things may come to those who wait, but only the things left by those who hustle.", "author": "Abraham Lincoln"},
+    {"text": "The best preparation for tomorrow is doing your best today.", "author": "H. Jackson Brown Jr."},
+    {"text": "Don't stop when you're tired. Stop when you're done.", "author": "David Goggins"},
+    {"text": "Stay hungry, stay foolish.", "author": "Steve Jobs"},
+    {"text": "Hope is not a strategy.", "author": "Vince Lombardi"},
+    {"text": "If it scares you, it might be a good thing to try.", "author": "Seth Godin"},
+    {"text": "We are what we repeatedly do. Excellence, then, is not an act, but a habit.", "author": "Aristotle"},
+    {"text": "Inventory is money sitting around in another form.", "author": "Rhonda Adams"},
+    {"text": "Logistics comprises the means and arrangements which work out the plans of strategy and tactics.", "author": "Antoine-Henri Jomini"},
+    {"text": "Never confuse motion with progress.", "author": "Alfred A. Montapert"},
+    {"text": "Be so good they can't ignore you.", "author": "Steve Martin"},
+    {"text": "The way to get started is to quit talking and begin doing.", "author": "Walt Disney"},
+    {"text": "Time is the scarcest resource, and unless it is managed nothing else can be managed.", "author": "Peter Drucker"},
+    {"text": "Optimism is the faith that leads to achievement.", "author": "Helen Keller"},
+    {"text": "We rise by lifting others.", "author": "Robert Ingersoll"},
+]
+
+@api_router.get("/quotes")
+async def get_quotes(_: User = Depends(get_current_user)):
+    """Returns Tennant's curated motivational/inspirational quote rotation."""
+    return {"quotes": INSPIRATIONAL_QUOTES, "count": len(INSPIRATIONAL_QUOTES)}
+
+# -------------------- TRADE COMPLIANCE --------------------
+# Tariff schedules, trade programs, country-of-origin rules, watchlists relevant to Tennant.
+TRADE_COMPLIANCE = {
+    "summary": {
+        "active_tariff_codes": 18,
+        "section_301_exposure_pct": 14.2,
+        "ftz_active_lots": 12,
+        "duty_drawback_ytd_usd": 184320,
+        "section_232_steel_aluminum_in_scope": True,
+        "last_updated": datetime.now(timezone.utc).date().isoformat(),
+    },
+    "tariff_schedules": [
+        {"hts": "8479.89.95", "description": "Floor cleaning machines, electric", "general_duty": "2.5%", "column_1_special": "Free (USMCA, JP, KR, AU, SG)", "section_301_list": None, "notes": "Primary HS for T-series scrubbers / S-series sweepers"},
+        {"hts": "8508.11.00", "description": "Vacuum cleaners, < 1500 W, household type", "general_duty": "Free", "column_1_special": "Free", "section_301_list": None, "notes": "Tennant residential-grade SKUs (rare)"},
+        {"hts": "8508.19.00", "description": "Vacuum cleaners, industrial, > 1500 W", "general_duty": "Free", "column_1_special": "Free", "section_301_list": None, "notes": "Most Tennant industrial vacs"},
+        {"hts": "8507.60.00", "description": "Lithium-ion batteries", "general_duty": "3.4%", "column_1_special": "Free (USMCA, JP, KR)", "section_301_list": "List 3 (China origin: +25%)", "notes": "K+N Korea sourcing keeps us out of 301; China-origin packs trigger 25%"},
+        {"hts": "8507.20.80", "description": "Lead-acid storage batteries, NOI", "general_duty": "3.5%", "column_1_special": "Free (USMCA, JP, KR)", "section_301_list": None, "notes": "AGM packs"},
+        {"hts": "8501.31.50", "description": "DC motors, 750W-75kW", "general_duty": "2.8%", "column_1_special": "Free (USMCA)", "section_301_list": "List 3 (China: +25%)", "notes": "Drive motors — verify CoO carefully"},
+        {"hts": "8501.10.40", "description": "AC motors, single-phase, < 37.5W", "general_duty": "6.7%", "column_1_special": "Free (USMCA, KR)", "section_301_list": "List 4A (China: +7.5%)"},
+        {"hts": "9603.50.00", "description": "Brushes, rotating, for machines", "general_duty": "Free", "column_1_special": "Free", "section_301_list": None, "notes": "Cylindrical & disc brushes"},
+        {"hts": "3926.90.99", "description": "Plastic articles, NOI (HDPE tanks)", "general_duty": "5.3%", "column_1_special": "Free (USMCA, KR)", "section_301_list": "List 3 (China: +25%)", "notes": "Solution & recovery tanks"},
+        {"hts": "7308.90.95", "description": "Steel structural frames, machinery", "general_duty": "Free", "column_1_special": "Free", "section_301_list": None, "section_232": "+25% on steel content (China/EU/JP exempted via TRQ)"},
+        {"hts": "8544.30.00", "description": "Wiring harnesses, ignition / industrial", "general_duty": "5.0%", "column_1_special": "Free (USMCA, KR)", "section_301_list": "List 3 (China: +25%)"},
+        {"hts": "4009.32.00", "description": "Rubber tubing / hoses, reinforced", "general_duty": "2.5%", "column_1_special": "Free (USMCA, KR)", "section_301_list": "List 3 (China: +25%)"},
+        {"hts": "8413.70.20", "description": "Submersible pumps, water/solution", "general_duty": "Free", "column_1_special": "Free", "section_301_list": "List 3 (China: +25%)"},
+        {"hts": "4011.20.10", "description": "Industrial rubber tires, solid", "general_duty": "3.4%", "column_1_special": "Free (USMCA)", "section_301_list": "List 4A (China: +7.5%)"},
+        {"hts": "8714.99.80", "description": "Parts of vehicles, NOI", "general_duty": "Free", "column_1_special": "Free", "section_301_list": "List 3 (China: +25%)"},
+        {"hts": "8421.39.80", "description": "Filters, machinery, gas/air", "general_duty": "Free", "column_1_special": "Free", "section_301_list": None},
+        {"hts": "4016.99.55", "description": "Squeegee blades, rubber/urethane", "general_duty": "2.5%", "column_1_special": "Free (USMCA, KR)", "section_301_list": "List 3 (China: +25%)"},
+        {"hts": "8537.10.91", "description": "Programmable controllers, < 1kV", "general_duty": "2.7%", "column_1_special": "Free (USMCA, KR)", "section_301_list": "List 3 (China: +25%)"},
+    ],
+    "trade_programs": [
+        {"program": "USMCA", "abbr": "USMCA", "type": "FTA", "tennant_use": "Mexico-sourced motors & wiring harnesses; Tennant ships to Canadian customers under 0% duty.", "status": "Active", "renewed": "2026 review pending"},
+        {"program": "KORUS FTA (Korea)", "abbr": "KR-FTA", "type": "FTA", "tennant_use": "Samsung SDI / LG / Yura inbound Li-ion batteries from Korea — free of duty.", "status": "Active"},
+        {"program": "Japan FTA (USJTA)", "abbr": "JP-FTA", "type": "Limited FTA", "tennant_use": "Yazaki wiring harnesses from Japan — partial duty reduction.", "status": "Active"},
+        {"program": "Australia FTA (AUSFTA)", "abbr": "AU-FTA", "type": "FTA", "tennant_use": "Limited — used when AU customers require certification of origin.", "status": "Active"},
+        {"program": "Singapore FTA", "abbr": "SG-FTA", "type": "FTA", "tennant_use": "ASEAN distribution hub — components transiting Singapore.", "status": "Active"},
+        {"program": "Foreign Trade Zone (FTZ)", "abbr": "FTZ", "type": "Duty Deferral", "tennant_use": "Golden Valley & Louisville sites operate under FTZ #119 (subzone) — defer duty until withdrawn for consumption.", "status": "Active · 12 lots open"},
+        {"program": "Duty Drawback", "abbr": "DBK", "type": "Refund", "tennant_use": "Refund of duty on imported components exported in finished scrubbers (e.g., to Mexico/EU).", "status": "Active · $184K YTD"},
+        {"program": "GSP (Generalized System of Preferences)", "abbr": "GSP", "type": "Preference", "tennant_use": "Limited — some Thai/Philippine spare parts. NOTE: GSP authorization expired Dec 2020, awaiting Congress.", "status": "Expired"},
+        {"program": "Section 321 De Minimis", "abbr": "§321", "type": "Threshold", "tennant_use": "Shipments < $800 to a single consignee/day duty-free. Used for low-value parts shipments.", "status": "Active (under reform review)"},
+    ],
+    "section_301": {
+        "country_focus": "China",
+        "lists": [
+            {"list": "List 1", "rate_pct": 25, "effective": "2018-07-06", "applies_to_tennant": "Some motor controllers (8501)"},
+            {"list": "List 2", "rate_pct": 25, "effective": "2018-08-23", "applies_to_tennant": "Limited"},
+            {"list": "List 3", "rate_pct": 25, "effective": "2018-09-24", "applies_to_tennant": "Li-ion batteries, plastics, motor parts, hoses, harnesses, pumps, controllers — significant exposure"},
+            {"list": "List 4A", "rate_pct": 7.5, "effective": "2019-09-01", "applies_to_tennant": "Tires, accessories"},
+        ],
+        "current_exclusions": [
+            {"hts": "8507.60.00", "expires": "2025-12-31", "scope": "Specific cell chemistries — verify supplier certification"},
+        ],
+        "mitigation": "Tennant strategy: shift CoO to Korea (KORUS-eligible) and USMCA suppliers; document substantial transformation when assembling in MX.",
+    },
+    "section_232": {
+        "scope": "Steel & aluminum imports",
+        "rate_pct": 25,
+        "tennant_exposure": "Steel frames, fasteners, sheet metal. Quotas/exemptions for EU/JP/UK active; Canada/Mexico exempt under USMCA.",
+        "tariff_rate_quota": "Active for EU (3.3M MT), JP, UK",
+    },
+    "country_of_origin_rules": [
+        {"product": "T16 AMR Scrubber", "assembled_in": "USA (Golden Valley)", "us_content_pct": 68, "marking_required": "Made in USA — California-compliant", "notes": "Substantial transformation occurs at final assembly. Battery & some electronics from KR."},
+        {"product": "T350 LPG Scrubber", "assembled_in": "USA (Holland, MI)", "us_content_pct": 74, "marking_required": "Made in USA", "notes": "LPG tank from US supplier; engine from JP (Honda)."},
+        {"product": "S30 Industrial Sweeper", "assembled_in": "USA (Louisville, KY)", "us_content_pct": 71, "marking_required": "Made in USA", "notes": ""},
+        {"product": "Spare Parts Kit (M30)", "assembled_in": "USA (kitted)", "us_content_pct": 55, "marking_required": "Each part marked with CoO", "notes": "Mixed origin — must mark per-component."},
+    ],
+    "watchlists": {
+        "denied_parties": {
+            "source": "BIS Entity List, OFAC SDN, State Department DTC Debarred",
+            "last_screened": (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
+            "matches_30d": 0,
+            "screening_cadence": "Every shipment + weekly batch",
+        },
+        "embargoed_countries": ["Cuba", "Iran", "North Korea", "Syria", "Russia (sectoral)", "Belarus (sectoral)", "Crimea/Donetsk/Luhansk"],
+        "restricted_end_use": ["Military / Defense", "Nuclear", "Missile Tech", "Chemical/Biological"],
+        "uflpa_xinjiang_diligence": "Required for all China-origin batteries, polysilicon, cotton-derived items. Tennant policy: ZERO China-origin Li-ion accepted in 2026.",
+    },
+    "broker_filings": {
+        "primary_broker": "UPS Supply Chain Solutions (UPS_SCS)",
+        "ace_portal_id": "UPS_SCS_001",
+        "ytd_entry_summaries": 412,
+        "ytd_isf_filings": 284,
+        "average_clearance_hrs": 14.2,
+        "exam_rate_pct": 2.8,
+        "post_summary_corrections_ytd": 9,
+    },
+    "key_regulations": [
+        {"reg": "19 CFR 134 (Country of Origin Marking)", "scope": "Every imported article must be conspicuously marked with English-language CoO unless excepted.", "owner": "Trade Compliance Manager"},
+        {"reg": "15 CFR 730–774 (EAR)", "scope": "Export Administration Regulations — dual-use items. T-series scrubbers generally EAR99 (no license).", "owner": "Export Compliance Officer"},
+        {"reg": "19 CFR 149 (ISF)", "scope": "Importer Security Filing — 10+2 elements due 24 hrs prior to lading at foreign port.", "owner": "K+N + UPS_SCS"},
+        {"reg": "19 USC 1641 (Customs Broker)", "scope": "Power of Attorney to UPS_SCS on file; renewed annually.", "owner": "Compliance Manager"},
+        {"reg": "UFLPA (Uyghur Forced Labor Prevention Act)", "scope": "Rebuttable presumption — all Xinjiang-region goods or downstream input banned. Documentary diligence mandatory.", "owner": "Trade + Supplier Mgmt"},
+        {"reg": "Lacey Act Declarations", "scope": "Only if wood packaging / pallets from regulated source. Tennant uses heat-treated ISPM-15 pallets exclusively.", "owner": "Packaging Engineering"},
+    ],
+    "recent_alerts": [
+        {"date": (datetime.now(timezone.utc) - timedelta(days=2)).date().isoformat(), "title": "USTR Section 301 — Final List 4B rates effective Jan 1, 2027", "severity": "high", "impact": "Affects HTS 8413 pumps (+25%) and 8537 controllers (+25%) if China-origin. Action: confirm KR/USMCA sourcing for 2027."},
+        {"date": (datetime.now(timezone.utc) - timedelta(days=5)).date().isoformat(), "title": "CBP CSMS #59042: PGA filings now required for Li-ion ≥ 100Wh", "severity": "medium", "impact": "Add EPA/DOT PGA data to all 8507.60 entries. UPS_SCS already updated."},
+        {"date": (datetime.now(timezone.utc) - timedelta(days=8)).date().isoformat(), "title": "Canada CARM Phase 3 portal go-live", "severity": "medium", "impact": "All Tennant Canadian shipments must use CARM for RPP / B3 filings."},
+        {"date": (datetime.now(timezone.utc) - timedelta(days=12)).date().isoformat(), "title": "Section 232 Steel — UK TRQ allocation Q2 published", "severity": "low", "impact": "UK-origin steel frame components for HOM remain in-quota."},
+    ],
+    "quick_links": [
+        {"label": "USITC HTS Search", "url": "https://hts.usitc.gov/"},
+        {"label": "CBP ACE Portal", "url": "https://ace.cbp.dhs.gov/"},
+        {"label": "USTR Section 301 Tariff Lookup", "url": "https://ustr.gov/issue-areas/enforcement/section-301-investigations"},
+        {"label": "BIS Entity List", "url": "https://www.bis.doc.gov/index.php/policy-guidance/lists-of-parties-of-concern/entity-list"},
+        {"label": "OFAC SDN List Search", "url": "https://sanctionssearch.ofac.treas.gov/"},
+        {"label": "USMCA Center", "url": "https://www.trade.gov/usmca"},
+        {"label": "Census Schedule B", "url": "https://uscensus.prod.3ceonline.com/"},
+        {"label": "DOT HazMat / 49 CFR", "url": "https://www.phmsa.dot.gov/hazmat/regs"},
+    ],
+}
+
+@api_router.get("/trade-compliance")
+async def get_trade_compliance(_: User = Depends(get_current_user)):
+    return TRADE_COMPLIANCE
+
+# -------------------- USER MANUAL (PPTX + in-app deck) --------------------
+from manual_content import SLIDES as MANUAL_SLIDES
+
+@api_router.get("/manual/content")
+async def get_manual_content(_: User = Depends(get_current_user)):
+    """Returns the slide data for the in-app deck viewer."""
+    return {"version": "1.0", "title": "Tennant TMS · User Manual", "slides": MANUAL_SLIDES}
+
+@api_router.get("/manual/download")
+async def download_manual(_: User = Depends(get_current_user)):
+    """Generates and streams the Tennant-branded .pptx user manual."""
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+    from pptx.dml.color import RGBColor as PPTColor
+    from pptx.enum.shapes import MSO_SHAPE
+    from pptx.enum.text import PP_ALIGN
+
+    CYAN = PPTColor(0x00, 0xE5, 0xFF)
+    BG = PPTColor(0x0B, 0x0E, 0x14)
+    PANEL = PPTColor(0x13, 0x18, 0x21)
+    SLATE_LIGHT = PPTColor(0xF8, 0xFA, 0xFC)
+    SLATE_MID = PPTColor(0x94, 0xA3, 0xB8)
+    SLATE_DIM = PPTColor(0x47, 0x55, 0x69)
+    EMERALD = PPTColor(0x10, 0xB9, 0x81)
+
+    prs = Presentation()
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
+    blank = prs.slide_layouts[6]
+
+    def fill_bg(slide, color=BG):
+        bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
+        bg.fill.solid(); bg.fill.fore_color.rgb = color
+        bg.line.fill.background()
+        return bg
+
+    def add_text(slide, text, left, top, width, height, *, size=18, bold=False, color=SLATE_LIGHT, font="Calibri", align=PP_ALIGN.LEFT):
+        tb = slide.shapes.add_textbox(left, top, width, height)
+        tf = tb.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.alignment = align
+        run = p.add_run()
+        run.text = text
+        run.font.size = Pt(size)
+        run.font.bold = bold
+        run.font.name = font
+        run.font.color.rgb = color
+        return tb
+
+    def add_accent_bar(slide, left, top, width=Inches(0.4)):
+        bar = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, Inches(0.05))
+        bar.fill.solid(); bar.fill.fore_color.rgb = CYAN
+        bar.line.fill.background()
+
+    for sl in MANUAL_SLIDES:
+        slide = prs.slides.add_slide(blank)
+        fill_bg(slide)
+        kind = sl.get("kind")
+
+        if kind == "cover":
+            add_text(slide, sl["eyebrow"], Inches(0.75), Inches(0.6), Inches(12), Inches(0.4), size=12, bold=True, color=CYAN, font="Consolas")
+            add_accent_bar(slide, Inches(0.75), Inches(1.05), width=Inches(1.5))
+            add_text(slide, sl["title"], Inches(0.75), Inches(1.3), Inches(12), Inches(2), size=54, bold=True, color=SLATE_LIGHT)
+            add_text(slide, sl["subtitle"], Inches(0.75), Inches(3.6), Inches(12), Inches(1.2), size=22, color=SLATE_MID)
+            add_text(slide, sl.get("footnote", ""), Inches(0.75), Inches(6.7), Inches(12), Inches(0.4), size=11, color=SLATE_DIM, font="Consolas")
+
+        elif kind == "toc":
+            add_text(slide, "TABLE OF CONTENTS", Inches(0.75), Inches(0.6), Inches(12), Inches(0.4), size=12, bold=True, color=CYAN, font="Consolas")
+            add_accent_bar(slide, Inches(0.75), Inches(1.05), width=Inches(1.5))
+            add_text(slide, sl["title"], Inches(0.75), Inches(1.3), Inches(12), Inches(1), size=40, bold=True, color=SLATE_LIGHT)
+            sections = sl.get("sections", [])
+            mid = (len(sections) + 1) // 2
+            left_col = sections[:mid]
+            right_col = sections[mid:]
+            for i, s in enumerate(left_col):
+                add_text(slide, s, Inches(0.75), Inches(2.7 + i * 0.45), Inches(6), Inches(0.4), size=14, color=SLATE_LIGHT)
+            for i, s in enumerate(right_col):
+                add_text(slide, s, Inches(7.0), Inches(2.7 + i * 0.45), Inches(6), Inches(0.4), size=14, color=SLATE_LIGHT)
+
+        elif kind == "section":
+            add_text(slide, sl["title"], Inches(0.75), Inches(2.4), Inches(12), Inches(1.2), size=44, bold=True, color=CYAN)
+            add_accent_bar(slide, Inches(0.75), Inches(3.5), width=Inches(1.2))
+            add_text(slide, sl.get("tagline", ""), Inches(0.75), Inches(3.8), Inches(12), Inches(1), size=22, color=SLATE_MID)
+
+        elif kind == "feature":
+            add_text(slide, sl.get("subtitle", "FEATURE WALKTHROUGH").upper(), Inches(0.75), Inches(0.55), Inches(12), Inches(0.4), size=11, bold=True, color=CYAN, font="Consolas")
+            add_accent_bar(slide, Inches(0.75), Inches(0.95), width=Inches(1.3))
+            add_text(slide, sl["title"], Inches(0.75), Inches(1.15), Inches(12), Inches(0.9), size=32, bold=True, color=SLATE_LIGHT)
+            # Steps
+            steps_tb = slide.shapes.add_textbox(Inches(0.75), Inches(2.25), Inches(8.5), Inches(4.5))
+            stf = steps_tb.text_frame
+            stf.word_wrap = True
+            for i, step in enumerate(sl.get("steps", [])):
+                p = stf.paragraphs[0] if i == 0 else stf.add_paragraph()
+                r1 = p.add_run(); r1.text = f"{i+1:02d}  "
+                r1.font.size = Pt(12); r1.font.bold = True; r1.font.color.rgb = CYAN; r1.font.name = "Consolas"
+                r2 = p.add_run(); r2.text = step
+                r2.font.size = Pt(13); r2.font.color.rgb = SLATE_LIGHT; r2.font.name = "Calibri"
+                p.space_after = Pt(6)
+            # Tips panel
+            if sl.get("tips"):
+                panel = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(9.5), Inches(2.25), Inches(3.2), Inches(3.5))
+                panel.fill.solid(); panel.fill.fore_color.rgb = PANEL
+                panel.line.color.rgb = CYAN; panel.line.width = Pt(0.75)
+                add_text(slide, "TIPS", Inches(9.7), Inches(2.4), Inches(3), Inches(0.3), size=10, bold=True, color=CYAN, font="Consolas")
+                tips_text = "\n".join("• " + t for t in sl["tips"])
+                add_text(slide, tips_text, Inches(9.7), Inches(2.8), Inches(2.9), Inches(2.8), size=11, color=SLATE_LIGHT)
+            if sl.get("page_url"):
+                add_text(slide, f"→ {sl['page_url']}", Inches(0.75), Inches(6.85), Inches(12), Inches(0.4), size=11, color=EMERALD, font="Consolas")
+
+        elif kind == "closing":
+            add_text(slide, sl["title"], Inches(0.75), Inches(2.8), Inches(12), Inches(1.5), size=56, bold=True, color=CYAN)
+            add_accent_bar(slide, Inches(0.75), Inches(4.0), width=Inches(1.5))
+            add_text(slide, sl.get("subtitle", ""), Inches(0.75), Inches(4.3), Inches(12), Inches(1), size=22, color=SLATE_MID)
+            add_text(slide, sl.get("footnote", ""), Inches(0.75), Inches(6.7), Inches(12), Inches(0.4), size=11, color=SLATE_DIM, font="Consolas")
+
+        else:
+            add_text(slide, sl.get("title", "Tennant TMS"), Inches(0.75), Inches(3), Inches(12), Inches(1), size=36, bold=True, color=SLATE_LIGHT)
+
+    buf = io.BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    headers = {"Content-Disposition": 'attachment; filename="Tennant_TMS_User_Manual.pptx"'}
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation", headers=headers)
 
 # -------------------- ROOT --------------------
 @api_router.get("/")

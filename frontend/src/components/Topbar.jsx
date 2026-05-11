@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Activity, Wifi } from "lucide-react";
+import ThemeSwitcher from "./ThemeSwitcher";
 
 export default function Topbar({ title, subtitle }) {
   const [now, setNow] = useState(new Date());
@@ -27,6 +28,7 @@ export default function Topbar({ title, subtitle }) {
             <Wifi size={14} className="text-cyan-400" />
             <span>UPLINK</span>
           </div>
+          <ThemeSwitcher />
           <div className="text-right">
             <div className="text-xs font-mono text-cyan-400 tabular-nums" data-testid="topbar-clock">
               {now.toLocaleTimeString("en-US", { hour12: false })}

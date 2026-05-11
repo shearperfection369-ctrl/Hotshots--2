@@ -9,7 +9,8 @@ import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, CheckCircle2, XCircle, AlertTriangle, Shield, FileSignature } from "lucide-react";
+import { Plus, CheckCircle2, XCircle, AlertTriangle, Shield, FileSignature, Mail } from "lucide-react";
+import { DialogFooter } from "../components/ui/dialog";
 
 const STATUS_BADGE = {
   invited: "bg-slate-500/10 text-slate-400 border-slate-500/30",
@@ -36,6 +37,19 @@ export default function CarrierOnboarding() {
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blankForm);
+  const [packetModal, setPacketModal] = useState(null);
+
+  const sendPacket = async (oid) => {
+    try {
+      const { data } = await api.post(`/carrier-onboarding/${oid}/send-packet`);
+      setPacketModal(data);
+      toast.success("Onboarding packet composed");
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to compose packet");
+    }
+  };
+  const copyText = (t) => { navigator.clipboard.writeText(t); toast.success("Copied"); };
 
   const load = async () => {
     const { data } = await api.get("/carriers/onboarding");
@@ -144,12 +158,17 @@ export default function CarrierOnboarding() {
                       </td>
                       <td className="py-2.5 px-4"><Badge className={`${STATUS_BADGE[c.status]} font-mono text-[10px] uppercase`}>{c.status}</Badge></td>
                       <td className="py-2.5 px-4 text-right">
-                        {c.status === "in_review" && (
-                          <div className="inline-flex gap-1">
-                            <Button size="sm" data-testid={`approve-${c.onboarding_id}`} onClick={() => decide(c.onboarding_id, "approved")} className="h-7 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px]">APPROVE</Button>
-                            <Button size="sm" data-testid={`reject-${c.onboarding_id}`} onClick={() => decide(c.onboarding_id, "rejected")} className="h-7 bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 text-[10px]">REJECT</Button>
-                          </div>
-                        )}
+                        <div className="inline-flex gap-1 flex-wrap justify-end">
+                          <Button size="sm" data-testid={`packet-${c.onboarding_id}`} onClick={() => sendPacket(c.onboarding_id)} className="h-7 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px]">
+                            <Mail size={11} className="mr-1" /> PACKET
+                          </Button>
+                          {c.status === "in_review" && (
+                            <>
+                              <Button size="sm" data-testid={`approve-${c.onboarding_id}`} onClick={() => decide(c.onboarding_id, "approved")} className="h-7 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px]">APPROVE</Button>
+                              <Button size="sm" data-testid={`reject-${c.onboarding_id}`} onClick={() => decide(c.onboarding_id, "rejected")} className="h-7 bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 text-[10px]">REJECT</Button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -191,6 +210,38 @@ export default function CarrierOnboarding() {
               <F label="CSA Score (0-100, lower better)" type="number" v={form.csa_score} on={(v) => setForm({ ...form, csa_score: parseInt(v) })} />
             </div>
             <Button data-testid="submit-carrier" onClick={submit} className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold mt-4">SUBMIT FOR VETTING</Button>
+          </DialogContent>
+        </Dialog>
+
+        {/* Onboarding packet modal */}
+        <Dialog open={!!packetModal} onOpenChange={(o) => !o && setPacketModal(null)}>
+          <DialogContent className="bg-[#131821] border border-cyan-500/30 text-white max-w-2xl" data-testid="packet-modal">
+            <DialogHeader>
+              <DialogTitle className="font-display text-cyan-300 flex items-center gap-2"><Mail size={16} /> Tennant Onboarding Packet</DialogTitle>
+            </DialogHeader>
+            {packetModal && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-cyan-400">To</label>
+                  <Input readOnly value={packetModal.to || "(no email on file)"} className="mt-1 bg-[#0B0E14] border-white/10" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-cyan-400">Subject</label>
+                  <Input readOnly value={packetModal.subject} className="mt-1 bg-[#0B0E14] border-white/10 font-mono text-xs" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-cyan-400">Body</label>
+                  <textarea readOnly value={packetModal.body} rows={14} className="w-full mt-1 bg-[#0B0E14] border border-white/10 rounded px-3 py-2 text-xs font-mono whitespace-pre-wrap" data-testid="packet-body" />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => copyText(packetModal?.body || "")} data-testid="packet-copy">Copy Body</Button>
+              <a href={packetModal?.mailto || "#"} data-testid="packet-mailto"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-sm">
+                <Mail size={14} /> Open in Mail Client
+              </a>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

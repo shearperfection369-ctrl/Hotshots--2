@@ -4,19 +4,29 @@ import { Card } from "../components/ui/card";
 import { TennantLogo } from "../components/TennantLogo";
 import {
   Truck, Plane, Ship, Package, Train, Sparkles, ShieldCheck, Receipt,
-  Smartphone, Database, MessagesSquare, Video, BarChart3, Globe2
+  Smartphone, Database, MessagesSquare, Video, BarChart3, Globe2,
+  FileWarning, Archive, Factory, Wrench, Gamepad2, Palette, Quote, Mail, UserPlus
 } from "lucide-react";
 
 const FEATURES = [
   { Icon: Truck, title: "All Modes, One Glass", text: "TL · LTL · Parcel · Ocean · Air · Rail in a single mission-control view." },
   { Icon: Receipt, title: "Freight Audit & Pay", text: "Auto-detect overcharges in accessorials. Approve, pay, or dispute in clicks." },
-  { Icon: ShieldCheck, title: "Carrier Onboarding", text: "MC/DOT/SCAC/CSA · W-9, COI, and contract tracking with vetting checklist." },
+  { Icon: FileWarning, title: "Payments & Claims", text: "File damage / shortage / overcharge claims. Track recovery rate $ and %." },
+  { Icon: ShieldCheck, title: "Carrier Onboarding", text: "MC/DOT/SCAC/CSA · W-9, COI, contracts. Send Tennant Onboarding Packet email in one click." },
+  { Icon: UserPlus, title: "Carrier Invites + Scoped Portal", text: "Tokenized invites grant carriers read-mostly access to only their own loads — no admin help." },
   { Icon: Smartphone, title: "Driver Mobile Check-In", text: "GPS, fuel, odometer, and status — no login required. Auto-updates the dashboard." },
-  { Icon: Database, title: "SAP S/4HANA OData", text: "Live SO/PO sync from plants 1010, 1020, 1030 via SAML Bearer OAuth." },
-  { Icon: Video, title: "Cisco Webex", title2: "", text: "Post shipment alerts to Spaces. Schedule meetings without leaving the TMS." },
+  { Icon: Database, title: "SAP S/4HANA OData", text: "Live SO/PO sync. Pull-from-SAP auto-fills Book Load reference, delivery, commodity." },
+  { Icon: Archive, title: "Document Vault", text: "Insurance COIs · W-9 · MSDS · contracts — GridFS-backed with expiry tracking." },
+  { Icon: Globe2, title: "Trade Compliance", text: "18 HTS codes · USMCA/KORUS/FTZ · Section 301/232 · Sanctions screening · ACE filings." },
+  { Icon: Factory, title: "Supplier Sourcing", text: "20 suppliers tracked · risk scores · single-source alerts · annual spend by country." },
+  { Icon: Wrench, title: "Machine Catalog", text: "17 current Tennant models with full-color photos, specs, NMFC codes, prices." },
+  { Icon: Mail, title: "Email Composers", text: "One-click routing guides, carrier ETA/POD requests, KPI report emails — copy or open in mail client." },
+  { Icon: Video, title: "Cisco Webex", text: "Post shipment alerts to Spaces. Schedule meetings without leaving the TMS." },
   { Icon: Sparkles, title: "HUDLINK AI Co-Pilot", text: "Claude Sonnet 4.5 trained on Tennant context — HS codes, carrier strategy, customs." },
-  { Icon: BarChart3, title: "KPI Reports", text: "On-time rates, lane economics, carrier scorecards. PowerBI-ready exports." },
-  { Icon: Globe2, title: "Customs & Compliance", text: "ACE, HS lookup, COO, Incoterms 2020. Direct links to DOT/FMCSA/CBP." },
+  { Icon: BarChart3, title: "KPI Reports", text: "On-time rates, lane economics, weekly weights. Download PDF/XLSX or email instantly." },
+  { Icon: Gamepad2, title: "Arcade · Tournaments", text: "Connect 4 with challenges, brackets, trophies, and a tiered leaderboard. Lunch-break friendly." },
+  { Icon: Palette, title: "7 Visual Themes", text: "HUD Cyan, Forest, Sunset, Arctic, Lavender, Mocha, Solar Light — pick what fits your shift." },
+  { Icon: Quote, title: "Quotes Ticker", text: "100 curated motivational quotes rotate ambiently at the top of the Command Center." },
 ];
 
 const TECH_STACK = [
@@ -53,7 +63,7 @@ export default function PromoVideo() {
 
   return (
     <>
-      <Topbar title="TMS Launch · Q2 2026" subtitle="A cinematic tour of what we built · Addressed to Kirk Juergins & the Tennant Transportation Team" />
+      <Topbar title="TMS Launch · 2026 Update" subtitle="A cinematic tour of v1.5 — Vault, Claims, Trade Compliance, Suppliers, Machines, Arcade, Themes & more" />
       <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
 
         {/* Hero with video */}
@@ -171,7 +181,7 @@ export default function PromoVideo() {
           </p>
           <div className="mt-6 inline-flex items-center gap-2 text-[10px] font-mono text-cyan-400 tracking-[0.2em] uppercase">
             <span className="w-2 h-2 rounded-full bg-cyan-400 blink-dot"></span>
-            v1.0 · Live for 250 users · Q2 2026
+            v1.5 · 2026 Update · Live for 250 users · 30+ modules · 100+ API endpoints
           </div>
         </Card>
       </div>

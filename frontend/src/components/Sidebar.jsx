@@ -3,23 +3,32 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Package, PlusSquare, FileText, MapPinned,
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
-  Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2
+  Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
+  DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
 
 // Each item declares which roles can see it. Admin always sees everything.
 const NAV = [
-  { to: "/dashboard", label: "Command Center", icon: LayoutDashboard, tid: "nav-dashboard", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/dashboard", label: "Command Center", icon: LayoutDashboard, tid: "nav-dashboard", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/workbook", label: "Workbook", icon: Table2, tid: "nav-workbook", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/ai-assistant", label: "HUDLINK AI", icon: Sparkles, tid: "nav-ai-assistant", roles: ["admin", "auditor", "dispatcher"] },
-  { to: "/shipments", label: "Shipments", icon: Package, tid: "nav-shipments", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/shipments", label: "Shipments", icon: Package, tid: "nav-shipments", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/book-load", label: "Book Load", icon: PlusSquare, tid: "nav-book-load", roles: ["admin", "dispatcher"] },
-  { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console", roles: ["admin", "dispatcher"] },
+  { to: "/carrier-rates", label: "Carrier Rates & FSC", icon: DollarSign, tid: "nav-carrier-rates", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/freight-pay", label: "Freight Audit & Pay", icon: Receipt, tid: "nav-freight-pay", roles: ["admin", "auditor"] },
+  { to: "/claims", label: "Payments & Claims", icon: FileWarning, tid: "nav-claims", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/suppliers", label: "Supplier Sourcing", icon: Factory, tid: "nav-suppliers", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/trade-compliance", label: "Trade Compliance", icon: Globe, tid: "nav-trade-compliance", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/machines", label: "Machine Catalog", icon: Wrench, tid: "nav-machines", roles: ["admin", "auditor", "dispatcher", "driver", "carrier"] },
+  { to: "/arcade", label: "Arcade · Tournaments", icon: Gamepad2, tid: "nav-arcade", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/carrier-onboarding", label: "Carrier Onboarding", icon: ShieldCheck, tid: "nav-carrier-onboarding", roles: ["admin", "dispatcher"] },
-  { to: "/documents", label: "Documents", icon: FileText, tid: "nav-documents", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/carrier-invites", label: "Carrier Invites", icon: UserPlus, tid: "nav-carrier-invites", roles: ["admin"] },
+  { to: "/documents", label: "Documents", icon: FileText, tid: "nav-documents", roles: ["admin", "auditor", "dispatcher", "carrier"] },
+  { to: "/vault", label: "Document Vault", icon: Archive, tid: "nav-vault", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/hs-lookup", label: "HS Code Lookup", icon: Search, tid: "nav-hs-lookup", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/trailers", label: "Trailer Specs", icon: Truck, tid: "nav-trailers", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/integrations", label: "Integrations", icon: Plug, tid: "nav-integrations", roles: ["admin"] },
@@ -29,6 +38,8 @@ const NAV = [
   { to: "/chat", label: "Team Chat", icon: MessagesSquare, tid: "nav-chat", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/links", label: "Quick Links", icon: ExternalLink, tid: "nav-links", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/promo", label: "Launch Promo", icon: Film, tid: "nav-promo", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/music", label: "Music · Focus", icon: MusicIcon, tid: "nav-music", roles: ["admin", "auditor", "dispatcher", "driver"] },
+  { to: "/manual", label: "User Manual", icon: BookOpen, tid: "nav-manual", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/admin/users", label: "Admin · Users", icon: Users, tid: "nav-admin-users", roles: ["admin"] },
 ];
 

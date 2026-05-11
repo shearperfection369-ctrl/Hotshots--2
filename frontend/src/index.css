@@ -143,3 +143,162 @@ code, .font-mono, .mono {
 @layer base {
     [data-debug-wrapper="true"] { display: contents !important; }
 }
+
+/* ============================================================
+   THEMES — work-friendly accents.
+   Default (no body class) = HUD Cyan.
+   Each theme remaps accent color + bg/surface via scoped overrides
+   so existing JSX/Tailwind utilities don't need to change.
+   ============================================================ */
+
+/* Theme variables – fall back to current HUD cyan */
+body {
+    --tt-bg-base: #0B0E14;
+    --tt-bg-surface: #131821;
+    --tt-accent: #00E5FF;
+    --tt-accent-300: #67E8F9; /* approx cyan-300 */
+    --tt-accent-400: #22D3EE;
+    --tt-accent-500: #06B6D4;
+    --tt-accent-glow: rgba(0, 229, 255, 0.25);
+    --tt-text: #F8FAFC;
+}
+
+/* FOREST · calm green */
+body.theme-forest {
+    --tt-bg-base: #0B1410;
+    --tt-bg-surface: #131F19;
+    --tt-accent: #34D399;          /* emerald-400 */
+    --tt-accent-300: #6EE7B7;
+    --tt-accent-400: #34D399;
+    --tt-accent-500: #10B981;
+    --tt-accent-glow: rgba(52, 211, 153, 0.30);
+}
+
+/* SUNSET · warm amber on deep maroon */
+body.theme-sunset {
+    --tt-bg-base: #14090C;
+    --tt-bg-surface: #1F1216;
+    --tt-accent: #FBBF24;          /* amber-400 */
+    --tt-accent-300: #FCD34D;
+    --tt-accent-400: #FBBF24;
+    --tt-accent-500: #F59E0B;
+    --tt-accent-glow: rgba(251, 191, 36, 0.30);
+}
+
+/* ARCTIC · cool ice blue */
+body.theme-arctic {
+    --tt-bg-base: #0A0F18;
+    --tt-bg-surface: #111827;
+    --tt-accent: #93C5FD;          /* blue-300 */
+    --tt-accent-300: #BFDBFE;
+    --tt-accent-400: #93C5FD;
+    --tt-accent-500: #60A5FA;
+    --tt-accent-glow: rgba(147, 197, 253, 0.30);
+}
+
+/* LAVENDER · calm purple */
+body.theme-lavender {
+    --tt-bg-base: #0D0B14;
+    --tt-bg-surface: #16121F;
+    --tt-accent: #C4B5FD;          /* violet-300 */
+    --tt-accent-300: #DDD6FE;
+    --tt-accent-400: #C4B5FD;
+    --tt-accent-500: #A78BFA;
+    --tt-accent-glow: rgba(196, 181, 253, 0.30);
+}
+
+/* MOCHA · warm espresso + cream */
+body.theme-mocha {
+    --tt-bg-base: #14100C;
+    --tt-bg-surface: #1F1814;
+    --tt-accent: #FCD9B6;          /* cream */
+    --tt-accent-300: #FDE7CB;
+    --tt-accent-400: #FCD9B6;
+    --tt-accent-500: #F0B27A;
+    --tt-accent-glow: rgba(252, 217, 182, 0.30);
+}
+
+/* SOLAR · light theme, warm yellow accent (ONLY light option) */
+body.theme-solar {
+    --tt-bg-base: #F8FAFC;
+    --tt-bg-surface: #FFFFFF;
+    --tt-accent: #B45309;          /* amber-700 high-contrast on light */
+    --tt-accent-300: #D97706;
+    --tt-accent-400: #B45309;
+    --tt-accent-500: #92400E;
+    --tt-accent-glow: rgba(180, 83, 9, 0.20);
+    --tt-text: #0F172A;
+}
+
+/* Apply variables — body BG + surface */
+body { background: var(--tt-bg-base); color: var(--tt-text); }
+
+/* Scrollbar uses theme */
+::-webkit-scrollbar-track { background: var(--tt-bg-base); }
+::-webkit-scrollbar-thumb:hover { background: var(--tt-accent); }
+
+/* Remap the hud-surface card to use theme surface */
+.hud-surface { background: var(--tt-bg-surface) !important; border-color: rgba(255,255,255,0.05) !important; }
+body.theme-solar .hud-surface { border-color: rgba(15, 23, 42, 0.10) !important; }
+
+/* Grid + scanline use accent */
+.hud-grid-bg {
+    background-image:
+        linear-gradient(color-mix(in srgb, var(--tt-accent) 4%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--tt-accent) 4%, transparent) 1px, transparent 1px);
+}
+.hud-scanline { background: linear-gradient(180deg, color-mix(in srgb, var(--tt-accent) 6%, transparent) 0%, transparent 50%); }
+.hud-glow-cyan { box-shadow: 0 0 24px var(--tt-accent-glow); }
+
+/* Override Tailwind cyan utility classes when a non-default theme is set.
+   We exclude the default body (no theme class) so HUD Cyan remains untouched. */
+body:not([class*="theme-"]) {}
+
+body[class*="theme-"]:not(.theme-cyan) .text-cyan-300,
+body[class*="theme-"]:not(.theme-cyan) .text-cyan-400,
+body[class*="theme-"]:not(.theme-cyan) .text-cyan-200 { color: var(--tt-accent) !important; }
+body[class*="theme-"]:not(.theme-cyan) .bg-cyan-500,
+body[class*="theme-"]:not(.theme-cyan) .bg-cyan-400 { background-color: var(--tt-accent) !important; }
+body[class*="theme-"]:not(.theme-cyan) .hover\:bg-cyan-400:hover,
+body[class*="theme-"]:not(.theme-cyan) .hover\:bg-cyan-600:hover { background-color: var(--tt-accent-300) !important; }
+body[class*="theme-"]:not(.theme-cyan) .hover\:text-cyan-300:hover,
+body[class*="theme-"]:not(.theme-cyan) .hover\:text-cyan-200:hover { color: var(--tt-accent-300) !important; }
+body[class*="theme-"]:not(.theme-cyan) [class*="border-cyan-500"],
+body[class*="theme-"]:not(.theme-cyan) [class*="border-cyan-400"] { border-color: color-mix(in srgb, var(--tt-accent) 35%, transparent) !important; }
+body[class*="theme-"]:not(.theme-cyan) [class*="bg-cyan-500\/"],
+body[class*="theme-"]:not(.theme-cyan) [class*="bg-cyan-400\/"] { background-color: color-mix(in srgb, var(--tt-accent) 15%, transparent) !important; }
+body[class*="theme-"]:not(.theme-cyan) [class*="ring-cyan-"] { --tw-ring-color: var(--tt-accent) !important; }
+
+/* Page background helpers used by some components — map to theme base */
+body[class*="theme-"]:not(.theme-cyan) .bg-\[\#0B0E14\] { background-color: var(--tt-bg-base) !important; }
+body[class*="theme-"]:not(.theme-cyan) .bg-\[\#131821\] { background-color: var(--tt-bg-surface) !important; }
+body[class*="theme-"]:not(.theme-cyan) .border-\[\#0B0E14\] { border-color: var(--tt-bg-base) !important; }
+
+/* Light-mode special — flip text default colors so things stay legible */
+body.theme-solar { color-scheme: light; }
+body.theme-solar .text-white { color: #0F172A !important; }
+body.theme-solar .text-slate-200 { color: #1E293B !important; }
+body.theme-solar .text-slate-300 { color: #334155 !important; }
+body.theme-solar .text-slate-400 { color: #475569 !important; }
+body.theme-solar .text-slate-500 { color: #64748B !important; }
+body.theme-solar .border-white\/5,
+body.theme-solar .border-white\/10 { border-color: rgba(15, 23, 42, 0.08) !important; }
+body.theme-solar .bg-white\/\[0\.02\],
+body.theme-solar .bg-white\/\[0\.04\] { background-color: rgba(15, 23, 42, 0.03) !important; }
+body.theme-solar .leaflet-tile { filter: none; }
+
+/* Solar mode — make sidebar readable (it sits on light-bg pages) */
+body.theme-solar aside[data-testid="sidebar"] {
+    background: #1E293B !important;  /* slate-800 to stay legible on light page */
+    border-right-color: rgba(15, 23, 42, 0.15) !important;
+}
+body.theme-solar aside[data-testid="sidebar"] .text-white,
+body.theme-solar aside[data-testid="sidebar"] .text-slate-200,
+body.theme-solar aside[data-testid="sidebar"] .text-slate-300,
+body.theme-solar aside[data-testid="sidebar"] .text-slate-400,
+body.theme-solar aside[data-testid="sidebar"] .text-slate-500 { color: #E2E8F0 !important; }
+body.theme-solar aside[data-testid="sidebar"] .text-cyan-400,
+body.theme-solar aside[data-testid="sidebar"] .text-cyan-300 { color: #FBBF24 !important; }
+
+/* Solar mode — Topbar */
+body.theme-solar header { background: #FFFFFF !important; border-bottom-color: rgba(15, 23, 42, 0.10) !important; }

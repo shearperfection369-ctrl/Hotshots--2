@@ -28,6 +28,20 @@ import AIAssistant from "@/pages/AIAssistant";
 import Webex from "@/pages/Webex";
 import PromoVideo from "@/pages/PromoVideo";
 import Workbook from "@/pages/Workbook";
+import CarrierRates from "@/pages/CarrierRates";
+import Music from "@/pages/Music";
+import Manual from "@/pages/Manual";
+import Vault from "@/pages/Vault";
+import Claims from "@/pages/Claims";
+import CarrierInvites from "@/pages/CarrierInvites";
+import AcceptInvite from "@/pages/AcceptInvite";
+import TradeCompliance from "@/pages/TradeCompliance";
+import SupplierSourcing from "@/pages/SupplierSourcing";
+import Arcade from "@/pages/Arcade";
+import Machines from "@/pages/Machines";
+import { ThemeProvider } from "@/lib/theme";
+import { MusicProvider } from "@/lib/music";
+import MiniPlayer from "@/components/MiniPlayer";
 
 function AppRouter() {
   const location = useLocation();
@@ -38,6 +52,7 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/accept-invite" element={<AcceptInvite />} />
       {/* Driver mobile is auth-free */}
       <Route path="/driver" element={<DriverMobile />} />
       <Route path="/driver/:shipmentId" element={<DriverMobile />} />
@@ -63,6 +78,16 @@ function AppRouter() {
         <Route path="/webex" element={<Webex />} />
         <Route path="/promo" element={<PromoVideo />} />
         <Route path="/workbook" element={<Workbook />} />
+        <Route path="/carrier-rates" element={<CarrierRates />} />
+        <Route path="/music" element={<Music />} />
+        <Route path="/manual" element={<Manual />} />
+        <Route path="/vault" element={<Vault />} />
+        <Route path="/claims" element={<Claims />} />
+        <Route path="/carrier-invites" element={<CarrierInvites />} />
+        <Route path="/trade-compliance" element={<TradeCompliance />} />
+        <Route path="/suppliers" element={<SupplierSourcing />} />
+        <Route path="/machines" element={<Machines />} />
+        <Route path="/arcade" element={<Arcade />} />
         <Route path="/admin/users" element={<AdminUsers />} />
       </Route>
     </Routes>
@@ -72,16 +97,21 @@ function AppRouter() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRouter />
-        <Toaster
-          theme="dark"
-          position="bottom-right"
-          toastOptions={{
-            style: { background: "#131821", border: "1px solid rgba(0,229,255,0.3)", color: "#F8FAFC" }
-          }}
-        />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <MusicProvider>
+            <AppRouter />
+            <MiniPlayer />
+            <Toaster
+              theme="dark"
+              position="bottom-right"
+              toastOptions={{
+                style: { background: "#131821", border: "1px solid rgba(0,229,255,0.3)", color: "#F8FAFC" }
+              }}
+            />
+          </MusicProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }
