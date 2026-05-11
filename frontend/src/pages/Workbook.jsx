@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   Plus, FileSpreadsheet, Download, Pencil, Trash2, Search, GripVertical
 } from "lucide-react";
+import TruckloadBookingSheet from "../components/TruckloadBookingSheet";
 
 // Per-tab column-order memory. We persist `{ [tab_id]: string[] }` of column
 // keys. On load we reconcile with the actual columns coming from the server
@@ -25,6 +26,7 @@ const saveColOrder = (map) => {
 };
 
 const KIND_OPTIONS = [
+  { value: "truckload_bookings", label: "Truckload Bookings (Editable)" },
   { value: "shipments_tl", label: "Shipments — TL" },
   { value: "shipments_ltl", label: "Shipments — LTL" },
   { value: "shipments_expedites", label: "Shipments — Expedites/Air" },
@@ -173,8 +175,8 @@ export default function Workbook() {
   return (
     <>
       <Topbar
-        title="Workbook"
-        subtitle={`${tabs.length} tabs · Excel-style tracking · drop-in replacement for the legacy XLSX`}
+        title="Truckload Booking Sheet"
+        subtitle={`${tabs.length} tabs · live editable bookings · drop-in replacement for the legacy XLSX`}
       />
       <div className="p-4 md:p-6 space-y-4">
 
@@ -246,8 +248,9 @@ export default function Workbook() {
           </div>
         </Card>
 
-        {/* Active tab toolbar */}
-        {data && (
+        {/* Active tab toolbar — hidden for the editable Truckload Booking Sheet
+            which has its own toolbar with live status, search, and add row. */}
+        {data && data.tab.kind !== "truckload_bookings" && (
           <Card className="hud-surface p-3">
             <div className="flex items-center gap-3">
               <div className="flex-1 relative">
@@ -283,7 +286,16 @@ export default function Workbook() {
           </Card>
         )}
 
-        {/* Data table */}
+        {/* Data table — editable truckload bookings get the dedicated sheet,
+            everything else renders the legacy read-only spreadsheet view. */}
+        {data?.tab.kind === "truckload_bookings" ? (
+          <TruckloadBookingSheet
+            orderedColumns={orderedColumns}
+            reorderCol={reorderWorkbookCol}
+            dragColKey={dragColKey} setDragColKey={setDragColKey}
+            overColKey={overColKey} setOverColKey={setOverColKey}
+          />
+        ) : (
         <Card className="hud-surface overflow-hidden" data-testid="workbook-table">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -361,6 +373,7 @@ export default function Workbook() {
             </table>
           </div>
         </Card>
+        )}
       </div>
 
       {/* Add tab dialog */}

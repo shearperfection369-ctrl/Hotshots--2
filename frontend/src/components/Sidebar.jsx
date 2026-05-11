@@ -12,7 +12,7 @@ import { useAuth } from "../lib/auth";
 // Each item declares which roles can see it. Admin always sees everything.
 const NAV = [
   { to: "/dashboard", label: "Command Center", icon: LayoutDashboard, tid: "nav-dashboard", roles: ["admin", "auditor", "dispatcher", "carrier"] },
-  { to: "/workbook", label: "Workbook", icon: Table2, tid: "nav-workbook", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/workbook", label: "Truckload Booking Sheet", icon: Table2, tid: "nav-workbook", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/ai-assistant", label: "HUDLINK AI", icon: Sparkles, tid: "nav-ai-assistant", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/shipments", label: "Shipments", icon: Package, tid: "nav-shipments", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/book-load", label: "Book Load", icon: PlusSquare, tid: "nav-book-load", roles: ["admin", "dispatcher"] },

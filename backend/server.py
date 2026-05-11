@@ -2105,6 +2105,7 @@ async def webex_schedule(payload: WebexScheduleIn, user: User = Depends(get_curr
 
 # -------------------- WORKBOOK (Excel-style renameable tabs) --------------------
 DEFAULT_TABS = [
+    {"kind": "truckload_bookings", "name": "Truckload Bookings", "filter": {}},
     {"kind": "shipments_tl", "name": "Outbound TL", "filter": {"mode": "TL"}},
     {"kind": "shipments_ltl", "name": "Outbound LTL", "filter": {"mode": "LTL"}},
     {"kind": "shipments_expedites", "name": "Expedites", "filter": {"mode": "Air"}},
@@ -2118,6 +2119,32 @@ DEFAULT_TABS = [
     {"kind": "contacts_carriers", "name": "IN Carrier Contacts", "filter": {}},
     {"kind": "info", "name": "Info", "filter": {}},
     {"kind": "volume_overview", "name": "Volume Overview", "filter": {}},
+]
+
+# Columns rendered by the editable Truckload Booking Sheet. Each column maps to
+# a key on documents in db.truckload_bookings. `type` drives the cell editor on
+# the frontend: text / number / date / select / textarea.
+TRUCKLOAD_BOOKING_COLUMNS: List[Dict[str, Any]] = [
+    {"key": "date", "label": "Date", "type": "date"},
+    {"key": "bol_no", "label": "BOL #", "type": "text"},
+    {"key": "po_no", "label": "PO #", "type": "text"},
+    {"key": "carrier", "label": "Carrier", "type": "text"},
+    {"key": "origin", "label": "Origin", "type": "text"},
+    {"key": "destination", "label": "Destination", "type": "text"},
+    {"key": "pieces", "label": "Pieces", "type": "number"},
+    {"key": "weight_lbs", "label": "Weight (lbs)", "type": "number"},
+    {"key": "pallets", "label": "Pallets", "type": "number"},
+    {"key": "lift_gate", "label": "Lift Gate", "type": "select", "options": ["", "Yes", "No"]},
+    {"key": "freight_class", "label": "Class", "type": "text"},
+    {"key": "nmfc_code", "label": "NMFC", "type": "text"},
+    {"key": "equipment", "label": "Equipment", "type": "select",
+     "options": ["", "Dry Van 53'", "Dry Van 48'", "Reefer", "Flatbed", "Step Deck", "Drop Deck", "Box Truck", "Sprinter"]},
+    {"key": "pickup_date", "label": "Pickup Date", "type": "date"},
+    {"key": "delivery_date", "label": "Delivery Date", "type": "date"},
+    {"key": "rate_usd", "label": "Rate (USD)", "type": "number"},
+    {"key": "status", "label": "Status", "type": "select",
+     "options": ["", "Quoted", "Booked", "Tendered", "Picked Up", "In Transit", "Delivered", "Cancelled"]},
+    {"key": "notes", "label": "Notes", "type": "textarea"},
 ]
 
 KIND_DEFINITIONS = {
@@ -2182,6 +2209,7 @@ KIND_DEFINITIONS = {
 KIND_DEFINITIONS["shipments_expedites"] = KIND_DEFINITIONS["shipments_tl"]
 KIND_DEFINITIONS["shipments_crates"] = KIND_DEFINITIONS["shipments_tl"]
 KIND_DEFINITIONS["shipments_import"] = KIND_DEFINITIONS["shipments_seafreight"]
+KIND_DEFINITIONS["truckload_bookings"] = {"columns": TRUCKLOAD_BOOKING_COLUMNS}
 
 def _get_nested(d: Dict[str, Any], key: str):
     parts = key.split(".")
@@ -2261,19 +2289,35 @@ async def _get_rows_for_tab(tab: Dict[str, Any]) -> List[Dict[str, Any]]:
     if kind == "contacts_carriers": return CARRIER_CONTACTS_DATA
     if kind == "info": return INFO_DATA
     if kind == "volume_overview": return VOLUME_OVERVIEW_DATA
+    if kind == "truckload_bookings":
+        return await db.truckload_bookings.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
     return []
 
 async def _ensure_default_tabs():
-    count = await db.workbook_tabs.count_documents({})
-    if count > 0:
-        return
+    """Seed defaults on a fresh DB, AND idempotently insert any newly-added
+    default kinds for existing installations (e.g. the v1.9 Truckload Bookings
+    tab). Existing user-renamed tabs are never touched."""
+    existing_kinds = set()
+    async for t in db.workbook_tabs.find({}, {"_id": 0, "kind": 1}):
+        existing_kinds.add(t.get("kind"))
+    next_order = await db.workbook_tabs.count_documents({})
     for i, t in enumerate(DEFAULT_TABS):
+        if t["kind"] in existing_kinds:
+            continue
         await db.workbook_tabs.insert_one({
             "tab_id": f"TAB-{uuid.uuid4().hex[:8].upper()}",
             "name": t["name"], "kind": t["kind"],
-            "filter": t.get("filter") or {}, "order": i,
+            "filter": t.get("filter") or {},
+            # Pin truckload_bookings to order=0 so it lands as the first tab
+            "order": 0 if t["kind"] == "truckload_bookings" else (next_order + i),
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
+    # If we inserted truckload_bookings, shift everything else down by 1
+    if "truckload_bookings" not in existing_kinds:
+        await db.workbook_tabs.update_many(
+            {"kind": {"$ne": "truckload_bookings"}},
+            {"$inc": {"order": 1}},
+        )
 
 @api_router.get("/workbook/tabs")
 async def list_tabs(_: User = Depends(get_current_user)):
@@ -2324,6 +2368,121 @@ async def delete_tab(tab_id: str, _: User = Depends(get_current_user)):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Tab not found")
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Truckload Booking Sheet — Excel-style editable rows with real-time polling.
+# Each row lives in db.truckload_bookings. A separate revision counter in
+# db.truckload_bookings_meta lets clients poll a lightweight HEAD-style endpoint
+# (`/version`) and only refetch the full payload when something actually
+# changed — keeps Mongo cost low while still feeling live across dispatchers.
+# ---------------------------------------------------------------------------
+_TLB_ALLOWED_KEYS = {c["key"] for c in TRUCKLOAD_BOOKING_COLUMNS}
+
+
+async def _bump_tlb_version(actor: str) -> int:
+    """Atomically increment the truckload-bookings version + stamp last editor."""
+    doc = await db.truckload_bookings_meta.find_one_and_update(
+        {"_id": "version"},
+        {"$inc": {"version": 1}, "$set": {"last_editor": actor, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True, return_document=True,
+    )
+    return int((doc or {}).get("version", 1))
+
+
+def _clean_tlb_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Project an incoming payload to the known column keys only, coercing
+    obvious numeric fields. Skips any silently-injected unknown keys."""
+    out: Dict[str, Any] = {}
+    for col in TRUCKLOAD_BOOKING_COLUMNS:
+        key, ctype = col["key"], col.get("type", "text")
+        if key not in payload:
+            continue
+        v = payload.get(key)
+        if v == "" or v is None:
+            out[key] = None
+            continue
+        if ctype == "number":
+            try:
+                out[key] = float(v) if not str(v).isdigit() else int(v)
+            except (TypeError, ValueError):
+                out[key] = None
+        else:
+            out[key] = str(v)
+    return out
+
+
+@api_router.get("/workbook/truckload-bookings")
+async def list_truckload_bookings(_: User = Depends(get_current_user)):
+    rows = await db.truckload_bookings.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    meta = await db.truckload_bookings_meta.find_one({"_id": "version"}, {"_id": 0}) or {"version": 0}
+    return {"rows": rows, "columns": TRUCKLOAD_BOOKING_COLUMNS, **meta}
+
+
+@api_router.get("/workbook/truckload-bookings/version")
+async def truckload_bookings_version(_: User = Depends(get_current_user)):
+    """Lightweight poll endpoint — returns just {version, updated_at, last_editor}
+    so a watching client can decide whether to refetch the full list."""
+    meta = await db.truckload_bookings_meta.find_one({"_id": "version"}, {"_id": 0})
+    return meta or {"version": 0, "updated_at": None, "last_editor": None}
+
+
+class TruckloadBookingPayload(BaseModel):
+    # Free-form payload validated against TRUCKLOAD_BOOKING_COLUMNS in handler
+    data: Dict[str, Any] = {}
+
+
+@api_router.post("/workbook/truckload-bookings")
+async def create_truckload_booking(
+    payload: TruckloadBookingPayload,
+    user: User = Depends(require_role("admin", "dispatcher", "auditor")),
+):
+    row_id = f"TLB-{uuid.uuid4().hex[:8].upper()}"
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "id": row_id,
+        "created_at": now,
+        "updated_at": now,
+        "created_by": user.name,
+        "updated_by": user.name,
+        **{c["key"]: None for c in TRUCKLOAD_BOOKING_COLUMNS},
+        **_clean_tlb_payload(payload.data),
+    }
+    await db.truckload_bookings.insert_one(dict(doc))
+    version = await _bump_tlb_version(user.name)
+    doc.pop("_id", None)
+    return {"row": doc, "version": version}
+
+
+@api_router.patch("/workbook/truckload-bookings/{row_id}")
+async def update_truckload_booking(
+    row_id: str,
+    payload: TruckloadBookingPayload,
+    user: User = Depends(require_role("admin", "dispatcher", "auditor")),
+):
+    clean = _clean_tlb_payload(payload.data)
+    if not clean:
+        return {"ok": True, "no_changes": True}
+    clean["updated_at"] = datetime.now(timezone.utc).isoformat()
+    clean["updated_by"] = user.name
+    result = await db.truckload_bookings.update_one({"id": row_id}, {"$set": clean})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Booking row not found")
+    version = await _bump_tlb_version(user.name)
+    fresh = await db.truckload_bookings.find_one({"id": row_id}, {"_id": 0})
+    return {"row": fresh, "version": version}
+
+
+@api_router.delete("/workbook/truckload-bookings/{row_id}")
+async def delete_truckload_booking(
+    row_id: str,
+    user: User = Depends(require_role("admin", "dispatcher")),
+):
+    result = await db.truckload_bookings.delete_one({"id": row_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Booking row not found")
+    version = await _bump_tlb_version(user.name)
+    return {"ok": True, "version": version}
 
 @api_router.get("/workbook/tabs/{tab_id}/rows")
 async def tab_rows(tab_id: str, _: User = Depends(get_current_user)):

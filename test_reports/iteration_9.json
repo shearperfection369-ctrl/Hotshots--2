@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 9 — Validated all P0 Truckload Booking Sheet features end-to-end. Backend: 12/12 pytest pass (list/version/POST/PATCH/DELETE/seed-idempotency/authz). Frontend: sidebar label 'Truckload Booking Sheet' (data-testid=nav-workbook), Topbar title matches, /workbook auto-selects truckload_bookings tab which renders data-testid='truckload-booking-sheet' (NOT legacy workbook-table). All sub-testids present (tlb-search, tlb-live-indicator showing 'Live · rev N · last by ...', tlb-add-row). ADD ROW persists with auto date + status=Quoted. Cell click swaps to tlb-input-{key}-{id}; Enter saves and PATCH propagates. Status uses <select>. External curl PATCH propagates to UI within ~4s and live-indicator rev increments (verified rev 9 → 10). Regression: legacy tabs still render workbook-table with export-tab-btn; switching tabs both ways works.",
+  "p0_results": {
+    "backend": {
+      "POST_creates_TLB_id_18_keys_response_row_version": "PASS",
+      "PATCH_only_passed_keys_drops_unknown_bumps_version": "PASS",
+      "DELETE_removes_and_bumps_version": "PASS",
+      "GET_version_shape": "PASS",
+      "GET_list_returns_rows_18_columns_version_updated_at_last_editor": "PASS",
+      "tabs_seed_idempotent_truckload_bookings_at_order_0": "PASS",
+      "authz_unauthenticated_blocked": "PASS"
+    },
+    "frontend": {
+      "sidebar_label_Truckload_Booking_Sheet": "PASS",
+      "topbar_title": "PASS",
+      "editable_sheet_renders_not_legacy": "PASS",
+      "live_indicator_text_format": "PASS — 'Live · rev 10 · last by Test Admin'",
+      "add_row_autofills_date_and_status_Quoted": "PASS — 2026-05-11, Quoted",
+      "click_cell_swaps_to_input_Enter_saves_PATCH": "PASS",
+      "status_uses_select_element": "PASS",
+      "polling_collab_external_curl_PATCH_propagates_within_4s": "PASS — rev 9 → 10, notes cell updated",
+      "regression_legacy_tabs_workbook_table_export_tab": "PASS — 14 tabs, export-tab-btn visible on legacy tab"
+    }
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_truckload_bookings_v18.py",
+    "/app/test_reports/pytest/iter9_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py _clean_tlb_payload number coercion uses str(v).isdigit() which is False for negative numbers and decimals like '12.5' (those become float — fine), but also drops leading-zero values like '007' as int. Minor.",
+    "_ensure_default_tabs uses next_order = count_documents() then inserts at next_order+i for non-truckload kinds; combined with the $inc shift, ordering remains correct only because the new tab is the only one inserted on existing installs. Logic is correct but slightly subtle — works.",
+    "TruckloadBookingSheet polls every 3.5s via interval; component refetches full list on version mismatch — acceptable for current scale (<2000 rows). For larger datasets, consider /version → delta diff endpoint."
+  ],
+  "updated_files": ["/app/backend/tests/test_truckload_bookings_v18.py (new)"],
+  "success_rate": {"backend": "100% (12/12 pytest)", "frontend": "100% on all P0 + P1 regression"},
+  "test_credentials": "test_session_admin_1 (Bearer test_session_admin_1) — verified working",
+  "seed_data_creation": "Test created/deleted TLB row TLB-A88DCC4C during the playwright run; cleanup invoked via tlb-delete. One stray test row 'TEST_XPO' from pytest also deleted by test_05.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All v1.8 (iter 9) Truckload Booking Sheet deliverables green on https://clean-logistics-dash.preview.emergentagent.com. Live polling indicator confirmed visually + functionally. No mocked APIs from frontend; backend polling is real (3.5s interval). Production at clean-logistics-dash.emergent.host needs redeploy from user.",
+  "rca of the issue": "n/a — pure validation pass, no bugs found."
+}
