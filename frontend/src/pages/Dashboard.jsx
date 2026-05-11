@@ -8,7 +8,8 @@ import { Link } from "react-router-dom";
 import {
   Truck, Plane, Ship, Package, Train, AlertTriangle,
   Cloud, CloudRain, Sun, Snowflake, Wind, TrendingUp, DollarSign,
-  Activity, Clock, CheckCircle2, AlertCircle, Database, ExternalLink, Youtube
+  Activity, Clock, CheckCircle2, AlertCircle, Database, ExternalLink, Youtube,
+  GripVertical, RotateCcw
 } from "lucide-react";
 import QuotesTicker from "../components/QuotesTicker";
 import {
@@ -88,15 +89,93 @@ export default function Dashboard() {
   const modeData = kpis ? Object.entries(kpis.by_mode).map(([k, v]) => ({ name: k, value: v, color: MODE_COLOR[k] })) : [];
   const recentShipments = shipments.slice(0, 8);
 
+  // Drag-and-drop ordering for Command Center sections. The container below
+  // is `flex flex-col`, so giving each section a `style={{ order }}` lets the
+  // user reposition any block to any vertical slot. Order persists per browser
+  // via localStorage. Reset button restores the default sequence.
+  const DEFAULT_SECTIONS = [
+    "sap-quick", "news-ticker", "video-row", "sap-materials",
+    "kpis", "main-grid", "recent-shipments",
+  ];
+  const [sectionOrder, setSectionOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("tms-command-section-order") || "null");
+      if (Array.isArray(saved) && saved.length) {
+        const known = saved.filter((s) => DEFAULT_SECTIONS.includes(s));
+        const missing = DEFAULT_SECTIONS.filter((s) => !known.includes(s));
+        return [...known, ...missing];
+      }
+    } catch (e) { /* ignore */ }
+    return DEFAULT_SECTIONS;
+  });
+  useEffect(() => {
+    try { localStorage.setItem("tms-command-section-order", JSON.stringify(sectionOrder)); } catch (e) { /* ignore */ }
+  }, [sectionOrder]);
+  const [dragSec, setDragSec] = useState(null);
+  const [overSec, setOverSec] = useState(null);
+  const handleDrop = (target) => (e) => {
+    e.preventDefault();
+    const src = e.dataTransfer.getData("text/plain");
+    setDragSec(null); setOverSec(null);
+    if (!src || src === target) return;
+    setSectionOrder((arr) => {
+      const next = [...arr];
+      const from = next.indexOf(src);
+      const to = next.indexOf(target);
+      if (from === -1 || to === -1) return arr;
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+  const sectionProps = (id) => ({
+    "data-testid": `dash-section-${id}`,
+    "data-section-id": id,
+    style: { order: sectionOrder.indexOf(id) },
+    onDragOver: (e) => { if (!dragSec) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (overSec !== id) setOverSec(id); },
+    onDragLeave: () => { if (overSec === id) setOverSec(null); },
+    onDrop: handleDrop(id),
+    className: `relative group ${overSec === id && dragSec && dragSec !== id ? "ring-2 ring-cyan-400 rounded-lg" : ""} ${dragSec === id ? "opacity-50" : ""}`,
+  });
+  const dragHandle = (id, label) => (
+    <button
+      type="button"
+      draggable
+      onDragStart={(e) => { e.dataTransfer.setData("text/plain", id); e.dataTransfer.effectAllowed = "move"; setDragSec(id); }}
+      onDragEnd={() => { setDragSec(null); setOverSec(null); }}
+      aria-label={`Drag ${label}`}
+      data-testid={`drag-${id}`}
+      className="absolute top-1.5 right-1.5 z-20 p-1.5 rounded bg-black/50 backdrop-blur border border-white/10 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/40 cursor-grab active:cursor-grabbing opacity-30 group-hover:opacity-100 transition"
+    >
+      <GripVertical size={12} />
+    </button>
+  );
+
   return (
     <>
       <Topbar title="Command Center" subtitle="TENNANT COMPANIES · TMS HUD · LIVE OPERATIONS" />
-      <div className="p-4 md:p-6 space-y-5">
+      <div className="p-4 md:p-6 flex flex-col gap-5">
 
         {/* Subtle inspirational quotes ticker */}
         <QuotesTicker />
 
+        {/* Drag-to-reorder hint + Reset */}
+        <div className="flex items-center justify-end gap-2 -mb-3" data-testid="dash-reorder-toolbar">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500">
+            Drag any tile by its grip · layout saves automatically
+          </span>
+          <button
+            onClick={() => setSectionOrder(DEFAULT_SECTIONS)}
+            data-testid="dash-reset-layout"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-cyan-500/30 text-[10px] font-mono uppercase tracking-wider text-cyan-300 hover:bg-cyan-500/10"
+          >
+            <RotateCcw size={11} /> Reset Layout
+          </button>
+        </div>
+
         {/* SAP S/4HANA Quick Actions */}
+        <div {...sectionProps("sap-quick")}>
+          {dragHandle("sap-quick", "SAP Quick Actions")}
         <Card className="hud-surface p-3" data-testid="sap-quick-actions">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2 px-2">
@@ -118,8 +197,11 @@ export default function Dashboard() {
             ))}
           </div>
         </Card>
+        </div>
 
         {/* News Ticker */}
+        <div {...sectionProps("news-ticker")}>
+          {dragHandle("news-ticker", "Industry Feed")}
         <div className="hud-surface rounded-lg overflow-hidden border border-cyan-500/10" data-testid="news-ticker">
           <div className="flex items-center">
             <div className="bg-cyan-500/10 px-4 py-2.5 border-r border-cyan-500/20 flex items-center gap-2 shrink-0">
@@ -138,8 +220,11 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        </div>
 
         {/* Compact YouTube Video Tile + News Window row */}
+        <div {...sectionProps("video-row")}>
+          {dragHandle("video-row", "Video & News")}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           {/* Compact YouTube video screen — slot replaces former Customs Broker.
               Intentionally smaller than the broker card was, so the rest of the
@@ -170,8 +255,11 @@ export default function Dashboard() {
             </div>
           </Card>
         </div>
+        </div>
 
         {/* SAP Materials / Part Numbers Widget */}
+        <div {...sectionProps("sap-materials")}>
+          {dragHandle("sap-materials", "SAP Materials")}
         <Card className="hud-surface p-4" data-testid="sap-materials-widget">
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -219,8 +307,11 @@ export default function Dashboard() {
             </table>
           </div>
         </Card>
+        </div>
 
         {/* KPIs */}
+        <div {...sectionProps("kpis")}>
+          {dragHandle("kpis", "KPI Strip")}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
           <KPI label="Active Shipments" value={kpis?.totals.in_transit ?? "—"} sub="across all modes" testid="kpi-in-transit" />
           <KPI label="Delayed" value={kpis?.totals.delayed ?? "—"} accent="red" sub="needs attention" testid="kpi-delayed" />
@@ -230,8 +321,11 @@ export default function Dashboard() {
           <KPI label="In Motion (lbs)" value={kpis ? Number(kpis.totals.weight_lbs).toLocaleString() : "—"} sub="tonnage" testid="kpi-weight" />
           <KPI label="Value (USD)" value={kpis ? `$${(kpis.totals.value_usd / 1000).toFixed(0)}K` : "—"} accent="green" sub="cargo value" testid="kpi-value" />
         </div>
+        </div>
 
         {/* Map + Right column */}
+        <div {...sectionProps("main-grid")}>
+          {dragHandle("main-grid", "Map & Side Panels")}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           <div className="lg:col-span-8 space-y-4">
             <Card className="hud-surface p-4">
@@ -344,8 +438,11 @@ export default function Dashboard() {
             </Card>
           </div>
         </div>
+        </div>
 
         {/* Recent Shipments */}
+        <div {...sectionProps("recent-shipments")}>
+          {dragHandle("recent-shipments", "Recent Shipments")}
         <Card className="hud-surface p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -386,6 +483,7 @@ export default function Dashboard() {
             </table>
           </div>
         </Card>
+        </div>
       </div>
     </>
   );

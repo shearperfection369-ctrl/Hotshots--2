@@ -176,18 +176,30 @@ emit("03_sap.png", "SAP S/4HANA · ODATA", "Live SO / PO Sync",
      ["Pull-from-SAP auto-fills Book Load.",
       "Write-back on delivery & POD."])
 emit("04_trade.png", "TRADE COMPLIANCE", "Tariffs · 301 · 232",
-     ["11 Incoterms 2020 reference.",
+     ["11 Incoterms 2020 reference cards.",
       "USMCA · KORUS · FTZ · Drawback."])
 emit("05_ai.png", "HUDLINK · CLAUDE 4.5", "AI Co-Pilot",
      ["Tennant-tuned for HS codes,",
       "carrier strategy, customs questions."])
-emit("06_vault.png", "VAULT · CLAIMS · CARRIERS", "Everything Filed",
+emit("06_bol.png", "v1.7 · DOCUMENTS", "BOL Store · Amend · Email",
+     ["Every BOL on file — audit-trailed.",
+      "One-click generate from any shipment."])
+emit("07_yard.png", "v1.7 · EQUIPMENT", "Yard Excel · Live Analytics",
+     ["Drop the daily yard report. Get",
+      "live door map, dwell, carrier mix."])
+emit("08_drag.png", "v1.7 · COMMAND TILES", "Drag-Drop Layout",
+     ["Reorder every Command tile.",
+      "Resize columns. Reorder headers."])
+emit("09_catalog.png", "v1.7 · CATALOG", "35 Machine Models",
+     ["X-series ROVR · T-series scrubbers",
+      "S-sweepers · M-combos · B-burnishers."])
+emit("10_vault.png", "VAULT · CLAIMS · CARRIERS", "Everything Filed",
      ["GridFS BOLs · COIs · W-9s.",
       "Claims tracked from intake to recovery."])
-slide_stat_grid(str(OUT_DIR / "07_stats.png"))
-SLIDES.append(str(OUT_DIR / "07_stats.png"))
-slide_close(str(OUT_DIR / "08_close.png"))
-SLIDES.append(str(OUT_DIR / "08_close.png"))
+slide_stat_grid(str(OUT_DIR / "11_stats.png"))
+SLIDES.append(str(OUT_DIR / "11_stats.png"))
+slide_close(str(OUT_DIR / "12_close.png"))
+SLIDES.append(str(OUT_DIR / "12_close.png"))
 
 
 # ----- Stitch with ffmpeg -----

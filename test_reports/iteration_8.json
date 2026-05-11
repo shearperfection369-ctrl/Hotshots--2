@@ -1,0 +1,77 @@
+{
+  "summary": "Iteration 8 — validated all four P0 deliverables: (1) Dashboard 7-section drag-and-drop reorder + reset + localStorage persistence, (2) /api/machines hybrid 17 real Tennant CDN photos + 18 SVG fallbacks (= 35 total) with magic-byte validation, (3) /promo.mp4 1.05 MB video/mp4 served and HTML5 <video data-testid='promo-video'> visible (no iframe fallback), (4) admin credentials for shearperfection369@gmail.com in both /app/backend/.env (ADMIN_EMAILS) and /app/memory/test_credentials.md. ALL PASS.",
+  "p0_results": {
+    "dashboard_drag_and_drop": {
+      "all_7_sections_testids_present": true,
+      "all_7_drag_handle_testids_present": true,
+      "toolbar_present": true,
+      "reset_btn_present": true,
+      "initial_order_correct": "[sap-quick, news-ticker, video-row, sap-materials, kpis, main-grid, recent-shipments] / orders 0..6",
+      "drag_main_grid_to_sap_quick": "PASS — after HTML5 dragstart→drop, main-grid moved to index 0; inline style order updated (main-grid=0, sap-quick=1); localStorage 'tms-command-section-order' rewritten",
+      "reset_layout_works": "PASS — click resets localStorage to DEFAULT_SECTIONS and inline orders revert (main-grid=5, sap-quick=0)"
+    },
+    "machines_backend": {
+      "total_count": 35,
+      "real_photo_count": 17,
+      "svg_fallback_count": 18,
+      "real_models_match_expected_17": true,
+      "url_partition_exhaustive": true,
+      "real_photo_http_validation": "17/17 models — HTTP 200, valid JPEG magic bytes (\\xff\\xd8\\xff), all >15KB (e.g. T7=45KB)",
+      "svg_endpoint_still_works": true,
+      "note_on_content_type": "Tennant CDN returns image bytes WITHOUT a content-type header; validated via JPEG magic bytes instead — this is fine, the browser sniffs and renders correctly."
+    },
+    "machines_frontend": {
+      "card_count": 35,
+      "tennant_cdn_img_count": 17,
+      "api_svg_img_count": 18,
+      "all_imgs_loaded": "35/35 (naturalWidth>0)",
+      "T7_T16_M17_visual_check": "All three show real Tennant CDN URLs (tennantco.com/services/product/image.tennant.{2000074, 2000070, 2000131}.image); visible photos of cyan ride-on scrubbers in the screenshot"
+    },
+    "promo_video": {
+      "endpoint_status": 200,
+      "content_type": "video/mp4",
+      "size_bytes": 1098557,
+      "promo_page_video_visible": true,
+      "iframe_hidden": "true (no iframe rendered on /promo when local mp4 is served)",
+      "video_data_testid": "promo-video present, source src = /promo.mp4"
+    },
+    "admin_credentials": {
+      "backend_env_admin_emails": "ADMIN_EMAILS=\"shearperfection369@gmail.com,test.admin@tennantco.com\" — confirmed",
+      "test_credentials_md_entry": "Kirk's account documented at top with auto-promote explanation",
+      "test_admin_bearer_auth_works": "GET /api/auth/me returns role=admin with Bearer test_session_admin_1"
+    }
+  },
+  "p1_results": {
+    "svg_fallback_endpoint": "GET /api/machines/X4%20ROVR/image.svg returns svg+xml, 200",
+    "no_console_errors_on_visited_pages": "Only 'Unrecognized feature: web-share' warning (harmless, from iframe perms)"
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/machines T2 card", "issues": ["T2 (Tennant CDN ID 2000044) renders the Tennant brand logo instead of a product photo — this is what the Tennant CDN serves for that product ID. Informational only — not blocking, the link is correct per the request's verified list. Main agent may consider remapping T2 to a different Tennant CDN ID if a true product photo is desired."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter8.py",
+    "/app/test_reports/pytest/iter8_v2_results.xml"
+  ],
+  "action_items": [
+    "(optional / informational) Tennant CDN does NOT send a content-type header on /services/product/image.tennant.*.image URLs. Browsers sniff the JPEG correctly so rendering works, but if you want belt-and-suspenders you could proxy the image through /api/machines/{model}/photo to add Content-Type: image/jpeg. Not blocking.",
+    "(optional) T2 model's CDN id 2000044 serves the Tennant brand logo rather than a product shot — consider rebinding to a different ID if a real T2 photo is needed."
+  ],
+  "critical_code_review_comments": [
+    "Dashboard.jsx section reorder is implemented cleanly with CSS flex-order and HTML5 native DnD — DEFAULT_SECTIONS merge logic correctly handles legacy localStorage values that drop or add new section ids without losing state.",
+    "_real_photo_or_svg() in server.py is a tidy switch: known model → CDN URL, else SVG fallback. TENNANT_REAL_PHOTO_IDS is hand-curated; if Tennant changes IDs, the SVG fallback will keep cards rendering.",
+    "27/27 pytest tests pass in 2.7s (5 list-level + 17 parametrized HTTP-validated real photos + 1 SVG + 1 promo + 3 admin)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter8.py (new — 27 tests)"],
+  "success_rate": {"backend": "100% (27/27 pytest)", "frontend": "100% on all P0 (drag-and-drop, machines render, promo video) + visual check"},
+  "test_credentials": "test_session_admin_1 (Bearer) — works against /api/auth/me, returns role=admin",
+  "seed_data_creation": "None this iteration.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All v1.7 deliverables on preview URL (https://clean-logistics-dash.preview.emergentagent.com) are green. The two informational notes (Tennant CDN content-type missing; T2 id serves logo) are observation-only and do not affect functionality. Production at clean-logistics-dash.emergent.host is still on old snapshot per main agent note — needs redeploy from Emergent dashboard.",
+  "rca of the issue": "n/a — validation pass, no bugs."
+}

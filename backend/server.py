@@ -3515,6 +3515,38 @@ TENNANT_MACHINES = [
 
 TENNANT_MACHINE_CATEGORIES = sorted(set(m["category"] for m in TENNANT_MACHINES))
 
+# Verified real Tennant CDN product photo URLs, model → ID. The URL pattern
+# `services/product/image.tennant.{id}.image` returns a high-quality JPEG
+# (40-100 KB) for the specific product. IDs not listed below fall back to the
+# server-generated branded SVG at /api/machines/{model}/image.svg.
+TENNANT_REAL_PHOTO_IDS: Dict[str, int] = {
+    "T7AMR": 2000056,
+    "T16AMR": 2000054,
+    "T7": 2000074,
+    "T16": 2000070,
+    "T12": 2000068,
+    "T17": 2000071,
+    "T20": 2000076,
+    "T2": 2000044,
+    "T300": 2000084,
+    "T500": 2000093,
+    "S3": 2000077,
+    "S5": 2000091,
+    "M17": 2000131,
+    "B5": 2000079,
+    "B7": 2000110,
+    "EX-CAN-7": 2000087,
+    "Green Machine 414HS": 2000016,
+}
+
+def _real_photo_or_svg(m: Dict[str, Any]) -> str:
+    """Prefer the verified Tennant CDN URL when known, else fall back to the
+    server-generated branded SVG (always renders, model-specific)."""
+    pid = TENNANT_REAL_PHOTO_IDS.get(m["model"])
+    if pid:
+        return f"https://www.tennantco.com/services/product/image.tennant.{pid}.image"
+    return f"/api/machines/{urllib.parse.quote(m['model'])}/image.svg"
+
 
 # Category → silhouette + color palette for the generated machine image.
 # Each silhouette is a hand-tuned SVG path roughly evoking that machine type.
@@ -3686,12 +3718,9 @@ async def machine_image(model: str):
 @api_router.get("/machines")
 async def list_machines(_: User = Depends(get_current_user), category: Optional[str] = None):
     out = TENNANT_MACHINES if not category else [m for m in TENNANT_MACHINES if m["category"] == category]
-    # Override image_url to ALWAYS use our generated, model-specific SVG so the
-    # catalog can never show wrong/blank/random photos again.
-    out = [
-        {**m, "image_url": f"/api/machines/{urllib.parse.quote(m['model'])}/image.svg"}
-        for m in out
-    ]
+    # Hybrid image strategy: real Tennant CDN photo when we've verified the ID,
+    # branded SVG fallback otherwise. Both guarantee a non-broken image.
+    out = [{**m, "image_url": _real_photo_or_svg(m)} for m in out]
     return {"machines": out, "categories": TENNANT_MACHINE_CATEGORIES, "count": len(out)}
 
 # -------------------- ARCADE: Connect Four · Tournaments · Trophies --------------------
