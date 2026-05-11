@@ -14,6 +14,7 @@ import uuid
 import json
 import random
 import httpx
+import urllib.parse
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
@@ -116,6 +117,11 @@ class Document(BaseModel):
     created_by: str
     created_at: str
     data: Dict[str, Any]
+    # Amendment trail — empty for fresh documents. Each entry:
+    #   { amended_at, amended_by, reason, changes: [{ field, from, to }] }
+    amendments: List[Dict[str, Any]] = []
+    version: int = 1
+    updated_at: Optional[str] = None
 
 class ChatMessage(BaseModel):
     message_id: str
@@ -516,6 +522,194 @@ async def create_document(payload: DocumentCreate, user: User = Depends(get_curr
         "created_by": user.name,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "data": payload.data,
+        "amendments": [],
+        "version": 1,
+        "updated_at": None,
+    }
+    await db.documents.insert_one(dict(doc))
+    return Document(**doc)
+
+
+class DocumentAmend(BaseModel):
+    data: Dict[str, Any]
+    reason: Optional[str] = ""
+
+
+@api_router.patch("/documents/{document_id}", response_model=Document)
+async def amend_document(
+    document_id: str,
+    payload: DocumentAmend,
+    user: User = Depends(require_role("admin", "auditor", "dispatcher")),
+):
+    """Amend a previously created document (BOL, COMMERCIAL_INVOICE, etc.).
+
+    Stores a diff of changed fields plus a free-text reason on an `amendments`
+    array. The `data` field is replaced with the new payload and `version`
+    increments. PDF re-generation always reflects the latest `data`, so the
+    next PDF download shows the amended values, while the audit trail
+    preserves who-changed-what-when.
+    """
+    existing = await db.documents.find_one({"document_id": document_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    old_data: Dict[str, Any] = existing.get("data", {}) or {}
+    new_data: Dict[str, Any] = payload.data or {}
+    changes: List[Dict[str, Any]] = []
+    all_keys = set(old_data.keys()) | set(new_data.keys())
+    for field in sorted(all_keys):
+        before = old_data.get(field)
+        after = new_data.get(field)
+        if (before or "") != (after or ""):
+            changes.append({"field": field, "from": before, "to": after})
+
+    amendment = {
+        "amended_at": datetime.now(timezone.utc).isoformat(),
+        "amended_by": user.name,
+        "reason": (payload.reason or "").strip(),
+        "changes": changes,
+    }
+    new_version = int(existing.get("version", 1)) + 1
+    await db.documents.update_one(
+        {"document_id": document_id},
+        {
+            "$set": {
+                "data": new_data,
+                "version": new_version,
+                "updated_at": amendment["amended_at"],
+            },
+            "$push": {"amendments": amendment},
+        },
+    )
+    fresh = await db.documents.find_one({"document_id": document_id}, {"_id": 0})
+    return Document(**fresh)
+
+
+class DocumentEmail(BaseModel):
+    to: str
+    cc: Optional[str] = ""
+    message: Optional[str] = ""
+
+
+@api_router.post("/documents/{document_id}/email")
+async def email_document(
+    document_id: str,
+    payload: DocumentEmail,
+    user: User = Depends(require_role("admin", "auditor", "dispatcher")),
+):
+    """Build a one-click email (subject/body/mailto) that delivers the
+    document's PDF download link to the named recipient — same pattern as the
+    existing routing-guide and carrier-email composers."""
+    doc = await db.documents.find_one({"document_id": document_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    type_label, _ = DOC_TYPE_TITLES.get(doc["type"], (doc["type"], ""))
+    pdf_url = f"{os.environ.get('PUBLIC_BASE_URL', '').rstrip('/')}/api/documents/{document_id}/pdf"
+    version_note = f" (Rev {doc.get('version', 1)})" if doc.get("version", 1) > 1 else ""
+    subject = f"Tennant · {type_label}{version_note} · {doc.get('shipment_ref') or document_id}"
+
+    data = doc.get("data") or {}
+    body_lines = [
+        f"Attached is the {type_label.lower()}{version_note} for Tennant Company.",
+        "",
+        f"Document ID: {document_id}",
+        f"Shipment:    {doc.get('shipment_ref') or '—'}",
+        f"Carrier:     {data.get('carrier') or '—'}",
+        f"Origin:      {data.get('origin') or '—'}",
+        f"Destination: {data.get('destination') or '—'}",
+        f"Commodity:   {data.get('commodity') or '—'}",
+        f"Pieces:      {data.get('pieces') or '—'}",
+        f"Weight:      {data.get('weight') or '—'} lbs",
+        "",
+        f"Download PDF: {pdf_url}" if pdf_url.startswith("http") else f"PDF endpoint: /api/documents/{document_id}/pdf",
+    ]
+    if payload.message:
+        body_lines.extend(["", "---", payload.message.strip()])
+    if doc.get("amendments"):
+        body_lines.extend(["", f"This document has been amended {len(doc['amendments'])} time(s). Latest revision: {doc.get('version', 1)}."])
+    body_lines.extend([
+        "",
+        "Thank you,",
+        f"{user.name}",
+        "Tennant Companies · TMS",
+    ])
+    body = "\n".join(body_lines)
+
+    mailto = (
+        f"mailto:{payload.to}"
+        f"?subject={urllib.parse.quote(subject)}"
+        f"&body={urllib.parse.quote(body)}"
+    )
+    if payload.cc:
+        mailto += f"&cc={urllib.parse.quote(payload.cc)}"
+
+    # Log the send-intent so a single source of truth exists for audit reports
+    await db.document_emails.insert_one({
+        "document_id": document_id,
+        "to": payload.to,
+        "cc": payload.cc or "",
+        "subject": subject,
+        "sent_by": user.name,
+        "sent_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    return {
+        "ok": True,
+        "subject": subject,
+        "body": body,
+        "to": payload.to,
+        "cc": payload.cc or "",
+        "mailto": mailto,
+        "pdf_url": f"/api/documents/{document_id}/pdf",
+    }
+
+
+class BolFromShipment(BaseModel):
+    shipper: Optional[str] = "Tennant Company"
+
+
+@api_router.post("/shipments/{shipment_id}/generate-bol", response_model=Document)
+async def generate_bol_from_shipment(
+    shipment_id: str,
+    payload: BolFromShipment,
+    user: User = Depends(require_role("admin", "dispatcher")),
+):
+    """One-click BOL generator: pull the shipment record and create a BOL
+    document with all carrier / origin / destination / commodity fields
+    pre-filled. The generated doc lands in the Documents archive alongside
+    manually-created BOLs, and can be amended / emailed / downloaded just
+    like any other document."""
+    s = await db.shipments.find_one({"shipment_id": shipment_id}, {"_id": 0})
+    if not s:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    origin = s.get("origin", {}) or {}
+    dest = s.get("destination", {}) or {}
+    data = {
+        "shipper": payload.shipper or "Tennant Company",
+        "consignee": dest.get("name") or dest.get("city") or "",
+        "origin": f"{origin.get('city', '')}, {origin.get('state', '')}".strip(", "),
+        "destination": f"{dest.get('city', '')}, {dest.get('state', '')}".strip(", "),
+        "carrier": s.get("carrier") or "",
+        "commodity": s.get("commodity") or "Tennant industrial cleaning equipment",
+        "weight": s.get("weight_lbs") or "",
+        "pieces": s.get("pieces") or s.get("skids") or "",
+        "value": s.get("value_usd") or "",
+        "country_origin": s.get("country_of_origin") or "USA",
+        "bol_no": s.get("bol_no") or "",
+        "pro_no": s.get("pro_no") or "",
+    }
+    doc = {
+        "document_id": f"DOC-{uuid.uuid4().hex[:8].upper()}",
+        "type": "BOL",
+        "shipment_ref": s.get("reference") or shipment_id,
+        "created_by": user.name,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "data": data,
+        "amendments": [],
+        "version": 1,
+        "updated_at": None,
     }
     await db.documents.insert_one(dict(doc))
     return Document(**doc)
