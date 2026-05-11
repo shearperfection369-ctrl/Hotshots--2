@@ -9,6 +9,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import io
+import re
 import logging
 import uuid
 import json
@@ -2541,7 +2542,7 @@ async def _ensure_carrier_in_pipeline(label: Optional[str], user: User) -> Optio
     name = _stripped_carrier_label(label)
     if not name:
         return None
-    needle = name.lower()
+    needle = name.lower()  # noqa: F841 — reserved for future ranked match
     existing = await db.carrier_onboarding.find_one(
         {"$or": [
             {"legal_name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}},
@@ -2550,14 +2551,6 @@ async def _ensure_carrier_in_pipeline(label: Optional[str], user: User) -> Optio
         {"_id": 0, "onboarding_id": 1},
     )
     if existing:
-        return None
-    # Avoid duplicating "TestPytest · TPTC" style noise when several
-    # dispatchers paste the same new name concurrently.
-    recent = await db.carrier_onboarding.find_one(
-        {"legal_name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}, "status": "in_review"},
-        {"_id": 0, "onboarding_id": 1},
-    )
-    if recent:
         return None
     onboarding_id = f"OB-{uuid.uuid4().hex[:8].upper()}"
     stub = {
@@ -2586,9 +2579,6 @@ async def _ensure_carrier_in_pipeline(label: Optional[str], user: User) -> Optio
     }
     await db.carrier_onboarding.insert_one(dict(stub))
     return onboarding_id
-
-
-import re  # noqa: E402  (used by _ensure_carrier_in_pipeline)
 
 
 @api_router.post("/workbook/truckload-bookings")
@@ -3817,6 +3807,8 @@ async def calendar_events(
         raise HTTPException(status_code=400, detail="start/end must be YYYY-MM-DD")
     if (end_d - start_d).days > 92:
         raise HTTPException(status_code=400, detail="Range > 92 days not allowed")
+    if end_d < start_d:
+        raise HTTPException(status_code=400, detail="end must be on or after start")
 
     in_range = lambda iso: bool(iso) and start <= iso <= end  # noqa: E731
 

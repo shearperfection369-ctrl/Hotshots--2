@@ -67,7 +67,30 @@ Subsequent user-requested additions (chronological, all delivered):
   `shearperfection369@gmail.com`. Other accounts default to `dispatcher`, keeping
   the 250-user model tidy.
 
-## Implemented (v2.0 — Feb 2026, this session)
+## Implemented (v2.1 — Feb 2026, this session) — Three P2s
+- **Auto-onboard new carriers** (P2.1) — Typing a brand-new carrier name into the Truckload
+  Booking Sheet's Carrier combobox now auto-inserts a `carrier_onboarding` stub with
+  `status=in_review`, `auto_created=true`, and a "(pending)" contact placeholder so the
+  compliance team can chase down W-9 + COI + contract. Backed by case-insensitive match on
+  `legal_name` OR `dba` — dropdown labels like `"XPO · XPOL"` are stripped of their SCAC
+  suffix before lookup, so picking from the dropdown never duplicates. Frontend shows a
+  toast: *"New carrier sent to onboarding OB-XXXXXXXX · status: in_review · compliance team
+  will gather W-9 + COI"*.
+- **Calendar event aggregation** (P2.2) — New `GET /api/calendar/events?start=…&end=…`
+  aggregates dated items from `shipments` (pickup_date, delivery_date, eta) and
+  `truckload_bookings` (pickup_date, delivery_date) into a single feed with
+  per-date count map. MiniCalendar on Command Center fetches the current month, draws
+  a cyan badge on every date that has events, and (on click) opens a panel listing each
+  event with type icon → react-router `<Link>` to /shipments?focus=… or /workbook.
+- **Email send — MOCKED** (P2.3) — New `_do_send_email()` helper + `/api/email/send`,
+  `/api/email/log`, `/api/routing-guide/send-email`. Currently writes to
+  `db.outbound_emails` with `status="mocked"` and a `mock_<hex>` message_id. From-address
+  is `transportation@tennantco.com`. Routing Guide's email dialog has two buttons now:
+  **Open Mail Client** (mailto) and **Send Now (MOCKED)**. Flip on SendGrid later by
+  pasting `SENDGRID_API_KEY` into `backend/.env` and swapping the body of `_do_send_email()`
+  — every call site stays identical.
+
+
 - **Inbound Routing Guide module** — Tennant's Domestic US/CA/MX Routing Guide (Rev 29, 2026-01-09)
   seeded into GridFS `routing_guides` bucket on first boot. New top-level page at `/routing-guide`
   with one-click "Email to Customer" (mailto + auto-generated subject/body containing a direct
