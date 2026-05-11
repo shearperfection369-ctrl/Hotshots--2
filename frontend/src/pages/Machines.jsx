@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Topbar from "../components/Topbar";
-import { api } from "../lib/api";
+import { api, BACKEND_URL } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Search, Cpu, Battery, Gauge, Ruler, Weight, DollarSign, Sparkles } from "lucide-react";

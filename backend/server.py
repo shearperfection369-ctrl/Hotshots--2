@@ -3515,9 +3515,183 @@ TENNANT_MACHINES = [
 
 TENNANT_MACHINE_CATEGORIES = sorted(set(m["category"] for m in TENNANT_MACHINES))
 
+
+# Category → silhouette + color palette for the generated machine image.
+# Each silhouette is a hand-tuned SVG path roughly evoking that machine type.
+_MACHINE_ICONS: Dict[str, Dict[str, str]] = {
+    "Robotic Sweeper-Scrubber": {
+        "accent": "#A78BFA",
+        "shape": "<rect x='180' y='150' width='240' height='110' rx='30' fill='url(#g)'/>"
+                 "<circle cx='220' cy='280' r='28' fill='#0B0E14' stroke='#A78BFA' stroke-width='3'/>"
+                 "<circle cx='380' cy='280' r='28' fill='#0B0E14' stroke='#A78BFA' stroke-width='3'/>"
+                 "<rect x='220' y='110' width='160' height='50' rx='14' fill='#A78BFA' opacity='0.4'/>"
+                 "<circle cx='300' cy='200' r='10' fill='#0B0E14'/>"
+                 "<text x='300' y='205' font-family='monospace' font-size='12' fill='#A78BFA' text-anchor='middle'>AI</text>",
+    },
+    "Robotic Sweeper": {
+        "accent": "#A78BFA",
+        "shape": "<rect x='170' y='150' width='260' height='120' rx='24' fill='url(#g)'/>"
+                 "<circle cx='210' cy='290' r='30' fill='#0B0E14' stroke='#A78BFA' stroke-width='3'/>"
+                 "<circle cx='390' cy='290' r='30' fill='#0B0E14' stroke='#A78BFA' stroke-width='3'/>"
+                 "<rect x='200' y='100' width='200' height='52' rx='12' fill='#A78BFA' opacity='0.4'/>"
+                 "<circle cx='300' cy='210' r='10' fill='#0B0E14'/>"
+                 "<text x='300' y='215' font-family='monospace' font-size='12' fill='#A78BFA' text-anchor='middle'>AI</text>",
+    },
+    "Robotic Scrubber": {
+        "accent": "#22D3EE",
+        "shape": "<rect x='180' y='150' width='240' height='110' rx='28' fill='url(#g)'/>"
+                 "<circle cx='220' cy='280' r='28' fill='#0B0E14' stroke='#22D3EE' stroke-width='3'/>"
+                 "<circle cx='380' cy='280' r='28' fill='#0B0E14' stroke='#22D3EE' stroke-width='3'/>"
+                 "<rect x='220' y='110' width='160' height='50' rx='14' fill='#22D3EE' opacity='0.4'/>"
+                 "<text x='300' y='205' font-family='monospace' font-size='11' fill='#22D3EE' text-anchor='middle' font-weight='bold'>AMR</text>",
+    },
+    "Ride-On Scrubber": {
+        "accent": "#00E5FF",
+        "shape": "<rect x='160' y='160' width='280' height='100' rx='18' fill='url(#g)'/>"
+                 "<rect x='240' y='110' width='100' height='60' rx='10' fill='#00E5FF' opacity='0.35'/>"
+                 "<circle cx='200' cy='280' r='30' fill='#0B0E14' stroke='#00E5FF' stroke-width='3'/>"
+                 "<circle cx='400' cy='280' r='30' fill='#0B0E14' stroke='#00E5FF' stroke-width='3'/>"
+                 "<rect x='180' y='220' width='240' height='10' fill='#00E5FF' opacity='0.5'/>",
+    },
+    "Walk-Behind Scrubber": {
+        "accent": "#06B6D4",
+        "shape": "<rect x='200' y='180' width='200' height='90' rx='14' fill='url(#g)'/>"
+                 "<line x1='300' y1='80' x2='300' y2='180' stroke='#06B6D4' stroke-width='6' stroke-linecap='round'/>"
+                 "<circle cx='300' cy='75' r='14' fill='#06B6D4'/>"
+                 "<circle cx='220' cy='290' r='24' fill='#0B0E14' stroke='#06B6D4' stroke-width='3'/>"
+                 "<circle cx='380' cy='290' r='24' fill='#0B0E14' stroke='#06B6D4' stroke-width='3'/>"
+                 "<rect x='200' y='245' width='200' height='10' fill='#06B6D4' opacity='0.5'/>",
+    },
+    "Walk-Behind Sweeper": {
+        "accent": "#10B981",
+        "shape": "<rect x='200' y='175' width='200' height='95' rx='14' fill='url(#g)'/>"
+                 "<line x1='300' y1='85' x2='300' y2='175' stroke='#10B981' stroke-width='6' stroke-linecap='round'/>"
+                 "<circle cx='300' cy='80' r='14' fill='#10B981'/>"
+                 "<circle cx='220' cy='290' r='22' fill='#0B0E14' stroke='#10B981' stroke-width='3'/>"
+                 "<circle cx='380' cy='290' r='22' fill='#0B0E14' stroke='#10B981' stroke-width='3'/>"
+                 "<circle cx='300' cy='265' r='30' fill='none' stroke='#10B981' stroke-width='3' stroke-dasharray='5 4'/>",
+    },
+    "Ride-On Sweeper": {
+        "accent": "#FFCC00",
+        "shape": "<rect x='160' y='160' width='280' height='100' rx='18' fill='url(#g)'/>"
+                 "<rect x='220' y='100' width='130' height='62' rx='10' fill='#FFCC00' opacity='0.35'/>"
+                 "<circle cx='200' cy='280' r='30' fill='#0B0E14' stroke='#FFCC00' stroke-width='3'/>"
+                 "<circle cx='400' cy='280' r='30' fill='#0B0E14' stroke='#FFCC00' stroke-width='3'/>"
+                 "<circle cx='300' cy='285' r='34' fill='none' stroke='#FFCC00' stroke-width='3' stroke-dasharray='6 4'/>",
+    },
+    "Sweeper-Scrubber": {
+        "accent": "#F59E0B",
+        "shape": "<rect x='160' y='150' width='280' height='115' rx='20' fill='url(#g)'/>"
+                 "<rect x='230' y='95' width='130' height='60' rx='10' fill='#F59E0B' opacity='0.35'/>"
+                 "<circle cx='205' cy='285' r='30' fill='#0B0E14' stroke='#F59E0B' stroke-width='3'/>"
+                 "<circle cx='395' cy='285' r='30' fill='#0B0E14' stroke='#F59E0B' stroke-width='3'/>"
+                 "<rect x='180' y='225' width='240' height='10' fill='#F59E0B' opacity='0.5'/>"
+                 "<circle cx='300' cy='285' r='28' fill='none' stroke='#F59E0B' stroke-width='3' stroke-dasharray='5 3'/>",
+    },
+    "Burnisher": {
+        "accent": "#EC4899",
+        "shape": "<rect x='220' y='175' width='160' height='90' rx='14' fill='url(#g)'/>"
+                 "<line x1='300' y1='85' x2='300' y2='175' stroke='#EC4899' stroke-width='6' stroke-linecap='round'/>"
+                 "<circle cx='300' cy='80' r='14' fill='#EC4899'/>"
+                 "<circle cx='300' cy='280' r='50' fill='none' stroke='#EC4899' stroke-width='4'/>"
+                 "<circle cx='300' cy='280' r='30' fill='#EC4899' opacity='0.3'/>"
+                 "<circle cx='300' cy='280' r='12' fill='#EC4899'/>",
+    },
+    "Carpet Extractor": {
+        "accent": "#3B82F6",
+        "shape": "<rect x='210' y='150' width='180' height='130' rx='16' fill='url(#g)'/>"
+                 "<line x1='400' y1='190' x2='480' y2='150' stroke='#3B82F6' stroke-width='5' stroke-linecap='round'/>"
+                 "<circle cx='485' cy='148' r='10' fill='#3B82F6'/>"
+                 "<rect x='235' y='195' width='130' height='30' rx='6' fill='#3B82F6' opacity='0.4'/>"
+                 "<circle cx='240' cy='295' r='14' fill='#0B0E14' stroke='#3B82F6' stroke-width='2'/>"
+                 "<circle cx='360' cy='295' r='14' fill='#0B0E14' stroke='#3B82F6' stroke-width='2'/>",
+    },
+    "Outdoor Sweeper": {
+        "accent": "#10B981",
+        "shape": "<rect x='140' y='150' width='320' height='110' rx='16' fill='url(#g)'/>"
+                 "<rect x='220' y='95' width='160' height='62' rx='12' fill='#10B981' opacity='0.35'/>"
+                 "<rect x='150' y='240' width='80' height='30' rx='6' fill='#10B981' opacity='0.4'/>"
+                 "<circle cx='190' cy='290' r='32' fill='#0B0E14' stroke='#10B981' stroke-width='3'/>"
+                 "<circle cx='410' cy='290' r='32' fill='#0B0E14' stroke='#10B981' stroke-width='3'/>"
+                 "<circle cx='110' cy='270' r='22' fill='none' stroke='#10B981' stroke-width='3' stroke-dasharray='5 4'/>",
+    },
+    "Outdoor Litter Vacuum": {
+        "accent": "#84CC16",
+        "shape": "<rect x='180' y='150' width='240' height='130' rx='18' fill='url(#g)'/>"
+                 "<rect x='400' y='180' width='80' height='60' rx='8' fill='#84CC16' opacity='0.4'/>"
+                 "<circle cx='220' cy='295' r='25' fill='#0B0E14' stroke='#84CC16' stroke-width='3'/>"
+                 "<circle cx='380' cy='295' r='25' fill='#0B0E14' stroke='#84CC16' stroke-width='3'/>"
+                 "<circle cx='300' cy='205' r='20' fill='none' stroke='#84CC16' stroke-width='3'/>",
+    },
+}
+
+
+def _build_machine_svg(model: str, category: str, size: str) -> str:
+    """Render a unique, branded machine card SVG. Always succeeds, even for
+    models with no real product photo on the Tennant CDN."""
+    icon = _MACHINE_ICONS.get(category, _MACHINE_ICONS["Ride-On Scrubber"])
+    accent = icon["accent"]
+    shape = icon["shape"]
+    cat_upper = category.upper()
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice" width="600" height="400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0B0E14"/>
+      <stop offset="100%" stop-color="#131821"/>
+    </linearGradient>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="{accent}" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="{accent}" stop-opacity="0.45"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="600" height="400" fill="url(#bg)"/>
+  <rect width="600" height="400" fill="url(#grid)"/>
+  <!-- corner brackets, HUD aesthetic -->
+  <path d="M 20 20 L 60 20 M 20 20 L 20 60" stroke="{accent}" stroke-width="3" fill="none"/>
+  <path d="M 580 20 L 540 20 M 580 20 L 580 60" stroke="{accent}" stroke-width="3" fill="none"/>
+  <path d="M 20 380 L 60 380 M 20 380 L 20 340" stroke="{accent}" stroke-width="3" fill="none"/>
+  <path d="M 580 380 L 540 380 M 580 380 L 580 340" stroke="{accent}" stroke-width="3" fill="none"/>
+  <!-- silhouette -->
+  {shape}
+  <!-- type label top-left -->
+  <text x="40" y="55" font-family="ui-monospace,Menlo,monospace" font-size="13" fill="{accent}" letter-spacing="3">{cat_upper}</text>
+  <!-- model name big -->
+  <text x="40" y="350" font-family="Inter,system-ui,sans-serif" font-size="56" fill="#FFFFFF" font-weight="900" letter-spacing="-1">{model}</text>
+  <text x="40" y="375" font-family="ui-monospace,Menlo,monospace" font-size="13" fill="rgba(255,255,255,0.55)" letter-spacing="2">TENNANT · {size}</text>
+</svg>"""
+
+
+@api_router.get("/machines/{model}/image.svg")
+async def machine_image(model: str):
+    """Always-on, brand-correct machine artwork. Routed by model name.
+
+    Beats the Tennant CDN approach because:
+      • 100 % uptime (no external dependency, no 404/500 fall-throughs)
+      • Distinct per model (model name is rendered into the SVG)
+      • Distinct per category (silhouette + accent color picked per category)
+      • Cyber-HUD aesthetic matches the rest of the app
+    """
+    m = next((x for x in TENNANT_MACHINES if x["model"].lower() == model.lower()), None)
+    if not m:
+        raise HTTPException(status_code=404, detail="Machine not found")
+    svg = _build_machine_svg(m["model"], m["category"], m.get("size", "—"))
+    return Response(content=svg, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
 @api_router.get("/machines")
 async def list_machines(_: User = Depends(get_current_user), category: Optional[str] = None):
     out = TENNANT_MACHINES if not category else [m for m in TENNANT_MACHINES if m["category"] == category]
+    # Override image_url to ALWAYS use our generated, model-specific SVG so the
+    # catalog can never show wrong/blank/random photos again.
+    out = [
+        {**m, "image_url": f"/api/machines/{urllib.parse.quote(m['model'])}/image.svg"}
+        for m in out
+    ]
     return {"machines": out, "categories": TENNANT_MACHINE_CATEGORIES, "count": len(out)}
 
 # -------------------- ARCADE: Connect Four · Tournaments · Trophies --------------------

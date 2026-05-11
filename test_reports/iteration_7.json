@@ -1,0 +1,84 @@
+{
+  "summary": "Iteration 7 — validated 3 fixes: (1) 35 machine SVG endpoints + override, (2) restored Dashboard layout with compact YouTube tile replacing customs-broker, (3) IMPLEMENTATION_PLAN.md doc. ALL P0 ITEMS PASS. 1 minor doc finding.",
+  "p0_results": {
+    "machine_svg_backend": {
+      "pytest_passed": "12/12",
+      "spot_models_verified": ["T7", "T16AMR", "X4 ROVR", "X6 ROVR", "X16 SWEEP", "S30", "B10", "EX-CAN-7"],
+      "all_35_models_return_200_with_image_svg_xml": true,
+      "model_name_substring_in_svg_body": true,
+      "url_encoded_space_X4%20ROVR_works": true,
+      "machines_endpoint_count": 35,
+      "machines_endpoint_categories": 12,
+      "image_url_prefix": "/api/machines/<model>/image.svg (all 35 confirmed, 0 Tennant CDN paths)"
+    },
+    "machines_frontend": {
+      "card_count_rendered": 35,
+      "all_imgs_prefixed_with_REACT_APP_BACKEND_URL": true,
+      "first_8_imgs_natural_dims": "600x400 (loaded)",
+      "visual_proof": "Screenshot confirms first row shows X4 ROVR / X6 ROVR / X16 SWEEP / T7AMR with distinct purple (Robotic Sweeper-Scrubber) vs cyan (AMR) accent colors; model names visible as large text inside SVG; HUD brackets/wheel/bumper geometry present"
+    },
+    "dashboard_restored_layout": {
+      "sortable_tiles_wrapper_removed": true,
+      "customs_broker_widget_removed": true,
+      "video_player_tile_present": true,
+      "compact_video_tile_in_same_column_as_old_broker": true,
+      "kpi_strip_map_trend_weather_traffic_mode_mix_sap_recent_intact": "weather-widget + traffic-widget confirmed; visually the Command Center matches the original restored layout (SAP quick-links, Industry Feed, Live Feed news, SAP Materials table)"
+    },
+    "youtube_tile_functionality": {
+      "default_iframe_src_contains_mTxE3g7o4aY": true,
+      "video_iframe_testid": true,
+      "video_open_youtube_anchor": true,
+      "video_edit_toggle_button": true,
+      "iframe_container_has_aspect_video_AND_max_h_44": true,
+      "after_change_click_url_input_and_load_btn_visible": true,
+      "paste_dQw4w9WgXcQ_and_load_updates_iframe_src": true,
+      "localStorage_tms_dashboard_video": "dQw4w9WgXcQ (persisted)"
+    }
+  },
+  "p1_results": {
+    "implementation_plan_doc": {
+      "path": "/app/memory/IMPLEMENTATION_PLAN.md",
+      "exists": true,
+      "lines": 296,
+      "expected_lines": "~400+ (request said ~400+; actual 296 — content coverage complete, length slightly short)",
+      "sections_found": ["1 Executive Summary", "2 Production Architecture", "3 Identity, Roles, 250-User Plan", "4 Integration Plan (SAP/SharePoint/PowerBI/Carriers)", "5 Data Migration", "6 Security/Compliance/Observability", "7 Rollout Plan — 12 Weeks", "8 Training & Change Management", "9 Cost & Capacity", "10 Risks & Mitigations", "11 Open Items / Backlog", "12 Acceptance Criteria"],
+      "all_required_sections_present": true
+    },
+    "regression_smoke": {
+      "promo_video_src": "/promo.mp4 (local, present)",
+      "shipments_col_headers": 14,
+      "shipments_col_drag_handles": 14,
+      "equipment_upload_btn_and_kpis": "all 4 testids present (equipment-upload-btn, equipment-file-input, kpi-total-on-site, kpi-doors)",
+      "trade_compliance_broker_and_incoterms": "tc-broker + broker-portal-link + Incoterms present",
+      "documents_page_doc_*_count": 24,
+      "sidebar_nav": "nav-equipment, nav-machines, nav-shipments, nav-workbook, nav-trade-compliance, nav-documents — all present"
+    }
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_machines_v8.py",
+    "/app/test_reports/pytest/iter8_results.xml"
+  ],
+  "action_items": [
+    "(optional) IMPLEMENTATION_PLAN.md is 296 lines vs the ~400+ called out in the request. All required sections (Architecture, Identity/Roles, Integration, Data Migration, Security, 12-week Rollout, Training, Cost) are present and detailed, so this is informational only — extend with more concrete examples / sample payloads / per-site cutover playbooks if a longer doc is desired."
+  ],
+  "critical_code_review_comments": [
+    "_build_machine_svg() in server.py produces deterministic, model-branded SVGs server-side and is cleanly wired through /api/machines/{model}/image.svg with URL-encoded model names. list_machines() overrides image_url to the relative /api path so the frontend prefixes REACT_APP_BACKEND_URL — solid pattern, no Tennant CDN dependency, no broken Unsplash links.",
+    "Dashboard.jsx CompactVideoTile is well-scoped: localStorage persistence with 11-char YouTube ID validation, parseId() handles youtube.com/watch?v=, /embed/, /shorts/, youtu.be/, and bare IDs. aspect-video + max-h-44 keeps the tile compact in the column slot vacated by the old customs broker card.",
+    "Machines.jsx correctly prepends process.env.REACT_APP_BACKEND_URL to /api/* image_urls in useEffect — confirmed by browser inspection: all 35 <img>.src start with the preview URL and load with naturalWidth=600.",
+    "All 35 SVG endpoints respond with image/svg+xml in <50ms each (pytest 12 tests in ~6s incl. full 35-model sweep)."
+  ],
+  "updated_files": ["/app/backend/tests/test_machines_v8.py (new)"],
+  "success_rate": {"backend": "100% (12/12 pytest)", "frontend": "100% on all P0 + P1 smoke"},
+  "test_credentials": "test_session_admin_1 (admin) via Bearer + session_token cookie",
+  "seed_data_creation": "None this iteration (yard reports from iter 6 still present).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 7 confirms all three deliverables on the preview URL. Run backend regression with: export REACT_APP_BACKEND_URL=https://clean-logistics-dash.preview.emergentagent.com && pytest backend/tests/test_machines_v8.py backend/tests/test_documents_v16.py backend/tests/test_equipment_v17.py. NOTE: as stated by the main agent, production (clean-logistics-dash.emergent.host) still serves the OLD Unsplash machine images — that needs a fresh deploy from the Emergent dashboard. Preview is fully fixed.",
+  "rca of the issue": "n/a — validation pass, no bugs reproduced"
+}
