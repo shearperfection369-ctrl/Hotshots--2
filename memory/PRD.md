@@ -67,7 +67,26 @@ Subsequent user-requested additions (chronological, all delivered):
   `shearperfection369@gmail.com`. Other accounts default to `dispatcher`, keeping
   the 250-user model tidy.
 
-## Implemented (v1.9 — Feb 2026, this session)
+## Implemented (v2.0 — Feb 2026, this session)
+- **Inbound Routing Guide module** — Tennant's Domestic US/CA/MX Routing Guide (Rev 29, 2026-01-09)
+  seeded into GridFS `routing_guides` bucket on first boot. New top-level page at `/routing-guide`
+  with one-click "Email to Customer" (mailto + auto-generated subject/body containing a direct
+  PDF download link). Admins/dispatchers can upload new revisions; full version history shown.
+  PDF endpoint `/api/routing-guide/pdf` is **public** (no auth) so external suppliers can open
+  the link from any mailbox.
+- **Carrier dropdown on Truckload Booking Sheet** — Carrier column is now a combobox (HTML5
+  `<datalist>`) sourced from `carrier_onboarding` records with `status == "approved"`. 13 carriers
+  ship out of the box: XPO, ODFL, Saia, Estes, R+L, Knight, Schneider, C.H. Robinson, Werner,
+  Lakeshore + 3 historical seeds. Dispatchers can pick an approved carrier OR type a new name.
+  Idempotent backfill on every backend boot ensures the roster stays populated.
+- **HUDLINK AI → Microsoft Copilot** — replaced the bespoke AI page with an official-branded
+  Microsoft Copilot launcher (`/copilot`). Includes the four-square MS logo, 4 launcher tiles
+  (Copilot, M365 Copilot, GitHub Copilot, Edge Sidebar), 6 one-click deep-link prompts to
+  `copilot.microsoft.com?q=…`, and a graceful X-Frame-Options fallback ("Open Microsoft Copilot"
+  CTA) since Microsoft refuses iframe embedding. `/ai-assistant` is now an alias to the new
+  page; the legacy HUDLINK AI lives at `/legacy-hudlink` for fallback.
+
+
 - **Universal per-user draggable tiles** — server-backed via `GET/PUT/DELETE /api/user/layouts/{page_key}`.
   Each user's layout is saved on their account (debounced 400ms) and reconciled against schema changes.
   Pages:

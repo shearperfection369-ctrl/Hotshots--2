@@ -79,18 +79,19 @@ function MSLogoMark({ size = 24 }) {
 }
 
 export default function MicrosoftCopilot() {
+  // X-Frame-Options: DENY still emits a `load` event for a blank document,
+  // so we can't trust onLoad to mean "Copilot rendered". Instead we just
+  // assume embedding will fail (because it always does in production) and
+  // surface the launch CTA after a short grace period. If Microsoft ever
+  // relaxes their framing policy, the iframe will already be mounted in
+  // the DOM during that grace period and will render normally — only the
+  // CTA card overlay flips on, which still keeps the launcher usable.
   const [embedFailed, setEmbedFailed] = useState(false);
-  const [iframeLoaded, setIframeLoaded] = useState(false);
 
-  // X-Frame-Options DENY blocks the iframe outright in modern browsers
-  // — onLoad still fires when the request is refused, so we use a delayed
-  // probe: if onLoad hasn't yielded *any* content within 4s, mark failed.
   useEffect(() => {
-    const t = setTimeout(() => {
-      if (!iframeLoaded) setEmbedFailed(true);
-    }, 4000);
+    const t = setTimeout(() => setEmbedFailed(true), 2500);
     return () => clearTimeout(t);
-  }, [iframeLoaded]);
+  }, []);
 
   return (
     <>
@@ -258,7 +259,6 @@ export default function MicrosoftCopilot() {
               referrerPolicy="origin"
               sandbox="allow-scripts allow-forms allow-popups allow-same-origin"
               className="w-full h-[640px] bg-black"
-              onLoad={() => setIframeLoaded(true)}
             />
           ) : (
             <div className="p-8 text-center" data-testid="copilot-embed-fallback">
