@@ -67,6 +67,39 @@ Subsequent user-requested additions (chronological, all delivered):
   `shearperfection369@gmail.com`. Other accounts default to `dispatcher`, keeping
   the 250-user model tidy.
 
+## Implemented (v1.7 — Feb 2026, this session)
+- **Self-hosted promo.mp4** — `/app/scripts/build_local_promo.py` renders a 28s branded
+  cinematic with ffmpeg + PIL (9 slides, fades). Lives at `/app/frontend/public/promo.mp4`,
+  plays even on networks that block YouTube. Solves Tennant corporate-network blank-video issue.
+- **Drag-and-drop Dashboard tiles** — `SortableTiles.jsx` powers the new Command Center.
+  12 reorderable tiles, layout persists via `localStorage`, "Reset Layout" button.
+- **YouTube Video tile** (replaces Customs Broker on Command Center) — `YouTubeVideoTile.jsx`
+  accepts any YouTube URL/ID, embeds the player, persists last video. Fallback "Open in
+  YouTube" button for locked-down networks.
+- **Customs Broker moved to Trade Compliance** — enriched with Account #, POA, Bond Type,
+  Phone, Email, Escalation contact + UPS_SCS portal deep-link.
+- **Drag-and-drop column reordering** — both `Shipments` and `Workbook` tables now have
+  grip handles on every column header. Drag to reorder, double-click width for resize,
+  Reset button per-tab. Localstorage persistence.
+- **BOL store/amend/email overhaul** (`Documents.jsx`):
+  - Filter pills (All / BOL / Commercial Invoice / Packing Slip / Weight Cert / COO)
+  - View · Download · Email · Amend actions per row
+  - Amend dialog captures reason + diff trail (`amendments` array on the doc, version bumps)
+  - Email dialog builds mailto with subject + body + PDF link, logs to `db.document_emails`
+  - BOL-from-shipment generator: one-click create from any existing shipment record
+  - Backend: `PATCH /documents/{id}`, `POST /documents/{id}/email`, `POST /shipments/{id}/generate-bol`
+- **Equipment / Yard module** (NEW page `/equipment`):
+  - Backend module `/app/backend/equipment_module.py` parses daily yard .xlsx (Doors,
+    Loaded Inbound/Outbound, Empty Trailers, Empty Containers)
+  - 5 endpoints: upload, list, get, delete (admin), analytics
+  - Frontend: drag-drop upload, 6 KPIs (total on site, doors occupied/total, loaded in/out,
+    empty trailers/containers, sealed %), live door map grid, carrier-mix pie, dwell-time
+    bars + stale-trailer hotlist, multi-report historical trend, 4 trailer/container tables,
+    full report history with delete
+- **Machine catalog expansion** — 17 → 35 models across 12 categories. Added X-series ROVR
+  robots (X4, X6, X16 SWEEP), T7/T12/T17/T20 ride-on scrubbers, T381/T500/T600 walk-behinds,
+  S3/S5/S6/S7/S12/S16 sweepers, M20 LPG combo, B10 burnisher, E5/1610 carpet extractors.
+
 ## Pending / Backlog (P2)
 - Promo Video file regeneration via Sora 2 (BUDGET-BLOCKED — user must top-up the Universal Key first; script ready at `/app/scripts/generate_promo_video.py`)
 - Production deployment health checks
