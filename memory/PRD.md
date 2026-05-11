@@ -67,7 +67,27 @@ Subsequent user-requested additions (chronological, all delivered):
   `shearperfection369@gmail.com`. Other accounts default to `dispatcher`, keeping
   the 250-user model tidy.
 
-## Implemented (v1.8 — Feb 2026, this session)
+## Implemented (v1.9 — Feb 2026, this session)
+- **Universal per-user draggable tiles** — server-backed via `GET/PUT/DELETE /api/user/layouts/{page_key}`.
+  Each user's layout is saved on their account (debounced 400ms) and reconciled against schema changes.
+  Pages:
+    - `/dashboard` — uses `useUserLayout("dashboard", …)` hook (its bespoke drag handles per section)
+    - `/trade-compliance` — wrapped in `<DraggableTiles pageKey="trade-compliance">` with 12 tiles
+      (summary, incoterms, tariffs, programs, section301, section232, coo, watchlists, broker,
+      regs, alerts, links)
+    - `/equipment` — wrapped in `<DraggableTiles pageKey="equipment">` with 5 tiles
+      (kpis, charts-top, charts-bottom, tables, history)
+  Reset button on each page reverts to default order (DELETE on the endpoint).
+- **MiniCalendar on Command page** (`/app/frontend/src/components/MiniCalendar.jsx`) — compact
+  240px-wide month grid with today highlighted in cyan, prev/next/today navigation. Placed inline
+  with the QuotesTicker at the top-right of the dashboard.
+- **Promo video v3** (`/promo.mp4`, 1.98 MB, 39.6s, 10 slides) — copy rewritten for *the team
+  that uses this every day*: dispatchers, planners, broker liaisons, yard supervisors.
+  Hero: "Built for the Team's Day". Outro: "USED BY THE TEAM · EVERY DAY".
+  Script: `/app/scripts/build_promo_with_screens.py` (consumes fresh authenticated screenshots
+  from `/app/scripts/capture_tms_screens_pw.py`).
+
+## Implemented (v1.8 — Feb 2026)
 - **Drag-and-drop Command Center tiles** restored on a *compact* grid (not the vertical stack).
   Each of 7 sections (sap-quick, news-ticker, video-row, sap-materials, kpis, main-grid,
   recent-shipments) has its own grip handle; CSS flex `order` drives the reorder; localStorage
