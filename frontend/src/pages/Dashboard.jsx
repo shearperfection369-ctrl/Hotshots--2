@@ -89,13 +89,11 @@ export default function Dashboard() {
   const modeData = kpis ? Object.entries(kpis.by_mode).map(([k, v]) => ({ name: k, value: v, color: MODE_COLOR[k] })) : [];
   const recentShipments = shipments.slice(0, 8);
 
-  // Drag-and-drop ordering for Command Center sections. The container below
-  // is `flex flex-col`, so giving each section a `style={{ order }}` lets the
-  // user reposition any block to any vertical slot. Order persists per browser
-  // via localStorage. Reset button restores the default sequence.
+  // Drag-and-drop ordering for Command Center sections. Default puts the
+  // Geo-Spatial Tracker + Facility Conditions (`main-grid`) AT THE TOP per
+  // the user's request, then KPIs, then secondary widgets.
   const DEFAULT_SECTIONS = [
-    "sap-quick", "news-ticker", "video-row", "sap-materials",
-    "kpis", "main-grid", "recent-shipments",
+    "main-grid", "kpis", "sap-quick", "news-ticker", "video-row", "sap-materials", "recent-shipments",
   ];
   const [sectionOrder, setSectionOrder] = useState(() => {
     try {
