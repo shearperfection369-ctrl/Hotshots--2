@@ -190,18 +190,31 @@ async def create_session(request: Request, response: Response):
     picture = data.get("picture")
     session_token = data["session_token"]
 
+    # Admin allow-list: scalable to 250 users — admins defined by env var, all
+    # other accounts default to dispatcher. The first user ever to sign in also
+    # becomes admin so the system is never adminless.
+    admin_emails = {
+        e.strip().lower()
+        for e in (os.environ.get("ADMIN_EMAILS", "") or "").split(",")
+        if e.strip()
+    }
+    is_allowlisted_admin = email.lower() in admin_emails
+
     existing = await db.users.find_one({"email": email}, {"_id": 0})
     if existing:
         user_id = existing["user_id"]
-        await db.users.update_one(
-            {"user_id": user_id},
-            {"$set": {"name": name, "picture": picture}}
-        )
+        update_fields = {"name": name, "picture": picture}
+        # Auto-promote allow-listed emails to admin on every login (idempotent).
+        if is_allowlisted_admin and existing.get("role") != "admin":
+            update_fields["role"] = "admin"
+        await db.users.update_one({"user_id": user_id}, {"$set": update_fields})
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
-        # First user in the system becomes admin automatically
         user_count = await db.users.count_documents({})
-        initial_role = "admin" if user_count == 0 else "dispatcher"
+        if is_allowlisted_admin or user_count == 0:
+            initial_role = "admin"
+        else:
+            initial_role = "dispatcher"
         await db.users.insert_one({
             "user_id": user_id,
             "email": email,
@@ -227,7 +240,8 @@ async def create_session(request: Request, response: Response):
         path="/",
         max_age=7 * 24 * 60 * 60,
     )
-    return {"user_id": user_id, "email": email, "name": name, "picture": picture, "role": "dispatcher"}
+    final_role = "admin" if is_allowlisted_admin else (existing.get("role") if existing else initial_role)
+    return {"user_id": user_id, "email": email, "name": name, "picture": picture, "role": final_role}
 
 @api_router.get("/auth/me", response_model=User)
 async def me(user: User = Depends(get_current_user)):
@@ -3080,93 +3094,110 @@ TENNANT_MACHINES = [
     {"model": "T16AMR", "category": "AMR Scrubber", "type": "Autonomous", "size": "32 in",
      "power": "Lithium-ion 36V", "runtime": "5–6 hrs", "deck_width_in": 32, "tank_gal": 22,
      "weight_lbs": 1480, "list_price_usd": 56000, "use_case": "Large facility autonomous scrubbing — warehouses, retail",
-     "image_url": "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800",
+     "image_url": "https://www.tennantco.com/content/dam/tennant/tennantco/products/machines/scrubber%20riders/t16amr/Images/t16amr-right.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/scrubbers/product.t16amr.industrial-robotic-floor-scrubber.2000054.html",
      "highlights": ["AI-NAV mapping", "Auto fill/drain", "Multi-shift Li-ion", "FOB-style controls"]},
     {"model": "T7AMR", "category": "AMR Scrubber", "type": "Autonomous", "size": "26-32 in",
-     "power": "Lithium-ion 36V", "runtime": "5 hrs", "deck_width_in": 28, "tank_gal": 18,
-     "weight_lbs": 1100, "list_price_usd": 42000, "use_case": "Mid-size autonomous scrubbing",
-     "image_url": "https://images.unsplash.com/photo-1589923188900-85dae523342b?w=800",
-     "highlights": ["Compact AMR", "Auto dock & charge", "Cloud fleet mgmt", "AI obstacle avoidance"]},
+     "power": "Lithium-ion 36V", "runtime": "5 hrs", "deck_width_in": 28, "tank_gal": 29,
+     "weight_lbs": 1100, "list_price_usd": 42000, "use_case": "Retail, healthcare, airports, malls",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000056.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/scrubbers/product.t7amr.robotic-floor-scrubber.2000056.html",
+     "highlights": ["BrainOS® AI", "Auto dock & charge", "Cloud fleet mgmt", "ec-H2O NanoClean® option"]},
     # Rider scrubbers
     {"model": "T681", "category": "Rider Scrubber", "type": "Rider", "size": "40-44 in",
      "power": "AGM / Li-ion 36V", "runtime": "6–8 hrs", "deck_width_in": 42, "tank_gal": 60,
      "weight_lbs": 2100, "list_price_usd": 38000, "use_case": "Large industrial floors",
-     "image_url": "https://images.unsplash.com/photo-1581092446327-9b52bd1570c2?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000099.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/scrubbers/product.t681.compact-battery-rider-scrubber.html",
      "highlights": ["ec-H2O NanoClean", "Dual cyl/disc brush options", "60-gal tank"]},
-    {"model": "T500", "category": "Rider Scrubber", "type": "Rider", "size": "28-32 in",
-     "power": "AGM / Li-ion 36V", "runtime": "5–7 hrs", "deck_width_in": 32, "tank_gal": 40,
-     "weight_lbs": 1650, "list_price_usd": 32000, "use_case": "Manufacturing, distribution centers",
-     "image_url": "https://images.unsplash.com/photo-1581091870622-2c6e2ef0e1e3?w=800",
-     "highlights": ["Smart-Fill", "Pro-Panel touchscreen", "Quiet-mode 65 dBA"]},
+    {"model": "T16", "category": "Rider Scrubber", "type": "Rider", "size": "36-46 in",
+     "power": "AGM / Li-ion 36V", "runtime": "5–7 hrs", "deck_width_in": 36, "tank_gal": 50,
+     "weight_lbs": 1850, "list_price_usd": 35000, "use_case": "Manufacturing, distribution centers",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000070.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/scrubbers/product.t16.battery-ride-on-floor-scrubber.2000070.html",
+     "highlights": ["Touch-n-Go controls", "Up to 89,100 sq ft/hr", "75 gal tank w/ ES"]},
     {"model": "T350", "category": "Walk-Behind Scrubber", "type": "LPG / Battery", "size": "20-26 in",
      "power": "LPG / 24V Battery", "runtime": "Up to 8 hrs (LPG)", "deck_width_in": 24, "tank_gal": 17,
      "weight_lbs": 720, "list_price_usd": 18500, "use_case": "Education, healthcare, retail",
-     "image_url": "https://images.unsplash.com/photo-1610563166150-b34df4f3bcd6?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000004.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/scrubbers/product.t350.walk-behind-floor-scrubber.html",
      "highlights": ["Stand-on platform option", "ec-H2O NanoClean", "Honda LPG"]},
     {"model": "T300", "category": "Walk-Behind Scrubber", "type": "Walk-Behind", "size": "17-20 in",
      "power": "24V Battery", "runtime": "3.5 hrs", "deck_width_in": 20, "tank_gal": 11,
      "weight_lbs": 295, "list_price_usd": 7800, "use_case": "Small to mid-size facilities",
-     "image_url": "https://images.unsplash.com/photo-1559511260-66a654ae982a?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000084.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/scrubbers/product.t300.walk-behind-floor-scrubber.html",
      "highlights": ["Insta-Adjust pressure", "Tool-free maintenance"]},
     {"model": "T2", "category": "Compact Scrubber", "type": "Walk-Behind", "size": "17 in",
      "power": "AGM 12V", "runtime": "2.5 hrs", "deck_width_in": 17, "tank_gal": 6,
      "weight_lbs": 180, "list_price_usd": 4200, "use_case": "Tight spaces, small retail",
-     "image_url": "https://images.unsplash.com/photo-1607082351193-aa2c1faf75ab?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000044.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/scrubbers/product.t2.compact-floor-scrubber.html",
      "highlights": ["Lightweight & portable", "Single-pass", "ec-H2O option"]},
     # Sweepers
     {"model": "S30", "category": "Industrial Sweeper", "type": "Rider", "size": "50-60 in",
      "power": "LPG / Diesel / Battery", "runtime": "8+ hrs", "deck_width_in": 58, "tank_gal": 0,
      "weight_lbs": 3200, "list_price_usd": 52000, "use_case": "Heavy-duty warehouse, factory sweeping",
-     "image_url": "https://images.unsplash.com/photo-1592983864329-fafa5d2a8632?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000136.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/sweepers/product.s30.industrial-sweeper.html",
      "highlights": ["SweepMax Plus filtration", "100 cu ft hopper", "Cab option"]},
     {"model": "S20", "category": "Industrial Sweeper", "type": "Rider", "size": "44 in",
      "power": "LPG / Diesel / Battery", "runtime": "6–8 hrs", "deck_width_in": 44, "tank_gal": 0,
      "weight_lbs": 2200, "list_price_usd": 36000, "use_case": "Mid-size warehouse sweeping",
-     "image_url": "https://images.unsplash.com/photo-1610891015018-30a04dac8eeb?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000122.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/sweepers/product.s20.mid-sized-sweeper.html",
      "highlights": ["Dust control system", "Multi-debris hopper", "Compact turn radius"]},
     {"model": "S10", "category": "Walk-Behind Sweeper", "type": "Walk-Behind", "size": "30 in",
      "power": "12V Battery / Manual", "runtime": "1.5 hrs", "deck_width_in": 30, "tank_gal": 0,
      "weight_lbs": 165, "list_price_usd": 3800, "use_case": "Small facilities, parking lots",
-     "image_url": "https://images.unsplash.com/photo-1572799454858-c1f6c4e4e3b9?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000095.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/sweepers/product.s10.compact-walk-behind-sweeper.html",
      "highlights": ["Lift-off hopper", "Side broom option"]},
     # Combo scrubber/sweeper
     {"model": "M30", "category": "Sweeper-Scrubber Combo", "type": "Rider", "size": "44-52 in",
      "power": "LPG / Diesel", "runtime": "6+ hrs", "deck_width_in": 50, "tank_gal": 70,
      "weight_lbs": 3850, "list_price_usd": 78000, "use_case": "Heavy industrial — one-pass clean",
-     "image_url": "https://images.unsplash.com/photo-1612626617068-d28d4fac3e8f?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000130.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/sweeper-scrubbers/product.m30.industrial-sweeper-scrubber.html",
      "highlights": ["Single-pass sweep & scrub", "70-gal tank", "Severe-duty"]},
     {"model": "M17", "category": "Sweeper-Scrubber Combo", "type": "Rider", "size": "40 in",
      "power": "LPG", "runtime": "6 hrs", "deck_width_in": 40, "tank_gal": 50,
      "weight_lbs": 2700, "list_price_usd": 58000, "use_case": "Manufacturing combo cleaning",
-     "image_url": "https://images.unsplash.com/photo-1610563083373-4d4d6b3edb5e?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000119.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/sweeper-scrubbers/product.m17.battery-sweeper-scrubber.html",
      "highlights": ["IRIS asset mgmt telemetry", "Dual-mode sweep+scrub"]},
     # Power burnisher
     {"model": "B7", "category": "Burnisher", "type": "Rider", "size": "27 in",
      "power": "LPG / Battery", "runtime": "5 hrs", "deck_width_in": 27, "tank_gal": 0,
      "weight_lbs": 660, "list_price_usd": 12500, "use_case": "High-gloss floor maintenance",
-     "image_url": "https://images.unsplash.com/photo-1581094288338-2314dddb7ece?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000110.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/burnishers/product.b7.battery-rider-burnisher.html",
      "highlights": ["High RPM pad", "Dust control optional"]},
     {"model": "B5", "category": "Burnisher", "type": "Walk-Behind", "size": "20 in",
      "power": "AC corded", "runtime": "Unlimited", "deck_width_in": 20, "tank_gal": 0,
      "weight_lbs": 95, "list_price_usd": 2400, "use_case": "Retail, small commercial buff",
-     "image_url": "https://images.unsplash.com/photo-1571987502227-9231b837d92a?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000079.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/burnishers/product.b5.walk-behind-burnisher.html",
      "highlights": ["1500-2000 RPM", "Active dust control"]},
-    # Pressure washer / outdoor
+    # Outdoor
     {"model": "Green Machine 414HS", "category": "Outdoor Sweeper", "type": "Compact Outdoor", "size": "44 in",
      "power": "Diesel", "runtime": "8 hrs", "deck_width_in": 44, "tank_gal": 0,
      "weight_lbs": 1700, "list_price_usd": 64000, "use_case": "Urban streets, sidewalks, parking lots",
-     "image_url": "https://images.unsplash.com/photo-1620891549027-942fdc95d3f5?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000016.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/outdoor-cleaning/product.414hs.compact-street-sweeper.html",
      "highlights": ["Vacuum-assist", "Compact urban footprint", "Cab w/ heat & A/C"]},
     {"model": "ATLV 4300", "category": "Outdoor Litter Vacuum", "type": "Compact Outdoor", "size": "—",
      "power": "Gasoline", "runtime": "6 hrs", "deck_width_in": 0, "tank_gal": 0,
      "weight_lbs": 1100, "list_price_usd": 38000, "use_case": "Parks, campuses, parking lots",
-     "image_url": "https://images.unsplash.com/photo-1601758174931-cab3b88c0017?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000038.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/outdoor-cleaning/product.atlv-4300.all-terrain-litter-vacuum.html",
      "highlights": ["High-suction litter pickup", "Compact maneuverable"]},
     # Carpet
     {"model": "EX-CAN-7", "category": "Carpet Extractor", "type": "Canister", "size": "—",
      "power": "AC corded", "runtime": "Unlimited", "deck_width_in": 0, "tank_gal": 7,
      "weight_lbs": 65, "list_price_usd": 2100, "use_case": "Hotels, offices, restoration",
-     "image_url": "https://images.unsplash.com/photo-1620114050751-eb8ef8d6aaf6?w=800",
+     "image_url": "https://www.tennantco.com/services/product/image.tennant.2000087.thumbnail-3",
+     "product_url": "https://www.tennantco.com/en_us/1/machines/carpet-extractors/product.ex-can-7.canister-extractor.html",
      "highlights": ["Deep-soak extraction", "Heated water option", "Wand & hose"]},
 ]
 

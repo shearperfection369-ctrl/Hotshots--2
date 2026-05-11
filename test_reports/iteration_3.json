@@ -1,0 +1,42 @@
+{
+  "summary": "v1.5 batch + admin allow-list testing complete. 16/18 v1.5 backend tests passing, 2 skipped (KPI PDF endpoint and dedicated /api/carriers list not implemented). Trade Compliance Incoterms UI verified — all 11 Incoterms rendered with correct testids. P0 BUG FOUND on /promo: YouTube iframe fallback never renders because HEAD /promo.mp4 returns 200 (SPA index.html) — page incorrectly shows a broken <video> tag instead of the iframe. Admin allow-list env var verified; existing test admin token still authenticates with role=admin (regression OK).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/reports/kpis/pdf", "issue": "Not implemented (404) — request asked for this; only /api/kpis/weekly-weights exists"},
+      {"endpoint": "/api/carriers", "issue": "Dedicated carrier list endpoint not implemented (404). Only /api/carriers/onboarding exists."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PromoVideo.jsx (/promo)", "issue": "P0: HEAD fetch on /promo.mp4 returns 200 because the SPA dev server serves index.html as a fallback for any unmatched path. Result: hasLocalMp4 becomes true and a broken <video src='/promo.mp4'> is rendered instead of the required YouTube iframe (data-testid='promo-video-iframe'). The YouTube fallback never displays. Fix: check Content-Type header for 'video/' prefix, OR use a GET range request, OR ship a real /promo.mp4, OR default hasLocalMp4=false and require an explicit env flag. Replicated on preview URL: data-testid='promo-video' is present, data-testid='promo-video-iframe' is NOT present.", "selector": "[data-testid='promo-video']", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_v15.py",
+    "/app/test_reports/pytest/v15_results.xml"
+  ],
+  "action_items": [
+    "P0: Fix PromoVideo.jsx HEAD check — verify Content-Type starts with 'video/' before treating /promo.mp4 as present, otherwise the YouTube iframe fallback NEVER triggers on this preview environment.",
+    "Optional: implement GET /api/reports/kpis/pdf (review request mentioned it).",
+    "Optional: implement GET /api/carriers (carrier directory list, separate from onboarding queue)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 4000+ lines — well above the 700-line guideline. Recommend splitting into routers (auth, shipments, freight, vault, claims, suppliers, machines, arcade, trade, kpis, manual).",
+    "PromoVideo.jsx fetch('/promo.mp4', { method:'HEAD' }) will always return ok in an SPA — use Content-Type validation.",
+    "create_session in server.py (lines 174-244) is well-formed: env-driven admin allow-list, idempotent role upgrade, fallback for first-ever signup. Good.",
+    "ADMIN_EMAILS is parsed at request time via os.environ.get on each /auth/session — this respects hot reload of .env after supervisor restart. Verified backend was restarted post .env change."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_v15.py (new — 18 v1.5 + admin allow-list tests)"
+  ],
+  "success_rate": {"backend": "89% (16/18; 2 skipped due to endpoints not present)", "frontend": "90% (8/9 routes; promo iframe bug)"},
+  "test_credentials": "Used test_session_admin_1 (admin) for API + frontend cookie. New allow-listed user seeded for the admin upgrade test and cleaned up after.",
+  "seed_data_creation": "Created throwaway shipment SHP-* via POST /api/shipments inside TestShipmentsV15.test_update_and_soft_delete (left in cancelled state). Created and deleted user with email shearperfection369@gmail.com to validate allow-list role-upgrade path.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run v1.5 tests via: REACT_APP_BACKEND_URL=https://clean-logistics-dash.preview.emergentagent.com python -m pytest backend/tests/test_v15.py -v. The promo video bug is reproducible by visiting /promo and observing data-testid='promo-video' instead of 'promo-video-iframe'. Trade Compliance Incoterms section is fully working with all 11 codes EXW/FCA/FAS/FOB/CFR/CIF/CPT/CIP/DAP/DPU/DDP. All other v1.5 endpoints (shipments CRUD, BOL upload/download via GridFS, trade-compliance, arcade leaderboard, machines, suppliers, claims, vault files, manual download, weekly weights) verified working with status 200.",
+  "rca of the issue": "PromoVideo.jsx uses fetch('/promo.mp4', { method: 'HEAD' }).then(r => setHasLocalMp4(r.ok)). In React SPA preview/prod builds, ANY unknown path is rewritten to index.html which returns HTTP 200, so r.ok is always true. Therefore hasLocalMp4 always becomes true, the conditional renders <video src='/promo.mp4'> which loads HTML as a broken video, and the YouTube iframe is never shown. Mitigation: change check to `fetch('/promo.mp4', { method: 'HEAD' }).then(r => setHasLocalMp4(r.ok && (r.headers.get('content-type') || '').startsWith('video/')))`."
+}

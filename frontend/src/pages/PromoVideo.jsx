@@ -49,16 +49,15 @@ const SAP_FLOW = [
 ];
 
 export default function PromoVideo() {
-  const [videoStatus, setVideoStatus] = useState("checking"); // checking | ready | budget | pending
+  // Tennant Company official trailer — embedded so it launches reliably
+  // without depending on Sora 2 generation or local /promo.mp4 asset.
+  const TENNANT_TRAILER_ID = "mTxE3g7o4aY"; // "Tennant is Everywhere | Company Trailer"
+  const [hasLocalMp4, setHasLocalMp4] = useState(false);
 
-  // Probe whether /promo.mp4 exists
   useEffect(() => {
     fetch("/promo.mp4", { method: "HEAD" })
-      .then((r) => {
-        if (r.ok) setVideoStatus("ready");
-        else setVideoStatus("budget");
-      })
-      .catch(() => setVideoStatus("budget"));
+      .then((r) => setHasLocalMp4(r.ok))
+      .catch(() => setHasLocalMp4(false));
   }, []);
 
   return (
@@ -66,10 +65,10 @@ export default function PromoVideo() {
       <Topbar title="TMS Launch · 2026 Update" subtitle="A cinematic tour of v1.5 — Vault, Claims, Trade Compliance, Suppliers, Machines, Arcade, Themes & more" />
       <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
 
-        {/* Hero with video */}
+        {/* Hero with video — YouTube iframe is the most reliable embed */}
         <Card className="hud-surface overflow-hidden relative" data-testid="promo-hero">
           <div className="relative aspect-video bg-black">
-            {videoStatus === "ready" ? (
+            {hasLocalMp4 ? (
               <video
                 src="/promo.mp4"
                 controls
@@ -81,29 +80,14 @@ export default function PromoVideo() {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center hud-grid-bg p-8">
-                <div className="text-center max-w-2xl">
-                  <TennantLogo size="lg" />
-                  <h1 className="font-display text-4xl md:text-5xl font-black mt-6 tracking-tighter leading-none">
-                    One Glass.<br/>
-                    <span className="text-cyan-400">Every Mode.</span> Total Command.
-                  </h1>
-                  {videoStatus === "budget" ? (
-                    <div className="mt-6 inline-block px-4 py-3 rounded-md border border-yellow-500/30 bg-yellow-500/5 text-left">
-                      <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-yellow-400 mb-1.5">⚠ Sora 2 generation paused</div>
-                      <div className="text-sm text-slate-300">
-                        The Sora 2 cinematic generated successfully, but downloading it exceeded the current Universal Key budget.
-                      </div>
-                      <div className="text-xs text-slate-400 mt-2">
-                        Top up your Emergent Universal Key (Profile → Universal Key → Add Balance) and re-run:
-                        <code className="block mt-1 p-2 bg-black/30 rounded text-cyan-300 font-mono text-[10px]">python /app/scripts/generate_promo_video.py</code>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mt-5 text-slate-400">Checking for cinematic...</p>
-                  )}
-                </div>
-              </div>
+              <iframe
+                src={`https://www.youtube.com/embed/${TENNANT_TRAILER_ID}?rel=0&modestbranding=1&playsinline=1`}
+                title="Tennant is Everywhere — Company Trailer"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                data-testid="promo-video-iframe"
+                className="absolute inset-0 w-full h-full"
+              />
             )}
           </div>
           <div className="p-6 md:p-8">
@@ -115,6 +99,9 @@ export default function PromoVideo() {
             <p className="mt-5 text-slate-300 text-lg max-w-3xl leading-relaxed">
               Kirk — and the entire Tennant transportation team — meet the mission-control TMS we&apos;ve built for you. From Golden Valley to Holland to Louisville, every truck, container, pallet, and parcel now reports to a single command center, in real time.
             </p>
+            <div className="mt-4 text-[10px] font-mono text-slate-500">
+              Trailer · Tennant Equipment Insights (official YouTube). Drop a Sora 2-rendered <code className="text-cyan-300">/promo.mp4</code> into <code className="text-cyan-300">/app/frontend/public</code> to swap automatically.
+            </div>
           </div>
         </Card>
 

@@ -3,10 +3,11 @@ import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
-import { Globe, AlertTriangle, ShieldCheck, FileText, ExternalLink, Search, TrendingUp, Anchor } from "lucide-react";
+import { Globe, AlertTriangle, ShieldCheck, FileText, ExternalLink, Search, TrendingUp, Anchor, Handshake } from "lucide-react";
 
 const SECTIONS = [
   { id: "summary", label: "Overview" },
+  { id: "incoterms", label: "Incoterms 2020" },
   { id: "tariffs", label: "Tariff Schedules" },
   { id: "programs", label: "Trade Programs" },
   { id: "section301", label: "Section 301" },
@@ -17,6 +18,99 @@ const SECTIONS = [
   { id: "regs", label: "Key Regulations" },
   { id: "alerts", label: "Alerts" },
   { id: "links", label: "Quick Links" },
+];
+
+// ICC Incoterms® 2020 — the 11 official rules. Authoritative source: ICC Publication 723E.
+// Grouped by "mode" per ICC guidance: 7 rules for any mode of transport + 4 rules exclusive to sea/inland-waterway.
+const INCOTERMS = [
+  {
+    code: "EXW", name: "Ex Works", mode: "Any mode",
+    risk_transfer: "At seller's premises, when goods are placed at buyer's disposal — NOT loaded.",
+    buyer_pays: "Everything: loading, export clearance, freight, insurance, import duties.",
+    seller_pays: "Nothing beyond making goods available at the named place.",
+    tennant_use: "Rarely used outbound — minimum seller obligation; risky for export documentation.",
+    insurance: "Buyer's discretion.",
+  },
+  {
+    code: "FCA", name: "Free Carrier", mode: "Any mode",
+    risk_transfer: "When goods are handed to the buyer's nominated carrier at the named place.",
+    buyer_pays: "Main carriage, insurance, import clearance & duties.",
+    seller_pays: "Export clearance, pre-carriage to named place, loading IF named place is seller's premises.",
+    tennant_use: "Preferred for containerized exports — replaces FOB for container/ro-ro shipments.",
+    insurance: "Buyer's discretion. (2020 update: buyer can instruct carrier to issue on-board B/L to seller.)",
+  },
+  {
+    code: "FAS", name: "Free Alongside Ship", mode: "Sea / inland waterway only",
+    risk_transfer: "When goods are placed alongside the vessel at the named port of shipment.",
+    buyer_pays: "Loading onto vessel, freight, insurance, import.",
+    seller_pays: "Delivery to quay alongside the ship, export clearance.",
+    tennant_use: "Bulk / oversized machine exports loaded by ship's tackle at the port.",
+    insurance: "Buyer's discretion.",
+  },
+  {
+    code: "FOB", name: "Free On Board", mode: "Sea / inland waterway only",
+    risk_transfer: "When goods are loaded on board the vessel at the named port of shipment.",
+    buyer_pays: "Sea freight, insurance, import clearance & duties.",
+    seller_pays: "Export clearance, pre-carriage, loading onto vessel.",
+    tennant_use: "Classic ocean term for non-containerized cargo. Use FCA for containers per ICC guidance.",
+    insurance: "Buyer's discretion.",
+  },
+  {
+    code: "CFR", name: "Cost and Freight", mode: "Sea / inland waterway only",
+    risk_transfer: "When goods are on board the vessel — but seller pays main carriage.",
+    buyer_pays: "Insurance, import clearance & duties, post-discharge transport.",
+    seller_pays: "Export clearance, freight to named port of destination.",
+    tennant_use: "Used when buyer prefers to arrange their own marine insurance.",
+    insurance: "Buyer's discretion (NOT required of seller).",
+  },
+  {
+    code: "CIF", name: "Cost, Insurance and Freight", mode: "Sea / inland waterway only",
+    risk_transfer: "When goods are on board the vessel — seller pays freight AND minimum insurance.",
+    buyer_pays: "Import clearance & duties, post-discharge transport.",
+    seller_pays: "Export, freight to destination port, marine insurance (min ICC Clause C in 2020).",
+    tennant_use: "Common for ocean exports to customers who want a single landed-cost quote.",
+    insurance: "Seller must provide — ICC (C) minimum coverage, 110% of contract value.",
+  },
+  {
+    code: "CPT", name: "Carriage Paid To", mode: "Any mode",
+    risk_transfer: "When goods are handed to the first carrier — even though seller pays freight to destination.",
+    buyer_pays: "Insurance, import clearance & duties, unloading at destination.",
+    seller_pays: "Export, main carriage to named destination.",
+    tennant_use: "Multimodal exports (rail + ocean + truck) where seller arranges through-freight.",
+    insurance: "Buyer's discretion (NOT required of seller).",
+  },
+  {
+    code: "CIP", name: "Carriage and Insurance Paid To", mode: "Any mode",
+    risk_transfer: "When goods are handed to the first carrier — seller pays carriage AND high-level insurance.",
+    buyer_pays: "Import clearance & duties, unloading.",
+    seller_pays: "Export, main carriage, insurance to ICC Clause A (all-risks, 110% of value).",
+    tennant_use: "Use when shipping high-value AMR units air freight — broad insurance protects in-transit damage.",
+    insurance: "Seller must provide — ICC (A) all-risks coverage (2020 upgrade from Clause C).",
+  },
+  {
+    code: "DAP", name: "Delivered At Place", mode: "Any mode",
+    risk_transfer: "On arrival at named place of destination, ready for unloading — NOT yet unloaded.",
+    buyer_pays: "Unloading at destination, import clearance & duties.",
+    seller_pays: "Everything up to and including arrival at named place.",
+    tennant_use: "Standard for cross-border North America (USMCA) deliveries to customer DC.",
+    insurance: "Seller's discretion (assumes risk to destination).",
+  },
+  {
+    code: "DPU", name: "Delivered at Place Unloaded", mode: "Any mode",
+    risk_transfer: "On arrival at named place AND after unloading by seller.",
+    buyer_pays: "Import clearance & duties only.",
+    seller_pays: "All costs and risks including unloading at the named place.",
+    tennant_use: "New 2020 term (replaced DAT). Only rule requiring seller to unload — useful for crated machines.",
+    insurance: "Seller's discretion (assumes risk to destination & unload).",
+  },
+  {
+    code: "DDP", name: "Delivered Duty Paid", mode: "Any mode",
+    risk_transfer: "On arrival at named destination, cleared for import — maximum seller obligation.",
+    buyer_pays: "Nothing beyond receiving the goods.",
+    seller_pays: "Everything: export, freight, insurance, import clearance, duties, taxes.",
+    tennant_use: "Used for premium customer experience — seller handles import. Caution: requires VAT registration in many jurisdictions.",
+    insurance: "Seller's discretion (assumes full risk).",
+  },
 ];
 
 const SEV_BADGE = {
@@ -65,6 +159,86 @@ export default function TradeCompliance() {
               <Tile label="FTZ Open Lots" value={data.summary.ftz_active_lots} />
               <Tile label="Drawback YTD" value={`$${(data.summary.duty_drawback_ytd_usd / 1000).toFixed(0)}K`} accent="text-emerald-400" />
               <Tile label="Section 232 Steel/Al" value={data.summary.section_232_steel_aluminum_in_scope ? "IN SCOPE" : "OK"} accent={data.summary.section_232_steel_aluminum_in_scope ? "text-yellow-400" : "text-emerald-400"} />
+            </div>
+          </Card>
+
+          {/* Incoterms 2020 */}
+          <Card className="hud-surface p-5" id="tc-incoterms" data-testid="tc-incoterms">
+            <div className="flex items-start justify-between mb-3 gap-3">
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 flex items-center gap-2">
+                  <Handshake size={12} /> Incoterms® 2020 — ICC Rules of Trade
+                </div>
+                <h3 className="font-display text-lg font-bold mt-0.5">11 Rules · Risk · Cost · Insurance Obligations</h3>
+              </div>
+              <a
+                href="https://iccwbo.org/business-solutions/incoterms-rules/"
+                target="_blank" rel="noreferrer"
+                className="text-[10px] font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 shrink-0 mt-1"
+                data-testid="incoterms-icc-link"
+              >
+                ICC reference <ExternalLink size={10} />
+              </a>
+            </div>
+            <p className="text-xs text-slate-400 mb-4 max-w-3xl leading-relaxed">
+              Incoterms® rules define the responsibilities of buyer and seller for the delivery of goods —
+              who pays which costs, when risk transfers, who arranges insurance, and who clears customs.
+              Tennant's standard outbound terms are <span className="text-cyan-300 font-mono">FCA Origin</span> for containers,
+              <span className="text-cyan-300 font-mono"> CIP Destination</span> for high-value air freight,
+              and <span className="text-cyan-300 font-mono">DAP/DDP</span> for North American customers.
+            </p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {INCOTERMS.map((t) => (
+                <div
+                  key={t.code}
+                  className="p-4 rounded-lg border border-white/5 bg-white/[0.02] hover:border-cyan-500/30 transition-colors"
+                  data-testid={`incoterm-${t.code}`}
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div>
+                      <span className="font-mono text-lg font-bold text-cyan-300 tracking-wider">{t.code}</span>
+                      <span className="ml-2 font-display text-sm text-white">{t.name}</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-mono uppercase border ${
+                      t.mode.startsWith("Sea")
+                        ? "bg-blue-500/10 text-blue-300 border-blue-500/30"
+                        : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                    }`}>
+                      {t.mode}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 text-xs">
+                    <IncoRow label="Risk Transfer" value={t.risk_transfer} accent="text-yellow-200" />
+                    <IncoRow label="Insurance" value={t.insurance} accent="text-emerald-200" />
+                    <IncoRow label="Seller Pays" value={t.seller_pays} accent="text-slate-300" />
+                    <IncoRow label="Buyer Pays" value={t.buyer_pays} accent="text-slate-300" />
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-white/5 text-xs text-cyan-200/80">
+                    <span className="font-mono text-[9px] uppercase tracking-wider text-cyan-400">Tennant use · </span>
+                    {t.tennant_use}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Quick reference: risk vs. cost transfer matrix */}
+            <div className="mt-5 p-3 rounded border border-cyan-500/15 bg-cyan-500/[0.03]">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-2">Quick mnemonic</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="font-mono text-cyan-300">E · F-terms (EXW, FCA, FAS, FOB):</span>
+                  <span className="text-slate-300"> Buyer arranges main carriage. Lowest seller obligation.</span>
+                </div>
+                <div>
+                  <span className="font-mono text-cyan-300">C-terms (CFR, CIF, CPT, CIP):</span>
+                  <span className="text-slate-300"> Seller pays freight, but risk transfers at origin. Cost ≠ risk.</span>
+                </div>
+                <div>
+                  <span className="font-mono text-cyan-300">D-terms (DAP, DPU, DDP):</span>
+                  <span className="text-slate-300"> Seller bears risk all the way to destination. Highest seller obligation.</span>
+                </div>
+              </div>
             </div>
           </Card>
 
@@ -300,6 +474,15 @@ function Tile({ label, value, accent = "text-white" }) {
     <div className="p-3 rounded border border-white/5 bg-white/[0.02]">
       <div className="text-[9px] font-mono uppercase tracking-wider text-slate-500">{label}</div>
       <div className={`mt-1 font-mono font-bold ${accent}`}>{value}</div>
+    </div>
+  );
+}
+
+function IncoRow({ label, value, accent = "text-slate-300" }) {
+  return (
+    <div>
+      <div className="text-[9px] font-mono uppercase tracking-wider text-slate-500">{label}</div>
+      <div className={`mt-0.5 leading-snug ${accent}`}>{value}</div>
     </div>
   );
 }
