@@ -3527,7 +3527,8 @@ TENNANT_REAL_PHOTO_IDS: Dict[str, int] = {
     "T12": 2000068,
     "T17": 2000071,
     "T20": 2000076,
-    "T2": 2000044,
+    # T2 (id 2000044) returns the Tennant brand logo, not a product shot — let
+    # it fall back to the branded SVG so the card is accurate to the model.
     "T300": 2000084,
     "T500": 2000093,
     "S3": 2000077,

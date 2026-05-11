@@ -67,7 +67,24 @@ Subsequent user-requested additions (chronological, all delivered):
   `shearperfection369@gmail.com`. Other accounts default to `dispatcher`, keeping
   the 250-user model tidy.
 
-## Implemented (v1.7 — Feb 2026, this session)
+## Implemented (v1.8 — Feb 2026, this session)
+- **Drag-and-drop Command Center tiles** restored on a *compact* grid (not the vertical stack).
+  Each of 7 sections (sap-quick, news-ticker, video-row, sap-materials, kpis, main-grid,
+  recent-shipments) has its own grip handle; CSS flex `order` drives the reorder; localStorage
+  `tms-command-section-order` persists; "Reset Layout" button restores defaults.
+- **Real Tennant machine photos** · 16 of 35 models now show actual Tennant CDN product
+  photos (T7, T16, T7AMR, T16AMR, T12, T17, T20, T300, T500, S3, S5, M17, B5, B7, EX-CAN-7,
+  Green Machine 414HS). The remaining 19 models still use the branded SVG fallback
+  (always renders, accurate to model). T2's CDN ID returned a brand logo — left on SVG.
+- **Promo video v2** · `/promo.mp4` rebuilt at 39.5s / 1.05 MB with **13 slides** covering
+  the v1.7 lineup: BOL store/amend/email, Equipment/Yard analytics, drag-drop tile layout,
+  35-machine catalog. Plus the existing slides on modes, SAP, trade compliance, HUDLINK,
+  Vault. Plays directly from local file — no YouTube dependency.
+- **Admin credentials** confirmed — `shearperfection369@gmail.com` is in `ADMIN_EMAILS`
+  env var and idempotently promoted to `admin` on every Google sign-in. Documented at
+  top of `/app/memory/test_credentials.md`.
+
+## Implemented (v1.7 — Feb 2026)
 - **Self-hosted promo.mp4** — `/app/scripts/build_local_promo.py` renders a 28s branded
   cinematic with ffmpeg + PIL (9 slides, fades). Lives at `/app/frontend/public/promo.mp4`,
   plays even on networks that block YouTube. Solves Tennant corporate-network blank-video issue.
