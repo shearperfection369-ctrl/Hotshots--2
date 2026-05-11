@@ -55,8 +55,14 @@ export default function PromoVideo() {
   const [hasLocalMp4, setHasLocalMp4] = useState(false);
 
   useEffect(() => {
+    // SPA serves index.html for ANY unknown path (HTTP 200 with text/html), so a
+    // bare r.ok check would falsely report the mp4 exists. Require an actual
+    // video/* Content-Type before swapping in the local <video> tag.
     fetch("/promo.mp4", { method: "HEAD" })
-      .then((r) => setHasLocalMp4(r.ok))
+      .then((r) => {
+        const ct = (r.headers.get("content-type") || "").toLowerCase();
+        setHasLocalMp4(r.ok && ct.startsWith("video/"));
+      })
       .catch(() => setHasLocalMp4(false));
   }, []);
 

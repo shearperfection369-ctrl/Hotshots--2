@@ -1,0 +1,28 @@
+{
+  "summary": "Retested ONLY the P0 fix for PromoVideo.jsx (HEAD content-type check). The fix is verified working on the preview URL. The YouTube iframe now renders and the broken HTML5 <video> tag is not in the DOM. All four content sections below the hero (Features, SAP integration, Tech Stack, Closing CTA) still render.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PromoVideo.jsx lines 57-67 fix is correct: HEAD response is checked for content-type starting with 'video/' before treating /promo.mp4 as present. Verified at runtime: HEAD /promo.mp4 returns status=200 with content-type='text/html; charset=utf-8' (SPA index.html fallback), so hasLocalMp4 correctly stays false and the YouTube iframe is rendered."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skipped (per instructions)", "frontend": "100% (1/1 P0 retest passed)"},
+  "test_credentials": "Used test_session_admin_1 (admin) as session_token cookie",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "P0 PromoVideo iframe fallback is fixed and verified. HEAD /promo.mp4 on the preview returns 200 with content-type=text/html (SPA fallback) — the new content-type check correctly rejects this and renders the YouTube iframe (id mTxE3g7o4aY). Two 401 errors were observed in console during navigation but are unrelated to this fix and did not affect rendering; investigate separately only if needed.",
+  "verification_evidence": {
+    "head_promo_mp4": {"ok": true, "status": 200, "contentType": "text/html; charset=utf-8"},
+    "promo-video-iframe count": 1,
+    "promo-video count": 0,
+    "iframe_src": "https://www.youtube.com/embed/mTxE3g7o4aY?rel=0&modestbranding=1&playsinline=1",
+    "sections_present": {"features": true, "sap_integration": true, "tech_stack": true, "closing_cta": true}
+  }
+}
