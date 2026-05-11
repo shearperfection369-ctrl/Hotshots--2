@@ -27,6 +27,9 @@ from reportlab.lib.units import inch
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
+from openpyxl import Workbook as XLWorkbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -1415,6 +1418,316 @@ async def webex_schedule(payload: WebexScheduleIn, user: User = Depends(get_curr
     }
     await db.webex_meetings.insert_one(dict(meeting))
     return meeting
+
+# -------------------- WORKBOOK (Excel-style renameable tabs) --------------------
+DEFAULT_TABS = [
+    {"kind": "shipments_tl", "name": "Outbound TL", "filter": {"mode": "TL"}},
+    {"kind": "shipments_ltl", "name": "Outbound LTL", "filter": {"mode": "LTL"}},
+    {"kind": "shipments_expedites", "name": "Expedites", "filter": {"mode": "Air"}},
+    {"kind": "shipments_crates", "name": "Crate Spots", "filter": {"mode": "Flatbed"}},
+    {"kind": "shipments_seafreight", "name": "Seafreight 25M", "filter": {"mode": "Ocean"}},
+    {"kind": "shipments_import", "name": "25 Import", "filter": {"mode": "Ocean", "direction": "inbound"}},
+    {"kind": "quotes", "name": "25 Quotes", "filter": {}},
+    {"kind": "plant_hubs", "name": "Plant Hubs", "filter": {}},
+    {"kind": "carriers_primary", "name": "IN Primary Carrier", "filter": {}},
+    {"kind": "contacts_suppliers", "name": "IN Supplier Contacts", "filter": {}},
+    {"kind": "contacts_carriers", "name": "IN Carrier Contacts", "filter": {}},
+    {"kind": "info", "name": "Info", "filter": {}},
+    {"kind": "volume_overview", "name": "Volume Overview", "filter": {}},
+]
+
+KIND_DEFINITIONS = {
+    "shipments_tl": {"columns": [
+        {"key": "reference", "label": "Reference"}, {"key": "shipment_id", "label": "Shipment ID"},
+        {"key": "carrier", "label": "Carrier"}, {"key": "origin.city", "label": "Origin"},
+        {"key": "destination.city", "label": "Destination"}, {"key": "pickup_date", "label": "Pickup Date"},
+        {"key": "eta", "label": "ETA"}, {"key": "weight_lbs", "label": "Weight (lbs)"},
+        {"key": "pieces", "label": "Pieces"}, {"key": "commodity", "label": "Commodity"},
+        {"key": "status", "label": "Status"}, {"key": "bol_no", "label": "BOL #"},
+    ]},
+    "shipments_ltl": {"columns": [
+        {"key": "reference", "label": "Reference"}, {"key": "carrier", "label": "Carrier"},
+        {"key": "origin.city", "label": "Origin"}, {"key": "destination.city", "label": "Destination"},
+        {"key": "weight_lbs", "label": "Weight"}, {"key": "pieces", "label": "Pcs"},
+        {"key": "pro_no", "label": "PRO #"}, {"key": "status", "label": "Status"}, {"key": "eta", "label": "ETA"},
+    ]},
+    "shipments_seafreight": {"columns": [
+        {"key": "reference", "label": "Reference"}, {"key": "carrier", "label": "NVOCC/Carrier"},
+        {"key": "container_no", "label": "Container #"}, {"key": "origin.city", "label": "POL"},
+        {"key": "destination.city", "label": "POD"}, {"key": "eta", "label": "ETA"},
+        {"key": "status", "label": "Status"}, {"key": "value_usd", "label": "Value (USD)"},
+    ]},
+    "quotes": {"columns": [
+        {"key": "quote_id", "label": "Quote #"}, {"key": "mode", "label": "Mode"},
+        {"key": "carrier", "label": "Carrier"}, {"key": "origin", "label": "Origin"},
+        {"key": "destination", "label": "Destination"}, {"key": "rate_usd", "label": "Rate (USD)"},
+        {"key": "transit_days", "label": "Transit Days"}, {"key": "valid_until", "label": "Valid Until"},
+        {"key": "status", "label": "Status"},
+    ]},
+    "plant_hubs": {"columns": [
+        {"key": "id", "label": "Plant ID"}, {"key": "name", "label": "Plant Name"},
+        {"key": "city", "label": "City"}, {"key": "state", "label": "State"},
+        {"key": "type", "label": "Type"}, {"key": "lat", "label": "Lat"}, {"key": "lng", "label": "Lng"},
+    ]},
+    "carriers_primary": {"columns": [
+        {"key": "name", "label": "Carrier"}, {"key": "category", "label": "Mode"},
+        {"key": "endpoint", "label": "API Endpoint"}, {"key": "status", "label": "Status"},
+        {"key": "last_sync", "label": "Last Sync"},
+    ]},
+    "contacts_suppliers": {"columns": [
+        {"key": "supplier", "label": "Supplier"}, {"key": "contact_name", "label": "Contact"},
+        {"key": "email", "label": "Email"}, {"key": "phone", "label": "Phone"},
+        {"key": "country", "label": "Country"}, {"key": "commodity", "label": "Commodity"},
+    ]},
+    "contacts_carriers": {"columns": [
+        {"key": "carrier", "label": "Carrier"}, {"key": "contact_name", "label": "Rep"},
+        {"key": "email", "label": "Email"}, {"key": "phone", "label": "Phone"},
+        {"key": "scac", "label": "SCAC"}, {"key": "after_hours", "label": "24/7 Number"},
+    ]},
+    "info": {"columns": [
+        {"key": "key", "label": "Key"}, {"key": "value", "label": "Value"},
+        {"key": "notes", "label": "Notes"},
+    ]},
+    "volume_overview": {"columns": [
+        {"key": "month", "label": "Month"}, {"key": "tl_count", "label": "TL"},
+        {"key": "ltl_count", "label": "LTL"}, {"key": "parcel_count", "label": "Parcel"},
+        {"key": "ocean_count", "label": "Ocean"}, {"key": "air_count", "label": "Air"},
+        {"key": "total_lbs", "label": "Total Weight (lbs)"}, {"key": "total_spend", "label": "Spend (USD)"},
+    ]},
+}
+KIND_DEFINITIONS["shipments_expedites"] = KIND_DEFINITIONS["shipments_tl"]
+KIND_DEFINITIONS["shipments_crates"] = KIND_DEFINITIONS["shipments_tl"]
+KIND_DEFINITIONS["shipments_import"] = KIND_DEFINITIONS["shipments_seafreight"]
+
+def _get_nested(d: Dict[str, Any], key: str):
+    parts = key.split(".")
+    cur = d
+    for p in parts:
+        if cur is None:
+            return None
+        cur = cur.get(p) if isinstance(cur, dict) else None
+    return cur
+
+QUOTES_DATA = [
+    {"quote_id": "Q-25001", "mode": "TL", "carrier": "XPO Logistics", "origin": "Golden Valley, MN", "destination": "Dallas, TX", "rate_usd": 2150.00, "transit_days": 3, "valid_until": "2026-06-15", "status": "Open"},
+    {"quote_id": "Q-25002", "mode": "LTL", "carrier": "SAIA", "origin": "Holland, MI", "destination": "Atlanta, GA", "rate_usd": 845.00, "transit_days": 4, "valid_until": "2026-06-20", "status": "Awarded"},
+    {"quote_id": "Q-25003", "mode": "Ocean", "carrier": "Kuehne+Nagel", "origin": "Long Beach, CA", "destination": "Yokohama, JP", "rate_usd": 4280.00, "transit_days": 14, "valid_until": "2026-07-01", "status": "Open"},
+    {"quote_id": "Q-25004", "mode": "Air", "carrier": "FedEx", "origin": "Louisville, KY", "destination": "Frankfurt, DE", "rate_usd": 6840.00, "transit_days": 2, "valid_until": "2026-06-10", "status": "Open"},
+    {"quote_id": "Q-25005", "mode": "TL", "carrier": "ArcBest", "origin": "Louisville, KY", "destination": "Phoenix, AZ", "rate_usd": 2680.00, "transit_days": 3, "valid_until": "2026-06-18", "status": "Declined"},
+    {"quote_id": "Q-25006", "mode": "LTL", "carrier": "R&L Carriers", "origin": "Golden Valley, MN", "destination": "Seattle, WA", "rate_usd": 1120.00, "transit_days": 5, "valid_until": "2026-06-22", "status": "Open"},
+]
+
+CARRIER_PRIMARY_DATA = [{"name": i["name"], "category": i["category"], "endpoint": i["endpoint"], "status": i["status"], "last_sync": i["last_sync"]} for i in INTEGRATIONS]
+
+SUPPLIER_CONTACTS_DATA = [
+    {"supplier": "Kuehne+Nagel Services", "contact_name": "Lisette Vermeer", "email": "lisette.vermeer@kn-logistics.com", "phone": "+31-10-555-0188", "country": "Netherlands", "commodity": "All inbound imports"},
+    {"supplier": "Motrex Co. Ltd", "contact_name": "Park Min-jun", "email": "min.park@motrex.co.kr", "phone": "+82-2-555-3344", "country": "South Korea", "commodity": "DC drive motors"},
+    {"supplier": "BattCo Industries GmbH", "contact_name": "Klaus Müller", "email": "k.mueller@battco.de", "phone": "+49-30-555-9911", "country": "Germany", "commodity": "Li-ion battery cells"},
+    {"supplier": "Premier Polymers", "contact_name": "Maria Gonzalez", "email": "m.gonzalez@premierpoly.com", "phone": "+1-952-555-0142", "country": "USA", "commodity": "Solution tanks"},
+    {"supplier": "Midwest Steel Frame Co", "contact_name": "Steve Olson", "email": "solson@midweststeel.com", "phone": "+1-507-555-7733", "country": "USA", "commodity": "Chassis frames"},
+    {"supplier": "Yazaki Wiring Harness", "contact_name": "Tanaka Hiroshi", "email": "h.tanaka@yazaki.co.jp", "phone": "+81-3-555-2218", "country": "Japan", "commodity": "Wiring harnesses"},
+]
+
+CARRIER_CONTACTS_DATA = [
+    {"carrier": "XPO Logistics", "contact_name": "Jamal Robinson", "email": "j.robinson@xpo.com", "phone": "+1-855-555-9760", "scac": "XPOL", "after_hours": "+1-844-555-1199"},
+    {"carrier": "ArcBest", "contact_name": "Sarah Whitfield", "email": "swhitfield@arcb.com", "phone": "+1-877-555-2227", "scac": "ABFS", "after_hours": "+1-844-555-2200"},
+    {"carrier": "SAIA", "contact_name": "Daniel Park", "email": "dpark@saia.com", "phone": "+1-800-555-7242", "scac": "SAIA", "after_hours": "+1-844-555-7700"},
+    {"carrier": "R&L Carriers", "contact_name": "Maria Esposito", "email": "mesposito@rlc.com", "phone": "+1-800-555-5526", "scac": "RLCA", "after_hours": "+1-844-555-7575"},
+    {"carrier": "UPS", "contact_name": "UPS National Account Desk", "email": "tennant-acct@ups.com", "phone": "+1-800-555-8742", "scac": "UPSN", "after_hours": "+1-800-555-7898"},
+    {"carrier": "FedEx Freight", "contact_name": "Brian Liu", "email": "brian.liu@fedex.com", "phone": "+1-866-555-3339", "scac": "FXFE", "after_hours": "+1-800-555-3339"},
+    {"carrier": "DHL Express", "contact_name": "Anika Schroeder", "email": "anika.s@dhl.com", "phone": "+1-800-555-3110", "scac": "DHLC", "after_hours": "+1-800-555-2255"},
+    {"carrier": "Kuehne+Nagel", "contact_name": "Lisette Vermeer", "email": "lisette.vermeer@kn-logistics.com", "phone": "+31-10-555-0188", "scac": "KNAA", "after_hours": "+31-10-555-0911"},
+    {"carrier": "Consolidated Fastfrate", "contact_name": "Pierre Tremblay", "email": "p.tremblay@fastfrate.com", "phone": "+1-905-555-1212", "scac": "CFAT", "after_hours": "+1-844-555-3434"},
+]
+
+INFO_DATA = [
+    {"key": "Company HQ", "value": "10400 Clean Street, Eden Prairie, MN 55344", "notes": "Tennant Company HQ — main office"},
+    {"key": "Logistics Director", "value": "Kirk Juergins", "notes": "Lead for Transportation Management"},
+    {"key": "TMS System ID", "value": "TENNANT-TMS-V1", "notes": "Internal system identifier"},
+    {"key": "SAP Client", "value": "100", "notes": "Production S/4HANA client"},
+    {"key": "Webex Org", "value": "tennantco.webex.com", "notes": "Corporate Webex instance"},
+    {"key": "Emergency Dispatch", "value": "+1-952-555-0911", "notes": "24/7 dispatch hotline"},
+    {"key": "Customs Broker", "value": "Livingston International", "notes": "Primary US customs broker"},
+    {"key": "Insurance Broker", "value": "Marsh McLennan", "notes": "Cargo insurance"},
+]
+
+VOLUME_OVERVIEW_DATA = [
+    {"month": "2026-01", "tl_count": 142, "ltl_count": 318, "parcel_count": 1240, "ocean_count": 38, "air_count": 22, "total_lbs": 2480000, "total_spend": 412000},
+    {"month": "2026-02", "tl_count": 158, "ltl_count": 342, "parcel_count": 1310, "ocean_count": 41, "air_count": 19, "total_lbs": 2590000, "total_spend": 438000},
+    {"month": "2026-03", "tl_count": 167, "ltl_count": 365, "parcel_count": 1402, "ocean_count": 44, "air_count": 28, "total_lbs": 2810000, "total_spend": 475000},
+    {"month": "2026-04", "tl_count": 175, "ltl_count": 388, "parcel_count": 1488, "ocean_count": 47, "air_count": 31, "total_lbs": 2920000, "total_spend": 498000},
+    {"month": "2026-05", "tl_count": 162, "ltl_count": 354, "parcel_count": 1356, "ocean_count": 39, "air_count": 25, "total_lbs": 2640000, "total_spend": 451000},
+]
+
+async def _get_rows_for_tab(tab: Dict[str, Any]) -> List[Dict[str, Any]]:
+    kind = tab["kind"]
+    if kind.startswith("shipments_"):
+        q: Dict[str, Any] = {}
+        flt = tab.get("filter") or {}
+        if flt.get("mode") and flt["mode"] != "Flatbed":
+            q["mode"] = flt["mode"]
+        docs = await db.shipments.find(q, {"_id": 0}).limit(500).to_list(500)
+        if kind == "shipments_crates":
+            docs = [d for d in docs if "crate" in (d.get("commodity", "").lower())] or docs[:8]
+        return docs
+    if kind == "quotes": return QUOTES_DATA
+    if kind == "plant_hubs": return TENNANT_FACILITIES
+    if kind == "carriers_primary": return CARRIER_PRIMARY_DATA
+    if kind == "contacts_suppliers": return SUPPLIER_CONTACTS_DATA
+    if kind == "contacts_carriers": return CARRIER_CONTACTS_DATA
+    if kind == "info": return INFO_DATA
+    if kind == "volume_overview": return VOLUME_OVERVIEW_DATA
+    return []
+
+async def _ensure_default_tabs():
+    count = await db.workbook_tabs.count_documents({})
+    if count > 0:
+        return
+    for i, t in enumerate(DEFAULT_TABS):
+        await db.workbook_tabs.insert_one({
+            "tab_id": f"TAB-{uuid.uuid4().hex[:8].upper()}",
+            "name": t["name"], "kind": t["kind"],
+            "filter": t.get("filter") or {}, "order": i,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+@api_router.get("/workbook/tabs")
+async def list_tabs(_: User = Depends(get_current_user)):
+    await _ensure_default_tabs()
+    tabs = await db.workbook_tabs.find({}, {"_id": 0}).sort("order", 1).to_list(200)
+    for t in tabs:
+        t["columns"] = KIND_DEFINITIONS.get(t["kind"], {"columns": []})["columns"]
+    return tabs
+
+class TabCreate(BaseModel):
+    name: str
+    kind: str = "info"
+    filter: Optional[Dict[str, Any]] = None
+
+@api_router.post("/workbook/tabs")
+async def create_tab(payload: TabCreate, _: User = Depends(get_current_user)):
+    if payload.kind not in KIND_DEFINITIONS:
+        raise HTTPException(status_code=400, detail=f"Unknown kind. Allowed: {list(KIND_DEFINITIONS.keys())}")
+    count = await db.workbook_tabs.count_documents({})
+    doc = {
+        "tab_id": f"TAB-{uuid.uuid4().hex[:8].upper()}",
+        "name": payload.name, "kind": payload.kind,
+        "filter": payload.filter or {}, "order": count,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.workbook_tabs.insert_one(dict(doc))
+    doc["columns"] = KIND_DEFINITIONS.get(payload.kind, {"columns": []})["columns"]
+    return doc
+
+class TabPatch(BaseModel):
+    name: Optional[str] = None
+    order: Optional[int] = None
+    filter: Optional[Dict[str, Any]] = None
+
+@api_router.patch("/workbook/tabs/{tab_id}")
+async def update_tab(tab_id: str, payload: TabPatch, _: User = Depends(get_current_user)):
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not updates:
+        return {"ok": True, "no_changes": True}
+    result = await db.workbook_tabs.update_one({"tab_id": tab_id}, {"$set": updates})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Tab not found")
+    return {"ok": True}
+
+@api_router.delete("/workbook/tabs/{tab_id}")
+async def delete_tab(tab_id: str, _: User = Depends(get_current_user)):
+    result = await db.workbook_tabs.delete_one({"tab_id": tab_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Tab not found")
+    return {"ok": True}
+
+@api_router.get("/workbook/tabs/{tab_id}/rows")
+async def tab_rows(tab_id: str, _: User = Depends(get_current_user)):
+    tab = await db.workbook_tabs.find_one({"tab_id": tab_id}, {"_id": 0})
+    if not tab:
+        raise HTTPException(status_code=404, detail="Tab not found")
+    rows = await _get_rows_for_tab(tab)
+    cols = KIND_DEFINITIONS.get(tab["kind"], {"columns": []})["columns"]
+    projected = []
+    for r in rows:
+        proj = {}
+        for c in cols:
+            v = _get_nested(r, c["key"]) if "." in c["key"] else r.get(c["key"])
+            proj[c["key"]] = v
+        projected.append(proj)
+    return {"tab": tab, "columns": cols, "rows": projected}
+
+def _build_xlsx_for_tab(tab: Dict[str, Any], rows: List[Dict[str, Any]], cols: List[Dict[str, Any]]) -> bytes:
+    wb = XLWorkbook()
+    ws = wb.active
+    ws.title = (tab["name"][:31] or "Sheet1")
+    for ch in r'[]/\?*':
+        ws.title = ws.title.replace(ch, "_")
+    header_fill = PatternFill(start_color="FF0B0E14", end_color="FF0B0E14", fill_type="solid")
+    header_font = Font(color="FF00E5FF", bold=True, size=11)
+    border = Border(bottom=Side(border_style="thin", color="FF00A4E4"))
+    for ci, c in enumerate(cols, start=1):
+        cell = ws.cell(row=1, column=ci, value=c["label"])
+        cell.fill = header_fill; cell.font = header_font; cell.border = border
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+    for ri, r in enumerate(rows, start=2):
+        for ci, c in enumerate(cols, start=1):
+            v = _get_nested(r, c["key"]) if "." in c["key"] else r.get(c["key"])
+            if isinstance(v, (dict, list)):
+                v = json.dumps(v)
+            ws.cell(row=ri, column=ci, value=v)
+    for ci, c in enumerate(cols, start=1):
+        col_letter = ws.cell(row=1, column=ci).column_letter
+        max_len = max([len(str(c["label"]))] + [len(str(_get_nested(r, c["key"]) if "." in c["key"] else r.get(c["key"]) or "")) for r in rows] + [0])
+        ws.column_dimensions[col_letter].width = min(max(max_len + 2, 12), 48)
+    ws.freeze_panes = "A2"
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    return buf.getvalue()
+
+@api_router.get("/workbook/tabs/{tab_id}/export.xlsx")
+async def export_tab_xlsx(tab_id: str, _: User = Depends(get_current_user)):
+    tab = await db.workbook_tabs.find_one({"tab_id": tab_id}, {"_id": 0})
+    if not tab:
+        raise HTTPException(status_code=404, detail="Tab not found")
+    rows = await _get_rows_for_tab(tab)
+    cols = KIND_DEFINITIONS.get(tab["kind"], {"columns": []})["columns"]
+    data = _build_xlsx_for_tab(tab, rows, cols)
+    filename = f"Tennant_TMS_{tab['name'].replace(' ', '_')}.xlsx"
+    return StreamingResponse(io.BytesIO(data), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+@api_router.get("/workbook/export-all.xlsx")
+async def export_all_xlsx(_: User = Depends(get_current_user)):
+    await _ensure_default_tabs()
+    tabs = await db.workbook_tabs.find({}, {"_id": 0}).sort("order", 1).to_list(200)
+    wb = XLWorkbook()
+    wb.remove(wb.active)
+    header_fill = PatternFill(start_color="FF0B0E14", end_color="FF0B0E14", fill_type="solid")
+    header_font = Font(color="FF00E5FF", bold=True, size=11)
+    border = Border(bottom=Side(border_style="thin", color="FF00A4E4"))
+    for tab in tabs:
+        cols = KIND_DEFINITIONS.get(tab["kind"], {"columns": []})["columns"]
+        if not cols: continue
+        rows = await _get_rows_for_tab(tab)
+        title = tab["name"][:31] or tab["tab_id"]
+        for ch in r'[]/\?*':
+            title = title.replace(ch, "_")
+        ws = wb.create_sheet(title=title)
+        for ci, c in enumerate(cols, start=1):
+            cell = ws.cell(row=1, column=ci, value=c["label"])
+            cell.fill = header_fill; cell.font = header_font; cell.border = border
+        for ri, r in enumerate(rows, start=2):
+            for ci, c in enumerate(cols, start=1):
+                v = _get_nested(r, c["key"]) if "." in c["key"] else r.get(c["key"])
+                if isinstance(v, (dict, list)):
+                    v = json.dumps(v)
+                ws.cell(row=ri, column=ci, value=v)
+        ws.freeze_panes = "A2"
+        for ci in range(1, len(cols) + 1):
+            ws.column_dimensions[ws.cell(row=1, column=ci).column_letter].width = 18
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": 'attachment; filename="Tennant_TMS_Workbook.xlsx"'})
 
 # -------------------- SEED --------------------
 @api_router.post("/admin/seed")

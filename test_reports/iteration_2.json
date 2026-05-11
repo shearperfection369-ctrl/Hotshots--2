@@ -1,0 +1,38 @@
+{
+  "summary": "Comprehensive backend tests for Tennant TMS iterations 2, 3, 4 — all 64 tests passing. Iter 2: PDF rendering (BOL/CI/Packing/Weight/COO all render with %PDF magic header), admin RBAC (list users, seed-team, role-change, all 401/403/200 paths), SAP S/4HANA mock (config, sales orders with plant filter, purchase orders with only_imports filter, sync RBAC: auditor=403 / dispatcher=200 / admin=200, logs persistence). Iter 3: AI Assistant single budget-safe Claude call (persists user+assistant msgs, history sorted oldest-first, user-scoped isolation, delete works), Webex fully mocked (config/spaces=7/meetings=4/notify writes log/schedule creates meeting/auth-protected). Iter 4: Workbook auto-seeds all 13 default tabs with correct names, columns array, create/rename/delete/404 paths, nested key projection (origin.city, destination.city), xlsx single-tab export (PK header, Content-Disposition), full-workbook xlsx export (PK header, larger byte count). Also updated iter-1 freight-bill tests to use auditor_client and onboarding decision to use admin_client (intentional RBAC change in iter 2).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter234.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/iter234_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 1962 lines — recommend splitting into routers/modules (auth, shipments, freight_bills, sap, ai, webex, workbook, admin, documents) for maintainability. >700 line guideline exceeded.",
+    "Workbook KIND_DEFINITIONS uses dict reuse (shipments_expedites = shipments_tl); mutation in one would leak. Consider deep-copy or frozen schema.",
+    "AI chat: if EMERGENT_LLM_KEY is missing the user message is still persisted before the 500 is raised (pre-flight check is after the insert). Move the key check above the insert.",
+    "/api/admin/users uses sort('created_at', 1) but some seeded users may lack created_at — relies on lexicographic fallback; safe but worth normalizing.",
+    "Workbook export-all.xlsx is unbounded (loops all tabs/rows) — add a max-rows guard for safety in production.",
+    "Webex/SAP mocks return non-deterministic data on each call (random.choice/randint inside generators) — consider seeding random for stable snapshots."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (updated TestFreightBills.test_approve_pay_dispute to use auditor_client + dispatcher 403 check; added test_freight_404_on_missing; updated TestCarrierOnboarding.test_create_and_decide to require admin for decision)",
+    "/app/backend/tests/test_iter234.py (new — 26 tests covering iter 2/3/4)"
+  ],
+  "success_rate": {"backend": "100% (64/64)", "frontend": "n/a (not requested)"},
+  "test_credentials": "Auth mocked via direct MongoDB insert per /app/auth_testing.md. Fixtures in conftest.py create admin/auditor/dispatcher sessions with unique tokens per pytest session.",
+  "seed_data_creation": "Per-session test users created with prefix test-{role}-{ts}-{rand}. Workbook test created/deleted TEST_pytest_tab. Webex notify wrote TEST_pytest log row. AI session 'pytest-ai-session-iter234' cleaned up at end of test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All iter 1-4 backend endpoints fully covered. Total 64 pytest tests passing in ~13s. Real AI call (Claude Sonnet 4.5) made exactly once per pytest run via TestAIAssistant.test_chat_single_message — keep this count to 1 to conserve EMERGENT_LLM_KEY budget. Sora 2 endpoints NOT tested (budget exhausted per instructions). RBAC: freight ops require auditor+, carrier onboarding decision requires admin, SAP sync requires admin/dispatcher (auditor 403). PDF tests use mongosh to read doc IDs since there's no /api/documents list endpoint."
+}

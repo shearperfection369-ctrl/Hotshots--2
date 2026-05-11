@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Package, PlusSquare, FileText, MapPinned,
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
-  Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film
+  Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -11,6 +11,7 @@ import { useAuth } from "../lib/auth";
 // Each item declares which roles can see it. Admin always sees everything.
 const NAV = [
   { to: "/dashboard", label: "Command Center", icon: LayoutDashboard, tid: "nav-dashboard", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/workbook", label: "Workbook", icon: Table2, tid: "nav-workbook", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/ai-assistant", label: "HUDLINK AI", icon: Sparkles, tid: "nav-ai-assistant", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/shipments", label: "Shipments", icon: Package, tid: "nav-shipments", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/book-load", label: "Book Load", icon: PlusSquare, tid: "nav-book-load", roles: ["admin", "dispatcher"] },

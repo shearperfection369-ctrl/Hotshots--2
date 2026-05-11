@@ -27,6 +27,7 @@ import SapSync from "@/pages/SapSync";
 import AIAssistant from "@/pages/AIAssistant";
 import Webex from "@/pages/Webex";
 import PromoVideo from "@/pages/PromoVideo";
+import Workbook from "@/pages/Workbook";
 
 function AppRouter() {
   const location = useLocation();
@@ -61,6 +62,7 @@ function AppRouter() {
         <Route path="/ai-assistant" element={<AIAssistant />} />
         <Route path="/webex" element={<Webex />} />
         <Route path="/promo" element={<PromoVideo />} />
+        <Route path="/workbook" element={<Workbook />} />
         <Route path="/admin/users" element={<AdminUsers />} />
       </Route>
     </Routes>

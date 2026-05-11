@@ -249,24 +249,33 @@ class TestFreightBills:
         for b in r.json():
             assert b["status"] == "paid"
 
-    def test_approve_pay_dispute(self, api_client):
-        bills = api_client.get(f"{BASE_URL}/api/freight-bills").json()
-        # Approve
+    def test_approve_pay_dispute(self, auditor_client, api_client):
+        """Freight ops require auditor or admin since iter 2 RBAC change."""
+        bills = auditor_client.get(f"{BASE_URL}/api/freight-bills").json()
+        # Dispatcher should be forbidden
+        b0 = bills[0]["bill_id"]
+        r_forbid = api_client.post(f"{BASE_URL}/api/freight-bills/{b0}/approve")
+        assert r_forbid.status_code == 403
+        # Auditor can approve
         b1 = bills[0]["bill_id"]
-        r = api_client.post(f"{BASE_URL}/api/freight-bills/{b1}/approve")
+        r = auditor_client.post(f"{BASE_URL}/api/freight-bills/{b1}/approve")
         assert r.status_code == 200
-        # Pay (use a different one)
+        # Pay
         b2 = bills[1]["bill_id"] if len(bills) > 1 else b1
-        r = api_client.post(f"{BASE_URL}/api/freight-bills/{b2}/pay")
+        r = auditor_client.post(f"{BASE_URL}/api/freight-bills/{b2}/pay")
         assert r.status_code == 200
-        # Verify paid
-        all_bills = api_client.get(f"{BASE_URL}/api/freight-bills").json()
+        all_bills = auditor_client.get(f"{BASE_URL}/api/freight-bills").json()
         paid = next((b for b in all_bills if b["bill_id"] == b2), None)
         assert paid is not None and paid["status"] == "paid"
         # Dispute
         b3 = bills[2]["bill_id"] if len(bills) > 2 else b1
-        r = api_client.post(f"{BASE_URL}/api/freight-bills/{b3}/dispute", json={"reason": "Test overcharge"})
+        r = auditor_client.post(f"{BASE_URL}/api/freight-bills/{b3}/dispute", json={"reason": "Test overcharge"})
         assert r.status_code == 200
+
+    def test_freight_404_on_missing(self, auditor_client):
+        for action in ("approve", "pay", "dispute"):
+            r = auditor_client.post(f"{BASE_URL}/api/freight-bills/BILL-NOTREAL/{action}", json={"reason": "x"})
+            assert r.status_code == 404
 
 
 # ---------- Carrier Onboarding ----------
@@ -276,7 +285,7 @@ class TestCarrierOnboarding:
         assert r.status_code == 200
         assert len(r.json()) >= 1
 
-    def test_create_and_decide(self, api_client):
+    def test_create_and_decide(self, api_client, admin_client):
         payload = {
             "legal_name": "TEST_Pytest Carrier LLC",
             "dba": "TestPytest",
@@ -304,12 +313,16 @@ class TestCarrierOnboarding:
             r2 = api_client.post(f"{BASE_URL}/api/carriers/onboarding/{oid}/toggle", json={"field": f})
             assert r2.status_code == 200
 
-        # Decision approve
-        r3 = api_client.post(f"{BASE_URL}/api/carriers/onboarding/{oid}/decision", json={"decision": "approved", "notes": "ok"})
+        # Decision now requires admin per iter 2; dispatcher should get 403
+        r_forbid = api_client.post(f"{BASE_URL}/api/carriers/onboarding/{oid}/decision", json={"decision": "approved"})
+        assert r_forbid.status_code == 403
+
+        # Admin can decide
+        r3 = admin_client.post(f"{BASE_URL}/api/carriers/onboarding/{oid}/decision", json={"decision": "approved", "notes": "ok"})
         assert r3.status_code == 200
 
         # Invalid decision
-        r4 = api_client.post(f"{BASE_URL}/api/carriers/onboarding/{oid}/decision", json={"decision": "maybe"})
+        r4 = admin_client.post(f"{BASE_URL}/api/carriers/onboarding/{oid}/decision", json={"decision": "maybe"})
         assert r4.status_code == 400
 
         # Invalid toggle field
