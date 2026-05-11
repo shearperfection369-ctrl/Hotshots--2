@@ -2371,6 +2371,52 @@ async def delete_tab(tab_id: str, _: User = Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
+# Per-user tile layouts. Every page in the TMS can render its sections via the
+# DraggableTiles wrapper, which stores its order array here keyed by the user
+# id and a page_key. Result: a dispatcher's layout follows them across browsers
+# / devices, not just one localStorage shard.
+# ---------------------------------------------------------------------------
+
+class UserLayoutPayload(BaseModel):
+    order: List[str]
+
+
+@api_router.get("/user/layouts/{page_key}")
+async def get_user_layout(page_key: str, user: User = Depends(get_current_user)):
+    doc = await db.user_layouts.find_one(
+        {"user_id": user.user_id, "page_key": page_key}, {"_id": 0}
+    )
+    return {"order": (doc or {}).get("order", [])}
+
+
+@api_router.put("/user/layouts/{page_key}")
+async def put_user_layout(
+    page_key: str, payload: UserLayoutPayload, user: User = Depends(get_current_user)
+):
+    # Sanity: require at least one id and reasonable bounds. Anything else
+    # gets accepted as-is — clients control the schema of these strings.
+    if not payload.order or len(payload.order) > 200:
+        raise HTTPException(status_code=400, detail="Invalid layout payload")
+    await db.user_layouts.update_one(
+        {"user_id": user.user_id, "page_key": page_key},
+        {"$set": {
+            "user_id": user.user_id,
+            "page_key": page_key,
+            "order": payload.order,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+    return {"ok": True, "page_key": page_key, "order": payload.order}
+
+
+@api_router.delete("/user/layouts/{page_key}")
+async def reset_user_layout(page_key: str, user: User = Depends(get_current_user)):
+    await db.user_layouts.delete_one({"user_id": user.user_id, "page_key": page_key})
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
 # Truckload Booking Sheet — Excel-style editable rows with real-time polling.
 # Each row lives in db.truckload_bookings. A separate revision counter in
 # db.truckload_bookings_meta lets clients poll a lightweight HEAD-style endpoint

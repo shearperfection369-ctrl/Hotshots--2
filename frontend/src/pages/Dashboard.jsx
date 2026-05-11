@@ -12,6 +12,8 @@ import {
   GripVertical, RotateCcw
 } from "lucide-react";
 import QuotesTicker from "../components/QuotesTicker";
+import MiniCalendar from "../components/MiniCalendar";
+import { useUserLayout } from "../components/DraggableTiles";
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar,
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid
@@ -91,24 +93,13 @@ export default function Dashboard() {
 
   // Drag-and-drop ordering for Command Center sections. Default puts the
   // Geo-Spatial Tracker + Facility Conditions (`main-grid`) AT THE TOP per
-  // the user's request, then KPIs, then secondary widgets.
+  // the user's request, then KPIs, then secondary widgets. The order is
+  // persisted server-side per user via /api/user/layouts/dashboard.
   const DEFAULT_SECTIONS = [
     "main-grid", "kpis", "sap-quick", "news-ticker", "video-row", "sap-materials", "recent-shipments",
   ];
-  const [sectionOrder, setSectionOrder] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("tms-command-section-order") || "null");
-      if (Array.isArray(saved) && saved.length) {
-        const known = saved.filter((s) => DEFAULT_SECTIONS.includes(s));
-        const missing = DEFAULT_SECTIONS.filter((s) => !known.includes(s));
-        return [...known, ...missing];
-      }
-    } catch (e) { /* ignore */ }
-    return DEFAULT_SECTIONS;
-  });
-  useEffect(() => {
-    try { localStorage.setItem("tms-command-section-order", JSON.stringify(sectionOrder)); } catch (e) { /* ignore */ }
-  }, [sectionOrder]);
+  const { order: sectionOrder, setOrder: setSectionOrder, reset: resetSectionOrder } =
+    useUserLayout("dashboard", DEFAULT_SECTIONS);
   const [dragSec, setDragSec] = useState(null);
   const [overSec, setOverSec] = useState(null);
   const handleDrop = (target) => (e) => {
@@ -154,8 +145,14 @@ export default function Dashboard() {
       <Topbar title="Command Center" subtitle="TENNANT COMPANIES · TMS HUD · LIVE OPERATIONS" />
       <div className="p-4 md:p-6 flex flex-col gap-5">
 
-        {/* Subtle inspirational quotes ticker */}
-        <QuotesTicker />
+        {/* Top row: inspirational quotes ticker (full-width) + mini calendar
+            tucked to the right per request. Stacks on small screens. */}
+        <div className="flex flex-col md:flex-row md:items-stretch gap-3">
+          <div className="flex-1 min-w-0">
+            <QuotesTicker />
+          </div>
+          <MiniCalendar />
+        </div>
 
         {/* Drag-to-reorder hint + Reset */}
         <div className="flex items-center justify-end gap-2 -mb-3" data-testid="dash-reorder-toolbar">
@@ -163,7 +160,7 @@ export default function Dashboard() {
             Drag any tile by its grip · layout saves automatically
           </span>
           <button
-            onClick={() => setSectionOrder(DEFAULT_SECTIONS)}
+            onClick={() => resetSectionOrder()}
             data-testid="dash-reset-layout"
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-cyan-500/30 text-[10px] font-mono uppercase tracking-wider text-cyan-300 hover:bg-cyan-500/10"
           >

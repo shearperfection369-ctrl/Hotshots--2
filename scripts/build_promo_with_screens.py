@@ -23,55 +23,58 @@ SLIDES_DIR.mkdir(exist_ok=True)
 FINAL = Path("/app/frontend/public/promo.mp4")
 
 # Pages to capture: (URL path, slide title, body line(s), eyebrow)
+# Messaging tuned for the Tennant team that uses this TMS every day —
+# dispatchers, planners, broker liaisons, yard supervisors. Lines call out
+# the daily workflow each module replaces or accelerates.
 SCENES = [
     ("/dashboard", "01_command",
      "COMMAND CENTER",
-     "Live Mission Control",
-     ["Geo-spatial tracker, live weather, traffic and ETAs",
-      "for every truck, container, pallet and parcel —",
-      "across TL, LTL, Parcel, Ocean, Air and Rail."]),
+     "Your Daily 9 a.m. Stand-Up",
+     ["One screen replaces the morning email blast:",
+      "live map, weather, traffic, KPIs, broker feed —",
+      "everything the team checks before standing up."]),
     ("/shipments", "02_shipments",
      "SHIPMENTS",
-     "One Table · All Modes",
-     ["Edit on the row. Soft-delete with audit log.",
-      "Resize, hide, drag-reorder every column.",
-      "SAP deep-links on Order, Material and BOL fields."]),
+     "Edit in Place · No More Spreadsheets",
+     ["Update status, ETAs and pricing on the row.",
+      "Drag-reorder columns to match your workflow.",
+      "Soft-delete with audit log — zero data loss."]),
     ("/workbook", "03_booking",
      "TRUCKLOAD BOOKING SHEET",
-     "Excel-Style · Real-Time",
-     ["Click any cell to edit. Auto-save on blur.",
-      "Other dispatchers see your edits within 4 seconds.",
-      "Replaces the legacy XLSX — no more emailed copies."]),
+     "The Team's Live Booking Board",
+     ["Click any cell to edit. Auto-saves on blur.",
+      "Other dispatchers see your edits in 4 seconds.",
+      "Retires the daily emailed XLSX for good."]),
     ("/documents", "04_documents",
      "DOCUMENTS · BOL ARCHIVE",
-     "Store · Amend · Email",
-     ["Every BOL on file. Amend with reason + diff trail.",
-      "One-click email with PDF attachment.",
-      "Generate a BOL directly from any shipment."]),
+     "Generate · Amend · Email — In Seconds",
+     ["Every BOL on file with full version history.",
+      "Amend with reason + diff trail for compliance.",
+      "One-click email — no more printer runs."]),
     ("/equipment", "05_equipment",
-     "EQUIPMENT · YARD",
-     "Daily Excel → Live KPIs",
-     ["Drop your daily yard report. Instant analytics:",
-      "door map, dwell, sealed%, carrier mix.",
-      "Stale-trailer alerts auto-surface."]),
+     "EQUIPMENT · YARD STATUS",
+     "Drop the Daily XLSX, Get Live KPIs",
+     ["Drag in the daily yard report each morning.",
+      "Instant door map, dwell, sealed %, carrier mix.",
+      "Stale-trailer alerts surface before they hurt."]),
     ("/trade-compliance", "06_trade",
      "TRADE COMPLIANCE",
-     "Incoterms · 301 · 232 · ACE",
-     ["All 11 Incoterms 2020 reference cards.",
-      "Section 301/232 watch. USMCA · KORUS · FTZ.",
-      "Direct UPS_SCS broker portal access."]),
+     "The Daily HTS · Incoterms · 301 Desk",
+     ["All 11 Incoterms 2020 at your fingertips.",
+      "Section 301/232 watch · USMCA · FTZ · drawback.",
+      "Broker portal, contacts and ACE in one place."]),
     ("/machines", "07_catalog",
      "MACHINE CATALOG",
-     "35 Models · 12 Categories",
-     ["X-series ROVR · T-series scrubbers ·",
-      "S-series sweepers · M / B / E lines.",
-      "Real Tennant photos and complete specs."]),
+     "Specs the Sales & Ops Team Cite Daily",
+     ["35 live Tennant models · 12 product families.",
+      "Real photos, dimensions, power, capacity.",
+      "Linked from shipments and BOLs automatically."]),
     ("/carrier-rates", "08_rates",
      "CARRIER RATES",
-     "MSAs · Lanes · Surcharges",
-     ["80+ carrier rate decks at your fingertips.",
-      "Cube weight, accessorials, dunnage included.",
-      "Side-by-side compare before tendering a load."]),
+     "Rate-Shop Before You Tender",
+     ["80+ carrier rate decks · MSAs · accessorials.",
+      "Side-by-side compare for every lane.",
+      "Cube weight + dunnage baked in — no surprises."]),
 ]
 
 # ------- 1. Screenshot every page with Chrome headless -------
@@ -194,9 +197,9 @@ def build_hero(out_path: Path):
     d.text((140, 380), "TENNANT COMPANIES · TRANSPORTATION MANAGEMENT SYSTEM",
            font=FONT_EYE, fill=CYAN)
     huge = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 140)
-    d.text((140, 430), "One Glass.", font=huge, fill=SLATE)
-    d.text((140, 580), "Every Mode.", font=huge, fill=CYAN)
-    d.text((140, 770), "A guided tour of the Tennant TMS, feature by feature.",
+    d.text((140, 430), "Built for the", font=huge, fill=SLATE)
+    d.text((140, 580), "Team's Day.", font=huge, fill=CYAN)
+    d.text((140, 770), "The 8 modules your dispatchers, planners and broker liaisons use every shift.",
            font=FONT_BODY, fill=SLATE_DIM)
     d.text((60, H - 50), "TENNANT · TMS v1.9", font=FONT_FOOTER, fill=SLATE_DIM)
     canvas.save(out_path, "PNG")
@@ -212,10 +215,10 @@ def build_outro(out_path: Path):
         sy = -1 if oy > H / 2 else 1
         d.line([(ox, oy), (ox + sx * 50, oy)], fill=CYAN, width=3)
         d.line([(ox, oy), (ox, oy + sy * 50)], fill=CYAN, width=3)
-    d.text((140, 380), "READY WHEN YOU ARE", font=FONT_EYE, fill=CYAN)
-    d.text((140, 430), "Launch the dashboard.", font=FONT_HEAD, fill=SLATE)
-    d.text((140, 540), "Sync the carriers.", font=FONT_HEAD, fill=SLATE)
-    d.text((140, 650), "Let HUDLINK answer the rest.", font=FONT_HEAD, fill=CYAN)
+    d.text((140, 380), "USED BY THE TEAM · EVERY DAY", font=FONT_EYE, fill=CYAN)
+    d.text((140, 430), "Sign in. See the map.", font=FONT_HEAD, fill=SLATE)
+    d.text((140, 540), "Book the load.", font=FONT_HEAD, fill=SLATE)
+    d.text((140, 650), "HUDLINK handles the rest.", font=FONT_HEAD, fill=CYAN)
     d.text((140, 800), "TENNANT · TMS v1.9 · 35 machines · 30+ modules · 100+ API endpoints",
            font=FONT_FOOTER, fill=SLATE_DIM)
     canvas.save(out_path, "PNG")

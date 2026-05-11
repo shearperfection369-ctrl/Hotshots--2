@@ -5,6 +5,7 @@ import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
+import DraggableTiles from "../components/DraggableTiles";
 import {
   Upload, Truck as Trailer, Container, DoorOpen, ShieldCheck, Clock, TrendingUp, Trash2, FileSpreadsheet, Search, AlertTriangle
 } from "lucide-react";
@@ -151,179 +152,188 @@ export default function Equipment() {
         )}
 
         {snap && (
-          <>
-            {/* KPI strip */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" data-testid="equipment-kpis">
-              <EquipKPI label="Total On Site" value={snap.total_on_site} icon={Trailer} accent="cyan" testid="kpi-total-on-site" />
-              <EquipKPI label="Doors Occupied" value={`${snap.doors_occupied}/${snap.doors_total}`} sub={`${snap.door_occupancy_pct}% utilization`} icon={DoorOpen} accent="cyan" testid="kpi-doors" />
-              <EquipKPI label="Loaded Inbound" value={snap.loaded_inbound} icon={Trailer} accent="emerald" testid="kpi-loaded-in" />
-              <EquipKPI label="Loaded Outbound" value={snap.loaded_outbound} sub={`${snap.sealed_count} sealed · ${snap.sealed_pct}%`} icon={ShieldCheck} accent="amber" testid="kpi-loaded-out" />
-              <EquipKPI label="Empty Trailers" value={snap.empty_trailers} icon={Trailer} accent="slate" testid="kpi-empty-t" />
-              <EquipKPI label="Empty Containers" value={snap.empty_containers} icon={Container} accent="slate" testid="kpi-empty-c" />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              {/* Door grid */}
-              <Card className="hud-surface p-5 lg:col-span-7" data-testid="door-grid">
-                <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Dock Doors · {snap.report_date}</div>
-                    <h3 className="font-display text-lg font-bold mt-0.5">Live Door Map</h3>
-                  </div>
-                  <div className="flex items-center gap-3 text-[10px] font-mono">
-                    <Legend2 color={STATUS_COLORS.occupied} label="OCCUPIED" />
-                    <Legend2 color={STATUS_COLORS.outbound} label="OUTBOUND" />
-                    <Legend2 color="rgba(255,255,255,0.08)" label="EMPTY" />
-                  </div>
+          <DraggableTiles
+            pageKey="equipment"
+            defaultOrder={["kpis", "charts-top", "charts-bottom", "tables", "history"]}
+            tiles={{
+              kpis: { label: "KPI Strip", render: () => (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" data-testid="equipment-kpis">
+                  <EquipKPI label="Total On Site" value={snap.total_on_site} icon={Trailer} accent="cyan" testid="kpi-total-on-site" />
+                  <EquipKPI label="Doors Occupied" value={`${snap.doors_occupied}/${snap.doors_total}`} sub={`${snap.door_occupancy_pct}% utilization`} icon={DoorOpen} accent="cyan" testid="kpi-doors" />
+                  <EquipKPI label="Loaded Inbound" value={snap.loaded_inbound} icon={Trailer} accent="emerald" testid="kpi-loaded-in" />
+                  <EquipKPI label="Loaded Outbound" value={snap.loaded_outbound} sub={`${snap.sealed_count} sealed · ${snap.sealed_pct}%`} icon={ShieldCheck} accent="amber" testid="kpi-loaded-out" />
+                  <EquipKPI label="Empty Trailers" value={snap.empty_trailers} icon={Trailer} accent="slate" testid="kpi-empty-t" />
+                  <EquipKPI label="Empty Containers" value={snap.empty_containers} icon={Container} accent="slate" testid="kpi-empty-c" />
                 </div>
-                <DoorMap doors={selectedFull?.doors || []} />
-              </Card>
+              )},
 
-              {/* Carrier mix */}
-              <Card className="hud-surface p-5 lg:col-span-5" data-testid="carrier-mix">
-                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Carrier Mix · Today</div>
-                <h3 className="font-display text-lg font-bold mt-0.5 mb-3">All Equipment by Carrier</h3>
-                {analytics.carrier_mix.length === 0 ? (
-                  <div className="text-sm text-slate-500 text-center py-8">No carrier data in this report.</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <PieChart>
-                      <Pie
-                        data={analytics.carrier_mix}
-                        dataKey="count"
-                        nameKey="carrier"
-                        innerRadius={55}
-                        outerRadius={95}
-                        stroke="#0B0E14"
-                        paddingAngle={2}
-                      >
-                        {analytics.carrier_mix.map((_, i) => (
-                          <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
+              "charts-top": { label: "Door Map & Carrier Mix", render: () => (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  <Card className="hud-surface p-5 lg:col-span-7" data-testid="door-grid">
+                    <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Dock Doors · {snap.report_date}</div>
+                        <h3 className="font-display text-lg font-bold mt-0.5">Live Door Map</h3>
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] font-mono">
+                        <Legend2 color={STATUS_COLORS.occupied} label="OCCUPIED" />
+                        <Legend2 color={STATUS_COLORS.outbound} label="OUTBOUND" />
+                        <Legend2 color="rgba(255,255,255,0.08)" label="EMPTY" />
+                      </div>
+                    </div>
+                    <DoorMap doors={selectedFull?.doors || []} />
+                  </Card>
+
+                  <Card className="hud-surface p-5 lg:col-span-5" data-testid="carrier-mix">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Carrier Mix · Today</div>
+                    <h3 className="font-display text-lg font-bold mt-0.5 mb-3">All Equipment by Carrier</h3>
+                    {analytics.carrier_mix.length === 0 ? (
+                      <div className="text-sm text-slate-500 text-center py-8">No carrier data in this report.</div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={260}>
+                        <PieChart>
+                          <Pie
+                            data={analytics.carrier_mix}
+                            dataKey="count"
+                            nameKey="carrier"
+                            innerRadius={55}
+                            outerRadius={95}
+                            stroke="#0B0E14"
+                            paddingAngle={2}
+                          >
+                            {analytics.carrier_mix.map((_, i) => (
+                              <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ background: "#0B0E14", border: "1px solid rgba(0,229,255,0.3)", fontSize: 12 }} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
+                  </Card>
+                </div>
+              )},
+
+              "charts-bottom": { label: "Dwell & Trend", render: () => (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  <Card className="hud-surface p-5 lg:col-span-6" data-testid="dwell-chart">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 flex items-center gap-2"><Clock size={11} /> Loaded Inbound Dwell</div>
+                    <h3 className="font-display text-lg font-bold mt-0.5 mb-3">Days on Site (from arrival date)</h3>
+                    {dwellCounts.every((d) => d.count === 0) ? (
+                      <div className="text-sm text-slate-500 text-center py-8">No dwell data — arrival dates are missing on inbound rows.</div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={dwellCounts}>
+                          <CartesianGrid stroke="rgba(255,255,255,0.04)" />
+                          <XAxis dataKey="bucket" stroke="#64748B" tick={{ fontSize: 11 }} />
+                          <YAxis stroke="#64748B" tick={{ fontSize: 11 }} allowDecimals={false} />
+                          <Tooltip contentStyle={{ background: "#0B0E14", border: "1px solid rgba(0,229,255,0.3)", fontSize: 12 }} />
+                          <Bar dataKey="count">
+                            {dwellCounts.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                    <DwellHotlist rows={analytics.dwell} />
+                  </Card>
+
+                  <Card className="hud-surface p-5 lg:col-span-6" data-testid="trend-chart">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 flex items-center gap-2"><TrendingUp size={11} /> Historical Trend</div>
+                    <h3 className="font-display text-lg font-bold mt-0.5 mb-3">Trailer Volume Across Reports</h3>
+                    {analytics.trend.length < 2 ? (
+                      <div className="text-sm text-slate-500 text-center py-8">Upload more reports to build a trend.</div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={260}>
+                        <LineChart data={analytics.trend}>
+                          <CartesianGrid stroke="rgba(255,255,255,0.04)" />
+                          <XAxis dataKey="date" stroke="#64748B" tick={{ fontSize: 10 }} />
+                          <YAxis stroke="#64748B" tick={{ fontSize: 10 }} allowDecimals={false} />
+                          <Tooltip contentStyle={{ background: "#0B0E14", border: "1px solid rgba(0,229,255,0.3)", fontSize: 12 }} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Line type="monotone" dataKey="loaded_inbound" stroke="#10B981" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="loaded_outbound" stroke="#F59E0B" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="empty_trailers" stroke="#64748B" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="doors_occupied" stroke="#00E5FF" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </Card>
+                </div>
+              )},
+
+              tables: { label: "Trailer Tables", render: () => (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  <TrailerTable
+                    title="Loaded Trailers · Inbound" subtitle={`${selectedFull?.loaded_inbound.length || 0} trailers awaiting unload`}
+                    rows={selectedFull?.loaded_inbound || []} dateLabel="Arrived" testid="loaded-inbound-table"
+                  />
+                  <TrailerTable
+                    title="Loaded Trailers · Outbound" subtitle={`${selectedFull?.loaded_outbound.length || 0} trailers ready to depart`}
+                    rows={selectedFull?.loaded_outbound || []} statusLabel="Status" testid="loaded-outbound-table"
+                  />
+                  <TrailerTable
+                    title="Empty Trailers" subtitle={`${selectedFull?.empty_trailers.length || 0} available pools`}
+                    rows={selectedFull?.empty_trailers || []} testid="empty-trailers-table"
+                  />
+                  <TrailerTable
+                    title="Empty Containers · Outbound" subtitle={`${selectedFull?.empty_containers.length || 0} container pickups`}
+                    rows={selectedFull?.empty_containers || []} containerCol testid="empty-containers-table"
+                  />
+                </div>
+              )},
+
+              history: { label: "Report History", render: () => (
+                <Card className="hud-surface p-5" data-testid="reports-list">
+                  <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Uploaded Reports · {reports.length}</div>
+                  <h3 className="font-display text-lg font-bold mt-0.5 mb-3">History</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+                        <tr>
+                          <th className="text-left py-2 px-3">Report ID</th>
+                          <th className="text-left py-2 px-3">Report Date</th>
+                          <th className="text-left py-2 px-3">Uploaded</th>
+                          <th className="text-left py-2 px-3">By</th>
+                          <th className="text-right py-2 px-3">Doors</th>
+                          <th className="text-right py-2 px-3">Loaded In/Out</th>
+                          <th className="text-right py-2 px-3">Empty T/C</th>
+                          <th className="text-center py-2 px-3">View / Delete</th>
+                        </tr>
+                      </thead>
+                      <tbody className="font-mono">
+                        {reports.map((r) => (
+                          <tr key={r.report_id} className={`border-t border-white/5 hover:bg-white/[0.02] ${selected === r.report_id ? "bg-cyan-500/[0.05]" : ""}`}>
+                            <td className="py-2.5 px-3 text-cyan-300">{r.report_id}</td>
+                            <td className="py-2.5 px-3 text-slate-200">{r.report_date}</td>
+                            <td className="py-2.5 px-3 text-slate-500 text-xs">{new Date(r.uploaded_at).toLocaleString()}</td>
+                            <td className="py-2.5 px-3 text-slate-400 text-xs">{r.uploaded_by}</td>
+                            <td className="py-2.5 px-3 text-right">{r.doors_occupied}/{r.doors_total}</td>
+                            <td className="py-2.5 px-3 text-right">{r.loaded_inbound} / {r.loaded_outbound}</td>
+                            <td className="py-2.5 px-3 text-right">{r.empty_trailers} / {r.empty_containers}</td>
+                            <td className="py-2.5 px-3 text-center">
+                              <div className="inline-flex items-center gap-1">
+                                <button
+                                  onClick={() => setSelected(r.report_id)}
+                                  data-testid={`view-report-${r.report_id}`}
+                                  className="px-2 py-1 rounded text-xs font-mono uppercase border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10"
+                                >View</button>
+                                <button
+                                  onClick={() => deleteReport(r.report_id)}
+                                  data-testid={`delete-report-${r.report_id}`}
+                                  className="p-1 rounded text-red-400 hover:bg-red-500/10"
+                                  title="Delete report"
+                                ><Trash2 size={13} /></button>
+                              </div>
+                            </td>
+                          </tr>
                         ))}
-                      </Pie>
-                      <Tooltip contentStyle={{ background: "#0B0E14", border: "1px solid rgba(0,229,255,0.3)", fontSize: 12 }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </Card>
-
-              {/* Dwell time */}
-              <Card className="hud-surface p-5 lg:col-span-6" data-testid="dwell-chart">
-                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 flex items-center gap-2"><Clock size={11} /> Loaded Inbound Dwell</div>
-                <h3 className="font-display text-lg font-bold mt-0.5 mb-3">Days on Site (from arrival date)</h3>
-                {dwellCounts.every((d) => d.count === 0) ? (
-                  <div className="text-sm text-slate-500 text-center py-8">No dwell data — arrival dates are missing on inbound rows.</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={dwellCounts}>
-                      <CartesianGrid stroke="rgba(255,255,255,0.04)" />
-                      <XAxis dataKey="bucket" stroke="#64748B" tick={{ fontSize: 11 }} />
-                      <YAxis stroke="#64748B" tick={{ fontSize: 11 }} allowDecimals={false} />
-                      <Tooltip contentStyle={{ background: "#0B0E14", border: "1px solid rgba(0,229,255,0.3)", fontSize: 12 }} />
-                      <Bar dataKey="count">
-                        {dwellCounts.map((d, i) => <Cell key={i} fill={d.fill} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-                <DwellHotlist rows={analytics.dwell} />
-              </Card>
-
-              {/* Trend */}
-              <Card className="hud-surface p-5 lg:col-span-6" data-testid="trend-chart">
-                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 flex items-center gap-2"><TrendingUp size={11} /> Historical Trend</div>
-                <h3 className="font-display text-lg font-bold mt-0.5 mb-3">Trailer Volume Across Reports</h3>
-                {analytics.trend.length < 2 ? (
-                  <div className="text-sm text-slate-500 text-center py-8">Upload more reports to build a trend.</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <LineChart data={analytics.trend}>
-                      <CartesianGrid stroke="rgba(255,255,255,0.04)" />
-                      <XAxis dataKey="date" stroke="#64748B" tick={{ fontSize: 10 }} />
-                      <YAxis stroke="#64748B" tick={{ fontSize: 10 }} allowDecimals={false} />
-                      <Tooltip contentStyle={{ background: "#0B0E14", border: "1px solid rgba(0,229,255,0.3)", fontSize: 12 }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Line type="monotone" dataKey="loaded_inbound" stroke="#10B981" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="loaded_outbound" stroke="#F59E0B" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="empty_trailers" stroke="#64748B" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="doors_occupied" stroke="#00E5FF" strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </Card>
-            </div>
-
-            {/* Tables: loaded in/out, empty trailers, empty containers */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <TrailerTable
-                title="Loaded Trailers · Inbound" subtitle={`${selectedFull?.loaded_inbound.length || 0} trailers awaiting unload`}
-                rows={selectedFull?.loaded_inbound || []} dateLabel="Arrived" testid="loaded-inbound-table"
-              />
-              <TrailerTable
-                title="Loaded Trailers · Outbound" subtitle={`${selectedFull?.loaded_outbound.length || 0} trailers ready to depart`}
-                rows={selectedFull?.loaded_outbound || []} statusLabel="Status" testid="loaded-outbound-table"
-              />
-              <TrailerTable
-                title="Empty Trailers" subtitle={`${selectedFull?.empty_trailers.length || 0} available pools`}
-                rows={selectedFull?.empty_trailers || []} testid="empty-trailers-table"
-              />
-              <TrailerTable
-                title="Empty Containers · Outbound" subtitle={`${selectedFull?.empty_containers.length || 0} container pickups`}
-                rows={selectedFull?.empty_containers || []} containerCol testid="empty-containers-table"
-              />
-            </div>
-
-            {/* Report list */}
-            <Card className="hud-surface p-5" data-testid="reports-list">
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Uploaded Reports · {reports.length}</div>
-              <h3 className="font-display text-lg font-bold mt-0.5 mb-3">History</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
-                    <tr>
-                      <th className="text-left py-2 px-3">Report ID</th>
-                      <th className="text-left py-2 px-3">Report Date</th>
-                      <th className="text-left py-2 px-3">Uploaded</th>
-                      <th className="text-left py-2 px-3">By</th>
-                      <th className="text-right py-2 px-3">Doors</th>
-                      <th className="text-right py-2 px-3">Loaded In/Out</th>
-                      <th className="text-right py-2 px-3">Empty T/C</th>
-                      <th className="text-center py-2 px-3">View / Delete</th>
-                    </tr>
-                  </thead>
-                  <tbody className="font-mono">
-                    {reports.map((r) => (
-                      <tr key={r.report_id} className={`border-t border-white/5 hover:bg-white/[0.02] ${selected === r.report_id ? "bg-cyan-500/[0.05]" : ""}`}>
-                        <td className="py-2.5 px-3 text-cyan-300">{r.report_id}</td>
-                        <td className="py-2.5 px-3 text-slate-200">{r.report_date}</td>
-                        <td className="py-2.5 px-3 text-slate-500 text-xs">{new Date(r.uploaded_at).toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-slate-400 text-xs">{r.uploaded_by}</td>
-                        <td className="py-2.5 px-3 text-right">{r.doors_occupied}/{r.doors_total}</td>
-                        <td className="py-2.5 px-3 text-right">{r.loaded_inbound} / {r.loaded_outbound}</td>
-                        <td className="py-2.5 px-3 text-right">{r.empty_trailers} / {r.empty_containers}</td>
-                        <td className="py-2.5 px-3 text-center">
-                          <div className="inline-flex items-center gap-1">
-                            <button
-                              onClick={() => setSelected(r.report_id)}
-                              data-testid={`view-report-${r.report_id}`}
-                              className="px-2 py-1 rounded text-xs font-mono uppercase border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10"
-                            >View</button>
-                            <button
-                              onClick={() => deleteReport(r.report_id)}
-                              data-testid={`delete-report-${r.report_id}`}
-                              className="p-1 rounded text-red-400 hover:bg-red-500/10"
-                              title="Delete report"
-                            ><Trash2 size={13} /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </>
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )},
+            }}
+          />
         )}
       </div>
     </>

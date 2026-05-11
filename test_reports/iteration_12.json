@@ -1,0 +1,80 @@
+{
+  "summary": "Iteration 12 — Validated new per-user server-saved tile layouts (Dashboard / Trade Compliance / Equipment), MiniCalendar on Command page, and regenerated /promo.mp4. 19/19 backend tests PASS (incl. layout CRUD, 400 validations, cross-user isolation, regression on /api/kpis /api/shipments /api/equipment/analytics /api/equipment/reports, and promo MP4 integrity). All frontend P0 testids present and PUT/DELETE traffic to /api/user/layouts/* observed on actual HTML5 drag + reset interactions.",
+  "backend_results": {
+    "test_file": "/app/backend/tests/test_layouts_v18.py",
+    "junit_xml": "/app/test_reports/pytest/iter12_results.xml",
+    "passed": 19,
+    "failed": 0,
+    "coverage": [
+      "GET /api/user/layouts/{dashboard|trade-compliance|equipment} returns {order: []} for fresh user",
+      "PUT saves order and immediate GET returns the same order (page-key agnostic across all 3 pages)",
+      "PUT with empty order -> 400; PUT with 201 ids -> 400 (200 is the documented cap)",
+      "DELETE clears saved order; subsequent GET returns []",
+      "Cross-user isolation: admin (test_session_admin_1) and dispatcher (test_disp_session) keep independent layouts on same page_key",
+      "401 returned when no Authorization header is supplied",
+      "Regression: /api/kpis, /api/shipments, /api/equipment/analytics, /api/equipment/reports all 200",
+      "Promo asset: HEAD /promo.mp4 returns video/mp4, size 1.0–5.5 MB; Range bytes 0-15 contain 'ftyp' MP4 magic"
+    ]
+  },
+  "frontend_results": {
+    "dashboard_command_page": {
+      "mini_calendar_present": true,
+      "today_cell_highlighted": "PASS — data-testid=mini-cal-day-{today} carries cyan/border/font-bold classes",
+      "dash_reset_layout_clickable": true,
+      "drag_handles_universal_wrapper": "N/A — Dashboard keeps its own internal dragHandle helper (per file refs) and uses [data-section-id] (7 sections found). Reset button still wired to /api/user/layouts/dashboard (DELETE confirmed earlier in run)."
+    },
+    "trade_compliance_page": {
+      "draggable_wrapper_testid_present": true,
+      "drag_handle_incoterms_present": true,
+      "reset_button_present": true,
+      "tiles_rendered": ["summary","incoterms","tariffs","programs","section301","section232","coo","watchlists","broker","regs","alerts","links"],
+      "drag_reorders": "PASS — simulated HTML5 dragstart/dragover/drop swapped incoterms into position 0",
+      "put_to_layout_endpoint_fired": "PASS — captured 1 PUT to /api/user/layouts/trade-compliance with body order:['incoterms','summary',…]",
+      "delete_on_reset_fired": "PASS — captured 1 DELETE to /api/user/layouts/trade-compliance after reset click"
+    },
+    "equipment_page": {
+      "draggable_wrapper_testid_present": true,
+      "five_tiles_present": true,
+      "tile_ids": ["kpis","charts-top","charts-bottom","tables","history"],
+      "reset_button_present": true,
+      "drag_reorders": "PASS — after drag kpis moved to end: ['charts-top','charts-bottom','tables','history','kpis']",
+      "put_to_layout_endpoint_fired": "PASS — 1 PUT to /api/user/layouts/equipment captured within ~900ms after drag (matches 400ms hook debounce)"
+    },
+    "mini_calendar_internal_state": {
+      "prev_next_today_buttons_present": "PASS — mini-cal-prev, mini-cal-today, mini-cal-next testids rendered"
+    }
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/promo", "issues": ["(carry-over from iter 11) Footer pill still reads 'v1.5 · 2026 Update' while topbar advertises v1.9 features."]},
+      {"screen": "Equipment page", "issues": ["The 'Drag any tile by its grip · layout saved per user' hint pill is centered to the right — looks fine; no contrast issue. Header text on the canvas is readable on dark HUD background."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_layouts_v18.py",
+    "/app/test_reports/pytest/iter12_results.xml",
+    "/app/test_reports/iteration_12.json"
+  ],
+  "action_items": [
+    "(Optional) Apply same DraggableTiles wrapper to Dashboard so its tiles get consistent drag-{pageKey}-{id} testids — currently Dashboard keeps its own internal drag handles and exposes only [data-section-id]. The new server-persistence still works (reset button + useUserLayout('dashboard') are wired), but the universal testid naming is inconsistent.",
+    "(Carry-over from iter 11) Bump /promo footer pill from v1.5 to v1.9 for copy consistency.",
+    "Production redeploy required to ship all iter-12 changes to clean-logistics-dash.emergent.host. Preview fully verified."
+  ],
+  "critical_code_review_comments": [
+    "useUserLayout hook (DraggableTiles.jsx) is well-designed: reconciles stale ids on each load, debounces PUT by 400ms, mirrors to localStorage as fast-path cache, gracefully degrades on network errors. Good defensive coding.",
+    "Backend layout endpoints (server.py:2384-2416) correctly upsert by (user_id, page_key) compound key, enforce 1≤len(order)≤200, and exclude _id in response. RBAC is appropriately permissive (any authenticated user) — layouts are user-scoped via session, so no over-share risk.",
+    "Inconsistency: Dashboard.jsx wires useUserLayout('dashboard') but does NOT use the universal DraggableTiles wrapper — it has its own dragHandle component. This means the universal tile-{pageKey}-{id} and drag-{pageKey}-{id} testids the review request expected are absent on Dashboard. Functionality still works (server persistence + reset confirmed), only the testid convention diverges.",
+    "MiniCalendar uses internal-only state — no backend events feed into it. The component spec called this out explicitly ('No backend hookup yet'). It is purely visual."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% on Trade Compliance + Equipment + MiniCalendar; Dashboard drag testids differ from spec but core flow (reset, useUserLayout integration) confirmed"},
+  "test_credentials": "Used /app/memory/test_credentials.md: test_session_admin_1 (admin) and test_disp_session (dispatcher) for cross-user isolation.",
+  "seed_data_creation": "None persistent — _cleanup fixture deletes any saved layouts for both admin and dispatcher across all 3 page_keys before and after the test module.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Layout endpoints fully covered by /app/backend/tests/test_layouts_v18.py — re-run with `pytest backend/tests/test_layouts_v18.py -v`. Universal DraggableTiles wrapper is live on /trade-compliance and /equipment; Dashboard still has its bespoke drag handles (no drag-dashboard-* testids), but uses the same useUserLayout('dashboard') hook so persistence behaves identically. PUT debounce is 400ms — wait ≥600ms after a drag before checking captured requests. Cross-user isolation verified end-to-end.",
+  "rca of the issue": "n/a — feature acceptance only; no defects reproduced."
+}
