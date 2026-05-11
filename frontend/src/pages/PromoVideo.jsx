@@ -55,20 +55,24 @@ export default function PromoVideo() {
   const [hasLocalMp4, setHasLocalMp4] = useState(false);
 
   useEffect(() => {
-    // SPA serves index.html for ANY unknown path (HTTP 200 with text/html), so a
-    // bare r.ok check would falsely report the mp4 exists. Require an actual
-    // video/* Content-Type before swapping in the local <video> tag.
+    // SPA serves index.html for unknown paths (text/html), which we MUST
+    // exclude. But production CDN sometimes labels static .mp4 files as
+    // 'application/octet-stream' instead of 'video/mp4' — that's still a
+    // real video, so we accept anything that ISN'T html/json and that has
+    // a non-trivial Content-Length (the real promo is ~1 MB).
     fetch("/promo.mp4", { method: "HEAD" })
       .then((r) => {
         const ct = (r.headers.get("content-type") || "").toLowerCase();
-        setHasLocalMp4(r.ok && ct.startsWith("video/"));
+        const len = parseInt(r.headers.get("content-length") || "0", 10);
+        const isHtmlFallback = ct.includes("text/html") || ct.includes("application/json");
+        setHasLocalMp4(r.ok && !isHtmlFallback && len > 100000);
       })
       .catch(() => setHasLocalMp4(false));
   }, []);
 
   return (
     <>
-      <Topbar title="TMS Launch · 2026 Update" subtitle="A cinematic tour of v1.5 — Vault, Claims, Trade Compliance, Suppliers, Machines, Arcade, Themes & more" />
+      <Topbar title="TMS Launch · 2026 Update" subtitle="A cinematic tour through TMS v1.9 — Truckload Booking Sheet, Equipment Yard Analytics, drag-drop Command, Documents, AI Co-Pilot & more" />
       <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
 
         {/* Hero with video — YouTube iframe is the most reliable embed */}

@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 10 — P0 fix validation for PromoVideo.jsx cinematic-vs-YouTube detector. Frontend-only test on preview. All P0 acceptance criteria PASS: /promo renders HTML5 <video data-testid='promo-video' src='/promo.mp4'> inside data-testid='promo-hero', and the YouTube iframe (data-testid='promo-video-iframe') is NOT rendered. Topbar title 'TMS Launch · 2026 Update' and the new v1.9 subtitle ('Truckload Booking Sheet, Equipment Yard Analytics, drag-drop Command, Documents, AI Co-Pilot') both present. Features grid, SAP_FLOW (6 steps), and Tech Stack (5+ labels) all render below the hero video. Regressions: /workbook → data-testid='truckload-booking-sheet' renders, sidebar nav-workbook label = 'Truckload Booking Sheet'. /dashboard → 7 dash-section-* present. Asset integrity: HEAD /promo.mp4 on preview returns HTTP 200 / content-type video/mp4 / content-length 1,098,557 — matches the new detector rule (not html/json AND > 100KB).",
+  "p0_results": {
+    "p0_fix_validation_html5_video_rendered": "PASS — <video> tag with src=/promo.mp4 present inside promo-hero",
+    "p0_fix_validation_youtube_iframe_absent": "PASS — promo-video-iframe NOT in DOM",
+    "p0_asset_integrity_promo_mp4_HEAD": "PASS — 200 · content-type: video/mp4 · content-length: 1098557 (~1.1 MB)",
+    "p0_page_content_topbar_title_subtitle": "PASS — 'TMS Launch · 2026 Update' + v1.9 keywords (Truckload Booking Sheet, Equipment Yard Analytics, drag-drop Command, Documents, AI Co-Pilot) all present",
+    "p0_page_content_features_sap_techstack": "PASS — 18 features grid, 6 SAP_FLOW steps, all Tech Stack rows render"
+  },
+  "p1_regression_results": {
+    "workbook_truckload_booking_sheet_renders": "PASS — data-testid='truckload-booking-sheet' present",
+    "sidebar_nav_workbook_label": "PASS — 'Truckload Booking Sheet'",
+    "dashboard_sortable_sections": "PASS (sections) / WARN (handles) — 7 dash-section-* testids found, 0 dash-handle-* testids found. Sections render fine; if drag handles are expected to expose their own testid, that may need a re-check, but earlier iterations did not require handle testids and reorder behaviour wasn't requested in this iteration."
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/promo hero", "issues": ["Video has controls + autoPlay + muted + loop — works. Minor: the footer caption under the hero still reads 'Drop a Sora 2-rendered /promo.mp4 into /app/frontend/public to swap automatically.' Now that the real cinematic IS playing, this dev-hint copy is misleading to end users (Kirk). Consider hiding it when hasLocalMp4 is true."]},
+      {"screen": "/promo closing CTA", "issues": ["Footer reads 'v1.5 · 2026 Update' but the topbar subtitle now advertises v1.9 features — version label is stale, recommend updating to v1.9 for consistency."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_10.json"
+  ],
+  "action_items": [
+    "(Optional polish) Hide or rewrite the dev-hint line under the hero caption when hasLocalMp4 is true — it currently tells the user to 'Drop a Sora 2-rendered /promo.mp4' even though the cinematic is already playing.",
+    "(Optional polish) Bump the version pill at the bottom of /promo from 'v1.5' to 'v1.9' to match the new topbar subtitle and current state of the app."
+  ],
+  "critical_code_review_comments": [
+    "PromoVideo.jsx useEffect threshold of 100KB is fine, but consider also requiring a content-type that either starts with 'video/' OR equals 'application/octet-stream' for a tighter check. Current accept-anything-except-html/json works but would also accept e.g. text/plain or image/* if the CDN ever mislabels — extremely unlikely, just defensive.",
+    "Hero caption text 'Trailer · Tennant Equipment Insights (official YouTube). Drop a Sora 2-rendered /promo.mp4 ...' is now incorrect once hasLocalMp4=true — gate this string on the same flag.",
+    "TECH_STACK still lists Video='Sora 2 (this promo was AI-generated)' which is technically a MOCKED integration (ffmpeg slideshow substitute). Acceptable for demo copy but flagged for transparency."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only iteration)", "frontend": "100% on all P0 + P1 regression"},
+  "test_credentials": "session_token cookie 'test_session_admin_1' set on preview domain — verified Test Admin user pill renders in sidebar.",
+  "seed_data_creation": "None — read-only validation.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "PromoVideo.jsx fix is live on preview (https://clean-logistics-dash.preview.emergentagent.com/promo) and confirmed working. Production at clean-logistics-dash.emergent.host needs user-initiated redeploy to ship this 1-line fix. No mocked APIs touched. The two polish items (hero caption + v1.5 version pill) are non-blocking copy nits.",
+  "rca of the issue": "Original bug: PromoVideo.jsx accepted only Content-Type starting with 'video/'. Production CDN serves /promo.mp4 with 'application/octet-stream' so the strict check failed and the YouTube iframe rendered. Fix in lines 57-71 now treats any non-html/non-json content-type with len > 100KB as a valid video. Preview HEAD returns video/mp4 + 1098557 bytes which passes the new check; the curl-verified production scenario (octet-stream + 1098557) would also pass. No backend changes."
+}
