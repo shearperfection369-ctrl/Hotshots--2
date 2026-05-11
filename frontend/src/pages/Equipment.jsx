@@ -6,7 +6,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import {
-  Upload, Trailer, Container, DoorOpen, ShieldCheck, Clock, TrendingUp, Trash2, FileSpreadsheet, Search, AlertTriangle
+  Upload, Truck as Trailer, Container, DoorOpen, ShieldCheck, Clock, TrendingUp, Trash2, FileSpreadsheet, Search, AlertTriangle
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,

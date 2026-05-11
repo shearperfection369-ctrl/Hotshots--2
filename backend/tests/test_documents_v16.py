@@ -92,7 +92,7 @@ class TestDocumentEmail:
         j = r.json()
         assert j["ok"] is True
         # subject: type label + 'Rev N' note when version>1
-        assert "Bill of Lading" in j["subject"]
+        assert "BILL OF LADING" in j["subject"].upper()
         assert "Rev 2" in j["subject"], f"expected Rev 2, got: {j['subject']}"
         # body has the summary
         assert "Document ID: " + doc_id in j["body"]

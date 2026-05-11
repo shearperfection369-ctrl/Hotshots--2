@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Package, PlusSquare, FileText, MapPinned,
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
-  DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Trailer
+  DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -18,7 +18,7 @@ const NAV = [
   { to: "/book-load", label: "Book Load", icon: PlusSquare, tid: "nav-book-load", roles: ["admin", "dispatcher"] },
   { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console", roles: ["admin", "dispatcher"] },
-  { to: "/equipment", label: "Equipment · Yard", icon: Trailer, tid: "nav-equipment", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/equipment", label: "Equipment · Yard", icon: TrailerIcon, tid: "nav-equipment", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/carrier-rates", label: "Carrier Rates & FSC", icon: DollarSign, tid: "nav-carrier-rates", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/freight-pay", label: "Freight Audit & Pay", icon: Receipt, tid: "nav-freight-pay", roles: ["admin", "auditor"] },
   { to: "/claims", label: "Payments & Claims", icon: FileWarning, tid: "nav-claims", roles: ["admin", "auditor", "dispatcher"] },
