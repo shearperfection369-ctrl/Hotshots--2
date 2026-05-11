@@ -110,7 +110,9 @@ export default function PromoVideo() {
               Kirk — and the entire Tennant transportation team — meet the mission-control TMS we&apos;ve built for you. From Golden Valley to Holland to Louisville, every truck, container, pallet, and parcel now reports to a single command center, in real time.
             </p>
             <div className="mt-4 text-[10px] font-mono text-slate-500">
-              Trailer · Tennant Equipment Insights (official YouTube). Drop a Sora 2-rendered <code className="text-cyan-300">/promo.mp4</code> into <code className="text-cyan-300">/app/frontend/public</code> to swap automatically.
+              {hasLocalMp4
+                ? "Cinematic · 13-slide branded tour of Tennant TMS v1.9 · 39s · self-hosted, plays on any network."
+                : <>Trailer · Tennant Equipment Insights (official YouTube). Drop a Sora 2-rendered <code className="text-cyan-300">/promo.mp4</code> into <code className="text-cyan-300">/app/frontend/public</code> to swap automatically.</>}
             </div>
           </div>
         </Card>
@@ -178,7 +180,7 @@ export default function PromoVideo() {
           </p>
           <div className="mt-6 inline-flex items-center gap-2 text-[10px] font-mono text-cyan-400 tracking-[0.2em] uppercase">
             <span className="w-2 h-2 rounded-full bg-cyan-400 blink-dot"></span>
-            v1.5 · 2026 Update · Live for 250 users · 30+ modules · 100+ API endpoints
+            v1.9 · 2026 Update · Live for 250 users · 30+ modules · 100+ API endpoints
           </div>
         </Card>
       </div>
