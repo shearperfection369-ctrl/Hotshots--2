@@ -51,6 +51,22 @@ Subsequent user-requested additions (chronological, all delivered):
 - 7 swappable visual themes with localStorage persistence
 - Connect 4 arcade with server-authoritative game logic
 
+## Implemented (v1.6 — Feb 2026 hotfix)
+- **Promo Video repair** — replaced broken `/promo.mp4` HEAD probe with a robust
+  Content-Type check + YouTube iframe embed of the official "Tennant is Everywhere"
+  trailer (video ID `mTxE3g7o4aY`). Page now reliably launches a real video.
+  If a real Sora 2 `/promo.mp4` is later dropped into `/app/frontend/public`,
+  the page auto-swaps to that local file.
+- **Incoterms® 2020 section** — added a dedicated card in Trade Compliance covering
+  all 11 ICC rules (EXW, FCA, FAS, FOB, CFR, CIF, CPT, CIP, DAP, DPU, DDP) with
+  risk-transfer, cost split, insurance obligations, and a Tennant-specific
+  usage note for each. Plus an E/F/C/D mnemonic block.
+- **Scalable admin allow-list** — `ADMIN_EMAILS` env var (CSV) auto-promotes
+  matching emails to `admin` role on Google sign-in (both new accounts and
+  idempotently on every login for existing users). Currently seeded with
+  `shearperfection369@gmail.com`. Other accounts default to `dispatcher`, keeping
+  the 250-user model tidy.
+
 ## Pending / Backlog (P2)
 - Promo Video file regeneration via Sora 2 (BUDGET-BLOCKED — user must top-up the Universal Key first; script ready at `/app/scripts/generate_promo_video.py`)
 - Production deployment health checks
