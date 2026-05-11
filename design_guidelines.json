@@ -1,0 +1,166 @@
+{
+  "project_name": "Tennant Companies TMS Dashboard",
+  "domain": "Logistics, Transportation, Enterprise SaaS",
+  "theme": "Dark Mode HUD Command Center",
+  "archetype": "Archetype 2: The Performance Pro (Command Center focus) mixed with Archetype 4 (High-Contrast HUD)",
+  "emotional_tone": "Precision, Command, Control, Reliability, Real-time Intelligence",
+  "colors": {
+    "background": {
+      "default": "#0B0E14",
+      "surface": "#131821",
+      "overlay": "rgba(11, 14, 20, 0.8)",
+      "glass": "rgba(19, 24, 33, 0.6)"
+    },
+    "text": {
+      "primary": "#F8FAFC",
+      "secondary": "#94A3B8",
+      "muted": "#475569",
+      "accent": "#00E5FF"
+    },
+    "brand": {
+      "primary": "#00E5FF",
+      "primary_hover": "#00B8CC",
+      "primary_transparent": "rgba(0, 229, 255, 0.1)"
+    },
+    "status": {
+      "success": "#00FF66",
+      "warning": "#FFCC00",
+      "error": "#FF3B30",
+      "info": "#3B82F6"
+    },
+    "borders": {
+      "default": "rgba(255, 255, 255, 0.05)",
+      "focus": "#00E5FF",
+      "glass": "rgba(255, 255, 255, 0.1)"
+    },
+    "gradients": {
+      "hud_glow": "linear-gradient(180deg, rgba(0,229,255,0.1) 0%, rgba(0,229,255,0) 100%)",
+      "card_hover": "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%)"
+    }
+  },
+  "typography": {
+    "headings": {
+      "font_family": "Chivo, sans-serif",
+      "styles": {
+        "h1": "text-4xl sm:text-5xl font-black tracking-tighter text-slate-50",
+        "h2": "text-2xl sm:text-3xl font-bold tracking-tight text-slate-100",
+        "h3": "text-xl sm:text-2xl font-semibold tracking-tight text-slate-100",
+        "h4": "text-lg font-semibold tracking-tight text-slate-200"
+      }
+    },
+    "body": {
+      "font_family": "IBM Plex Sans, sans-serif",
+      "styles": {
+        "base": "text-base leading-relaxed text-slate-300",
+        "small": "text-sm leading-normal text-slate-400"
+      }
+    },
+    "data": {
+      "font_family": "JetBrains Mono, monospace",
+      "styles": {
+        "metric": "text-3xl font-bold tracking-tighter text-cyan-400",
+        "label": "text-xs font-semibold uppercase tracking-[0.2em] text-slate-500"
+      }
+    }
+  },
+  "layout_and_spacing": {
+    "strategy": "The 'Control Room' Grid",
+    "grid_classes": "grid grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-4 or gap-6",
+    "container_padding": "p-4 md:p-6",
+    "card_padding": "p-5",
+    "radius": {
+      "card": "rounded-lg",
+      "button": "rounded-md",
+      "badge": "rounded-sm"
+    },
+    "alignment": {
+      "default": "left-aligned for data readability",
+      "metrics": "optical alignment with icon on left"
+    },
+    "z_index": {
+      "base": 0,
+      "card": 10,
+      "header": 40,
+      "dropdown": 50,
+      "modal": 60,
+      "hud_overlay": 100
+    }
+  },
+  "surfaces_and_micro_themes": {
+    "dashboard_cards": {
+      "background": "bg-[#131821]",
+      "border": "border border-white/5",
+      "shadow": "shadow-none",
+      "hover": "hover:border-cyan-500/30 hover:bg-white/[0.02] transition-colors duration-300"
+    },
+    "header_nav": {
+      "style": "Glassmorphism",
+      "classes": "backdrop-blur-xl bg-[#0B0E14]/70 border-b border-white/10 sticky top-0 z-50"
+    },
+    "hud_elements": {
+      "style": "Retro-Futurism / Terminal Look",
+      "active_indicator": "relative flex h-3 w-3. animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75. relative inline-flex rounded-full h-3 w-3 bg-cyan-500"
+    },
+    "modals": {
+      "background": "bg-[#131821]/95 backdrop-blur-2xl",
+      "border": "border border-white/10",
+      "shadow": "shadow-[0_8px_32px_rgba(0,229,255,0.1)]"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-cyan-500 hover:bg-cyan-400 text-black font-bold border-none shadow-[0_0_15px_rgba(0,229,255,0.4)] hover:shadow-[0_0_25px_rgba(0,229,255,0.6)] transition-all",
+      "secondary": "bg-white/5 hover:bg-white/10 text-white border border-white/10",
+      "outline": "bg-transparent border border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10"
+    },
+    "inputs": {
+      "classes": "bg-[#0B0E14] border-white/10 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 rounded-md"
+    },
+    "tables": {
+      "header": "bg-[#0B0E14] text-slate-400 text-xs uppercase tracking-wider font-mono",
+      "row": "border-b border-white/5 hover:bg-white/[0.02]",
+      "cell": "text-sm text-slate-300"
+    },
+    "badges": {
+      "in_transit": "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+      "delayed": "bg-red-500/10 text-red-400 border border-red-500/20",
+      "pending": "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+    }
+  },
+  "motion_and_interactions": {
+    "hover_states": "transition-all duration-200 ease-in-out",
+    "page_transitions": "framer-motion opacity-0 to opacity-100, y: 10 to y: 0",
+    "live_data": "subtle pulse animations on real-time metric updates",
+    "map_markers": "ping animation for active vehicles/containers"
+  },
+  "media": {
+    "images": [
+      {
+        "category": "background_texture",
+        "url": "https://images.unsplash.com/photo-1770305775781-883a8cd5b0ca?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwyfHxsb2dpc3RpY3MlMjBzaGlwcGluZyUyMGNvbnRhaW5lcnMlMjBuaWdodHxlbnwwfHx8fDE3Nzg0ODMyODd8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Industrial complex at night, use as a very low opacity (5-10%) background texture overlaid with #0B0E14 to give depth to the dashboard."
+      },
+      {
+        "category": "auth_background",
+        "url": "https://images.unsplash.com/photo-1768974522057-b276f4818aeb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwxfHxsb2dpc3RpY3MlMjBzaGlwcGluZyUyMGNvbnRhaW5lcnMlMjBuaWdodHxlbnwwfHx8fDE3Nzg0ODMyODd8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Industrial crane at night, use for the login/auth screen background with a heavy dark overlay."
+      }
+    ],
+    "icons": {
+      "library": "lucide-react",
+      "usage": "Use stroke-width 1.5 for a crisp, technical look. Size usually 16px to 20px in dense tables, 24px in headers."
+    }
+  },
+  "accessibility_and_testing": {
+    "contrast": "Ensure minimum 4.5:1 ratio for text. Use APCA guidelines where possible.",
+    "testing": "All interactive elements MUST include `data-testid` attributes (e.g., `data-testid='create-bol-button'`)."
+  },
+  "instructions_to_main_agent": {
+    "framework": "React + Tailwind CSS + Shadcn UI",
+    "core_directive": "Build a dense, command-center style dashboard. Maximize screen real estate. Use pure black/navy backgrounds with high-contrast neon accents for data visualization.",
+    "layout_structure": "Implement a sticky top header, a fixed side navigation (or collapsible), and a main content area using CSS Grid. The main dashboard should feature a large interactive map widget spanning multiple columns, surrounded by smaller KPI widgets and lists.",
+    "components_to_use": "Use Shadcn components heavily: Cards, Tables, Dialogs, Selects, Tabs, ScrollArea. Customize them by removing default Vercel-like shadows and replacing them with 1px border-white/5 and flat dark backgrounds.",
+    "charts": "Use Recharts. Set axes lines to transparent, grid lines to white/5. Use glowing colors (Cyan, Emerald, Yellow, Rose) for the data series.",
+    "map": "Use 'react-simple-maps' or a similar library to render a dark-themed US/World map with pulsing SVG dots representing active shipments."
+  }
+}
