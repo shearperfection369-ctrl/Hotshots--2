@@ -1,0 +1,80 @@
+{
+  "summary": "Iteration 13 — Validated the three new features: (1) public no-auth Routing Guide PDF + admin /info,/email-template,/versions,/upload; (2) Truckload Booking Sheet carrier combobox with 13 onboarded options + free-text persistence; (3) Microsoft Copilot page replacing HUDLINK AI with /ai-assistant alias. 10/10 backend pytest PASS. Frontend P0 testids all present, sidebar correctly shows nav-copilot and removes nav-ai-assistant, /ai-assistant routes to MicrosoftCopilot. One minor issue: the X-Frame-Options DENY fallback (data-testid=copilot-embed-fallback) never appears because the iframe's onLoad event fires even when Microsoft refuses to frame, so iframeLoaded becomes true and the 4-second probe is short-circuited.",
+  "backend_results": {
+    "test_file": "/app/backend/tests/test_iter13.py",
+    "junit_xml": "/app/test_reports/pytest/iter13_results.xml",
+    "passed": 10,
+    "failed": 0,
+    "coverage": [
+      "GET /api/routing-guide/pdf (NO Authorization header) → 200, application/pdf, 425,876 bytes, starts with %PDF",
+      "GET /api/routing-guide/info (admin) → revision='Revision 29', effective_date='2026-01-09', size_bytes>0, pdf_url='/api/routing-guide/pdf'",
+      "GET /api/routing-guide/email-template?to=foo@bar.com&cc=ops@tennantco.com → subject, body contains 'Revision 29' + 'Effective Date: 2026-01-09', mailto starts with 'mailto:foo%40bar.com', includes pdf_url",
+      "GET /api/routing-guide/versions → array length ≥ 1",
+      "POST /api/routing-guide/upload (multipart, fresh PDF) → 200 and versions count grows by 1; test self-cleans via DELETE /api/routing-guide/versions/{file_id} so the real Rev29 PDF stays active",
+      "GET /api/workbook/truckload-bookings → columns[carrier].type='combo', options.length≥13 (XPO, ODFL, Saia, Estes, R+L, Knight, Schneider, C.H. Robinson, Werner, Lakeshore + 3 seeds); top-level carrier_options also returned",
+      "Regression: POST /api/workbook/truckload-bookings, PATCH, GET /version (counter increments), DELETE all 200; /api/carriers/onboarding?status=approved returns 12+ approved carriers"
+    ]
+  },
+  "frontend_results": {
+    "routing_guide_page": {
+      "hero_card": true,
+      "buttons_present": ["rg-email-btn", "rg-download-btn", "rg-open-btn", "rg-copy-link-btn", "rg-upload-btn (admin)"],
+      "version_history_row_count": "≥1 (Revision 29 seed visible)",
+      "email_dialog": "PASS — rg-email-dialog opens with rg-email-to + rg-email-cc + rg-email-send; Send hits GET /api/routing-guide/email-template?to=…&cc=… (1 request captured)"
+    },
+    "microsoft_copilot_page": {
+      "hero_present": true,
+      "official_logo_colors": "4 distinct fills: #F25022 (red), #7FBA00 (green), #00A4EF (blue), #FFB900 (yellow)",
+      "launcher_tile_count": 4,
+      "prompt_tile_count": 6,
+      "first_prompt_href": "https://copilot.microsoft.com/?q=Summarize%20this%20Bill%20of%20Lading%20PDF…",
+      "fallback_visible_after_8s": false,
+      "fallback_issue": "iframe onLoad fires even when Microsoft returns X-Frame-Options: DENY, so iframeLoaded becomes true and the 4s setTimeout (lines 88-93) sees iframeLoaded=true and skips setEmbedFailed. End-result: a blank iframe sits forever and the 'Open Microsoft Copilot' CTA in [data-testid=copilot-embed-fallback] never renders."
+    },
+    "sidebar": {
+      "nav-copilot_present": true,
+      "nav-routing-guide_present": true,
+      "nav-ai-assistant_present_must_be_false": false
+    },
+    "ai_assistant_alias": "/ai-assistant route renders MicrosoftCopilot (copilot-hero present) — alias works for older deep-links",
+    "truckload_carrier_combo": {
+      "sheet_route": "/workbook (nav-workbook → 'Truckload Booking Sheet')",
+      "combo_input_with_list_attr": true,
+      "datalist_option_count": 13,
+      "all_required_carriers_present": ["xpo","odfl","saia","estes","knight","schneider","werner"],
+      "free_text_persistence": "PASS — typed 'TEST_CUSTOM_CARRIER_ZZZ' into a new row's carrier cell + Enter, value saved and re-rendered in the cell"
+    }
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "MicrosoftCopilot embed probe", "issue": "The 4-second fallback never triggers because iframe.onLoad fires on X-Frame-Options DENY responses. The fallback [data-testid=copilot-embed-fallback] / [data-testid=copilot-fallback-open] CTA is therefore unreachable and the user sees a blank iframe at the bottom of the page.", "selector": "[data-testid=copilot-iframe] / [data-testid=copilot-embed-fallback]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter13.py",
+    "/app/test_reports/pytest/iter13_results.xml",
+    "/app/test_reports/iteration_13.json"
+  ],
+  "action_items": [
+    "MicrosoftCopilot.jsx: replace the onLoad-based probe with a content-check probe. Suggested fix — instead of relying on onLoad, *always* mark embedFailed=true after the 4s timeout (don't read iframeLoaded), OR try fetch('https://copilot.microsoft.com/', { mode:'no-cors' }) and rely on a postMessage handshake from the iframe (which a refused frame can never produce). Lines 88-93. This is the only blocker for the spec line 'Validate the fallback eventually shows the Open Microsoft Copilot button.'"
+  ],
+  "critical_code_review_comments": [
+    "Routing-guide endpoints (server.py:3493-3700) are clean: GridFS bucket 'routing_guides', _seed_routing_guide_if_empty() idempotently seeds the original Rev 29 PDF on first boot, _latest_routing_guide() always picks the newest uploadDate so the 'active revision' is whichever was uploaded last. Public /pdf route correctly omits the auth dependency.",
+    "DELETE /api/routing-guide/versions/{file_id} (admin) is wired and works (verified during test cleanup) — good defensive admin tool for revert.",
+    "Truckload combo column type='combo' is implemented in TruckloadBookingSheet.jsx:285-299 with a per-row datalist id. Free-text typing + Enter calls onCommit which PATCHes the row. The 13-carrier list comes from the backend payload (columns + carrier_options) so it stays in sync with carrier_onboarding.",
+    "MicrosoftCopilot.jsx 4-color logo SVG is rendered correctly; the issue is solely with the iframe fallback probe (see action items)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter13.py (created — pytest covering routing-guide + truckload combo + regression)"
+  ],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "95% — all P0 testids/flows pass except the Copilot iframe X-Frame-Options fallback which never appears"},
+  "test_credentials": "Used /app/memory/test_credentials.md: test_session_admin_1 (admin) and test_disp_session (dispatcher).",
+  "seed_data_creation": "Test test_upload_new_revision uploads a tiny synthetic PDF as 'test_revision_30.pdf' to verify the upload+versions+active-revision flow, then *deletes* it in a try/finally so the Rev 29 seed PDF remains the active version after the test run. Verified end-state: /api/routing-guide/info returns Revision 29 / 2026-01-09 / 425,876 bytes.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Re-run with `pytest backend/tests/test_iter13.py -v`. The upload test self-cleans, so /info should always show Revision 29 / 2026-01-09 / 425876 bytes after the suite. Truckload sheet lives at /workbook (data-testid=nav-workbook, NOT /book-load which is the single-shipment form). Copilot fallback bug is reproducible: open /copilot and wait >5s — iframe stays blank, [data-testid=copilot-embed-fallback] is never inserted into the DOM.",
+  "rca of the issue": "MicrosoftCopilot.jsx lines 88-93: useEffect schedules `setTimeout(()=>{ if (!iframeLoaded) setEmbedFailed(true); }, 4000)`. The iframe's onLoad handler (line 261) sets iframeLoaded=true. In Chromium, an `<iframe src=https://copilot.microsoft.com/>` that gets X-Frame-Options: DENY still emits a `load` event (about a blank document), so iframeLoaded flips to true within ~200 ms and the 4 s probe finds !iframeLoaded === false → embedFailed is never set → the fallback DOM is never rendered. Fix: either drop the iframeLoaded check entirely from the timeout (always set embedFailed=true after 4 s and let onLoad clear it via a postMessage handshake), or use `iframe.contentWindow.document.readyState` inside a try/catch (SecurityError on a cross-origin iframe is the actual signal that the embed succeeded, not a load event)."
+}

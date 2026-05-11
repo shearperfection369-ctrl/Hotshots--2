@@ -282,6 +282,22 @@ function EditableCell({ rowId, column, value, isEditing, onStart, onCommit, onCa
         </select>
       );
     }
+    if (column.type === "combo") {
+      // Datalist combobox: free-text typing + dropdown suggestions of
+      // currently-onboarded carriers. Dispatchers can pick an approved
+      // carrier OR type a brand-new name (then onboard them later).
+      const listId = `tlb-list-${column.key}-${rowId}`;
+      return (
+        <>
+          <input {...common} type="text" list={listId} placeholder="Pick or type carrier…" autoComplete="off" />
+          <datalist id={listId}>
+            {(column.options || []).filter(Boolean).map((opt) => (
+              <option key={opt} value={opt} />
+            ))}
+          </datalist>
+        </>
+      );
+    }
     if (column.type === "textarea") {
       return <textarea {...common} rows={2} />;
     }

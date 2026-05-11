@@ -2128,14 +2128,19 @@ TRUCKLOAD_BOOKING_COLUMNS: List[Dict[str, Any]] = [
     {"key": "date", "label": "Date", "type": "date"},
     {"key": "bol_no", "label": "BOL #", "type": "text"},
     {"key": "po_no", "label": "PO #", "type": "text"},
-    {"key": "carrier", "label": "Carrier", "type": "text"},
+    # Carrier is a free-text combobox at runtime — the `/workbook/truckload-bookings`
+    # endpoint injects the current onboarded-carrier roster into `options`
+    # while keeping `type: "combo"` so the cell editor lets dispatchers
+    # either pick an existing approved carrier or type a brand-new name.
+    {"key": "carrier", "label": "Carrier", "type": "combo", "options": []},
     {"key": "origin", "label": "Origin", "type": "text"},
     {"key": "destination", "label": "Destination", "type": "text"},
     {"key": "pieces", "label": "Pieces", "type": "number"},
     {"key": "weight_lbs", "label": "Weight (lbs)", "type": "number"},
     {"key": "pallets", "label": "Pallets", "type": "number"},
     {"key": "lift_gate", "label": "Lift Gate", "type": "select", "options": ["", "Yes", "No"]},
-    {"key": "freight_class", "label": "Class", "type": "text"},
+    {"key": "freight_class", "label": "Class", "type": "select",
+     "options": ["", "50", "55", "60", "65", "70", "77.5", "85", "92.5", "100", "110", "125", "150", "175", "200", "250", "300", "400", "500"]},
     {"key": "nmfc_code", "label": "NMFC", "type": "text"},
     {"key": "equipment", "label": "Equipment", "type": "select",
      "options": ["", "Dry Van 53'", "Dry Van 48'", "Reefer", "Flatbed", "Step Deck", "Drop Deck", "Box Truck", "Sprinter"]},
@@ -2458,11 +2463,52 @@ def _clean_tlb_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+async def _onboarded_carrier_names() -> List[str]:
+    """Return the sorted, de-duped list of carrier display names that the
+    Truckload Booking Sheet's Carrier dropdown should offer. Sources:
+      1. carrier_onboarding records with status == "approved" (primary)
+      2. existing carriers already used on previous bookings (so dispatchers
+         see familiar names even before they're formally onboarded)
+    DBA name wins when present so dispatchers see what they call the carrier."""
+    out: Dict[str, None] = {}
+    cursor = db.carrier_onboarding.find(
+        {"status": "approved"}, {"_id": 0, "legal_name": 1, "dba": 1, "scac": 1}
+    )
+    async for c in cursor:
+        name = (c.get("dba") or c.get("legal_name") or "").strip()
+        if not name:
+            continue
+        scac = (c.get("scac") or "").strip()
+        label = f"{name} · {scac}" if scac else name
+        out[label] = None
+    # Carriers historically used in bookings (fallback, keeps history alive)
+    used = await db.truckload_bookings.distinct("carrier")
+    for u in used:
+        if u and isinstance(u, str) and u not in out:
+            out[u] = None
+    return sorted(out.keys(), key=lambda s: s.lower())
+
+
+def _columns_with_carriers(carrier_options: List[str]) -> List[Dict[str, Any]]:
+    """Clone TRUCKLOAD_BOOKING_COLUMNS and inject the live carrier roster
+    into the Carrier column's `options` array. Doesn't mutate the module-level
+    constant."""
+    out: List[Dict[str, Any]] = []
+    for col in TRUCKLOAD_BOOKING_COLUMNS:
+        if col.get("key") == "carrier":
+            out.append({**col, "options": ["", *carrier_options]})
+        else:
+            out.append(dict(col))
+    return out
+
+
 @api_router.get("/workbook/truckload-bookings")
 async def list_truckload_bookings(_: User = Depends(get_current_user)):
     rows = await db.truckload_bookings.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
     meta = await db.truckload_bookings_meta.find_one({"_id": "version"}, {"_id": 0}) or {"version": 0}
-    return {"rows": rows, "columns": TRUCKLOAD_BOOKING_COLUMNS, **meta}
+    carriers = await _onboarded_carrier_names()
+    columns = _columns_with_carriers(carriers)
+    return {"rows": rows, "columns": columns, "carrier_options": carriers, **meta}
 
 
 @api_router.get("/workbook/truckload-bookings/version")
@@ -2869,21 +2915,63 @@ async def seed_data(force: bool = False):
         })
     await db.freight_bills.insert_many([dict(b) for b in bills])
 
-    # Seed carrier onboardings
+    # Seed carrier onboardings — includes the original three plus a handful
+    # of well-known national carriers marked "approved" so the Truckload
+    # Booking Sheet's Carrier dropdown has a usable roster on day 1.
+    today = datetime.now(timezone.utc).date()
+    plus = lambda d: (datetime.now(timezone.utc) + timedelta(days=d)).date().isoformat()
     onboarding_seeds = [
         {"legal_name": "Prairie Stream Logistics LLC", "dba": "Prairie Stream", "mc_number": "MC-887214", "dot_number": "3621198", "scac": "PSLG", "mode": "TL",
          "contact_name": "Brett Halverson", "contact_email": "brett@prairiestream.com", "contact_phone": "+1-612-555-0188",
-         "insurance_amount": 1500000, "insurance_expiry": (datetime.now(timezone.utc) + timedelta(days=180)).date().isoformat(),
+         "insurance_amount": 1500000, "insurance_expiry": plus(180),
          "safety_rating": "Satisfactory", "csa_score": 32, "status": "in_review"},
         {"legal_name": "Lakeshore Freight Co", "dba": None, "mc_number": "MC-742019", "dot_number": "2874321", "scac": "LSFC", "mode": "LTL",
          "contact_name": "Marisol Tran", "contact_email": "marisol@lakeshorefreight.com", "contact_phone": "+1-616-555-0142",
-         "insurance_amount": 1000000, "insurance_expiry": (datetime.now(timezone.utc) + timedelta(days=92)).date().isoformat(),
+         "insurance_amount": 1000000, "insurance_expiry": plus(92),
          "safety_rating": "Satisfactory", "csa_score": 48, "status": "approved"},
         {"legal_name": "Bluegrass Express Inc", "dba": "BlueX", "mc_number": "MC-558821", "dot_number": "1842099", "scac": "BLGX", "mode": "TL",
          "contact_name": "Darnell McKee", "contact_email": "darnell@bluegrassx.com", "contact_phone": "+1-502-555-0199",
-         "insurance_amount": 1000000, "insurance_expiry": (datetime.now(timezone.utc) - timedelta(days=10)).date().isoformat(),
+         "insurance_amount": 1000000, "insurance_expiry": plus(-10),
          "safety_rating": "Conditional", "csa_score": 78, "status": "in_review"},
+        # ---- Approved national carriers, ready to book ----
+        {"legal_name": "XPO Logistics LLC", "dba": "XPO", "mc_number": "MC-249635", "dot_number": "528970", "scac": "XPOL", "mode": "TL",
+         "contact_name": "Renee Calderon", "contact_email": "tennant.team@xpo.com", "contact_phone": "+1-855-976-2243",
+         "insurance_amount": 2000000, "insurance_expiry": plus(220),
+         "safety_rating": "Satisfactory", "csa_score": 18, "status": "approved"},
+        {"legal_name": "Old Dominion Freight Line, Inc.", "dba": "ODFL", "mc_number": "MC-22198", "dot_number": "55977", "scac": "ODFL", "mode": "LTL",
+         "contact_name": "Greg Halsey", "contact_email": "tennant@odfl.com", "contact_phone": "+1-800-432-6335",
+         "insurance_amount": 2000000, "insurance_expiry": plus(310),
+         "safety_rating": "Satisfactory", "csa_score": 11, "status": "approved"},
+        {"legal_name": "Saia Motor Freight Line, LLC", "dba": "Saia", "mc_number": "MC-44918", "dot_number": "33172", "scac": "SAIA", "mode": "LTL",
+         "contact_name": "Tasha Burnett", "contact_email": "tennant@saia.com", "contact_phone": "+1-800-765-7242",
+         "insurance_amount": 1500000, "insurance_expiry": plus(150),
+         "safety_rating": "Satisfactory", "csa_score": 22, "status": "approved"},
+        {"legal_name": "Estes Express Lines", "dba": "Estes", "mc_number": "MC-105764", "dot_number": "55712", "scac": "EXLA", "mode": "LTL",
+         "contact_name": "Adam Mueller", "contact_email": "ops@estes-express.com", "contact_phone": "+1-866-378-3748",
+         "insurance_amount": 2000000, "insurance_expiry": plus(265),
+         "safety_rating": "Satisfactory", "csa_score": 16, "status": "approved"},
+        {"legal_name": "R&L Carriers, Inc.", "dba": "R+L", "mc_number": "MC-133134", "dot_number": "243809", "scac": "RLCA", "mode": "LTL",
+         "contact_name": "Marcus Lavoie", "contact_email": "tennant@rlcarriers.com", "contact_phone": "+1-800-543-5589",
+         "insurance_amount": 1500000, "insurance_expiry": plus(195),
+         "safety_rating": "Satisfactory", "csa_score": 20, "status": "approved"},
+        {"legal_name": "Knight-Swift Transportation Holdings", "dba": "Knight Transportation", "mc_number": "MC-247369", "dot_number": "362724", "scac": "KNIG", "mode": "TL",
+         "contact_name": "Lina Ortega", "contact_email": "tennant@knight-swift.com", "contact_phone": "+1-602-269-2000",
+         "insurance_amount": 2000000, "insurance_expiry": plus(340),
+         "safety_rating": "Satisfactory", "csa_score": 25, "status": "approved"},
+        {"legal_name": "Schneider National Carriers", "dba": "Schneider", "mc_number": "MC-237983", "dot_number": "264184", "scac": "SCNN", "mode": "TL",
+         "contact_name": "Henry Park", "contact_email": "tennant@schneider.com", "contact_phone": "+1-800-558-6767",
+         "insurance_amount": 2000000, "insurance_expiry": plus(280),
+         "safety_rating": "Satisfactory", "csa_score": 28, "status": "approved"},
+        {"legal_name": "C.H. Robinson Worldwide, Inc.", "dba": "C.H. Robinson", "mc_number": "MC-208535", "dot_number": "388873", "scac": "CHRW", "mode": "Brokerage",
+         "contact_name": "Ben Reichl", "contact_email": "tennant@chrobinson.com", "contact_phone": "+1-800-323-7587",
+         "insurance_amount": 2000000, "insurance_expiry": plus(360),
+         "safety_rating": "Satisfactory", "csa_score": 15, "status": "approved"},
+        {"legal_name": "Werner Enterprises, Inc.", "dba": "Werner", "mc_number": "MC-159458", "dot_number": "111723", "scac": "WERN", "mode": "TL",
+         "contact_name": "Christine Yoder", "contact_email": "tennant@werner.com", "contact_phone": "+1-800-228-2240",
+         "insurance_amount": 2000000, "insurance_expiry": plus(120),
+         "safety_rating": "Satisfactory", "csa_score": 26, "status": "approved"},
     ]
+    _ = today  # avoid unused-variable warning if we add date-relative ones later
     onboarding_docs = []
     for ob in onboarding_seeds:
         onboarding_docs.append({
@@ -3397,6 +3485,222 @@ async def download_carrier_bol(shipment_id: str, user: User = Depends(get_curren
     md = grid_out.metadata or {}
     headers = {"Content-Disposition": f'attachment; filename="{grid_out.filename}"'}
     return Response(content=data, media_type=md.get("content_type", "application/pdf"), headers=headers)
+
+# -------------------- INBOUND ROUTING GUIDE (GridFS, public PDF) --------------------
+# Tennant publishes a Domestic US/CA/MX Inbound Routing Guide that suppliers
+# must follow. The team needs to email it to vendors frequently, so the PDF
+# is stored in a dedicated GridFS bucket and exposed via:
+#   GET  /api/routing-guide/info            — metadata for the active version
+#   GET  /api/routing-guide/pdf             — public PDF stream (no auth, so
+#                                             vendors can open the email link)
+#   GET  /api/routing-guide/email-template  — mailto: payload with subject/body
+#                                             and an absolute PDF link
+#   POST /api/routing-guide/upload          — admin uploads a new revision
+#   GET  /api/routing-guide/versions        — full revision history
+routing_guide_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="routing_guides")
+ROUTING_GUIDE_SEED = ROOT_DIR / "seed_assets" / "routing-guide.pdf"
+
+
+async def _seed_routing_guide_if_empty() -> None:
+    """One-shot seed: if no routing guide exists in GridFS, ingest the seed PDF
+    shipped alongside the backend so the team has something to email on day 1."""
+    if not ROUTING_GUIDE_SEED.exists():
+        return
+    has_any = await db["routing_guides.files"].count_documents({})
+    if has_any:
+        return
+    data = ROUTING_GUIDE_SEED.read_bytes()
+    await routing_guide_bucket.upload_from_stream(
+        "Domestic_US_Canada_Mexico_Inbound_Routing_Guide_Rev29_2026-01-09.pdf",
+        data,
+        metadata={
+            "content_type": "application/pdf",
+            "title": "Domestic US / Canada / Mexico Inbound Routing Guide",
+            "revision": "Revision 29",
+            "effective_date": "2026-01-09",
+            "uploaded_by_name": "System Seed",
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "size_bytes": len(data),
+            "notes": "Tennant Inbound Routing Requirements for suppliers shipping within the USA, Canada, Mexico, and Puerto Rico. Covers approved carriers, modes (Small Package / LTL / FTL), and PO/BOL requirements.",
+        },
+    )
+
+
+async def _latest_routing_guide() -> Optional[Dict[str, Any]]:
+    """Return the most recently uploaded routing guide file doc, or None."""
+    doc = await db["routing_guides.files"].find_one(
+        {}, sort=[("uploadDate", -1)]
+    )
+    return doc
+
+
+@api_router.get("/routing-guide/info")
+async def routing_guide_info(_: User = Depends(get_current_user)):
+    await _seed_routing_guide_if_empty()
+    f = await _latest_routing_guide()
+    if not f:
+        raise HTTPException(status_code=404, detail="No routing guide on file")
+    md = f.get("metadata") or {}
+    upload_date = f.get("uploadDate")
+    return {
+        "file_id": str(f["_id"]),
+        "filename": f.get("filename"),
+        "size_bytes": f.get("length"),
+        "title": md.get("title"),
+        "revision": md.get("revision"),
+        "effective_date": md.get("effective_date"),
+        "uploaded_by_name": md.get("uploaded_by_name"),
+        "uploaded_at": upload_date.isoformat() if hasattr(upload_date, "isoformat") else md.get("uploaded_at"),
+        "notes": md.get("notes"),
+        "content_type": md.get("content_type") or "application/pdf",
+        "pdf_url": "/api/routing-guide/pdf",
+    }
+
+
+@api_router.get("/routing-guide/pdf")
+async def routing_guide_pdf(download: bool = False):
+    """PUBLIC endpoint — no auth, so the link can be emailed to external
+    suppliers and opened from any mail client. `?download=1` forces a
+    download instead of inline browser preview."""
+    await _seed_routing_guide_if_empty()
+    f = await _latest_routing_guide()
+    if not f:
+        raise HTTPException(status_code=404, detail="No routing guide on file")
+    from bson import ObjectId
+    grid_out = await routing_guide_bucket.open_download_stream(f["_id"])
+    data = await grid_out.read()
+    md = grid_out.metadata or {}
+    disposition = "attachment" if download else "inline"
+    headers = {
+        "Content-Disposition": f'{disposition}; filename="{grid_out.filename}"',
+        "Cache-Control": "public, max-age=3600",
+    }
+    return Response(content=data, media_type=md.get("content_type", "application/pdf"), headers=headers)
+
+
+@api_router.get("/routing-guide/email-template")
+async def routing_guide_email_template(
+    to: str = "",
+    cc: str = "",
+    user: User = Depends(get_current_user),
+):
+    await _seed_routing_guide_if_empty()
+    f = await _latest_routing_guide()
+    if not f:
+        raise HTTPException(status_code=404, detail="No routing guide on file")
+    md = f.get("metadata") or {}
+    base = (os.environ.get("PUBLIC_BASE_URL") or "").rstrip("/")
+    # If PUBLIC_BASE_URL isn't set we still emit a relative path so the
+    # frontend can prepend window.location.origin before launching mailto.
+    pdf_link = f"{base}/api/routing-guide/pdf" if base else "/api/routing-guide/pdf"
+    title = md.get("title") or "Tennant Inbound Routing Guide"
+    revision = md.get("revision") or ""
+    effective = md.get("effective_date") or ""
+    subject = f"Tennant Inbound Routing Guide — {revision} (Eff. {effective})".strip(" —")
+    body_lines = [
+        "Hello,",
+        "",
+        f"Please find Tennant Company's current Inbound Routing Guide attached below: {title}.",
+        "",
+        f"Revision: {revision or 'N/A'}",
+        f"Effective Date: {effective or 'N/A'}",
+        "",
+        "This document outlines our required carriers, modes (Small Package / LTL / Full Truckload), and the PO + BOL information that MUST appear on every inbound shipment to Tennant in the USA, Canada, Mexico, and Puerto Rico. Suppliers are required to follow these instructions on all shipments where Tennant is the routing party (Prepaid + Add, Collect, or 3rd-Party freight terms).",
+        "",
+        f"Download the PDF here: {pdf_link}",
+        "",
+        f"If you have questions, please reply to this email or contact transportation@tennantco.com.",
+        "",
+        "Thank you,",
+        user.name,
+        "Tennant Company · Transportation",
+    ]
+    body = "\n".join(body_lines)
+    mailto = (
+        f"mailto:{urllib.parse.quote(to)}"
+        f"?subject={urllib.parse.quote(subject)}"
+        f"&body={urllib.parse.quote(body)}"
+    )
+    if cc:
+        mailto += f"&cc={urllib.parse.quote(cc)}"
+    return {
+        "to": to,
+        "cc": cc,
+        "subject": subject,
+        "body": body,
+        "mailto": mailto,
+        "pdf_url": pdf_link,
+        "filename": f.get("filename"),
+    }
+
+
+@api_router.post("/routing-guide/upload")
+async def routing_guide_upload(
+    file: UploadFile = File(...),
+    revision: str = Form(""),
+    effective_date: str = Form(""),
+    notes: str = Form(""),
+    user: User = Depends(require_role("admin", "dispatcher")),
+):
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Routing guide must be a PDF")
+    data = await file.read()
+    fid = await routing_guide_bucket.upload_from_stream(
+        file.filename, data,
+        metadata={
+            "content_type": file.content_type or "application/pdf",
+            "title": "Domestic US / Canada / Mexico Inbound Routing Guide",
+            "revision": revision or "Revision (unspecified)",
+            "effective_date": effective_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "uploaded_by": user.user_id,
+            "uploaded_by_name": user.name,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "size_bytes": len(data),
+            "notes": notes,
+        },
+    )
+    return {
+        "file_id": str(fid),
+        "filename": file.filename,
+        "size_bytes": len(data),
+        "revision": revision,
+        "effective_date": effective_date,
+    }
+
+
+@api_router.get("/routing-guide/versions")
+async def routing_guide_versions(_: User = Depends(get_current_user)):
+    await _seed_routing_guide_if_empty()
+    files = await db["routing_guides.files"].find({}, {"chunkSize": 0}).sort("uploadDate", -1).limit(100).to_list(100)
+    out = []
+    for f in files:
+        md = f.get("metadata") or {}
+        upload_date = f.get("uploadDate")
+        out.append({
+            "file_id": str(f["_id"]),
+            "filename": f.get("filename"),
+            "size_bytes": f.get("length"),
+            "revision": md.get("revision"),
+            "effective_date": md.get("effective_date"),
+            "uploaded_by_name": md.get("uploaded_by_name"),
+            "uploaded_at": upload_date.isoformat() if hasattr(upload_date, "isoformat") else md.get("uploaded_at"),
+            "notes": md.get("notes"),
+        })
+    return out
+
+
+@api_router.delete("/routing-guide/versions/{file_id}")
+async def routing_guide_delete(file_id: str, _: User = Depends(require_role("admin"))):
+    from bson import ObjectId
+    try:
+        oid = ObjectId(file_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid file_id")
+    try:
+        await routing_guide_bucket.delete(oid)
+    except Exception:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {"ok": True}
 
 # -------------------- CLAIMS & RECONCILIATION --------------------
 class Claim(BaseModel):
@@ -5083,6 +5387,55 @@ async def startup():
             await seed_data(force=False)
     except Exception as e:
         logger.warning(f"Seed on startup failed: {e}")
+
+    # Idempotent backfill: ensure the Truckload Booking Sheet's carrier
+    # dropdown has a usable roster of approved carriers on every boot.
+    # Inserts only the missing legal_names — safe to run repeatedly.
+    try:
+        approved_roster = [
+            ("XPO Logistics LLC", "XPO", "MC-249635", "528970", "XPOL", "TL",
+             "Renee Calderon", "tennant.team@xpo.com", "+1-855-976-2243", 2000000, 18),
+            ("Old Dominion Freight Line, Inc.", "ODFL", "MC-22198", "55977", "ODFL", "LTL",
+             "Greg Halsey", "tennant@odfl.com", "+1-800-432-6335", 2000000, 11),
+            ("Saia Motor Freight Line, LLC", "Saia", "MC-44918", "33172", "SAIA", "LTL",
+             "Tasha Burnett", "tennant@saia.com", "+1-800-765-7242", 1500000, 22),
+            ("Estes Express Lines", "Estes", "MC-105764", "55712", "EXLA", "LTL",
+             "Adam Mueller", "ops@estes-express.com", "+1-866-378-3748", 2000000, 16),
+            ("R&L Carriers, Inc.", "R+L", "MC-133134", "243809", "RLCA", "LTL",
+             "Marcus Lavoie", "tennant@rlcarriers.com", "+1-800-543-5589", 1500000, 20),
+            ("Knight-Swift Transportation Holdings", "Knight Transportation", "MC-247369", "362724", "KNIG", "TL",
+             "Lina Ortega", "tennant@knight-swift.com", "+1-602-269-2000", 2000000, 25),
+            ("Schneider National Carriers", "Schneider", "MC-237983", "264184", "SCNN", "TL",
+             "Henry Park", "tennant@schneider.com", "+1-800-558-6767", 2000000, 28),
+            ("C.H. Robinson Worldwide, Inc.", "C.H. Robinson", "MC-208535", "388873", "CHRW", "Brokerage",
+             "Ben Reichl", "tennant@chrobinson.com", "+1-800-323-7587", 2000000, 15),
+            ("Werner Enterprises, Inc.", "Werner", "MC-159458", "111723", "WERN", "TL",
+             "Christine Yoder", "tennant@werner.com", "+1-800-228-2240", 2000000, 26),
+        ]
+        existing_names = set(await db.carrier_onboarding.distinct("legal_name"))
+        to_insert = []
+        for (legal, dba, mc, dot, scac, mode, contact, email, phone, ins, csa) in approved_roster:
+            if legal in existing_names:
+                continue
+            to_insert.append({
+                "onboarding_id": f"OB-{uuid.uuid4().hex[:8].upper()}",
+                "legal_name": legal, "dba": dba, "mc_number": mc, "dot_number": dot,
+                "scac": scac, "mode": mode,
+                "contact_name": contact, "contact_email": email, "contact_phone": phone,
+                "insurance_amount": float(ins),
+                "insurance_expiry": (datetime.now(timezone.utc) + timedelta(days=270)).date().isoformat(),
+                "safety_rating": "Satisfactory", "csa_score": int(csa),
+                "w9_received": True, "coi_received": True, "contract_signed": True,
+                "status": "approved",
+                "submitted_at": datetime.now(timezone.utc).isoformat(),
+                "submitted_by": "System",
+                "notes": "Approved national-carrier backfill",
+            })
+        if to_insert:
+            await db.carrier_onboarding.insert_many(to_insert)
+            logger.info(f"Backfilled {len(to_insert)} approved carrier onboardings.")
+    except Exception as e:
+        logger.warning(f"Approved-carrier backfill failed: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

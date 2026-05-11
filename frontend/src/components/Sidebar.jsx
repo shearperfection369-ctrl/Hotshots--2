@@ -13,7 +13,7 @@ import { useAuth } from "../lib/auth";
 const NAV = [
   { to: "/dashboard", label: "Command Center", icon: LayoutDashboard, tid: "nav-dashboard", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/workbook", label: "Truckload Booking Sheet", icon: Table2, tid: "nav-workbook", roles: ["admin", "auditor", "dispatcher"] },
-  { to: "/ai-assistant", label: "HUDLINK AI", icon: Sparkles, tid: "nav-ai-assistant", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/copilot", label: "Microsoft Copilot", icon: Sparkles, tid: "nav-copilot", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/shipments", label: "Shipments", icon: Package, tid: "nav-shipments", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/book-load", label: "Book Load", icon: PlusSquare, tid: "nav-book-load", roles: ["admin", "dispatcher"] },
   { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher", "carrier"] },
@@ -29,6 +29,7 @@ const NAV = [
   { to: "/carrier-onboarding", label: "Carrier Onboarding", icon: ShieldCheck, tid: "nav-carrier-onboarding", roles: ["admin", "dispatcher"] },
   { to: "/carrier-invites", label: "Carrier Invites", icon: UserPlus, tid: "nav-carrier-invites", roles: ["admin"] },
   { to: "/documents", label: "Documents", icon: FileText, tid: "nav-documents", roles: ["admin", "auditor", "dispatcher", "carrier"] },
+  { to: "/routing-guide", label: "Routing Guide", icon: BookOpen, tid: "nav-routing-guide", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/vault", label: "Document Vault", icon: Archive, tid: "nav-vault", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/hs-lookup", label: "HS Code Lookup", icon: Search, tid: "nav-hs-lookup", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/trailers", label: "Trailer Specs", icon: Truck, tid: "nav-trailers", roles: ["admin", "auditor", "dispatcher"] },

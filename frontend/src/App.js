@@ -40,6 +40,8 @@ import SupplierSourcing from "@/pages/SupplierSourcing";
 import Arcade from "@/pages/Arcade";
 import Machines from "@/pages/Machines";
 import Equipment from "@/pages/Equipment";
+import RoutingGuide from "@/pages/RoutingGuide";
+import MicrosoftCopilot from "@/pages/MicrosoftCopilot";
 import { ThemeProvider } from "@/lib/theme";
 import { MusicProvider } from "@/lib/music";
 import MiniPlayer from "@/components/MiniPlayer";
@@ -75,7 +77,10 @@ function AppRouter() {
         <Route path="/carrier-onboarding" element={<CarrierOnboarding />} />
         <Route path="/driver-console" element={<DriverConsole />} />
         <Route path="/sap-sync" element={<SapSync />} />
-        <Route path="/ai-assistant" element={<AIAssistant />} />
+        <Route path="/ai-assistant" element={<MicrosoftCopilot />} />
+        <Route path="/copilot" element={<MicrosoftCopilot />} />
+        <Route path="/routing-guide" element={<RoutingGuide />} />
+        <Route path="/legacy-hudlink" element={<AIAssistant />} />
         <Route path="/webex" element={<Webex />} />
         <Route path="/promo" element={<PromoVideo />} />
         <Route path="/workbook" element={<Workbook />} />
