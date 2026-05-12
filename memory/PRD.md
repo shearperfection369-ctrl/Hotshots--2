@@ -199,10 +199,23 @@ Subsequent user-requested additions (chronological, all delivered):
   S3/S5/S6/S7/S12/S16 sweepers, M20 LPG combo, B10 burnisher, E5/1610 carpet extractors.
 
 ## Pending / Backlog (P2)
-- Promo Video file regeneration via Sora 2 (BUDGET-BLOCKED — user must top-up the Universal Key first; script ready at `/app/scripts/generate_promo_video.py`)
+- Refactor `/app/backend/server.py` (>6900 lines) into routers/modules under `/app/backend/routes/`
+- Replace SendGrid mock with real provider when user is ready (`SENDGRID_API_KEY` env var)
 - Production deployment health checks
-- SharePoint / PowerBI deeper visual integrations
-- Additional games (Tic-Tac-Toe, Chess) in the Arcade
+- Deeper Power BI / SharePoint native embeds (currently surfaces + iframe)
+
+## v2.0 Launch Wave (Feb 2026 — this session)
+- **Wired ChessGame into Arcade** (`Arcade.jsx` tab `arcade-tab-chess` renders `<ChessGame />`)
+- **Wired DriverRegistry into App+Sidebar** (`/driver-registry` route, sidebar nav `nav-driver-registry`)
+- **Manual Supplier entry** — `POST /api/suppliers` (admin/dispatcher) + `DELETE /api/suppliers/{id}` (admin only on custom suppliers); UI: `Add Supplier` dialog in `SupplierSourcing.jsx`; custom suppliers persist in `db.suppliers_custom` and merge into the seed list with `is_custom: true` flag
+- **AI-narrated Promo Video v2** (`/app/scripts/build_promo_with_screens.py`):
+  - 18 flagship scenes (vs. 8 previously) including Power BI, SharePoint, Copilot, Specialty Carriers, Routing Guide, Suppliers, Driver Registry, Reports, Arcade
+  - AI narration generated via OpenAI TTS (`tts-1-hd`, voice `onyx`) using Emergent universal key — see `/app/scripts/generate_promo_narration.py`
+  - Synthesized ambient music bed via ffmpeg lavfi (A-minor sine pad with tremolo + slow fades) — no external download needed, firewall-safe
+  - Final MP4: ~5 MB, 96.6s, h264 + AAC, lives at `/app/frontend/public/promo.mp4`
+- **Promo page UX** — `PromoVideo.jsx` now shows a prominent pulsing "Tap for sound" button to unmute, version bumped to v2.0, subtitle lists every v2 module
+- **User Manual v2.0** — `manual_content.py` cover bumped to v2.0; 16 new feature slides appended covering Copilot, Power BI, SharePoint, Specialty Carriers, Routing Guide, Truckload Sheet dropdowns, Supplier manual entry, Driver Registry, 45-metric Scorecard, Weather Radar+Alerts, Global Search Cmd-K, Solo Chess, 16 themes, Draggable Tiles, AI-narrated Promo
+- **README.md** — overhauled with v2 capability table, narration build instructions, version log entry
 
 ## Known Mocks
 - Email delivery — mailto: links + copy-to-clipboard (no Resend/SendGrid wired by user choice)

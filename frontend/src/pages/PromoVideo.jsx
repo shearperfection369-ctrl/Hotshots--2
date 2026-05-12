@@ -5,7 +5,7 @@ import { TennantLogo } from "../components/TennantLogo";
 import {
   Truck, Plane, Ship, Package, Train, Sparkles, ShieldCheck, Receipt,
   Smartphone, Database, MessagesSquare, Video, BarChart3, Globe2,
-  FileWarning, Archive, Factory, Wrench, Gamepad2, Palette, Quote, Mail, UserPlus
+  FileWarning, Archive, Factory, Wrench, Gamepad2, Palette, Quote, Mail, UserPlus, Volume2
 } from "lucide-react";
 
 const FEATURES = [
@@ -53,6 +53,8 @@ export default function PromoVideo() {
   // without depending on Sora 2 generation or local /promo.mp4 asset.
   const TENNANT_TRAILER_ID = "mTxE3g7o4aY"; // "Tennant is Everywhere | Company Trailer"
   const [hasLocalMp4, setHasLocalMp4] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const videoRef = React.useRef(null);
 
   useEffect(() => {
     // SPA serves index.html for unknown paths (text/html), which we MUST
@@ -70,25 +72,44 @@ export default function PromoVideo() {
       .catch(() => setHasLocalMp4(false));
   }, []);
 
+  const unmuteAndPlay = () => {
+    setMuted(false);
+    const v = videoRef.current;
+    if (v) { v.muted = false; v.currentTime = 0; v.play().catch(() => {}); }
+  };
+
   return (
     <>
-      <Topbar title="TMS Launch · 2026 Update" subtitle="A cinematic tour through TMS v1.9 — Truckload Booking Sheet, Equipment Yard Analytics, drag-drop Command, Documents, AI Co-Pilot & more" />
+      <Topbar title="TMS Launch · v2.0" subtitle="A cinematic tour through TMS v2.0 — Power BI · SharePoint · Copilot · Specialty Carriers · 45-metric Scorecard · Driver Registry · Chess · 16 Themes · AI narration & ambient music" />
       <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
 
         {/* Hero with video — YouTube iframe is the most reliable embed */}
         <Card className="hud-surface overflow-hidden relative" data-testid="promo-hero">
           <div className="relative aspect-video bg-black">
             {hasLocalMp4 ? (
-              <video
-                src="/promo.mp4"
-                controls
-                autoPlay
-                muted
-                loop
-                playsInline
-                data-testid="promo-video"
-                className="w-full h-full object-cover"
-              />
+              <>
+                <video
+                  ref={videoRef}
+                  src="/promo.mp4"
+                  controls
+                  autoPlay
+                  muted={muted}
+                  loop
+                  playsInline
+                  data-testid="promo-video"
+                  className="w-full h-full object-cover"
+                />
+                {muted && (
+                  <button
+                    onClick={unmuteAndPlay}
+                    data-testid="promo-unmute-btn"
+                    className="absolute top-4 right-4 z-10 px-3.5 py-2 rounded-full bg-cyan-500 text-black font-mono text-xs font-bold uppercase tracking-wider shadow-lg shadow-cyan-500/40 hover:bg-cyan-400 transition flex items-center gap-2 animate-pulse"
+                    title="Click for narration + music"
+                  >
+                    <Volume2 size={14} /> Tap for sound
+                  </button>
+                )}
+              </>
             ) : (
               <iframe
                 src={`https://www.youtube.com/embed/${TENNANT_TRAILER_ID}?rel=0&modestbranding=1&playsinline=1`}
@@ -101,7 +122,7 @@ export default function PromoVideo() {
             )}
           </div>
           <div className="p-6 md:p-8">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-2">Tennant Companies · Transportation Management System</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-2">Tennant Companies · Transportation Management System · v2.0 Launch</div>
             <h1 className="font-display text-4xl md:text-5xl font-black tracking-tighter leading-none">
               One Glass.<br/>
               <span className="text-cyan-400">Every Mode.</span> Total Command.
@@ -111,8 +132,8 @@ export default function PromoVideo() {
             </p>
             <div className="mt-4 text-[10px] font-mono text-slate-500">
               {hasLocalMp4
-                ? "Cinematic · 13-slide branded tour of Tennant TMS v1.9 · 39s · self-hosted, plays on any network."
-                : <>Trailer · Tennant Equipment Insights (official YouTube). Drop a Sora 2-rendered <code className="text-cyan-300">/promo.mp4</code> into <code className="text-cyan-300">/app/frontend/public</code> to swap automatically.</>}
+                ? "Cinematic · 20-slide branded tour of Tennant TMS v2.0 · 96s · AI narration + ambient music · self-hosted, plays on any network."
+                : <>Trailer · Tennant Equipment Insights (official YouTube). Drop a rendered <code className="text-cyan-300">/promo.mp4</code> into <code className="text-cyan-300">/app/frontend/public</code> to swap automatically.</>}
             </div>
           </div>
         </Card>
@@ -180,7 +201,7 @@ export default function PromoVideo() {
           </p>
           <div className="mt-6 inline-flex items-center gap-2 text-[10px] font-mono text-cyan-400 tracking-[0.2em] uppercase">
             <span className="w-2 h-2 rounded-full bg-cyan-400 blink-dot"></span>
-            v1.9 · 2026 Update · Live for 250 users · 30+ modules · 100+ API endpoints
+            v2.0 · Launch Update · 250 users · 50+ modules · 200+ API endpoints · AI narration + ambient music
           </div>
         </Card>
       </div>
