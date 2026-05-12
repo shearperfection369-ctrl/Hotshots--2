@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import QuotesTicker from "../components/QuotesTicker";
 import MiniCalendar from "../components/MiniCalendar";
+import WeatherAlertsBanner from "../components/WeatherAlertsBanner";
+import WeatherRadar from "../components/WeatherRadar";
 import { useUserLayout } from "../components/DraggableTiles";
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar,
@@ -145,6 +147,9 @@ export default function Dashboard() {
       <Topbar title="Command Center" subtitle="TENNANT COMPANIES · TMS HUD · LIVE OPERATIONS" />
       <div className="p-4 md:p-6 flex flex-col gap-5">
 
+        {/* Auto NWS-style weather alert banner — polls every 60s, dismissible per alert_id */}
+        <WeatherAlertsBanner />
+
         {/* Top row: inspirational quotes ticker (full-width) + mini calendar
             tucked to the right per request. Stacks on small screens. */}
         <div className="flex flex-col md:flex-row md:items-stretch gap-3">
@@ -153,6 +158,9 @@ export default function Dashboard() {
           </div>
           <MiniCalendar />
         </div>
+
+        {/* Interactive live weather radar — fills the blank space at the top of the Command Center */}
+        <WeatherRadar height={360} />
 
         {/* Drag-to-reorder hint + Reset */}
         <div className="flex items-center justify-end gap-2 -mb-3" data-testid="dash-reorder-toolbar">

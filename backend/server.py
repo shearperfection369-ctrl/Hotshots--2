@@ -883,31 +883,863 @@ async def get_weather(_: User = Depends(get_current_user)):
     return results
 
 MOCK_NEWS = [
-    {"title": "Diesel prices ease 4¢ as Midwest refineries return", "source": "FreightWaves", "category": "fuel", "time": "12m"},
-    {"title": "Port of Long Beach reports 8% volume increase YoY", "source": "JOC", "category": "ocean", "time": "1h"},
-    {"title": "FMCSA proposes new HOS exemption for short-haul drivers", "source": "Transport Topics", "category": "regulatory", "time": "2h"},
-    {"title": "UPS adds 12 new electric ground-support tugs in Louisville hub", "source": "DC Velocity", "category": "carrier", "time": "3h"},
-    {"title": "Severe winter weather forecast for Upper Midwest this week", "source": "Weather.gov", "category": "weather", "time": "4h"},
-    {"title": "USTR considering new Section 301 review on imported components", "source": "Reuters", "category": "trade", "time": "5h"},
-    {"title": "Kuehne+Nagel expands North America air freight network", "source": "Air Cargo News", "category": "carrier", "time": "6h"},
-    {"title": "ELD malfunction reports rise 15% in Q4 — FMCSA notice", "source": "CDLLife", "category": "regulatory", "time": "8h"},
+    # 40+ rotating items. published_minutes_ago is randomized fresh on every
+    # /api/news fetch to simulate a live ticker for the dispatch team.
+    {"title": "Diesel prices ease 4¢ as Midwest refineries return from turnarounds", "source": "FreightWaves", "category": "fuel", "body": "EIA weekly diesel average drops to $3.78/gal — first decline in five weeks. PADD 2 (Midwest) led the pull-down at -6.2¢, easing some pressure on FSC schedules for Q1 freight.", "url": "https://www.freightwaves.com/news/diesel"},
+    {"title": "Port of Long Beach reports 8% volume increase YoY for January", "source": "JOC", "category": "ocean", "body": "TEU throughput at Long Beach hit 952,600 in January, up from 881,700 a year ago. POLB attributes the gain to early front-loading ahead of Lunar New Year and ongoing strength in furniture and appliance categories.", "url": "https://www.joc.com/port-news"},
+    {"title": "FMCSA proposes HOS exemption for short-haul drivers under 150 air-mile radius", "source": "Transport Topics", "category": "regulatory", "body": "Proposed rule would lengthen the short-haul exception from 14 to 16 hours and remove the 11-hour driving cap for qualifying intrastate runs.", "url": "https://www.fmcsa.dot.gov/proposed-rule"},
+    {"title": "UPS adds 12 new electric ground-support tugs in Louisville hub", "source": "DC Velocity", "category": "carrier", "body": "Worldport's electrification program now covers 28% of ground-support equipment; UPS targets 40% by year-end.", "url": "https://www.dcvelocity.com/ups-electric"},
+    {"title": "Severe winter weather forecast for Upper Midwest mid-week", "source": "Weather.gov", "category": "weather", "body": "NWS Twin Cities issues Winter Storm Watch for 14 counties Wed–Thu — 6–10\" snow forecast for Golden Valley corridor; carriers urged to pre-route freight.", "url": "https://weather.gov/mpx"},
+    {"title": "USTR opens Section 301 four-year review on Chinese components", "source": "Reuters", "category": "trade", "body": "Public comment period opens Mar 1 — affects HTS chapters 84/85/87 including motors, batteries, and electronic controllers commonly used by industrial OEMs.", "url": "https://ustr.gov/section-301-review"},
+    {"title": "Kuehne+Nagel expands North America air freight network with two new gateways", "source": "Air Cargo News", "category": "carrier", "body": "K+N adds Atlanta (ATL) and Dallas (DFW) gateways and 4 weekly 777F rotations from Frankfurt — designed to cut transit by 1–2 days on cross-Atlantic industrial freight.", "url": "https://www.aircargonews.net/kn-expansion"},
+    {"title": "ELD malfunction reports rise 15% in Q4 — FMCSA notice", "source": "CDLLife", "category": "regulatory", "body": "FMCSA issues guidance reminding fleets to keep paper backup logs for 8 days when ELDs fail. Affected device vendors named in notice.", "url": "https://cdllife.com/eld-malfunction"},
+
+    {"title": "Hapag-Lloyd raises GRI on US import lanes by $300/FFE effective Mar 1", "source": "JOC", "category": "ocean", "body": "Targets all-water Asia → USEC routes. Negotiated NAC contracts unaffected — spot market shippers should expect immediate impact.", "url": "https://www.hapag-lloyd.com/news"},
+    {"title": "BNSF announces $1.2B capex plan for Southern Transcon corridor", "source": "Railway Age", "category": "rail", "body": "Investments target additional double-track between Belen NM and Amarillo TX, plus Pasadena CA intermodal terminal expansion to handle larger intermodal volumes.", "url": "https://www.railwayage.com/bnsf-capex"},
+    {"title": "CSX completes Howard Street Tunnel clearance project in Baltimore", "source": "Trains Magazine", "category": "rail", "body": "Double-stack clearance now operational from Mid-Atlantic ports inland — expected to remove ~120 truck moves/day off I-95 corridor.", "url": "https://trn.trains.com/csx-tunnel"},
+    {"title": "Old Dominion posts record Q4 operating ratio of 70.1%", "source": "Logistics Management", "category": "ltl", "body": "ODFL revenue per hundredweight +5.4% YoY despite tonnage softness. Carrier credits density and absence of major service failures.", "url": "https://www.logisticsmgmt.com/odfl"},
+    {"title": "XPO opens 12 new LTL service centers across the Southeast", "source": "FreightWaves", "category": "ltl", "body": "XPO completes the largest LTL terminal expansion in 30 years — adds 2.4M ft² of dock space in TN, GA, FL, SC.", "url": "https://www.freightwaves.com/xpo-expansion"},
+    {"title": "Truckstop spot rates: DAT National Van down 2.1% WoW", "source": "DAT", "category": "spot-market", "body": "Linehaul rate excl. fuel sits at $1.66/mi for dry van; reefer holds at $2.04/mi as produce season starts to ramp in Florida and California.", "url": "https://www.dat.com/trendlines"},
+    {"title": "Mexico nearshoring drives 23% increase in cross-border truckload volume", "source": "JOC", "category": "cross-border", "body": "Laredo crossings up 18% YoY; Otay Mesa up 27%. Tennant's Reynosa supplier base reports 4-day average border dwell down to 32 hours.", "url": "https://www.joc.com/nearshoring"},
+    {"title": "Maersk announces all-electric drayage fleet for LA/LB by 2027", "source": "American Shipper", "category": "ocean", "body": "350 Class-8 electric tractors ordered from Volvo and Daimler. Charging infrastructure in partnership with Forum Mobility.", "url": "https://www.americanshipper.com/maersk"},
+    {"title": "DOT Sec'y announces $1.4B in port infrastructure grants", "source": "DOT", "category": "regulatory", "body": "20 ports receive funding; Long Beach, Houston, Norfolk top recipients. Focus on rail connectivity and zero-emission cargo handling.", "url": "https://www.transportation.gov/port-grants"},
+    {"title": "Saia announces 22 new terminal openings for 2026", "source": "Transport Topics", "category": "ltl", "body": "Aggressive geographic expansion in the Pacific Northwest and New England — Saia's first OR, WA, and ME locations.", "url": "https://www.ttnews.com/saia-2026"},
+    {"title": "Knight-Swift posts mixed Q4 — truckload margin compresses, logistics gains", "source": "Knight-Swift IR", "category": "carrier", "body": "Trucking segment OR 92.3% (-180bps YoY); Logistics 95.8% (+90bps). Net revenue up 4.2%.", "url": "https://knight-transportation.com/ir"},
+    {"title": "Schneider deploys 65 Freightliner eCascadia tractors in CA", "source": "FleetOwner", "category": "sustainability", "body": "Largest single OEM order to date — supporting California Advanced Clean Fleets compliance.", "url": "https://www.fleetowner.com/schneider-ev"},
+    {"title": "C.H. Robinson rolls out Procure IQ AI for spot procurement", "source": "Transport Topics", "category": "tech", "body": "AI-driven carrier match and pricing — claims to cut tender-to-cover time from 4 hours to 22 minutes on average.", "url": "https://www.chrobinson.com/procure-iq"},
+    {"title": "Suez Canal traffic improves 12% as Red Sea attacks de-escalate", "source": "Lloyd's List", "category": "ocean", "body": "Daily transits average 56, up from 50 at the start of the month. Capacity still 38% below pre-conflict baseline.", "url": "https://lloydslist.maritimeintelligence.informa.com/suez"},
+    {"title": "EU CBAM phase-2 compliance deadline approaches for steel imports", "source": "Reuters", "category": "trade", "body": "EU importers face quarterly reporting from April; non-compliance fines €50/ton CO₂ embedded. Industrial OEMs sourcing iron/steel from non-EU mills should validate emission documentation.", "url": "https://reuters.com/cbam"},
+    {"title": "Werner Enterprises closes Q4 with $0.58 EPS, beats by $0.04", "source": "SeekingAlpha", "category": "carrier", "body": "Dedicated segment showed strongest performance; one-way TL still under pressure from soft spot rates.", "url": "https://seekingalpha.com/werner-q4"},
+    {"title": "FedEx Freight tests autonomous yard tractors at Memphis hub", "source": "DC Velocity", "category": "tech", "body": "Outrider partnership — 6 electric autonomous tractors handling trailer spotting and yard moves 24/7.", "url": "https://www.dcvelocity.com/fedex-outrider"},
+    {"title": "Yellow Corp. terminals auction nets $1.9B for creditors", "source": "FreightWaves", "category": "ltl", "body": "ABF, Estes, XPO among biggest winners. 130 terminals sold across US — implications for LTL capacity in 2026.", "url": "https://www.freightwaves.com/yellow-auction"},
+    {"title": "Class-8 truck orders soar in January — ACT Research", "source": "Truckinginfo", "category": "industry", "body": "Net Class-8 orders 32,400 units — best January since 2018. Fleets restocking ahead of EPA 2027 emissions rules.", "url": "https://www.truckinginfo.com/class-8"},
+    {"title": "Tornado warning issued for Madison County, IN — I-69 SB shut", "source": "NWS Indianapolis", "category": "weather", "body": "Severe weather expected through 4pm local; Tennant's Holland-bound carriers re-routing via I-65 to avoid the cell.", "url": "https://weather.gov/ind"},
+    {"title": "Customs Modernization Act draft text circulates in House", "source": "AAEI", "category": "trade", "body": "Would consolidate CBP/PGA filings into a single enhanced ACE manifest. Industrial importers should monitor for changes to FTZ admission procedures.", "url": "https://aaei.org/cma"},
+    {"title": "OOCL ULCV maintenance schedule pushes 4 transpacific calls", "source": "JOC", "category": "ocean", "body": "Three ULCVs in drydock at Singapore; affected weekly sailings PSW3 and PCC.", "url": "https://www.joc.com/oocl-schedule"},
+    {"title": "Reefer rates climb 9% as Florida strawberry season opens", "source": "DAT", "category": "spot-market", "body": "Lakeland → Atlanta refrigerated lane up to $3.42/mi loaded. Expect FL-MI lanes to follow suit in 2 weeks.", "url": "https://www.dat.com/reefer"},
+    {"title": "AAR weekly carloads up 3.1% — chemicals lead growth", "source": "Association of American Railroads", "category": "rail", "body": "Total US originated carloads 226,118; chemical traffic +7.4% YoY. Intermodal also strong at +5.2%.", "url": "https://www.aar.org/weekly"},
+    {"title": "Tennant adds 4 new approved LTL carriers to North American roster", "source": "Internal", "category": "internal", "body": "XPO, ODFL, Saia, Estes all complete annual qualification review. Routing guide Rev 29 reflects updated lane assignments.", "url": "/routing-guide"},
+    {"title": "Holland MI plant on-time inbound rate hits 96.4% for January", "source": "Internal", "category": "internal", "body": "All-time monthly record. Top 5 suppliers (Motrex, BattCo, Premier Polymers, Yazaki, Midwest Steel) all >97%.", "url": "/kpis"},
+    {"title": "Hurricane Beryl recovery: Houston port back to 100% capacity", "source": "American Shipper", "category": "ocean", "body": "Backlog cleared 3 weeks after landfall — 27 vessels processed at peak vs. typical 18.", "url": "https://www.americanshipper.com/houston"},
+    {"title": "USPS announces 5.9% rate hike for parcel select effective July", "source": "Parcel Industry", "category": "parcel", "body": "Heaviest impact on lightweight residential parcels; commercial PS rates up 2.7%.", "url": "https://about.usps.com/rates"},
+    {"title": "DHL Express prioritizes battery-shipping training for ground couriers", "source": "Air Cargo News", "category": "hazmat", "body": "All US-based ground handlers complete IATA DGR section II training by end of Q1. Tennant Li-ion exports unaffected.", "url": "https://www.aircargonews.net/dhl"},
+    {"title": "Drayage CHASSISGATE: NACCS reports container chassis shortage easing", "source": "JOC", "category": "ocean", "body": "Long Beach pool +320 chassis week-over-week. Wait times for export bookings drop to 1.8 days from 4.2.", "url": "https://www.joc.com/chassis"},
+    {"title": "Estes Express announces driver pay increase averaging $0.06/mi", "source": "CCJ", "category": "ltl", "body": "Pay hike effective Mar 15; carrier reports applicant pipeline +28% since announcement.", "url": "https://www.ccjdigital.com/estes-pay"},
+    {"title": "I-95 Cordage Park bridge replacement project shifts truck traffic", "source": "MassDOT", "category": "infra", "body": "Two-year detour begins Mar 1 — Tennant carriers serving New England should route via I-93/I-90.", "url": "https://mass.gov/i95-cordage"},
 ]
+
+# Drop the deprecated single mock-news + traffic; the live endpoints below
+# generate fresh timestamps on every call so the dispatch team sees the
+# ticker advance even when the underlying corpus hasn't changed.
+import random as _random  # noqa: E402
+
+def _mins_ago_to_label(m: int) -> str:
+    if m < 1: return "now"
+    if m < 60: return f"{m}m"
+    h = m // 60
+    if h < 24: return f"{h}h"
+    return f"{h // 24}d"
+
 
 @api_router.get("/news")
-async def get_news(_: User = Depends(get_current_user)):
-    return MOCK_NEWS
+async def get_news(category: Optional[str] = None, limit: int = 40, _: User = Depends(get_current_user)):
+    """Live news feed. Every fetch reshuffles 'minutes ago' values within
+    each item's natural window so the ticker visibly advances each poll.
+    The dispatch team rotates through the full 40-item corpus instead of
+    the prior 8-item loop."""
+    pool = MOCK_NEWS
+    if category and category != "all":
+        pool = [n for n in pool if n.get("category") == category]
+    rnd = _random.Random()
+    out = []
+    for i, n in enumerate(pool):
+        # Spread mins between 0 and 360 so the feed feels live but coherent.
+        mins = rnd.randint(0, 360) + i  # slight bias keeps ordering varied
+        out.append({**n, "minutes_ago": mins, "time": _mins_ago_to_label(mins),
+                    "published_at": (datetime.now(timezone.utc) - timedelta(minutes=mins)).isoformat()})
+    out.sort(key=lambda x: x["minutes_ago"])
+    return out[:limit]
 
+
+# 25 traffic incidents with rich detail — agency, lanes closed, source URL,
+# expected clear-time, photos optional. Each fetch shuffles severity-weighted
+# ordering and updates "minutes-ago" so the panel feels live.
 MOCK_TRAFFIC = [
-    {"location": "I-94 EB at Mile 215 (MI)", "type": "Crash", "severity": "moderate", "delay_min": 25, "lat": 42.65, "lng": -86.10},
-    {"location": "I-65 N at Louisville Spaghetti Junction", "type": "Construction", "severity": "low", "delay_min": 12, "lat": 38.26, "lng": -85.75},
-    {"location": "I-394 W approach to Golden Valley", "type": "Weather - Snow", "severity": "high", "delay_min": 40, "lat": 44.98, "lng": -93.35},
-    {"location": "I-80 EB Ohio Turnpike Mile 161", "type": "Stalled vehicle", "severity": "low", "delay_min": 8, "lat": 41.36, "lng": -82.22},
-    {"location": "I-71 N Cincinnati", "type": "Congestion", "severity": "moderate", "delay_min": 18, "lat": 39.16, "lng": -84.45},
+    {"location": "I-94 EB at Mile 215 (MI)", "highway": "I-94", "direction": "EB",
+     "type": "Crash", "severity": "moderate", "delay_min": 25,
+     "lat": 42.65, "lng": -86.10, "lanes_closed": "2 of 3 EB",
+     "agency": "MI State Police", "eta_clear_min": 45,
+     "description": "Multi-vehicle crash at MM 215. Right two lanes blocked. Expect significant backups eastbound from Stevensville.",
+     "source_url": "https://www.michigan.gov/traffic", "near_facility": "Tennant Holland MI"},
+    {"location": "I-65 N at Louisville Spaghetti Junction (KY)", "highway": "I-65", "direction": "NB",
+     "type": "Construction", "severity": "low", "delay_min": 12,
+     "lat": 38.26, "lng": -85.75, "lanes_closed": "1 of 4 NB (shoulder work)",
+     "agency": "KYTC", "eta_clear_min": 240,
+     "description": "Ongoing bridge deck rehabilitation. Right shoulder closed 9pm–5am. Normal flow elsewhere.",
+     "source_url": "https://goky.ky.gov", "near_facility": "Tennant Louisville KY"},
+    {"location": "I-394 W approach to Golden Valley (MN)", "highway": "I-394", "direction": "WB",
+     "type": "Weather · Snow", "severity": "high", "delay_min": 40,
+     "lat": 44.98, "lng": -93.35, "lanes_closed": "Reduced visibility — all lanes open",
+     "agency": "MNDOT", "eta_clear_min": 90,
+     "description": "Heavy snowfall with blowing snow reducing visibility to under 1/4 mile. MNDOT advising essential travel only. Tennant HQ inbound LTL recommend delay.",
+     "source_url": "https://511mn.org", "near_facility": "Tennant HQ — Golden Valley MN"},
+    {"location": "I-80 EB Ohio Turnpike Mile 161 (OH)", "highway": "I-80", "direction": "EB",
+     "type": "Stalled vehicle", "severity": "low", "delay_min": 8,
+     "lat": 41.36, "lng": -82.22, "lanes_closed": "Right shoulder",
+     "agency": "Ohio Turnpike", "eta_clear_min": 20,
+     "description": "Disabled tractor-trailer in right shoulder. State patrol on scene. Minor rubbernecking delays.",
+     "source_url": "https://www.ohioturnpike.org/traffic"},
+    {"location": "I-71 N Cincinnati (OH)", "highway": "I-71", "direction": "NB",
+     "type": "Congestion", "severity": "moderate", "delay_min": 18,
+     "lat": 39.16, "lng": -84.45, "lanes_closed": "—",
+     "agency": "OHGO", "eta_clear_min": 60,
+     "description": "Volume-related slowdowns building from MM 1 to MM 8. Expect 25-35 mph through downtown.",
+     "source_url": "https://ohgo.com"},
+
+    {"location": "I-5 SB at Tejon Pass (CA)", "highway": "I-5", "direction": "SB",
+     "type": "Weather · Snow & Ice", "severity": "high", "delay_min": 75,
+     "lat": 34.80, "lng": -118.86, "lanes_closed": "Chains required for big rigs",
+     "agency": "Caltrans D7", "eta_clear_min": 180,
+     "description": "Chain controls in effect for vehicles over 6,000 lbs. Two truck spinouts at MM 195 cleared. Use US-101 alternate.",
+     "source_url": "https://quickmap.dot.ca.gov"},
+    {"location": "I-90 EB Cleveland (OH)", "highway": "I-90", "direction": "EB",
+     "type": "Accident with injury", "severity": "high", "delay_min": 50,
+     "lat": 41.49, "lng": -81.69, "lanes_closed": "All EB lanes — detour at W 25th",
+     "agency": "Ohio State Patrol", "eta_clear_min": 75,
+     "description": "Serious injury crash. EB I-90 closed from Innerbelt through Bridge Ave. Use Detour via I-490/I-77.",
+     "source_url": "https://ohgo.com"},
+    {"location": "I-70 WB Columbus (OH)", "highway": "I-70", "direction": "WB",
+     "type": "HazMat spill", "severity": "high", "delay_min": 120,
+     "lat": 39.96, "lng": -83.02, "lanes_closed": "All WB lanes — full closure",
+     "agency": "Columbus Fire HAZMAT", "eta_clear_min": 240,
+     "description": "Class 3 flammable liquid spill from overturned tanker at MM 99. Full WB closure. Detour via I-670/I-71.",
+     "source_url": "https://ohgo.com"},
+    {"location": "I-285 EB Atlanta Perimeter (GA)", "highway": "I-285", "direction": "EB",
+     "type": "Congestion", "severity": "moderate", "delay_min": 28,
+     "lat": 33.78, "lng": -84.31, "lanes_closed": "—",
+     "agency": "GDOT NaviGAtor", "eta_clear_min": 60,
+     "description": "Typical PM peak congestion building. Slow from Roswell Rd to I-85.",
+     "source_url": "https://www.511ga.org"},
+    {"location": "I-405 SB LA Sepulveda Pass (CA)", "highway": "I-405", "direction": "SB",
+     "type": "Construction", "severity": "moderate", "delay_min": 32,
+     "lat": 34.08, "lng": -118.47, "lanes_closed": "1 of 5 SB (night work)",
+     "agency": "Caltrans D7", "eta_clear_min": 180,
+     "description": "Nightly lane closure for pavement repair. Expect heavy delays through Sepulveda Pass overnight.",
+     "source_url": "https://quickmap.dot.ca.gov"},
+
+    {"location": "I-40 EB Memphis (TN)", "highway": "I-40", "direction": "EB",
+     "type": "Bridge inspection", "severity": "low", "delay_min": 15,
+     "lat": 35.15, "lng": -90.06, "lanes_closed": "1 of 3 EB",
+     "agency": "TDOT", "eta_clear_min": 120,
+     "description": "Routine inspection at Hernando de Soto Bridge. Reduced to 2 lanes.",
+     "source_url": "https://smartway.tn.gov"},
+    {"location": "I-25 SB Denver (CO)", "highway": "I-25", "direction": "SB",
+     "type": "Congestion", "severity": "high", "delay_min": 45,
+     "lat": 39.74, "lng": -104.99, "lanes_closed": "—",
+     "agency": "CDOT", "eta_clear_min": 75,
+     "description": "Mousetrap interchange backup extending 6 miles into northern Denver. Inbound from Wyoming significantly delayed.",
+     "source_url": "https://www.cotrip.org"},
+    {"location": "I-35 NB Dallas (TX)", "highway": "I-35", "direction": "NB",
+     "type": "Crash · injury", "severity": "moderate", "delay_min": 35,
+     "lat": 32.78, "lng": -96.81, "lanes_closed": "2 of 5 NB",
+     "agency": "TxDOT", "eta_clear_min": 60,
+     "description": "Three-vehicle collision near Reunion Tower. Left two lanes closed.",
+     "source_url": "https://drivetexas.org"},
+    {"location": "I-75 SB Detroit (MI)", "highway": "I-75", "direction": "SB",
+     "type": "Pothole repair", "severity": "low", "delay_min": 10,
+     "lat": 42.34, "lng": -83.04, "lanes_closed": "Right lane",
+     "agency": "MDOT", "eta_clear_min": 60,
+     "description": "Emergency pothole repair. Right lane closed near Mack Ave.",
+     "source_url": "https://mdotjboss.state.mi.us"},
+    {"location": "Holland Tunnel NJ inbound (NJ/NY)", "highway": "I-78", "direction": "EB",
+     "type": "Congestion", "severity": "high", "delay_min": 55,
+     "lat": 40.72, "lng": -74.04, "lanes_closed": "—",
+     "agency": "PANYNJ", "eta_clear_min": 120,
+     "description": "Heavy congestion building from NJ Turnpike Exit 14C. Cross-Hudson freight should use Lincoln or GWB.",
+     "source_url": "https://www.panynj.gov/bridges-tunnels"},
+
+    {"location": "I-15 NB Provo (UT)", "highway": "I-15", "direction": "NB",
+     "type": "Wildfire smoke", "severity": "moderate", "delay_min": 20,
+     "lat": 40.23, "lng": -111.66, "lanes_closed": "Reduced visibility — all open",
+     "agency": "UDOT", "eta_clear_min": 240,
+     "description": "Heavy smoke from Spanish Fork Canyon fire. Visibility under 1 mile in places. Drive with headlights on.",
+     "source_url": "https://www.udottraffic.utah.gov"},
+    {"location": "I-10 WB Phoenix (AZ)", "highway": "I-10", "direction": "WB",
+     "type": "Crash", "severity": "moderate", "delay_min": 30,
+     "lat": 33.45, "lng": -112.07, "lanes_closed": "1 of 4 WB",
+     "agency": "ADOT", "eta_clear_min": 45,
+     "description": "Single-vehicle rollover near 7th St. Right lane closed.",
+     "source_url": "https://az511.gov"},
+    {"location": "I-77 SB Charlotte (NC)", "highway": "I-77", "direction": "SB",
+     "type": "Congestion", "severity": "high", "delay_min": 38,
+     "lat": 35.23, "lng": -80.84, "lanes_closed": "—",
+     "agency": "NCDOT TIMS", "eta_clear_min": 90,
+     "description": "Volume + earlier crash at MM 11 — backups extending into Cornelius. Average speed 18 mph.",
+     "source_url": "https://drivenc.gov"},
+    {"location": "I-91 NB Hartford (CT)", "highway": "I-91", "direction": "NB",
+     "type": "Crash", "severity": "moderate", "delay_min": 22,
+     "lat": 41.76, "lng": -72.67, "lanes_closed": "1 of 3 NB",
+     "agency": "CT DOT", "eta_clear_min": 35,
+     "description": "Two-vehicle crash near Exit 33. Right lane closed.",
+     "source_url": "https://cttravelsmart.org"},
+    {"location": "I-275 EB Tampa (FL)", "highway": "I-275", "direction": "EB",
+     "type": "Disabled truck", "severity": "low", "delay_min": 18,
+     "lat": 27.97, "lng": -82.54, "lanes_closed": "Right shoulder + lane 1",
+     "agency": "FDOT FL511", "eta_clear_min": 30,
+     "description": "Tractor with mechanical issue blocking right lane. Towing en route.",
+     "source_url": "https://fl511.com"},
+
+    {"location": "I-84 EB Snoqualmie Pass (WA)", "highway": "I-84", "direction": "EB",
+     "type": "Weather · Snow", "severity": "high", "delay_min": 90,
+     "lat": 47.39, "lng": -121.41, "lanes_closed": "Traction tires required",
+     "agency": "WSDOT", "eta_clear_min": 240,
+     "description": "Pass conditions deteriorating rapidly. Traction tires required; chains advised. Mountain prepared closure possible.",
+     "source_url": "https://wsdot.com/Travel/Real-time"},
+    {"location": "I-44 WB Tulsa (OK)", "highway": "I-44", "direction": "WB",
+     "type": "Construction", "severity": "low", "delay_min": 14,
+     "lat": 36.15, "lng": -95.99, "lanes_closed": "1 of 3 WB",
+     "agency": "OK 511", "eta_clear_min": 180,
+     "description": "Resurfacing project — center lane reduction. Carriers building reliable +15 min buffer.",
+     "source_url": "https://oklahoma.gov/odot"},
+    {"location": "I-280 NB Bay Area (CA)", "highway": "I-280", "direction": "NB",
+     "type": "Sigalert · Crash", "severity": "high", "delay_min": 65,
+     "lat": 37.78, "lng": -122.39, "lanes_closed": "3 of 4 NB",
+     "agency": "CHP", "eta_clear_min": 90,
+     "description": "Multi-vehicle crash with injuries. SIG-Alert issued; expect 1+ hour delay.",
+     "source_url": "https://quickmap.dot.ca.gov"},
+    {"location": "I-526 EB Charleston (SC)", "highway": "I-526", "direction": "EB",
+     "type": "Bridge maintenance", "severity": "low", "delay_min": 9,
+     "lat": 32.83, "lng": -79.96, "lanes_closed": "1 of 2 EB",
+     "agency": "SCDOT", "eta_clear_min": 120,
+     "description": "Routine bridge work over Wando River. Minor delay.",
+     "source_url": "https://511sc.org"},
+    {"location": "I-29 SB Sioux City (IA)", "highway": "I-29", "direction": "SB",
+     "type": "Weather · Wind", "severity": "moderate", "delay_min": 25,
+     "lat": 42.50, "lng": -96.40, "lanes_closed": "Wind advisory for high-profile vehicles",
+     "agency": "Iowa 511", "eta_clear_min": 180,
+     "description": "Sustained 35 mph winds with gusts to 55 mph. High-profile / empty trailer warning in effect.",
+     "source_url": "https://511ia.org"},
 ]
 
+
 @api_router.get("/traffic")
-async def get_traffic(_: User = Depends(get_current_user)):
-    return MOCK_TRAFFIC
+async def get_traffic(severity: Optional[str] = None, _: User = Depends(get_current_user)):
+    """Live traffic. Each fetch rotates 'reported_minutes_ago' so dispatchers
+    see the panel as continuously updating, plus enriches every record with
+    a synthetic `reported_at` ISO timestamp."""
+    rnd = _random.Random()
+    out = []
+    for inc in MOCK_TRAFFIC:
+        if severity and inc.get("severity") != severity:
+            continue
+        mins = rnd.randint(0, 90)
+        out.append({**inc, "minutes_ago": mins, "reported_at_label": _mins_ago_to_label(mins),
+                    "reported_at": (datetime.now(timezone.utc) - timedelta(minutes=mins)).isoformat()})
+    # Severity-weighted sort: high first, then most recent
+    sev_rank = {"high": 0, "moderate": 1, "low": 2}
+    out.sort(key=lambda x: (sev_rank.get(x.get("severity"), 9), x["minutes_ago"]))
+    return out
+
+
+# -------------------- WEATHER ALERTS (NWS-style, MOCKED but realistic) --------------------
+MOCK_WEATHER_ALERTS = [
+    {"alert_id": "NWS-MPX-2026-0211-WS01", "type": "Winter Storm Watch", "severity": "moderate",
+     "area": "Twin Cities Metro · MN", "affected_facility": "Tennant HQ — Golden Valley MN",
+     "headline": "Winter Storm Watch for Hennepin County in effect through Thu 6 AM.",
+     "body": "6 to 10 inches of snow expected with localized 12-inch totals possible. Travel could be very difficult during the Wednesday morning commute. Carriers serving HQ should pre-route freight Tuesday evening.",
+     "issued_at": (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
+     "expires_at": (datetime.now(timezone.utc) + timedelta(days=2)).isoformat(),
+     "source": "NWS Twin Cities", "source_url": "https://www.weather.gov/mpx/"},
+    {"alert_id": "NWS-IWX-2026-0211-WW02", "type": "Winter Weather Advisory", "severity": "low",
+     "area": "Lower Michigan", "affected_facility": "Tennant Holland MI Plant",
+     "headline": "Winter Weather Advisory — 2 to 4 inches of snow Tuesday night into Wednesday.",
+     "body": "Light to moderate snow expected. Plan for slick roadways during the morning commute. Some impacts to inbound LTL deliveries to Holland Plant possible.",
+     "issued_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+     "expires_at": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+     "source": "NWS Northern Indiana", "source_url": "https://www.weather.gov/iwx/"},
+    {"alert_id": "NWS-LMK-2026-0211-WIA", "type": "Wind Advisory", "severity": "low",
+     "area": "Louisville Metro · KY", "affected_facility": "Tennant Louisville KY Plant",
+     "headline": "Wind Advisory — Southwest winds 25 to 35 mph with gusts to 50 mph.",
+     "body": "High-profile / empty trailer drivers urged to use caution. Drayage operations may experience minor delays at hardstand locations.",
+     "issued_at": (datetime.now(timezone.utc) - timedelta(minutes=40)).isoformat(),
+     "expires_at": (datetime.now(timezone.utc) + timedelta(hours=14)).isoformat(),
+     "source": "NWS Louisville", "source_url": "https://www.weather.gov/lmk/"},
+    {"alert_id": "NWS-ICT-2026-0211-FFW", "type": "Flash Flood Warning", "severity": "high",
+     "area": "Sedgwick County · KS", "affected_facility": None,
+     "headline": "Flash Flood Warning until 6 PM CST.",
+     "body": "Heavy rainfall producing 1 to 2 inches per hour. Avoid flooded roadways. I-135 South of Wichita may experience standing water at low points.",
+     "issued_at": (datetime.now(timezone.utc) - timedelta(minutes=22)).isoformat(),
+     "expires_at": (datetime.now(timezone.utc) + timedelta(hours=4)).isoformat(),
+     "source": "NWS Wichita", "source_url": "https://www.weather.gov/ict/"},
+]
+
+
+@api_router.get("/weather/alerts")
+async def weather_alerts_endpoint(_: User = Depends(get_current_user)):
+    """Mocked NWS-style watches/warnings keyed to Tennant facility regions.
+    UI polls every 60 seconds and toasts when a new alert_id appears."""
+    return MOCK_WEATHER_ALERTS
+
+
+# -------------------- WELLNESS NUDGES --------------------
+WELLNESS_NUDGES = [
+    {"id": "stretch", "category": "movement", "title": "Stand-up reset", "message": "You've been seated a while — stand, roll your shoulders, look at something 20+ feet away for 20 seconds.", "icon": "Activity"},
+    {"id": "hydrate", "category": "hydration", "title": "Hydration check", "message": "Top up your water. Pull dispatch numbers go better when you do.", "icon": "Droplet"},
+    {"id": "eyes", "category": "wellness", "title": "20-20-20 rule", "message": "Every 20 minutes look at something 20 feet away for 20 seconds. Your eyes will thank you.", "icon": "Eye"},
+    {"id": "breath", "category": "mindfulness", "title": "Box breathing", "message": "Inhale 4 · hold 4 · exhale 4 · hold 4. Run three rounds before your next call.", "icon": "Wind"},
+    {"id": "step", "category": "movement", "title": "100 steps", "message": "Walk to the printer, the kitchen, anywhere. 100 steps clears the head between long booking sessions.", "icon": "Footprints"},
+    {"id": "lunch", "category": "nutrition", "title": "Real lunch reminder", "message": "Step away from the desk — eat lunch somewhere that isn't this screen.", "icon": "Coffee"},
+    {"id": "posture", "category": "wellness", "title": "Posture pulse", "message": "Sit up tall. Shoulders back and down. Imagine a string lifting the crown of your head.", "icon": "User"},
+    {"id": "gratitude", "category": "mindfulness", "title": "One good thing", "message": "Name one thing that went well in the last hour. Big or small — celebrate the win.", "icon": "Heart"},
+    {"id": "stretch-neck", "category": "movement", "title": "Neck stretch", "message": "Drop your ear toward your shoulder, hold for 15 seconds each side. Loosen the dispatcher's hunch.", "icon": "Activity"},
+    {"id": "snack", "category": "nutrition", "title": "Smart snack", "message": "Hungry? Reach for nuts, fruit, or yogurt over the candy bowl. Steady energy beats a sugar spike.", "icon": "Apple"},
+    {"id": "music", "category": "mindfulness", "title": "Mood lift", "message": "Put on one song you love. Whole-day reset, two minutes.", "icon": "Music"},
+    {"id": "fresh-air", "category": "movement", "title": "60 seconds outside", "message": "Step outside for one minute. Daylight resets your circadian rhythm — yes, even in February.", "icon": "Sun"},
+    {"id": "stretch-back", "category": "movement", "title": "Cat-cow", "message": "Hands on knees, arch and round your back five times. Dispatch chairs aren't kind — fight back.", "icon": "Activity"},
+    {"id": "remember", "category": "mindfulness", "title": "Why you do this", "message": "Every shipment moves something someone is waiting for. You're moving the world, one BOL at a time.", "icon": "Heart"},
+    {"id": "celebrate", "category": "mindfulness", "title": "Team shoutout", "message": "Spotted a teammate crushing it? Send a quick 'nice work' message. Two-second cost, huge impact.", "icon": "Award"},
+]
+
+
+@api_router.get("/wellness/nudges")
+async def wellness_nudges_endpoint(_: User = Depends(get_current_user)):
+    return WELLNESS_NUDGES
+
+
+# -------------------- INTEGRATIONS · POWER BI --------------------
+POWERBI_REPORTS_DEFAULT = [
+    {"id": "tennant-tms-overview", "name": "Tennant TMS · Executive Overview",
+     "description": "Real-time KPIs across all modes — cost-per-mile, on-time %, freight spend.",
+     "workspace": "Tennant · Supply Chain", "owner": "Joe Carlsson",
+     "embed_url": "https://app.powerbi.com/reportEmbed?reportId=demo-overview&autoAuth=true",
+     "view_url": "https://app.powerbi.com/groups/me/reports/demo-overview",
+     "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=8)).isoformat()},
+    {"id": "freight-spend-by-lane", "name": "Freight Spend by Lane · YTD",
+     "description": "Lane-level spend, volume, and rate trend with target compare.",
+     "workspace": "Tennant · Supply Chain", "owner": "Amanda Reyes",
+     "embed_url": "https://app.powerbi.com/reportEmbed?reportId=demo-lane-spend&autoAuth=true",
+     "view_url": "https://app.powerbi.com/groups/me/reports/demo-lane-spend",
+     "updated_at": (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()},
+    {"id": "on-time-delivery", "name": "On-Time Delivery Performance",
+     "description": "OTD% by carrier, mode, region. 90-day trend with drill-down to shipment.",
+     "workspace": "Tennant · Operations", "owner": "Marcus Lavoie",
+     "embed_url": "https://app.powerbi.com/reportEmbed?reportId=demo-otd&autoAuth=true",
+     "view_url": "https://app.powerbi.com/groups/me/reports/demo-otd",
+     "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=45)).isoformat()},
+    {"id": "yard-dwell-trends", "name": "Yard Dwell · Daily Trend",
+     "description": "Average and P95 dwell time at all 4 plants. Stale-trailer alerts highlighted.",
+     "workspace": "Tennant · Operations", "owner": "Christine Yoder",
+     "embed_url": "https://app.powerbi.com/reportEmbed?reportId=demo-yard&autoAuth=true",
+     "view_url": "https://app.powerbi.com/groups/me/reports/demo-yard",
+     "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()},
+    {"id": "carrier-scorecards", "name": "Carrier Performance Scorecards",
+     "description": "OTD, claims rate, billing accuracy, accessorial usage — top 25 carriers.",
+     "workspace": "Tennant · Supply Chain", "owner": "Renee Calderon",
+     "embed_url": "https://app.powerbi.com/reportEmbed?reportId=demo-scorecard&autoAuth=true",
+     "view_url": "https://app.powerbi.com/groups/me/reports/demo-scorecard",
+     "updated_at": (datetime.now(timezone.utc) - timedelta(hours=4)).isoformat()},
+    {"id": "fuel-surcharge", "name": "FSC vs. DOE Diesel Tracker",
+     "description": "Carrier FSC schedules charted against weekly DOE diesel. Reveals lag/lead.",
+     "workspace": "Tennant · Finance", "owner": "Henry Park",
+     "embed_url": "https://app.powerbi.com/reportEmbed?reportId=demo-fsc&autoAuth=true",
+     "view_url": "https://app.powerbi.com/groups/me/reports/demo-fsc",
+     "updated_at": (datetime.now(timezone.utc) - timedelta(hours=12)).isoformat()},
+]
+
+
+@api_router.get("/integrations/powerbi/config")
+async def powerbi_config_get(_: User = Depends(get_current_user)):
+    """Returns the active list of Power BI reports the admin has wired up.
+    If none are saved in Mongo we fall back to the default demo roster so
+    the new tab always renders something useful out of the box."""
+    doc = await db.integration_configs.find_one({"_id": "powerbi"}, {"_id": 0})
+    reports = (doc or {}).get("reports") or POWERBI_REPORTS_DEFAULT
+    workspace_url = (doc or {}).get("workspace_url") or "https://app.powerbi.com/groups/me"
+    return {"reports": reports, "workspace_url": workspace_url, "tenant": "tennantco.onmicrosoft.com"}
+
+
+class PowerBIReport(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = ""
+    workspace: Optional[str] = "Tennant"
+    owner: Optional[str] = ""
+    embed_url: Optional[str] = ""
+    view_url: str
+
+
+class PowerBIConfig(BaseModel):
+    workspace_url: Optional[str] = ""
+    reports: List[PowerBIReport] = []
+
+
+@api_router.put("/integrations/powerbi/config")
+async def powerbi_config_put(payload: PowerBIConfig, user: User = Depends(require_role("admin"))):
+    rec = {"_id": "powerbi", "workspace_url": payload.workspace_url,
+           "reports": [r.dict() for r in payload.reports],
+           "updated_by": user.name,
+           "updated_at": datetime.now(timezone.utc).isoformat()}
+    await db.integration_configs.replace_one({"_id": "powerbi"}, rec, upsert=True)
+    return {"ok": True}
+
+
+# -------------------- INTEGRATIONS · SHAREPOINT --------------------
+SHAREPOINT_SITES_DEFAULT = [
+    {"id": "tennant-supplychain", "name": "Tennant · Supply Chain",
+     "url": "https://tennantco.sharepoint.com/sites/supplychain",
+     "description": "Routing guides, carrier MSAs, freight RFP packets, trade compliance archive.",
+     "members": 47, "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=18)).isoformat()},
+    {"id": "tennant-ops", "name": "Tennant · Plant Operations",
+     "url": "https://tennantco.sharepoint.com/sites/operations",
+     "description": "Yard reports, daily production schedules, dock door rosters across HQ + 3 plants.",
+     "members": 122, "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=4)).isoformat()},
+    {"id": "tennant-finance", "name": "Tennant · Finance",
+     "url": "https://tennantco.sharepoint.com/sites/finance",
+     "description": "Freight invoices, monthly cost-to-serve, accruals, audit packets.",
+     "members": 18, "updated_at": (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()},
+    {"id": "tennant-trade", "name": "Tennant · Trade Compliance",
+     "url": "https://tennantco.sharepoint.com/sites/trade",
+     "description": "HTS classifications, Section 301 watch, FTZ admissions, broker portal links.",
+     "members": 12, "updated_at": (datetime.now(timezone.utc) - timedelta(hours=8)).isoformat()},
+    {"id": "tennant-transportation", "name": "Tennant · Transportation",
+     "url": "https://tennantco.sharepoint.com/sites/transportation",
+     "description": "Carrier contracts, lane tenders, accessorial reference, dispatcher SOPs.",
+     "members": 31, "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=55)).isoformat()},
+]
+
+SHAREPOINT_RECENT_FILES_DEFAULT = [
+    {"name": "2026 Domestic Inbound Routing Guide (Rev 29).pdf", "site": "Tennant · Supply Chain", "modified_by": "Joe Carlsson", "modified_at": (datetime.now(timezone.utc) - timedelta(hours=11)).isoformat(), "size": "418 KB", "url": "https://tennantco.sharepoint.com/sites/supplychain/Shared%20Documents/Routing/2026-Routing-Guide-Rev29.pdf"},
+    {"name": "Q4-2025 Freight RFP — Final Bid Matrix.xlsx", "site": "Tennant · Supply Chain", "modified_by": "Amanda Reyes", "modified_at": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(), "size": "2.1 MB", "url": "https://tennantco.sharepoint.com/sites/supplychain/Shared%20Documents/RFP/Q4-2025-Bid-Matrix.xlsx"},
+    {"name": "Carrier MSA — Knight Transportation 2026.pdf", "site": "Tennant · Transportation", "modified_by": "Marcus Lavoie", "modified_at": (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(), "size": "780 KB", "url": "https://tennantco.sharepoint.com/sites/transportation/Shared%20Documents/MSAs/Knight-2026.pdf"},
+    {"name": "Holland Yard Report 2026-02-10.xlsx", "site": "Tennant · Plant Operations", "modified_by": "Yard Supervisor", "modified_at": (datetime.now(timezone.utc) - timedelta(hours=6)).isoformat(), "size": "94 KB", "url": "https://tennantco.sharepoint.com/sites/operations/Shared%20Documents/Yard/Holland-2026-02-10.xlsx"},
+    {"name": "January Freight Audit Variance Report.pdf", "site": "Tennant · Finance", "modified_by": "Henry Park", "modified_at": (datetime.now(timezone.utc) - timedelta(days=3)).isoformat(), "size": "612 KB", "url": "https://tennantco.sharepoint.com/sites/finance/Shared%20Documents/Audit/Jan-2026-Variance.pdf"},
+    {"name": "USTR Section 301 Comment Letter — DRAFT.docx", "site": "Tennant · Trade Compliance", "modified_by": "Joe Carlsson", "modified_at": (datetime.now(timezone.utc) - timedelta(hours=4)).isoformat(), "size": "62 KB", "url": "https://tennantco.sharepoint.com/sites/trade/Shared%20Documents/USTR-301-Comment.docx"},
+    {"name": "Dispatcher Standard Operating Procedures v3.2.pdf", "site": "Tennant · Transportation", "modified_by": "Renee Calderon", "modified_at": (datetime.now(timezone.utc) - timedelta(days=5)).isoformat(), "size": "1.4 MB", "url": "https://tennantco.sharepoint.com/sites/transportation/Shared%20Documents/SOP/Dispatch-SOP-v3.2.pdf"},
+    {"name": "FTZ Admission Logs — January.xlsx", "site": "Tennant · Trade Compliance", "modified_by": "Amanda Reyes", "modified_at": (datetime.now(timezone.utc) - timedelta(days=4)).isoformat(), "size": "232 KB", "url": "https://tennantco.sharepoint.com/sites/trade/Shared%20Documents/FTZ/Jan-2026-Admissions.xlsx"},
+]
+
+
+@api_router.get("/integrations/sharepoint/config")
+async def sharepoint_config(_: User = Depends(get_current_user)):
+    doc = await db.integration_configs.find_one({"_id": "sharepoint"}, {"_id": 0})
+    sites = (doc or {}).get("sites") or SHAREPOINT_SITES_DEFAULT
+    files = (doc or {}).get("recent_files") or SHAREPOINT_RECENT_FILES_DEFAULT
+    tenant_url = (doc or {}).get("tenant_url") or "https://tennantco.sharepoint.com"
+    return {"sites": sites, "recent_files": files, "tenant_url": tenant_url}
+
+
+# -------------------- INTEGRATIONS · S4 LINK BUILDER --------------------
+SAP_S4_BASE = os.environ.get("SAP_S4_BASE_URL", "https://my-s4.tennantco.com")
+# Fiori app aliases — these are the canonical OData/Web Dynpro paths each
+# S/4HANA tile resolves to. Wrapped in an env var so customers can swap
+# the production hostname with no code changes.
+S4_DEEP_LINK_PATTERNS = {
+    "purchase_order":   "/sap/bc/ui2/flp#PurchaseOrder-displayFactSheet?PurchaseOrder={value}",
+    "sales_order":      "/sap/bc/ui2/flp#SalesOrder-displayFactSheet?SalesOrder={value}",
+    "delivery":         "/sap/bc/ui2/flp#OutboundDelivery-displayFactSheet?Delivery={value}",
+    "invoice":          "/sap/bc/ui2/flp#BillingDocument-display?BillingDocument={value}",
+    "supplier_invoice": "/sap/bc/ui2/flp#SupplierInvoice-display?SupplierInvoice={value}",
+    "material":         "/sap/bc/ui2/flp#Material-displayFactSheet?Material={value}",
+    "part":             "/sap/bc/ui2/flp#Material-displayFactSheet?Material={value}",
+    "bol":              "/sap/bc/ui2/flp#FreightOrder-displayFactSheet?FreightOrder={value}",
+    "booking":          "/sap/bc/ui2/flp#TransportationOrder-displayFactSheet?TransportationOrder={value}",
+    "shipment":         "/sap/bc/ui2/flp#TransportationOrder-displayFactSheet?TransportationOrder={value}",
+}
+
+
+@api_router.get("/sap/deep-link")
+async def sap_deep_link(kind: str, value: str, _: User = Depends(get_current_user)):
+    """Build a deep-link URL into Tennant's SAP S/4HANA Fiori launchpad
+    for a given reference (kind = purchase_order, sales_order, invoice,
+    bol, etc). Returned as JSON so the frontend can hyperlink any token."""
+    if kind not in S4_DEEP_LINK_PATTERNS:
+        raise HTTPException(status_code=400, detail=f"Unknown S/4 link kind: {kind}")
+    if not value:
+        raise HTTPException(status_code=400, detail="value required")
+    path = S4_DEEP_LINK_PATTERNS[kind].format(value=urllib.parse.quote(value, safe=""))
+    return {"url": f"{SAP_S4_BASE}{path}", "kind": kind, "value": value, "base": SAP_S4_BASE}
+
+
+@api_router.get("/sap/link-config")
+async def sap_link_config(_: User = Depends(get_current_user)):
+    """Frontend reads this once to build links locally without a roundtrip
+    per token. Returns the base URL + pattern map (with `{value}` placeholder)."""
+    return {"base": SAP_S4_BASE, "patterns": S4_DEEP_LINK_PATTERNS, "kinds": list(S4_DEEP_LINK_PATTERNS.keys())}
+
+
+# -------------------- CARRIER TRACKING URLs --------------------
+# Per-carrier public tracking page templates. `{tracking}` is the only
+# placeholder. When a carrier has multiple options (e.g. ODFL by PRO# vs.
+# BOL#), the most-commonly-used pattern is picked.
+CARRIER_TRACKING_URLS: Dict[str, Dict[str, str]] = {
+    "UPS":                 {"url": "https://www.ups.com/track?tracknum={tracking}",                                  "label": "UPS · Tracking #"},
+    "FedEx":               {"url": "https://www.fedex.com/fedextrack/?trknbr={tracking}",                            "label": "FedEx · Tracking #"},
+    "USPS":                {"url": "https://tools.usps.com/go/TrackConfirmAction?tLabels={tracking}",                "label": "USPS · Tracking #"},
+    "DHL":                 {"url": "https://www.dhl.com/global-en/home/tracking.html?tracking-id={tracking}",        "label": "DHL · Waybill"},
+    "DHL Express":         {"url": "https://www.dhl.com/global-en/home/tracking.html?tracking-id={tracking}",        "label": "DHL Express · Waybill"},
+    "ODFL":                {"url": "https://www.odfl.com/Trace/standardResults.faces?pro={tracking}",                "label": "Old Dominion · PRO #"},
+    "Old Dominion":        {"url": "https://www.odfl.com/Trace/standardResults.faces?pro={tracking}",                "label": "Old Dominion · PRO #"},
+    "XPO":                 {"url": "https://www.xpo.com/tracking/?pros={tracking}",                                  "label": "XPO Logistics · PRO #"},
+    "XPO Logistics":       {"url": "https://www.xpo.com/tracking/?pros={tracking}",                                  "label": "XPO Logistics · PRO #"},
+    "Saia":                {"url": "https://www.saia.com/tools/track-shipments?proNumbers={tracking}",               "label": "Saia · PRO #"},
+    "Estes":               {"url": "https://www.estes-express.com/myestes/shipment-tracking/track-shipment?type=PRO&searchValue={tracking}", "label": "Estes · PRO #"},
+    "Estes Express":       {"url": "https://www.estes-express.com/myestes/shipment-tracking/track-shipment?type=PRO&searchValue={tracking}", "label": "Estes · PRO #"},
+    "R+L Carriers":        {"url": "https://www2.rlcarriers.com/freight/shipping/shipment-tracing?pro={tracking}",   "label": "R+L Carriers · PRO #"},
+    "R&L Carriers":        {"url": "https://www2.rlcarriers.com/freight/shipping/shipment-tracing?pro={tracking}",   "label": "R&L Carriers · PRO #"},
+    "ArcBest":             {"url": "https://arcb.com/tools/tracking?prn={tracking}",                                 "label": "ArcBest · PRO #"},
+    "ABF":                 {"url": "https://arcb.com/tools/tracking?prn={tracking}",                                 "label": "ABF · PRO #"},
+    "Knight":              {"url": "https://knight-transportation.com/track-load/?load={tracking}",                  "label": "Knight Transportation · Load #"},
+    "Knight Transportation": {"url": "https://knight-transportation.com/track-load/?load={tracking}",                "label": "Knight · Load #"},
+    "Schneider":           {"url": "https://schneider.com/shipment-tracking?reference={tracking}",                   "label": "Schneider · Pro/Ref"},
+    "Werner":              {"url": "https://www.werner.com/shipment-tracking?ref={tracking}",                        "label": "Werner · Reference"},
+    "C.H. Robinson":       {"url": "https://www.chrobinson.com/en-us/shipper/shipment-tracking/?reference={tracking}", "label": "C.H. Robinson · Reference"},
+    "Maersk":              {"url": "https://www.maersk.com/tracking/{tracking}",                                     "label": "Maersk · Container/B-of-L"},
+    "MSC":                 {"url": "https://www.msc.com/track-a-shipment?agencyPath=msc&shipmentNumber={tracking}",  "label": "MSC · Container/B-of-L"},
+    "Hapag-Lloyd":         {"url": "https://www.hapag-lloyd.com/en/online-business/track/track-by-container-solution.html?container={tracking}", "label": "Hapag-Lloyd · Container"},
+    "CMA CGM":             {"url": "https://www.cma-cgm.com/ebusiness/tracking/search?SearchBy=Container&Reference={tracking}", "label": "CMA CGM · Container"},
+    "ONE":                 {"url": "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking?trackingType=CONTAINER&trackingNumber={tracking}", "label": "ONE · Container"},
+    "Evergreen":           {"url": "https://www.evergreen-line.com/static/jsp/cargo_tracking.jsp?bl_no={tracking}",  "label": "Evergreen · B-of-L"},
+    "Yang Ming":           {"url": "https://www.yangming.com/e-service/Track_Trace/track_trace_cargo_tracking.aspx?bl_no={tracking}", "label": "Yang Ming · B-of-L"},
+    "OOCL":                {"url": "https://www.oocl.com/eng/ourservices/eservices/cargotracking/Pages/cargotracking.aspx?ContainerNo={tracking}", "label": "OOCL · Container"},
+    "Kuehne+Nagel":        {"url": "https://mykn.kuehne-nagel.com/public-tracking/shipments?query={tracking}",       "label": "Kuehne+Nagel · Reference"},
+    "Kuehne+Nagel Services": {"url": "https://mykn.kuehne-nagel.com/public-tracking/shipments?query={tracking}",     "label": "Kuehne+Nagel · Reference"},
+    "DSV":                 {"url": "https://my.dsv.com/etrack?id={tracking}",                                        "label": "DSV · Reference"},
+    "Expeditors":          {"url": "https://www.expeditors.com/track?ref={tracking}",                                "label": "Expeditors · Reference"},
+    "DB Schenker":         {"url": "https://www.dbschenker.com/global/tracking?id={tracking}",                       "label": "DB Schenker · Reference"},
+    "Yellow":              {"url": "https://my.yellowcorp.com/tools/tracking-tools?proNumbers={tracking}",           "label": "Yellow · PRO #"},
+    "TForce":              {"url": "https://www.tforcefreight.com/ltl/apps/Tracking?ProNumbers={tracking}",          "label": "TForce · PRO #"},
+}
+
+
+@api_router.get("/carriers/tracking-urls")
+async def carrier_tracking_urls(_: User = Depends(get_current_user)):
+    """Return the full carrier → tracking URL template map. Frontend uses
+    this to render direct-tracking buttons inside the Live Tracking tab."""
+    return {"carriers": CARRIER_TRACKING_URLS}
+
+
+# -------------------- SPECIALTY CARRIERS --------------------
+# White-glove / priority-use carriers Tennant relies on for high-value or
+# tricky freight (Logix · ArcBest Panther · Fastfrate · Ryan Transportation).
+# Each gets a dedicated profile card with the services that make them the
+# go-to for that lane / equipment / handling profile.
+SPECIALTY_CARRIERS = [
+    {
+        "id": "logix",
+        "name": "Logix Transportation",
+        "tagline": "White-glove machine transport · Pad-wrapped · Damage-free",
+        "summary": "Created specifically to support Tennant's industrial machine deliveries. Logix specializes in pad-wrapping every machine before transit so customer-facing units arrive at retail and dealer locations in pristine condition.",
+        "specialty": ["Pad-wrap protection", "Tennant machine transport", "Lift-gate residential", "Inside delivery", "White-glove handoff"],
+        "modes": ["TL Specialty", "Van Line", "Air-Ride Lowboy"],
+        "lanes": ["Holland MI → US 48 (priority)", "Golden Valley HQ → demo events", "Louisville KY → US Southeast", "Plant → end-customer dock"],
+        "rate_basis": "Flat per machine · negotiated annual contract",
+        "contact": {"name": "Eric Vandermeer", "phone": "+1-616-555-0177", "email": "tennant@logixtransportation.com", "after_hours": "+1-616-555-0188"},
+        "website": "https://www.logixtransportation.com",
+        "tracking_url": "https://www.logixtransportation.com/track?ref={tracking}",
+        "color": "#10B981",  # emerald
+        "logo_initials": "LX",
+        "priority": "P0 · always-on white-glove",
+        "since": "2018",
+        "ytd_loads": 1287,
+        "claim_rate_pct": 0.04,
+        "on_time_pct": 99.1,
+    },
+    {
+        "id": "arcbest-panther",
+        "name": "ArcBest · Panther Premium Logistics",
+        "tagline": "Expedited · Time-critical · Mission-critical",
+        "summary": "Panther — ArcBest's expedited division — runs Tennant's hot loads when a customer line is down or a launch event can't slip. Same-day pickup, team drivers for cross-country freight, live in-cab tracking.",
+        "specialty": ["Expedited sprinter / box truck / Class-8", "Team drivers", "Same-day pickup", "Live in-cab tracking", "Air charter coordination"],
+        "modes": ["Sprinter Van", "Straight Truck", "Tractor + 53' Van", "Air Charter"],
+        "lanes": ["US 48 anywhere → anywhere", "Detroit / Chicago / Atlanta hot lanes"],
+        "rate_basis": "Per-mile + dispatch fee · spot or contract",
+        "contact": {"name": "Cathy Powers", "phone": "+1-866-PANTHER", "email": "tennant@arcb.com", "after_hours": "+1-866-726-8437"},
+        "website": "https://arcb.com/services/expedite",
+        "tracking_url": "https://arcb.com/tools/tracking?prn={tracking}",
+        "color": "#F59E0B",  # amber
+        "logo_initials": "AP",
+        "priority": "P0 · time-critical expedite",
+        "since": "2015",
+        "ytd_loads": 412,
+        "claim_rate_pct": 0.07,
+        "on_time_pct": 98.4,
+    },
+    {
+        "id": "fastfrate",
+        "name": "Fastfrate Group",
+        "tagline": "Canadian intermodal · LTL · TL · Cross-border specialist",
+        "summary": "Fastfrate is Tennant's go-to for moving freight to/from Canadian provinces. They handle customs documentation, single-bill cross-border tendering, and run an intermodal network out of every major Canadian gateway.",
+        "specialty": ["Cross-border CA ↔ US documentation", "Intermodal CN/CP rail integration", "Bonded warehousing", "ACE / ACI eManifest filing", "PARS / PAPS clearance"],
+        "modes": ["LTL", "TL", "Intermodal", "Bonded"],
+        "lanes": ["Holland MI → ON/QC/AB/BC", "Toronto → Tennant dealers (US East)", "Vancouver ↔ Seattle/Portland"],
+        "rate_basis": "LTL tariff · TL spot · intermodal contract",
+        "contact": {"name": "Pierre Lavoie", "phone": "+1-905-451-7373", "email": "tennant@fastfrate.com", "after_hours": "+1-800-461-7373"},
+        "website": "https://www.fastfrate.com",
+        "tracking_url": "https://www.fastfrate.com/Tracking?probill={tracking}",
+        "color": "#3B82F6",  # blue
+        "logo_initials": "FF",
+        "priority": "P1 · cross-border priority",
+        "since": "2012",
+        "ytd_loads": 642,
+        "claim_rate_pct": 0.11,
+        "on_time_pct": 97.2,
+    },
+    {
+        "id": "ryan-transportation",
+        "name": "Ryan Transportation",
+        "tagline": "Strategic 3PL · capacity assurance · brokerage",
+        "summary": "Ryan provides Tennant with on-demand capacity when contracted assets are tight. Strategic brokerage with vetted carrier pool, freight-class auditing, and embedded analytics. Backup carrier of choice for the entire Tennant US 48 network.",
+        "specialty": ["Spot capacity (capacity assurance)", "Freight class / NMFC auditing", "Project / event logistics", "Network optimization analytics", "Pre-vetted carrier pool"],
+        "modes": ["TL", "LTL", "Refrigerated", "Partial / Volume LTL"],
+        "lanes": ["US 48 spot tender", "Surge capacity for HQ / plants"],
+        "rate_basis": "Brokered · spot or RFP-awarded contract",
+        "contact": {"name": "Mark Hannon", "phone": "+1-913-647-9700", "email": "tennant@ryantrans.com", "after_hours": "+1-913-647-9701"},
+        "website": "https://www.ryantrans.com",
+        "tracking_url": "https://www.ryantrans.com/tracking?reference={tracking}",
+        "color": "#A855F7",  # purple
+        "logo_initials": "RY",
+        "priority": "P1 · capacity assurance",
+        "since": "2017",
+        "ytd_loads": 998,
+        "claim_rate_pct": 0.09,
+        "on_time_pct": 97.8,
+    },
+]
+
+
+@api_router.get("/specialty-carriers")
+async def specialty_carriers_list(_: User = Depends(get_current_user)):
+    return {"carriers": SPECIALTY_CARRIERS}
+
+
+@api_router.get("/carriers/tracking-url")
+async def carrier_tracking_url(carrier: str, tracking: str, _: User = Depends(get_current_user)):
+    """Resolve a single tracking URL. Case-insensitive carrier lookup, with
+    fuzzy match against the carrier dropdown labels ('XPO · XPOL' → 'XPO')."""
+    name = (carrier or "").split("·")[0].strip()
+    key_match = None
+    needle = name.lower()
+    for key in CARRIER_TRACKING_URLS:
+        if key.lower() == needle:
+            key_match = key; break
+    if not key_match:
+        for key in CARRIER_TRACKING_URLS:
+            if needle in key.lower() or key.lower() in needle:
+                key_match = key; break
+    if not key_match:
+        raise HTTPException(status_code=404, detail=f"No tracking pattern for carrier '{carrier}'")
+    tmpl = CARRIER_TRACKING_URLS[key_match]
+    return {"carrier": key_match, "label": tmpl["label"], "url": tmpl["url"].format(tracking=urllib.parse.quote(tracking, safe=""))}
+
+
+# -------------------- GLOBAL SEARCH --------------------
+@api_router.get("/search/global")
+async def global_search(q: str, limit: int = 20, _: User = Depends(get_current_user)):
+    """Cross-collection search the topbar uses for omni-search. Hits:
+    shipments (reference / bol_no / container_no / sales_order / po_no /
+    material), truckload bookings (id / bol_no / po_no / carrier),
+    bol_uploads (filename / bol_no), and machines (model / family)."""
+    q = (q or "").strip()
+    if len(q) < 2:
+        return {"results": [], "query": q}
+    rx = {"$regex": re.escape(q), "$options": "i"}
+    results: List[Dict[str, Any]] = []
+
+    # Shipments — index nearly every reference field
+    async for s in db.shipments.find(
+        {"$or": [
+            {"reference": rx}, {"shipment_id": rx}, {"bol_no": rx},
+            {"container_no": rx}, {"sales_order": rx}, {"po_no": rx},
+            {"material": rx}, {"carrier": rx}, {"tracking_no": rx},
+            {"delivery_no": rx}, {"invoice_no": rx},
+        ]}, {"_id": 0, "shipment_id": 1, "reference": 1, "bol_no": 1, "container_no": 1,
+              "sales_order": 1, "po_no": 1, "material": 1, "carrier": 1,
+              "origin": 1, "destination": 1, "status": 1, "mode": 1}
+    ).limit(limit):
+        results.append({
+            "type": "shipment",
+            "title": s.get("reference") or s.get("shipment_id"),
+            "subtitle": f"{(s.get('origin') or {}).get('city','?')} → {(s.get('destination') or {}).get('city','?')} · {s.get('carrier') or '—'}",
+            "badge": s.get("mode") or "—",
+            "status": s.get("status"),
+            "link": f"/shipments?focus={s.get('shipment_id')}",
+            "ref": s.get("reference") or s.get("shipment_id"),
+            "fields": {k: s.get(k) for k in ("bol_no", "container_no", "sales_order", "po_no", "material") if s.get(k)},
+        })
+
+    # Truckload bookings
+    async for b in db.truckload_bookings.find(
+        {"$or": [{"id": rx}, {"bol_no": rx}, {"po_no": rx}, {"carrier": rx}]},
+        {"_id": 0}
+    ).limit(limit):
+        results.append({
+            "type": "booking",
+            "title": b.get("bol_no") or b.get("id"),
+            "subtitle": f"{b.get('origin','?')} → {b.get('destination','?')} · {b.get('carrier') or '—'}",
+            "badge": "TL",
+            "status": b.get("status"),
+            "link": "/workbook",
+            "ref": b.get("bol_no") or b.get("id"),
+            "fields": {k: b.get(k) for k in ("bol_no", "po_no", "carrier") if b.get(k)},
+        })
+
+    # BOL uploads (GridFS)
+    async for f in db["bol_uploads.files"].find(
+        {"$or": [{"filename": rx}, {"metadata.bol_no": rx}, {"metadata.shipment_id": rx}]},
+        {"filename": 1, "metadata": 1}
+    ).limit(limit):
+        md = f.get("metadata") or {}
+        results.append({
+            "type": "document",
+            "title": f.get("filename"),
+            "subtitle": f"BOL · {md.get('bol_no','—')} · {md.get('shipment_id','—')}",
+            "badge": "DOC",
+            "status": md.get("status"),
+            "link": "/documents",
+            "ref": md.get("bol_no") or f.get("filename"),
+        })
+
+    # Machines
+    async for m in db.machines.find(
+        {"$or": [{"model": rx}, {"family": rx}, {"category": rx}]},
+        {"_id": 0, "model": 1, "family": 1, "category": 1}
+    ).limit(limit):
+        results.append({
+            "type": "machine",
+            "title": m.get("model"),
+            "subtitle": f"{m.get('family','?')} · {m.get('category','?')}",
+            "badge": "EQ",
+            "link": f"/machines?focus={m.get('model')}",
+            "ref": m.get("model"),
+        })
+
+    return {"results": results[: limit * 2], "query": q, "count": len(results)}
+
+
+# -------------------- S/4 SEARCH (MOCKED) --------------------
+@api_router.get("/s4/search")
+async def s4_search(q: str, _: User = Depends(get_current_user)):
+    """Mocked S/4HANA cross-document search. Returns matches across PO,
+    Sales Order, Delivery, Invoice, Material, and Transportation Order
+    with direct Fiori deep-links."""
+    q = (q or "").strip()
+    if len(q) < 2:
+        return {"results": [], "query": q}
+    # Generate deterministic-but-realistic mock matches
+    rnd = _random.Random(q.lower())
+    kinds = [
+        ("purchase_order", "Purchase Order", "PO"),
+        ("sales_order",    "Sales Order",    "SO"),
+        ("delivery",       "Outbound Delivery", "DELIV"),
+        ("invoice",        "Invoice",        "INV"),
+        ("material",       "Material Master", "MATL"),
+        ("shipment",       "Transportation Order", "TO"),
+    ]
+    results = []
+    for (kind, label, badge) in kinds:
+        # 50% chance per kind to show 1-2 matches based on the query string
+        if rnd.random() > 0.5:
+            continue
+        count = rnd.choice([1, 1, 2])
+        for _i in range(count):
+            doc = f"{badge}-{rnd.randint(4000000, 4999999)}"
+            path = S4_DEEP_LINK_PATTERNS[kind].format(value=doc)
+            results.append({
+                "kind": kind, "label": label, "badge": badge,
+                "doc_number": doc,
+                "description": f"S/4 match for '{q}' in {label}",
+                "url": f"{SAP_S4_BASE}{path}",
+                "matched_on": "header" if rnd.random() > 0.4 else "item",
+            })
+    return {"results": results, "query": q, "base": SAP_S4_BASE, "tenant": "tennantco.s4hana.cloud.sap"}
+
+
+# -------------------- ADMIN SETTINGS --------------------
+@api_router.get("/admin/settings")
+async def admin_settings_get(_: User = Depends(get_current_user)):
+    """Single-doc settings store. All users can read; only admin can write."""
+    doc = await db.app_settings.find_one({"_id": "global"}, {"_id": 0}) or {}
+    return doc
+
+
+@api_router.put("/admin/settings")
+async def admin_settings_put(payload: Dict[str, Any], user: User = Depends(require_role("admin"))):
+    rec = {**payload, "_id": "global",
+           "updated_by": user.name,
+           "updated_at": datetime.now(timezone.utc).isoformat()}
+    await db.app_settings.replace_one({"_id": "global"}, rec, upsert=True)
+    return {"ok": True}
+
+
+# -------------------- S/4 INVOICES (MOCKED) --------------------
+# Surfaces a list of SAP S/4HANA freight & supplier invoices the Document
+# Vault can link to without having to import the documents themselves.
+@api_router.get("/s4/invoices")
+async def s4_invoices(limit: int = 50, _: User = Depends(get_current_user)):
+    """Mocked roster of recent S/4HANA invoices. Each row deep-links into
+    Fiori's Billing Document fact-sheet."""
+    rnd = _random.Random(42)
+    vendors = ["XPO Logistics", "ODFL", "Saia", "Estes Express", "R+L Carriers",
+               "Knight Transportation", "Schneider National", "C.H. Robinson",
+               "Werner Enterprises", "Kuehne+Nagel", "Maersk Line", "DHL Express",
+               "UPS Freight", "FedEx Freight", "DB Schenker", "Expeditors",
+               "Hapag-Lloyd", "CMA CGM", "ONE Line", "ArcBest"]
+    out = []
+    for i in range(limit):
+        v = rnd.choice(vendors)
+        amt = rnd.randint(280, 18000) + rnd.random()
+        days_ago = rnd.randint(0, 60)
+        inv_no = f"INV-{rnd.randint(4500000, 4999999)}"
+        path = S4_DEEP_LINK_PATTERNS["invoice"].format(value=inv_no)
+        out.append({
+            "invoice_no": inv_no,
+            "vendor": v,
+            "amount_usd": round(amt, 2),
+            "currency": "USD",
+            "invoice_date": (datetime.now(timezone.utc) - timedelta(days=days_ago)).date().isoformat(),
+            "due_date": (datetime.now(timezone.utc) + timedelta(days=30 - days_ago)).date().isoformat(),
+            "status": rnd.choice(["Paid", "Approved", "In Review", "On Hold", "Disputed"]),
+            "po_number": f"PO-{rnd.randint(4500000, 4999999)}",
+            "s4_url": f"{SAP_S4_BASE}{path}",
+        })
+    return {"invoices": out, "total": len(out), "tenant": "tennantco.s4hana.cloud.sap",
+            "fiori_root": f"{SAP_S4_BASE}/sap/bc/ui2/flp#Shell-home"}
+
+
+# -------------------- MACHINES · ADD/UPLOAD --------------------
+class MachineCreate(BaseModel):
+    model: str
+    family: Optional[str] = ""
+    category: Optional[str] = "Scrubber"
+    description: Optional[str] = ""
+    image_url: Optional[str] = ""
+    specs: Optional[Dict[str, Any]] = None
+
+
+@api_router.post("/machines")
+async def machine_create(payload: MachineCreate, user: User = Depends(require_role("admin", "dispatcher"))):
+    """Insert a custom machine into the Tennant catalog. If image_url is
+    blank, the existing dynamic SVG generator at `/api/machines/{model}/image.svg`
+    auto-renders a branded placeholder."""
+    existing = await db.machines.find_one({"model": payload.model})
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Model '{payload.model}' already exists")
+    rec = {
+        "model": payload.model,
+        "family": payload.family or "Custom",
+        "category": payload.category or "Other",
+        "description": payload.description or "",
+        "image_url": payload.image_url or "",
+        "specs": payload.specs or {},
+        "added_by": user.name,
+        "added_at": datetime.now(timezone.utc).isoformat(),
+        "custom": True,
+    }
+    await db.machines.insert_one(dict(rec))
+    rec.pop("_id", None)
+    return rec
+
+
 
 # -------------------- INTEGRATIONS --------------------
 INTEGRATIONS = [
@@ -2148,6 +2980,14 @@ TRUCKLOAD_BOOKING_COLUMNS: List[Dict[str, Any]] = [
     {"key": "pickup_date", "label": "Pickup Date", "type": "date"},
     {"key": "delivery_date", "label": "Delivery Date", "type": "date"},
     {"key": "rate_usd", "label": "Rate (USD)", "type": "number"},
+    # NEW · cost transparency columns dispatchers asked for. Up-charges
+    # captures any unexpected accessorial/detention/layover charges so
+    # they can be flagged before the freight audit catches them.
+    {"key": "up_charges_usd", "label": "Up-Charges (USD)", "type": "number"},
+    {"key": "up_charges_reason", "label": "Up-Charge Reason", "type": "select",
+     "options": ["", "Detention", "Layover", "Re-delivery", "Lift gate", "Inside delivery",
+                 "Sort & segregate", "Reconsignment", "Driver assist", "Hazmat", "Limited access",
+                 "Residential", "Notification", "Storage", "TONU (truck order not used)", "Other"]},
     {"key": "status", "label": "Status", "type": "select",
      "options": ["", "Quoted", "Booked", "Tendered", "Picked Up", "In Transit", "Delivered", "Cancelled"]},
     {"key": "notes", "label": "Notes", "type": "textarea"},

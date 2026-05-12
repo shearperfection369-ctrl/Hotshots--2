@@ -6,6 +6,9 @@ import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { Search, Container, RefreshCw } from "lucide-react";
+import WeatherRadar from "../components/WeatherRadar";
+import CarrierTrackingPanel from "../components/CarrierTrackingPanel";
+import GlobalSearch from "../components/GlobalSearch";
 
 export default function Tracking() {
   const [shipments, setShipments] = useState([]);
@@ -31,14 +34,27 @@ export default function Tracking() {
 
   return (
     <>
-      <Topbar title="Live Tracking" subtitle="Real-time positions · Ocean container search" />
+      <Topbar title="Live Tracking" subtitle="Real-time positions · S/4 cross-doc search · per-carrier tracking · weather" />
       <div className="p-4 md:p-6 space-y-5">
+        {/* S/4 + TMS omni-search across PO / SO / BOL / part / tracking / delivery */}
+        <Card className="hud-surface p-4" data-testid="tracking-s4-search">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-2 flex items-center gap-2">
+            <Search size={11} /> SAP S/4HANA · TMS Cross-Document Search
+          </div>
+          <p className="text-[11px] text-slate-400 mb-2 leading-relaxed">
+            Look up any shipment by PO, Sales Order, Part #, Tracking #, Delivery #, BOL or Container.
+            Internal matches jump to the shipment record; S/4 matches open in Fiori.
+          </p>
+          <GlobalSearch />
+        </Card>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           <Card className="hud-surface p-4 lg:col-span-8">
             <MapView shipments={filtered} facilities={facilities} height={560} showRoutes />
           </Card>
 
           <div className="lg:col-span-4 space-y-4">
+            <CarrierTrackingPanel />
             <Card className="hud-surface p-4">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-3 flex items-center gap-2">
                 <Container size={14} /> Container Search
@@ -52,7 +68,7 @@ export default function Tracking() {
                   className="pl-9 bg-[#0B0E14] border-white/10"
                 />
               </div>
-              <div className="mt-4 space-y-2 max-h-[480px] overflow-y-auto" data-testid="container-list">
+              <div className="mt-4 space-y-2 max-h-[360px] overflow-y-auto" data-testid="container-list">
                 {containerShipments.map((s) => (
                   <button
                     key={s.shipment_id}
@@ -82,6 +98,9 @@ export default function Tracking() {
             </Card>
           </div>
         </div>
+
+        {/* Live weather radar below the map */}
+        <WeatherRadar height={400} />
       </div>
     </>
   );

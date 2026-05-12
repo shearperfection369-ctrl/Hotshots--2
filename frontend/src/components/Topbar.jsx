@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Activity, Wifi } from "lucide-react";
 import ThemeSwitcher from "./ThemeSwitcher";
+import GlobalSearch from "./GlobalSearch";
 
 export default function Topbar({ title, subtitle }) {
   const [now, setNow] = useState(new Date());
@@ -11,20 +12,24 @@ export default function Topbar({ title, subtitle }) {
 
   return (
     <header className="sticky top-0 z-30 px-4 md:px-6 py-3 border-b border-white/5 bg-[#0B0E14]/80 backdrop-blur-xl" data-testid="topbar">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-xl md:text-2xl font-bold tracking-tight text-white" data-testid="topbar-title">{title}</h1>
-          {subtitle && <p className="text-xs text-slate-500 font-mono mt-0.5">{subtitle}</p>}
+      <div className="flex items-center justify-between gap-4">
+        <div className="shrink-0 min-w-0">
+          <h1 className="font-display text-xl md:text-2xl font-bold tracking-tight text-white truncate" data-testid="topbar-title">{title}</h1>
+          {subtitle && <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">{subtitle}</p>}
         </div>
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/5">
+        {/* Omni-search — searches every TMS reference + jumps into SAP S/4HANA */}
+        <div className="hidden md:block flex-1 max-w-md">
+          <GlobalSearch />
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/5">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-400">All Systems Online</span>
           </div>
-          <div className="hidden md:flex items-center gap-2 text-xs font-mono text-slate-400">
+          <div className="hidden xl:flex items-center gap-2 text-xs font-mono text-slate-400">
             <Wifi size={14} className="text-cyan-400" />
             <span>UPLINK</span>
           </div>

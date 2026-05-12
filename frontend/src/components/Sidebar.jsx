@@ -4,7 +4,8 @@ import {
   LayoutDashboard, Package, PlusSquare, FileText, MapPinned,
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
-  DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon
+  DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon,
+  PieChart, FolderOpen, Settings as SettingsIcon, Award
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -20,6 +21,7 @@ const NAV = [
   { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console", roles: ["admin", "dispatcher"] },
   { to: "/equipment", label: "Equipment · Yard", icon: TrailerIcon, tid: "nav-equipment", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/carrier-rates", label: "Carrier Rates & FSC", icon: DollarSign, tid: "nav-carrier-rates", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/specialty-carriers", label: "Specialty Carriers", icon: Award, tid: "nav-specialty-carriers", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/freight-pay", label: "Freight Audit & Pay", icon: Receipt, tid: "nav-freight-pay", roles: ["admin", "auditor"] },
   { to: "/claims", label: "Payments & Claims", icon: FileWarning, tid: "nav-claims", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/suppliers", label: "Supplier Sourcing", icon: Factory, tid: "nav-suppliers", roles: ["admin", "auditor", "dispatcher"] },
@@ -35,6 +37,8 @@ const NAV = [
   { to: "/trailers", label: "Trailer Specs", icon: Truck, tid: "nav-trailers", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/integrations", label: "Integrations", icon: Plug, tid: "nav-integrations", roles: ["admin"] },
   { to: "/sap-sync", label: "SAP S/4HANA", icon: Database, tid: "nav-sap-sync", roles: ["admin", "dispatcher"] },
+  { to: "/powerbi", label: "Power BI", icon: PieChart, tid: "nav-powerbi", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/sharepoint", label: "SharePoint", icon: FolderOpen, tid: "nav-sharepoint", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/webex", label: "Cisco Webex", icon: Video, tid: "nav-webex", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/reports", label: "KPI Reports", icon: BarChart3, tid: "nav-reports", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/chat", label: "Team Chat", icon: MessagesSquare, tid: "nav-chat", roles: ["admin", "auditor", "dispatcher"] },
@@ -43,6 +47,7 @@ const NAV = [
   { to: "/music", label: "Music · Focus", icon: MusicIcon, tid: "nav-music", roles: ["admin", "auditor", "dispatcher", "driver"] },
   { to: "/manual", label: "User Manual", icon: BookOpen, tid: "nav-manual", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/admin/users", label: "Admin · Users", icon: Users, tid: "nav-admin-users", roles: ["admin"] },
+  { to: "/admin/settings", label: "Admin · Settings", icon: SettingsIcon, tid: "nav-admin-settings", roles: ["admin"] },
 ];
 
 export default function Sidebar() {

@@ -42,6 +42,11 @@ import Machines from "@/pages/Machines";
 import Equipment from "@/pages/Equipment";
 import RoutingGuide from "@/pages/RoutingGuide";
 import MicrosoftCopilot from "@/pages/MicrosoftCopilot";
+import PowerBI from "@/pages/PowerBI";
+import SharePoint from "@/pages/SharePoint";
+import AdminSettings from "@/pages/AdminSettings";
+import SpecialtyCarriers from "@/pages/SpecialtyCarriers";
+import WellnessNudges from "@/components/WellnessNudges";
 import { ThemeProvider } from "@/lib/theme";
 import { MusicProvider } from "@/lib/music";
 import MiniPlayer from "@/components/MiniPlayer";
@@ -81,6 +86,10 @@ function AppRouter() {
         <Route path="/copilot" element={<MicrosoftCopilot />} />
         <Route path="/routing-guide" element={<RoutingGuide />} />
         <Route path="/legacy-hudlink" element={<AIAssistant />} />
+        <Route path="/powerbi" element={<PowerBI />} />
+        <Route path="/sharepoint" element={<SharePoint />} />
+        <Route path="/admin/settings" element={<AdminSettings />} />
+        <Route path="/specialty-carriers" element={<SpecialtyCarriers />} />
         <Route path="/webex" element={<Webex />} />
         <Route path="/promo" element={<PromoVideo />} />
         <Route path="/workbook" element={<Workbook />} />
@@ -109,6 +118,7 @@ export default function App() {
           <MusicProvider>
             <AppRouter />
             <MiniPlayer />
+            <WellnessNudges />
             <Toaster
               theme="dark"
               position="bottom-right"
