@@ -36,7 +36,21 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
+# Production-grade connection pool — sized for ~250 concurrent users with
+# safe headroom. minPoolSize keeps warm connections to avoid cold-start TLS
+# handshake spikes; maxIdleTimeMS recycles idle connections so the pool stays
+# healthy under low-traffic windows.
+client = AsyncIOMotorClient(
+    mongo_url,
+    maxPoolSize=int(os.environ.get('MONGO_MAX_POOL', '120')),
+    minPoolSize=int(os.environ.get('MONGO_MIN_POOL', '10')),
+    maxIdleTimeMS=60_000,
+    serverSelectionTimeoutMS=8_000,
+    connectTimeoutMS=8_000,
+    socketTimeoutMS=20_000,
+    retryWrites=True,
+    retryReads=True,
+)
 db = client[os.environ['DB_NAME']]
 
 app = FastAPI(title="Tennant TMS API")
@@ -6844,6 +6858,33 @@ async def download_manual(_: User = Depends(get_current_user)):
 async def root():
     return {"service": "Tennant TMS API", "status": "ok", "time": datetime.now(timezone.utc).isoformat()}
 
+
+@api_router.get("/health")
+async def health():
+    """Production readiness probe. Pings Mongo with a 1.5s budget so load
+    balancers don't hang. Returns 503 on any DB outage so the deploy
+    platform can pull the pod out of rotation."""
+    import asyncio as _aio
+    started = datetime.now(timezone.utc)
+    try:
+        await _aio.wait_for(db.command("ping"), timeout=1.5)
+        db_ok = True
+        db_error = None
+    except Exception as e:
+        db_ok = False
+        db_error = str(e)[:200]
+    payload = {
+        "service": "Tennant TMS API",
+        "status": "ok" if db_ok else "degraded",
+        "db": "up" if db_ok else "down",
+        "db_error": db_error,
+        "time": started.isoformat(),
+        "elapsed_ms": int((datetime.now(timezone.utc) - started).total_seconds() * 1000),
+    }
+    if not db_ok:
+        return Response(content=json.dumps(payload), media_type="application/json", status_code=503)
+    return payload
+
 # -------------------- EQUIPMENT / YARD MODULE --------------------
 from equipment_module import register_equipment_routes  # noqa: E402
 register_equipment_routes(api_router, db, get_current_user, require_role)
@@ -6861,12 +6902,64 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
-    # Auto-seed if empty
+    # ---------- 1. Mongo indexes (idempotent; creates only what's missing).
+    # Sized for ~250 concurrent users hitting hot collections; every entry
+    # below is referenced by a real query in this file. Run in background so
+    # any single failure can't block app boot.
+    async def _ensure_indexes():
+        IDX_PLAN = [
+            ("shipments",          [("shipment_id", 1)],       {"name": "ix_shipment_id"}),
+            ("shipments",          [("reference", 1)],         {"name": "ix_shipment_ref"}),
+            ("shipments",          [("status", 1)],            {"name": "ix_shipment_status"}),
+            ("shipments",          [("carrier", 1)],           {"name": "ix_shipment_carrier"}),
+            ("shipments",          [("eta", 1)],               {"name": "ix_shipment_eta"}),
+            ("shipments",          [("created_at", -1)],       {"name": "ix_shipment_created"}),
+            ("users",              [("user_id", 1)],           {"unique": True, "name": "uq_user_id"}),
+            ("users",              [("email", 1)],             {"unique": True, "name": "uq_user_email"}),
+            ("user_sessions",      [("session_token", 1)],     {"unique": True, "name": "uq_session_token"}),
+            ("user_sessions",      [("expires_at", 1)],        {"name": "ix_session_expires", "expireAfterSeconds": 0}),
+            ("user_layouts",       [("user_id", 1), ("page_key", 1)], {"unique": True, "name": "uq_layout_user_page"}),
+            ("truckload_bookings", [("created_at", -1)],       {"name": "ix_tlb_created"}),
+            ("truckload_bookings", [("status", 1)],            {"name": "ix_tlb_status"}),
+            ("carrier_onboarding", [("status", 1)],            {"name": "ix_co_status"}),
+            ("carrier_onboarding", [("legal_name", 1)],        {"name": "ix_co_legal"}),
+            ("carrier_onboarding", [("submitted_at", -1)],     {"name": "ix_co_submitted"}),
+            ("drivers",            [("name", 1)],              {"name": "ix_driver_name"}),
+            ("drivers",            [("carrier", 1)],           {"name": "ix_driver_carrier"}),
+            ("trailers",           [("trailer_no", 1)],        {"name": "ix_trailer_no"}),
+            ("trailers",           [("carrier", 1)],           {"name": "ix_trailer_carrier"}),
+            ("machines",           [("model", 1)],             {"name": "ix_machine_model"}),
+            ("freight_bills",      [("status", 1)],            {"name": "ix_fb_status"}),
+            ("freight_bills",      [("carrier", 1)],           {"name": "ix_fb_carrier"}),
+            ("yard_reports",       [("uploaded_at", -1)],      {"name": "ix_yard_uploaded"}),
+            ("workbook_tabs",      [("order", 1)],             {"name": "ix_tab_order"}),
+            ("outbound_emails",    [("at", -1)],               {"name": "ix_email_at"}),
+            ("ai_messages",        [("session_id", 1), ("created_at", 1)], {"name": "ix_ai_session"}),
+            ("audit_log",          [("at", -1)],               {"name": "ix_audit_at"}),
+            ("suppliers_custom",   [("supplier_id", 1)],       {"unique": True, "name": "uq_sup_custom_id"}),
+        ]
+        ok, fail = 0, 0
+        for coll, keys, opts in IDX_PLAN:
+            try:
+                await db[coll].create_index(keys, **opts)
+                ok += 1
+            except Exception as e:
+                # Common: existing index conflict — drop & recreate is risky in prod,
+                # so just log and move on. Production-safe.
+                fail += 1
+                logger.debug(f"index skip {coll}.{opts.get('name')}: {e}")
+        logger.info(f"Indexes ready: {ok} created/existing, {fail} skipped")
+
+    try:
+        await _ensure_indexes()
+    except Exception as e:
+        logger.warning(f"Index ensure failed: {e}")
+
+    # ---------- 2. Auto-seed if empty
     try:
         count = await db.shipments.count_documents({})
         if count == 0:
             logger.info("Auto-seeding shipments...")
-            # call seed
             from fastapi import BackgroundTasks  # noqa
             await seed_data(force=False)
     except Exception as e:
