@@ -72,6 +72,7 @@ function AppRouter() {
         <Route path="/book-load" element={<BookLoad />} />
         <Route path="/documents" element={<Documents />} />
         <Route path="/tracking" element={<Tracking />} />
+        <Route path="/live-tracking" element={<Tracking />} />
         <Route path="/hs-lookup" element={<HSLookup />} />
         <Route path="/trailers" element={<Trailers />} />
         <Route path="/integrations" element={<Integrations />} />

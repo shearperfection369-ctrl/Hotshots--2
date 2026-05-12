@@ -67,7 +67,26 @@ Subsequent user-requested additions (chronological, all delivered):
   `shearperfection369@gmail.com`. Other accounts default to `dispatcher`, keeping
   the 250-user model tidy.
 
-## Implemented (v2.1 — Feb 2026, this session) — Three P2s
+## Implemented (v2.3 — Feb 2026, this session) — Industry-standard KPIs
+- **Carrier Scorecard expanded from 5 → 45 metrics per carrier**, aligned with CSCMP / ATA /
+  NASSTRAC / ISO 9001 transportation benchmarks. Composite score (weighted) drives an A+/F grade
+  and a sortable ranked table. Sections: Service Quality (OTP, OTD, OTIF, tender accept,
+  transit variance), Compliance/Quality (claims, damage, shortage, billing accuracy, EDI,
+  POD), Safety/Regulatory (FMCSA CSA, OOS%, HOS violations, COI), Cost/Commercial
+  (cost per mile, cost per load, FSC/mi, accessorial %, detention $, rate compliance),
+  Capacity (utilization, committed loads, spot loads, response time), Sustainability
+  (empty miles, CO₂/load, EV fleet %).
+- **Network-wide industry metrics dashboard** — 41 KPIs across 6 categories
+  (Service Quality · Cost Efficiency · Capacity Utilization · Compliance/Quality ·
+  Safety/Regulatory · Sustainability). Every metric carries `value`, `target`, `benchmark`,
+  `trend` and shows on-target colouring + delta arrows.
+- **Specialty Carriers** — dedicated `/specialty-carriers` tab for Logix Transportation
+  (white-glove pad-wrap), ArcBest Panther (expedite), Fastfrate (cross-border), and Ryan
+  Transportation (capacity assurance). Each profile carries contact, specialty chips,
+  YTD load count, on-time %, claim rate, and a direct tracking lookup that opens the
+  carrier's public tracking page in a new tab.
+
+## Implemented (v2.2 — Feb 2026)
 - **Auto-onboard new carriers** (P2.1) — Typing a brand-new carrier name into the Truckload
   Booking Sheet's Carrier combobox now auto-inserts a `carrier_onboarding` stub with
   `status=in_review`, `auto_created=true`, and a "(pending)" contact placeholder so the

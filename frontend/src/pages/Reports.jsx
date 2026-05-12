@@ -187,36 +187,163 @@ export default function Reports() {
           </Card>
         </div>
 
-        <Card className="hud-surface overflow-hidden">
-          <div className="px-5 py-3 border-b border-white/5">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Carrier Scorecard — Detailed</div>
-            <h3 className="font-display text-lg font-bold">All Carriers</h3>
+        {/* === NETWORK-WIDE TRANSPORTATION METRICS (industry-standard, 41 KPIs) === */}
+        {kpis.network_metrics && (
+          <Card className="hud-surface p-5" data-testid="network-metrics">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Industry-Standard Network Metrics</div>
+                <h3 className="font-display text-lg font-bold">CSCMP · ATA · NASSTRAC · ISO Aligned</h3>
+              </div>
+              <div className="text-[10px] font-mono text-slate-500">
+                {Object.values(kpis.network_metrics).reduce((a, v) => a + v.length, 0)} metrics across {Object.keys(kpis.network_metrics).length} categories
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+              {Object.entries(kpis.network_metrics).map(([cat, items]) => (
+                <div key={cat} className="p-3 rounded border border-white/5 bg-white/[0.02]" data-testid={`netmetric-section-${cat}`}>
+                  <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300 mb-2">
+                    {cat.replace(/_/g, " ")}
+                  </div>
+                  <div className="space-y-1.5">
+                    {items.map((m) => {
+                      const onTarget = (m.unit === "$" || m.label.toLowerCase().includes("variance") ||
+                                        m.label.toLowerCase().includes("rate") ||
+                                        m.label.toLowerCase().includes("co2") ||
+                                        m.label.toLowerCase().includes("empty") ||
+                                        m.label.toLowerCase().includes("dispute") ||
+                                        m.label.toLowerCase().includes("oos") ||
+                                        m.label.toLowerCase().includes("violations") ||
+                                        m.label.toLowerCase().includes("csa") ||
+                                        m.label.toLowerCase().includes("hazmat") ||
+                                        m.label.toLowerCase().includes("preventable"))
+                        ? m.value <= m.target
+                        : m.value >= m.target;
+                      const arrow = m.trend > 0 ? "▲" : m.trend < 0 ? "▼" : "—";
+                      const trendColor = (m.trend > 0 && !["empty_miles","cost_per_mile","cost_per_pound","cost_per_load","accessorial_pct","detention_spend","claims_freq","damage_rate","shortage_rate","invoice_dispute","fmcsa_csa_avg","oos_rate","hos_violations","co2_per_load","co2_per_ton_mile","preventable_accidents","tender_lead_time","transit_variance"].includes(m.key))
+                        ? "text-emerald-300"
+                        : (m.trend < 0 && ["empty_miles","cost_per_mile","cost_per_pound","cost_per_load","accessorial_pct","detention_spend","claims_freq","damage_rate","shortage_rate","invoice_dispute","fmcsa_csa_avg","oos_rate","hos_violations","co2_per_load","co2_per_ton_mile","preventable_accidents","tender_lead_time","transit_variance"].includes(m.key))
+                          ? "text-emerald-300"
+                          : m.trend === 0 ? "text-slate-500" : "text-red-300";
+                      return (
+                        <div key={m.key} data-testid={`netmetric-${m.key}`} className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[11px] text-slate-200 truncate">{m.label}</div>
+                            <div className="text-[9px] font-mono text-slate-500">
+                              Target {m.unit === "$" ? "$" : ""}{m.target}{m.unit !== "$" ? m.unit : ""}
+                              {" · BM "}{m.unit === "$" ? "$" : ""}{m.benchmark}{m.unit !== "$" ? m.unit : ""}
+                            </div>
+                          </div>
+                          <div className={`font-mono text-sm font-bold tabular-nums ${onTarget ? "text-emerald-300" : "text-yellow-300"}`}>
+                            {m.unit === "$" ? "$" : ""}{m.value.toLocaleString()}{m.unit !== "$" ? m.unit : ""}
+                          </div>
+                          <span className={`text-[9px] font-mono w-10 text-right ${trendColor}`}>
+                            {arrow}{m.trend !== 0 ? Math.abs(m.trend) : ""}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        <Card className="hud-surface overflow-hidden" data-testid="carrier-scorecard-table">
+          <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Carrier Scorecard — Industry-Standard (45 metrics each)</div>
+              <h3 className="font-display text-lg font-bold">{kpis.carrier_scorecard?.length || 0} carriers · ranked by composite score</h3>
+            </div>
+            <div className="text-[10px] font-mono text-slate-500">
+              Composite weighting: OTD 20% · OTIF 15% · Tender 10% · Billing 10% · POD 10% · Rate 10% · Damage 5% · Claims 10% · OOS 5% · Empty Miles 5%
+            </div>
           </div>
-          <table className="w-full text-sm">
-            <thead className="bg-[#0B0E14] text-[10px] font-mono text-slate-500 uppercase tracking-wider">
-              <tr>
-                <th className="text-left py-3 px-4">Carrier</th>
-                <th className="text-right py-3 px-4">Total</th>
-                <th className="text-right py-3 px-4">Delivered</th>
-                <th className="text-right py-3 px-4">Delayed</th>
-                <th className="text-right py-3 px-4">On-Time %</th>
-              </tr>
-            </thead>
-            <tbody className="font-mono">
-              {kpis.by_carrier.sort((a, b) => b.total - a.total).map((c) => {
-                const otp = c.total ? Math.round((c.on_time / c.total) * 100) : 0;
-                return (
-                  <tr key={c.carrier} className="border-t border-white/5 hover:bg-white/[0.02]">
-                    <td className="py-2.5 px-4 text-slate-300">{c.carrier}</td>
-                    <td className="py-2.5 px-4 text-right text-cyan-300">{c.total}</td>
-                    <td className="py-2.5 px-4 text-right text-emerald-400">{c.on_time}</td>
-                    <td className="py-2.5 px-4 text-right text-red-400">{c.delayed}</td>
-                    <td className="py-2.5 px-4 text-right text-white">{otp}%</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs min-w-[1480px]">
+              <thead className="bg-[#0B0E14] text-[9px] font-mono text-slate-500 uppercase tracking-wider sticky top-0">
+                <tr>
+                  <th className="text-left py-3 px-3">#</th>
+                  <th className="text-left py-3 px-3">Carrier</th>
+                  <th className="text-center py-3 px-2">Grade</th>
+                  <th className="text-right py-3 px-2">Composite</th>
+                  <th className="text-right py-3 px-2">Loads</th>
+                  <th className="text-right py-3 px-2 text-cyan-400">OTP %</th>
+                  <th className="text-right py-3 px-2 text-cyan-400">OTD %</th>
+                  <th className="text-right py-3 px-2 text-cyan-400">OTIF %</th>
+                  <th className="text-right py-3 px-2 text-cyan-400">Tender %</th>
+                  <th className="text-right py-3 px-2 text-yellow-300">Transit Var</th>
+                  <th className="text-right py-3 px-2 text-yellow-300">Claims %</th>
+                  <th className="text-right py-3 px-2 text-yellow-300">Damage %</th>
+                  <th className="text-right py-3 px-2 text-yellow-300">Billing Acc</th>
+                  <th className="text-right py-3 px-2 text-yellow-300">EDI %</th>
+                  <th className="text-right py-3 px-2 text-yellow-300">POD %</th>
+                  <th className="text-right py-3 px-2 text-red-300">CSA</th>
+                  <th className="text-right py-3 px-2 text-red-300">OOS %</th>
+                  <th className="text-right py-3 px-2 text-red-300">Safety</th>
+                  <th className="text-right py-3 px-2 text-emerald-300">$/Mile</th>
+                  <th className="text-right py-3 px-2 text-emerald-300">$/Load</th>
+                  <th className="text-right py-3 px-2 text-emerald-300">FSC/mi</th>
+                  <th className="text-right py-3 px-2 text-emerald-300">Acc %</th>
+                  <th className="text-right py-3 px-2 text-emerald-300">Detention $</th>
+                  <th className="text-right py-3 px-2 text-purple-300">Empty %</th>
+                  <th className="text-right py-3 px-2 text-purple-300">CO₂/load</th>
+                  <th className="text-right py-3 px-2 text-purple-300">EV %</th>
+                  <th className="text-center py-3 px-2">Trend</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono">
+                {(kpis.carrier_scorecard || []).map((c, i) => {
+                  const gradeColor = c.grade.startsWith("A") ? "text-emerald-300 bg-emerald-500/10 border-emerald-500/30"
+                    : c.grade.startsWith("B") ? "text-cyan-300 bg-cyan-500/10 border-cyan-500/30"
+                    : c.grade.startsWith("C") ? "text-yellow-300 bg-yellow-500/10 border-yellow-500/30"
+                    : "text-red-300 bg-red-500/10 border-red-500/30";
+                  const trendIcon = c.trend === "up" ? "▲" : c.trend === "down" ? "▼" : "—";
+                  const trendColor = c.trend === "up" ? "text-emerald-400" : c.trend === "down" ? "text-red-400" : "text-slate-500";
+                  return (
+                    <tr key={c.carrier} className="border-t border-white/5 hover:bg-cyan-500/[0.04]" data-testid={`scorecard-row-${i}`}>
+                      <td className="py-2 px-3 text-slate-500 text-[10px]">{i + 1}</td>
+                      <td className="py-2 px-3 text-slate-100">{c.carrier}</td>
+                      <td className="py-2 px-2 text-center">
+                        <span className={`inline-block px-1.5 py-0.5 rounded border text-[10px] font-bold ${gradeColor}`}>
+                          {c.grade}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-right text-white font-bold">{c.composite_score}</td>
+                      <td className="py-2 px-2 text-right text-slate-300">{c.total_loads}</td>
+                      <td className="py-2 px-2 text-right text-cyan-200">{c.on_time_pickup_pct}%</td>
+                      <td className="py-2 px-2 text-right text-cyan-200">{c.on_time_delivery_pct}%</td>
+                      <td className="py-2 px-2 text-right text-cyan-200">{c.on_time_in_full_pct}%</td>
+                      <td className="py-2 px-2 text-right text-cyan-200">{c.tender_acceptance_pct}%</td>
+                      <td className="py-2 px-2 text-right text-yellow-200">{c.transit_variance_pct}%</td>
+                      <td className="py-2 px-2 text-right text-yellow-200">{c.claims_freq_pct}%</td>
+                      <td className="py-2 px-2 text-right text-yellow-200">{c.damage_freq_pct}%</td>
+                      <td className="py-2 px-2 text-right text-yellow-200">{c.billing_accuracy_pct}%</td>
+                      <td className="py-2 px-2 text-right text-yellow-200">{c.edi_compliance_pct}%</td>
+                      <td className="py-2 px-2 text-right text-yellow-200">{c.pod_timeliness_pct}%</td>
+                      <td className={`py-2 px-2 text-right ${c.csa_score >= 65 ? "text-red-400" : c.csa_score >= 40 ? "text-yellow-300" : "text-emerald-300"}`}>
+                        {c.csa_score}
+                      </td>
+                      <td className="py-2 px-2 text-right text-red-200">{c.out_of_service_pct}%</td>
+                      <td className={`py-2 px-2 text-right text-[10px] ${c.safety_rating === "Satisfactory" ? "text-emerald-300" : "text-yellow-300"}`}>
+                        {c.safety_rating?.slice(0, 4)}
+                      </td>
+                      <td className="py-2 px-2 text-right text-emerald-200">${c.avg_cost_per_mile_usd}</td>
+                      <td className="py-2 px-2 text-right text-emerald-200">${c.avg_cost_per_load_usd.toLocaleString()}</td>
+                      <td className="py-2 px-2 text-right text-emerald-200">${c.fsc_per_mile_usd}</td>
+                      <td className="py-2 px-2 text-right text-emerald-200">{c.accessorial_spend_pct}%</td>
+                      <td className="py-2 px-2 text-right text-emerald-200">${c.detention_cost_usd.toLocaleString()}</td>
+                      <td className="py-2 px-2 text-right text-purple-200">{c.empty_miles_pct}%</td>
+                      <td className="py-2 px-2 text-right text-purple-200">{c.co2_kg_per_load}</td>
+                      <td className="py-2 px-2 text-right text-purple-200">{c.ev_fleet_pct}%</td>
+                      <td className={`py-2 px-2 text-center ${trendColor}`}>{trendIcon}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
 

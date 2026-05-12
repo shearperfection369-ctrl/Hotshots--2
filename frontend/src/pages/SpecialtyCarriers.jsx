@@ -52,7 +52,8 @@ function CarrierCard({ c }) {
   return (
     <Card
       className="hud-surface p-5 overflow-hidden relative"
-      data-testid={`specialty-carrier-${c.id}`}
+      data-testid={`carrier-card-${c.id}`}
+      id={`specialty-carrier-${c.id}`}
     >
       <div
         className="absolute inset-x-0 top-0 h-0.5"
