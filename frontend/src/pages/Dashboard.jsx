@@ -150,17 +150,20 @@ export default function Dashboard() {
         {/* Auto NWS-style weather alert banner — polls every 60s, dismissible per alert_id */}
         <WeatherAlertsBanner />
 
-        {/* Top row: inspirational quotes ticker (full-width) + mini calendar
-            tucked to the right per request. Stacks on small screens. */}
-        <div className="flex flex-col md:flex-row md:items-stretch gap-3">
-          <div className="flex-1 min-w-0">
-            <QuotesTicker />
-          </div>
-          <MiniCalendar />
-        </div>
+        {/* Thin full-width quotes ticker — no longer flex-stretched against the
+            taller MiniCalendar (that was leaving a big empty box). */}
+        <QuotesTicker />
 
-        {/* Interactive live weather radar — fills the blank space at the top of the Command Center */}
-        <WeatherRadar height={360} />
+        {/* Weather radar + mini calendar share a row so the calendar's height
+            is balanced by the radar instead of an empty gap. Stacks below md. */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+          <div className="lg:col-span-9">
+            <WeatherRadar height={360} />
+          </div>
+          <div className="lg:col-span-3 flex justify-center lg:justify-end">
+            <MiniCalendar />
+          </div>
+        </div>
 
         {/* Drag-to-reorder hint + Reset */}
         <div className="flex items-center justify-end gap-2 -mb-3" data-testid="dash-reorder-toolbar">

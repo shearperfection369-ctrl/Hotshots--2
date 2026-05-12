@@ -83,7 +83,7 @@ export default function MiniCalendar() {
 
   return (
     <div
-      className="hud-surface rounded-lg p-3 w-[260px] shrink-0 border border-cyan-500/10"
+      className="hud-surface rounded-lg p-3 w-full max-w-[300px] lg:max-w-none border border-cyan-500/10"
       data-testid="mini-calendar"
     >
       <div className="flex items-center justify-between mb-2">

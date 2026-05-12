@@ -57,17 +57,30 @@ export default function Tracking() {
   // Map shows matches only when actively searching, else everything
   const mapShipments = q.trim() ? matches : shipments;
 
-  const trackOnCarrier = async (s) => {
+  const trackOnCarrier = (s) => {
     const trackNum = s.pro_no || s.container_no || s.bol_no || s.booking_number || s.reference;
     if (!s.carrier) { toast.error("No carrier on this shipment"); return; }
     if (!trackNum)  { toast.error("No PRO / container / BOL on this shipment"); return; }
-    try {
-      const { data } = await api.get(`/carriers/tracking-url?carrier=${encodeURIComponent(s.carrier)}&tracking=${encodeURIComponent(trackNum)}`);
-      window.open(data.url, "_blank", "noopener,noreferrer");
-      toast.success(`Opening ${data.label}…`);
-    } catch (e) {
-      toast.error(`No public tracking URL for "${s.carrier}"`);
-    }
+    // Pre-open the popup SYNCHRONOUSLY inside the click event — browsers
+    // block popups opened from async callbacks (this was the silent failure
+    // before). Then we resolve the carrier URL and redirect the popup.
+    const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
+    api.get(`/carriers/tracking-url?carrier=${encodeURIComponent(s.carrier)}&tracking=${encodeURIComponent(trackNum)}`)
+      .then(({ data }) => {
+        if (popup && !popup.closed) {
+          popup.location.href = data.url;
+        } else {
+          // Popup blocked — fall back to a clickable toast.
+          toast.success(`${data.label} ready — click to open`, {
+            duration: 12000,
+            action: { label: "Open", onClick: () => window.open(data.url, "_blank", "noopener,noreferrer") },
+          });
+        }
+      })
+      .catch(() => {
+        if (popup && !popup.closed) popup.close();
+        toast.error(`No public tracking URL for "${s.carrier}"`);
+      });
   };
 
   return (
