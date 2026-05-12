@@ -1932,6 +1932,114 @@ async def machine_create(payload: MachineCreate, user: User = Depends(require_ro
     return rec
 
 
+# -------------------- DRIVER CONSOLE — DRIVER & TRAILER REGISTRY --------------------
+class DriverRecord(BaseModel):
+    name: str
+    cdl_number: Optional[str] = ""
+    cdl_class: Optional[str] = "A"
+    cdl_state: Optional[str] = ""
+    cdl_expiry: Optional[str] = ""
+    medical_card_expiry: Optional[str] = ""
+    phone: Optional[str] = ""
+    email: Optional[str] = ""
+    carrier: Optional[str] = ""
+    hazmat_endorsement: Optional[bool] = False
+    tanker_endorsement: Optional[bool] = False
+    twic_card: Optional[bool] = False
+    notes: Optional[str] = ""
+
+
+class TrailerRecord(BaseModel):
+    trailer_no: str
+    type: Optional[str] = "Dry Van 53'"
+    license_plate: Optional[str] = ""
+    license_state: Optional[str] = ""
+    vin: Optional[str] = ""
+    carrier: Optional[str] = ""
+    last_inspection: Optional[str] = ""
+    next_inspection: Optional[str] = ""
+    capacity_lbs: Optional[float] = 45000
+    notes: Optional[str] = ""
+
+
+@api_router.get("/drivers")
+async def drivers_list(carrier: Optional[str] = None, _: User = Depends(get_current_user)):
+    q = {"carrier": carrier} if carrier else {}
+    docs = await db.drivers.find(q, {"_id": 0}).sort("name", 1).to_list(1000)
+    # Seed a small starter roster on first read so the page isn't empty
+    if not docs:
+        starters = [
+            {"id": f"DRV-{uuid.uuid4().hex[:6].upper()}", "name": "Carlos Mendoza", "cdl_number": "M523891", "cdl_class": "A", "cdl_state": "MI", "cdl_expiry": "2027-04-15", "medical_card_expiry": "2026-11-20", "phone": "+1-616-555-0421", "email": "cmendoza@logixtrans.com", "carrier": "Logix Transportation", "hazmat_endorsement": False, "tanker_endorsement": False, "twic_card": False, "notes": "Pad-wrap specialist · Tennant T-series"},
+            {"id": f"DRV-{uuid.uuid4().hex[:6].upper()}", "name": "Sarah O'Neill",   "cdl_number": "O998211", "cdl_class": "A", "cdl_state": "OH", "cdl_expiry": "2026-09-02", "medical_card_expiry": "2026-08-15", "phone": "+1-440-555-0188", "email": "soneill@xpo.com",  "carrier": "XPO Logistics", "hazmat_endorsement": True,  "tanker_endorsement": False, "twic_card": True,  "notes": "Hazmat-certified · Holland → Atlanta lane"},
+            {"id": f"DRV-{uuid.uuid4().hex[:6].upper()}", "name": "Derrick Watanabe","cdl_number": "W772143", "cdl_class": "A", "cdl_state": "CA", "cdl_expiry": "2028-01-30", "medical_card_expiry": "2027-02-10", "phone": "+1-310-555-0719", "email": "dwata@schneider.com","carrier": "Schneider National", "hazmat_endorsement": False, "tanker_endorsement": True, "twic_card": False, "notes": "Reefer · West Coast lanes"},
+            {"id": f"DRV-{uuid.uuid4().hex[:6].upper()}", "name": "Amanda Pruitt",  "cdl_number": "P640122", "cdl_class": "A", "cdl_state": "TX", "cdl_expiry": "2026-12-12", "medical_card_expiry": "2026-10-01", "phone": "+1-214-555-0357", "email": "apruitt@knight.com","carrier": "Knight Transportation","hazmat_endorsement": False, "tanker_endorsement": False,"twic_card": False, "notes": "Team driver · cross-country expedite"},
+            {"id": f"DRV-{uuid.uuid4().hex[:6].upper()}", "name": "Boris Kowalski", "cdl_number": "K513398", "cdl_class": "A", "cdl_state": "IL", "cdl_expiry": "2027-06-18", "medical_card_expiry": "2026-12-04", "phone": "+1-708-555-0094", "email": "bkowal@odfl.com",  "carrier": "Old Dominion",       "hazmat_endorsement": True,  "tanker_endorsement": False,"twic_card": True,  "notes": "LTL specialist · 14-year veteran"},
+        ]
+        for s in starters:
+            s["created_at"] = datetime.now(timezone.utc).isoformat()
+            s["created_by"] = "System Seed"
+        await db.drivers.insert_many([dict(s) for s in starters])
+        docs = await db.drivers.find({}, {"_id": 0}).sort("name", 1).to_list(1000)
+    return {"drivers": docs}
+
+
+@api_router.post("/drivers")
+async def drivers_create(payload: DriverRecord, user: User = Depends(require_role("admin", "dispatcher"))):
+    rec = {"id": f"DRV-{uuid.uuid4().hex[:6].upper()}", **payload.dict(),
+           "created_at": datetime.now(timezone.utc).isoformat(),
+           "created_by": user.name}
+    await db.drivers.insert_one(dict(rec))
+    rec.pop("_id", None)
+    return rec
+
+
+@api_router.delete("/drivers/{driver_id}")
+async def drivers_delete(driver_id: str, _: User = Depends(require_role("admin", "dispatcher"))):
+    r = await db.drivers.delete_one({"id": driver_id})
+    if r.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    return {"ok": True}
+
+
+@api_router.get("/trailers")
+async def trailers_list(carrier: Optional[str] = None, _: User = Depends(get_current_user)):
+    q = {"carrier": carrier} if carrier else {}
+    docs = await db.trailers.find(q, {"_id": 0}).sort("trailer_no", 1).to_list(1000)
+    if not docs:
+        starters = [
+            {"id": f"TRL-{uuid.uuid4().hex[:6].upper()}", "trailer_no": "TNT-53201", "type": "Dry Van 53'", "license_plate": "MI-487J22", "license_state": "MI", "vin": "1H5VR3LX5MC123201", "carrier": "Tennant Fleet", "last_inspection": "2026-01-12", "next_inspection": "2026-07-12", "capacity_lbs": 45000, "notes": "Logo-wrapped · pad-wrap kit on board"},
+            {"id": f"TRL-{uuid.uuid4().hex[:6].upper()}", "trailer_no": "TNT-53202", "type": "Dry Van 53'", "license_plate": "MI-487J23", "license_state": "MI", "vin": "1H5VR3LX5MC123202", "carrier": "Tennant Fleet", "last_inspection": "2025-11-05", "next_inspection": "2026-05-05", "capacity_lbs": 45000, "notes": ""},
+            {"id": f"TRL-{uuid.uuid4().hex[:6].upper()}", "trailer_no": "LOGIX-1109", "type": "Air-Ride Lowboy", "license_plate": "OH-LXT109", "license_state": "OH", "vin": "1L2AR5KX7LL891109", "carrier": "Logix Transportation", "last_inspection": "2026-02-01", "next_inspection": "2026-08-01", "capacity_lbs": 48000, "notes": "Pad-wrap white-glove · machine transport"},
+            {"id": f"TRL-{uuid.uuid4().hex[:6].upper()}", "trailer_no": "XPO-78445", "type": "Dry Van 53'", "license_plate": "TN-XPO845", "license_state": "TN", "vin": "1X7DR2LY9XX878445", "carrier": "XPO Logistics", "last_inspection": "2025-12-19", "next_inspection": "2026-06-19", "capacity_lbs": 44500, "notes": ""},
+            {"id": f"TRL-{uuid.uuid4().hex[:6].upper()}", "trailer_no": "ODFL-22154", "type": "Pup 28'", "license_plate": "NC-OD2154", "license_state": "NC", "vin": "1O3PP7LY3OO722154", "carrier": "Old Dominion", "last_inspection": "2026-01-22", "next_inspection": "2026-07-22", "capacity_lbs": 22500, "notes": "LTL pup · Holland lane"},
+            {"id": f"TRL-{uuid.uuid4().hex[:6].upper()}", "trailer_no": "MAEU-6731288", "type": "40' HC Container", "license_plate": "", "license_state": "", "vin": "MAEU6731288", "carrier": "Maersk Line", "last_inspection": "2026-01-30", "next_inspection": "2026-07-30", "capacity_lbs": 67200, "notes": "Ocean container · Long Beach inbound"},
+        ]
+        for s in starters:
+            s["created_at"] = datetime.now(timezone.utc).isoformat()
+            s["created_by"] = "System Seed"
+        await db.trailers.insert_many([dict(s) for s in starters])
+        docs = await db.trailers.find({}, {"_id": 0}).sort("trailer_no", 1).to_list(1000)
+    return {"trailers": docs}
+
+
+@api_router.post("/trailers")
+async def trailers_create(payload: TrailerRecord, user: User = Depends(require_role("admin", "dispatcher"))):
+    rec = {"id": f"TRL-{uuid.uuid4().hex[:6].upper()}", **payload.dict(),
+           "created_at": datetime.now(timezone.utc).isoformat(),
+           "created_by": user.name}
+    await db.trailers.insert_one(dict(rec))
+    rec.pop("_id", None)
+    return rec
+
+
+@api_router.delete("/trailers/{trailer_id}")
+async def trailers_delete(trailer_id: str, _: User = Depends(require_role("admin", "dispatcher"))):
+    r = await db.trailers.delete_one({"id": trailer_id})
+    if r.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Trailer not found")
+    return {"ok": True}
+
+
 
 # -------------------- INTEGRATIONS --------------------
 INTEGRATIONS = [
@@ -6297,34 +6405,83 @@ TENNANT_SUPPLIERS = [
 
 @api_router.get("/suppliers")
 async def list_suppliers(_: User = Depends(get_current_user), country: Optional[str] = None, category: Optional[str] = None, risk_max: Optional[int] = None):
-    """List Tennant suppliers with optional filters by country / category / max risk score."""
-    out = list(TENNANT_SUPPLIERS)
+    """List Tennant suppliers with optional filters by country / category / max risk score.
+    Combines built-in seed suppliers with any manually-added entries stored in MongoDB."""
+    # Load custom suppliers (manually added via UI) and merge with seed list
+    custom = await db.suppliers_custom.find({}, {"_id": 0}).to_list(1000)
+    all_suppliers = list(TENNANT_SUPPLIERS) + custom
+    out = list(all_suppliers)
     if country:
-        out = [s for s in out if s["country"].lower() == country.lower()]
+        out = [s for s in out if (s.get("country") or "").lower() == country.lower()]
     if category:
-        out = [s for s in out if category.lower() in s["category"].lower()]
+        out = [s for s in out if category.lower() in (s.get("category") or "").lower()]
     if risk_max is not None:
-        out = [s for s in out if s["risk_score"] <= risk_max]
+        out = [s for s in out if (s.get("risk_score") or 0) <= risk_max]
     # Summary stats
-    total_spend = sum(s["annual_spend_usd"] for s in TENNANT_SUPPLIERS)
+    total_spend = sum((s.get("annual_spend_usd") or 0) for s in all_suppliers)
     countries = {}
     categories = {}
-    for s in TENNANT_SUPPLIERS:
-        countries[s["country"]] = countries.get(s["country"], 0) + s["annual_spend_usd"]
-        categories[s["category"]] = categories.get(s["category"], 0) + 1
+    for s in all_suppliers:
+        c = s.get("country") or "Unknown"
+        cat = s.get("category") or "Unknown"
+        countries[c] = countries.get(c, 0) + (s.get("annual_spend_usd") or 0)
+        categories[cat] = categories.get(cat, 0) + 1
     return {
         "suppliers": out,
         "summary": {
-            "total_suppliers": len(TENNANT_SUPPLIERS),
-            "primary_count": sum(1 for s in TENNANT_SUPPLIERS if s["primary"]),
+            "total_suppliers": len(all_suppliers),
+            "primary_count": sum(1 for s in all_suppliers if s.get("primary")),
             "total_annual_spend_usd": total_spend,
-            "single_source_components": sum(1 for s in TENNANT_SUPPLIERS if not s["alt_suppliers"]),
-            "high_risk_count": sum(1 for s in TENNANT_SUPPLIERS if s["risk_score"] >= 20),
-            "expiring_contracts_12mo": sum(1 for s in TENNANT_SUPPLIERS if s["contract_expiry"] and datetime.fromisoformat(s["contract_expiry"]).date() < (datetime.now(timezone.utc).date() + timedelta(days=365))),
+            "single_source_components": sum(1 for s in all_suppliers if not s.get("alt_suppliers")),
+            "high_risk_count": sum(1 for s in all_suppliers if (s.get("risk_score") or 0) >= 20),
+            "expiring_contracts_12mo": sum(1 for s in all_suppliers if s.get("contract_expiry") and datetime.fromisoformat(s["contract_expiry"]).date() < (datetime.now(timezone.utc).date() + timedelta(days=365))),
             "by_country": [{"country": k, "spend": v} for k, v in sorted(countries.items(), key=lambda x: -x[1])],
             "by_category": [{"category": k, "count": v} for k, v in sorted(categories.items(), key=lambda x: -x[1])],
         },
     }
+
+
+@api_router.post("/suppliers")
+async def create_supplier(payload: dict, user: User = Depends(require_role("admin", "dispatcher"))):
+    """Manually add a supplier. Stored in MongoDB and merged with the seed list."""
+    if not payload.get("name"):
+        raise HTTPException(400, "name is required")
+    # Allocate a new SUP-### id based on existing count
+    existing_custom = await db.suppliers_custom.count_documents({})
+    sup_id = payload.get("supplier_id") or f"SUP-C{existing_custom + 1:03d}"
+    doc = {
+        "supplier_id": sup_id,
+        "name": payload["name"],
+        "country": payload.get("country") or "USA",
+        "category": payload.get("category") or "Uncategorized",
+        "components": payload.get("components") or [],
+        "annual_spend_usd": int(payload.get("annual_spend_usd") or 0),
+        "lead_time_days": int(payload.get("lead_time_days") or 0),
+        "moq": int(payload.get("moq") or 0),
+        "on_time_pct": float(payload.get("on_time_pct") or 0),
+        "quality_ppm": int(payload.get("quality_ppm") or 0),
+        "risk_score": int(payload.get("risk_score") or 10),
+        "fta_eligible": payload.get("fta_eligible") or "—",
+        "primary": bool(payload.get("primary", True)),
+        "alt_suppliers": payload.get("alt_suppliers") or [],
+        "contract_expiry": payload.get("contract_expiry") or "",
+        "contact": payload.get("contact") or "",
+        "notes": payload.get("notes") or "",
+        "created_by": user.user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "is_custom": True,
+    }
+    await db.suppliers_custom.insert_one(dict(doc))
+    return {"ok": True, "supplier": doc}
+
+
+@api_router.delete("/suppliers/{supplier_id}")
+async def delete_supplier(supplier_id: str, _: User = Depends(require_role("admin"))):
+    """Only custom (manually-added) suppliers can be deleted; seeded suppliers are immutable."""
+    r = await db.suppliers_custom.delete_one({"supplier_id": supplier_id})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Supplier not found or built-in (immutable)")
+    return {"ok": True}
 
 # -------------------- INSPIRATIONAL QUOTES (Command Center subtle ticker) --------------------
 INSPIRATIONAL_QUOTES = [

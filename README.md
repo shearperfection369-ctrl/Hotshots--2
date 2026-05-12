@@ -171,12 +171,39 @@ Replaces the legacy HUDLINK AI module. Brand-correct Microsoft launcher with:
 80+ carrier rate decks · MSAs · lanes · accessorials. Side-by-side compare before tendering.
 
 ### Promo Video (`/promo.mp4`)
-A 39.6-second offline-rendered `.mp4` ("Built for the Team's Day") composed of authenticated Playwright screenshots + branded slides via FFMPEG. Plays inline in the dashboard's compact YouTube tile (corporate firewalls block real YouTube embeds).
+A ~97-second offline-rendered `.mp4` ("Built for the Team's Day · v2 Launch") composed of authenticated Playwright screenshots + branded slides via FFMPEG. **Now with AI narration** (OpenAI TTS via Emergent universal key) and a synthesized ambient music bed — fully self-contained, corporate-firewall-safe. Covers all 18 flagship v2 modules including Power BI, SharePoint, Microsoft Copilot, Specialty Carriers, Routing Guide, the 45-metric Carrier Scorecard, the Driver Registry and the Arcade.
 
-Rebuild any time:
+Re-build with narration any time:
 ```bash
 python3 /app/scripts/build_promo_with_screens.py
 ```
+
+Re-generate just the narration:
+```bash
+python3 /app/scripts/generate_promo_narration.py
+```
+
+---
+
+## v2 Launch Capabilities (new since v1.9)
+
+| Module | Sidebar | Highlights |
+| --- | --- | --- |
+| **Microsoft Copilot** | `/copilot` | In-workspace launcher · 4 surfaces · 6 deep-link prompts · replaces legacy HUDLINK AI |
+| **Power BI** | `/powerbi` | Embedded finance / ops / executive dashboards · drill filters carry across tiles |
+| **SharePoint** | `/sharepoint` | Native document libraries · M365 AD permissions roll-up · per-shipment deep links |
+| **Specialty Carriers** | `/specialty-carriers` | Logix · ArcBest Panther · Fastfrate · Ryan · live status + rates |
+| **Routing Guide** | `/routing-guide` | One-click PDF distribution to all suppliers (SendGrid MOCKED) · version history |
+| **Supplier Sourcing (manual entry)** | `/suppliers` | Add vendors manually · risk, spend, single-source · 20 seeded + custom |
+| **Driver & Trailer Registry** | `/driver-registry` | CDL, medical, endorsements (HAZMAT/TANKER/TWIC), DOT inspection · color-coded expiry |
+| **45-Metric Carrier Scorecard** | `/reports` | OTD, on-time pickup, tender accept, claims %, dwell, accessorial spend, +40 more |
+| **Arcade · Solo Chess** | `/arcade` | Connect 4 + Chess vs HUDLINK engine · tournaments · leaderboard |
+| **Global Search (Cmd-K)** | Topbar | Shipments, BOLs, carriers, suppliers, SAP PO/SO/Invoice deep links |
+| **16 Visual Themes** | Topbar palette | Cyan · Forest · Sunset · Arctic · Lavender · Mocha · Solar · Tennant Brand · Neon Tokyo · Matrix · Amber CRT · Midnight Steel · Rose Quartz · Carbon Fiber · Paper White · High-Vis Safety |
+| **Weather Radar + Alerts** | Topbar + `/tracking` | NOAA-style storm overlay · severe-weather alert banner |
+| **Universal Draggable Tiles** | most pages | Per-user layout persistence to `/api/user/layouts/{page_key}` |
+| **Truckload Sheet Carrier Dropdowns** | `/workbook` | Onboarded carriers in combobox · auto-creates onboarding stub on type-new |
+| **AI-Narrated Launch Promo** | `/promo` | OpenAI TTS narration + ambient music bed · 18 flagship modules |
 
 ---
 
@@ -285,8 +312,7 @@ If a feature looks missing in production, redeploy from the preview environment.
 
 See `/app/memory/PRD.md` for the running version log. Recent highlights:
 
-- **v2.1** — Auto-onboard new carriers · Calendar event aggregation · Email send (MOCKED)
-- **v2.0** — Routing Guide module · Carrier dropdown · HUDLINK → Microsoft Copilot
+- **v2.0 (Launch)** — Power BI · SharePoint · Microsoft Copilot · Specialty Carriers · Driver/Trailer Registry · 45-metric Carrier Scorecard · Solo Chess · Global Search (Cmd-K) · 16 Visual Themes · Weather Radar + Alerts · AI-narrated launch promo (OpenAI TTS + ambient music)
 - **v1.9** — Universal draggable tiles · MiniCalendar · new promo video
 - **v1.8** — Compact drag-and-drop Command Center
 - **v1.7** — Truckload Booking Sheet, Equipment/Yard Tracker, BOL emailing

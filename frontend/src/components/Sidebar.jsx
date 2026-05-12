@@ -5,7 +5,7 @@ import {
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
   DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon,
-  PieChart, FolderOpen, Settings as SettingsIcon, Award
+  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -19,6 +19,7 @@ const NAV = [
   { to: "/book-load", label: "Book Load", icon: PlusSquare, tid: "nav-book-load", roles: ["admin", "dispatcher"] },
   { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console", roles: ["admin", "dispatcher"] },
+  { to: "/driver-registry", label: "Drivers & Trailers", icon: IdCard, tid: "nav-driver-registry", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/equipment", label: "Equipment · Yard", icon: TrailerIcon, tid: "nav-equipment", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/carrier-rates", label: "Carrier Rates & FSC", icon: DollarSign, tid: "nav-carrier-rates", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/specialty-carriers", label: "Specialty Carriers", icon: Award, tid: "nav-specialty-carriers", roles: ["admin", "auditor", "dispatcher"] },

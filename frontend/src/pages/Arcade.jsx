@@ -6,9 +6,10 @@ import { Button } from "../components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Input } from "../components/ui/input";
-import { Trophy, Swords, Crown, Users, Inbox, Send, Sparkles, ArrowLeft, Award } from "lucide-react";
+import { Trophy, Swords, Crown, Users, Inbox, Send, Sparkles, ArrowLeft, Award, Bot } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
+import ChessGame from "../components/ChessGame";
 
 const TIER_BADGE = {
   Rookie: "bg-slate-500/15 text-slate-300 border-slate-500/30",
@@ -211,6 +212,7 @@ export default function Arcade() {
         <Card className="hud-surface p-3 flex flex-wrap items-center gap-2">
           {[
             { id: "lobby", label: "Lobby", Icon: Swords },
+            { id: "chess", label: "Chess · Solo", Icon: Bot },
             { id: "challenges", label: `Challenges${challenges.pending_count ? ` (${challenges.pending_count})` : ""}`, Icon: Inbox },
             { id: "leaderboard", label: "Leaderboard", Icon: Trophy },
             { id: "tournaments", label: "Tournaments", Icon: Crown },
@@ -234,6 +236,9 @@ export default function Arcade() {
             )}
           </div>
         </Card>
+
+        {/* Chess tab */}
+        {tab === "chess" && <ChessGame />}
 
         {/* Lobby tab */}
         {tab === "lobby" && (

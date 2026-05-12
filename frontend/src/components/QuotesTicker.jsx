@@ -3,18 +3,20 @@ import { api } from "../lib/api";
 import { Sparkles } from "lucide-react";
 
 /**
- * Subtle ambient quote ticker — fades quotes in/out every 12s.
- * Placed at the top of Command Center, intentionally low-contrast so it doesn't compete with KPIs.
+ * Streaming quote ticker — quotes flicker IN and OUT of reality every ~5s
+ * with a sci-fi static + glitch transition. Replaces the older 12s fade.
+ *
+ * Animation uses two CSS keyframes (`quoteIn` / `quoteOut`) defined in
+ * /app/frontend/src/index.css.
  */
 export default function QuotesTicker() {
   const [quotes, setQuotes] = useState([]);
   const [idx, setIdx] = useState(0);
-  const [fading, setFading] = useState(false);
+  const [phase, setPhase] = useState("in"); // 'in' | 'out'
 
   useEffect(() => {
     api.get("/quotes").then(({ data }) => {
       const arr = data.quotes || [];
-      // Randomize order so two users don't see the same one at the same time
       const shuffled = [...arr].sort(() => Math.random() - 0.5);
       setQuotes(shuffled);
       setIdx(Math.floor(Math.random() * shuffled.length));
@@ -23,30 +25,42 @@ export default function QuotesTicker() {
 
   useEffect(() => {
     if (!quotes.length) return;
+    // Cadence: 4500ms total — 800ms out, 200ms gap, advance, 3500ms in
     const id = setInterval(() => {
-      setFading(true);
+      setPhase("out");
       setTimeout(() => {
         setIdx((i) => (i + 1) % quotes.length);
-        setFading(false);
+        setPhase("in");
       }, 800);
-    }, 12000);
+    }, 5000);
     return () => clearInterval(id);
   }, [quotes.length]);
 
   if (!quotes.length) return null;
   const q = quotes[idx];
+  const cls = phase === "in" ? "quote-streaming-in" : "quote-streaming-out";
 
   return (
     <div
-      className="hud-surface px-5 py-3 rounded-lg border border-cyan-500/15 bg-gradient-to-r from-cyan-500/[0.02] via-cyan-500/[0.04] to-transparent flex items-center gap-3 group"
+      className="hud-surface px-5 py-3 rounded-lg border border-cyan-500/20 bg-gradient-to-r from-cyan-500/[0.03] via-cyan-500/[0.06] to-transparent flex items-center gap-3 relative overflow-hidden"
       data-testid="quotes-ticker"
     >
-      <Sparkles size={13} className="text-cyan-400/60 shrink-0" />
-      <div className={`flex-1 transition-opacity duration-700 ${fading ? "opacity-0" : "opacity-100"}`}>
-        <span className="text-slate-300 text-sm italic font-light">"{q.text}"</span>
-        <span className="text-cyan-400/70 text-xs font-mono ml-2">— {q.author}</span>
+      {/* Faint scanline overlay — adds the "streaming through the matrix" feel */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-30"
+        style={{
+          background:
+            "repeating-linear-gradient(0deg, rgba(0,229,255,0.04) 0 1px, transparent 1px 4px)",
+        }}
+      />
+      <Sparkles size={13} className="text-cyan-400 shrink-0 relative z-10" />
+      <div className={`flex-1 relative z-10 ${cls}`} key={idx /* re-trigger animation */}>
+        <span className="text-slate-200 text-sm italic font-light tracking-wide">"{q.text}"</span>
+        <span className="text-cyan-400 text-xs font-mono ml-2">— {q.author}</span>
       </div>
-      <span className="text-[9px] font-mono text-slate-600 shrink-0 hidden md:inline tabular-nums">{idx + 1}/{quotes.length}</span>
+      <span className="text-[9px] font-mono text-cyan-500/60 shrink-0 hidden md:inline tabular-nums relative z-10">
+        {idx + 1}/{quotes.length}
+      </span>
     </div>
   );
 }

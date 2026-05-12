@@ -46,6 +46,7 @@ import PowerBI from "@/pages/PowerBI";
 import SharePoint from "@/pages/SharePoint";
 import AdminSettings from "@/pages/AdminSettings";
 import SpecialtyCarriers from "@/pages/SpecialtyCarriers";
+import DriverRegistry from "@/pages/DriverRegistry";
 import WellnessNudges from "@/components/WellnessNudges";
 import { ThemeProvider } from "@/lib/theme";
 import { MusicProvider } from "@/lib/music";
@@ -91,6 +92,7 @@ function AppRouter() {
         <Route path="/sharepoint" element={<SharePoint />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/specialty-carriers" element={<SpecialtyCarriers />} />
+        <Route path="/driver-registry" element={<DriverRegistry />} />
         <Route path="/webex" element={<Webex />} />
         <Route path="/promo" element={<PromoVideo />} />
         <Route path="/workbook" element={<Workbook />} />

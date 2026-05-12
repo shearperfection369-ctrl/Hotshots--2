@@ -98,6 +98,15 @@ export default function Music() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" data-testid="station-grid">
             {stations.map((s) => {
               const active = current?.id === s.id;
+              // Procedural album-art tile — distinctive per station using a hash
+              // of the station name so the icon block stays stable across reloads.
+              const hash = (s.name || "?").split("").reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7);
+              const hue1 = Math.abs(hash) % 360;
+              const hue2 = (hue1 + 60) % 360;
+              const initials = (s.name || "?").split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("").slice(0, 2) || "?";
+              const tagPick = (s.tags || []).filter(Boolean)[0] || "";
+              // Tiny equalizer bars when playing
+              const eqBars = [0.6, 0.9, 0.45, 0.75, 0.55];
               return (
                 <button
                   key={s.id}
@@ -110,12 +119,44 @@ export default function Music() {
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 ${active ? "bg-cyan-500 text-black" : "bg-cyan-500/10 text-cyan-400"}`}>
-                      {active && playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+                    {/* Procedural album art */}
+                    <div
+                      className="w-12 h-12 rounded-md flex items-center justify-center shrink-0 relative overflow-hidden"
+                      style={{
+                        background: `linear-gradient(135deg, hsl(${hue1} 70% 22%), hsl(${hue2} 80% 38%))`,
+                        boxShadow: `inset 0 0 12px hsla(${hue1}, 80%, 60%, 0.45)`,
+                      }}
+                      data-testid={`station-art-${s.id}`}
+                    >
+                      {active && playing ? (
+                        <div className="flex items-end gap-0.5 h-5">
+                          {eqBars.map((b, i) => (
+                            <span
+                              key={i}
+                              className="w-1 bg-cyan-300 rounded-sm"
+                              style={{
+                                height: `${b * 100}%`,
+                                animation: `eqBar 0.${4 + i}s ease-in-out ${i * 0.08}s infinite alternate`,
+                              }}
+                            />
+                          ))}
+                        </div>
+                      ) : active ? (
+                        <Pause size={18} className="text-white" fill="currentColor" />
+                      ) : (
+                        <span className="font-display text-base font-bold text-white/90">{initials}</span>
+                      )}
+                      <span
+                        className="absolute inset-0 pointer-events-none"
+                        style={{ background: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15), transparent 60%)" }}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-white font-medium truncate" title={s.name}>{s.name}</div>
-                      <div className="text-[10px] font-mono text-slate-500 mt-0.5">{s.country} · {s.codec || "?"} · {s.bitrate || "?"}kbps</div>
+                      <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+                        {s.country} · {s.codec || "?"} · {s.bitrate || "?"}kbps
+                        {tagPick && <span className="ml-1 text-cyan-400/80">· {tagPick}</span>}
+                      </div>
                       <div className="flex flex-wrap gap-1 mt-1.5">
                         {s.tags.filter(Boolean).slice(0, 3).map((tag, i) => (
                           <span key={i} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-slate-400">{tag}</span>
