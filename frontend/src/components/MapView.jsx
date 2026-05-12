@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, Polyline } from "react-leaflet";
+import React, { useEffect, useMemo } from "react";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 
 // Custom HTML icon for each shipment based on status
@@ -34,7 +34,19 @@ const FACILITY_ICON = L.divIcon({
   iconAnchor: [9, 9],
 });
 
-export default function MapView({ shipments = [], facilities = [], height = 480, showRoutes = false }) {
+// Imperative child that flies the map to a selected shipment when `focus` changes.
+function MapFocus({ focus }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!focus?.current_location) return;
+    const { lat, lng } = focus.current_location;
+    if (typeof lat !== "number" || typeof lng !== "number") return;
+    map.flyTo([lat, lng], 6, { duration: 0.8 });
+  }, [focus?.shipment_id]);  // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
+export default function MapView({ shipments = [], facilities = [], height = 480, showRoutes = false, focus = null }) {
   const center = useMemo(() => [39.5, -95.0], []);
   const routes = useMemo(() => {
     if (!showRoutes) return [];
@@ -54,6 +66,7 @@ export default function MapView({ shipments = [], facilities = [], height = 480,
   return (
     <div className="rounded-lg overflow-hidden border border-white/5 hud-glow-cyan" style={{ height }} data-testid="map-view">
       <MapContainer center={center} zoom={3.5} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
+        <MapFocus focus={focus} />
         <TileLayer
           attribution='© OpenStreetMap contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
