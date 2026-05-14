@@ -6,7 +6,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 
 export default function Trailers() {
   const [trailers, setTrailers] = useState([]);
-  useEffect(() => { api.get("/trailers").then(({ data }) => setTrailers(data)); }, []);
+  useEffect(() => { api.get("/trailer-specs").then(({ data }) => setTrailers(data)); }, []);
 
   const palletData = trailers.map((t) => ({ name: t.name, pallets: t.pallets, color: t.color }));
   const weightData = trailers.map((t) => ({ name: t.name, weight: t.max_weight_lbs, color: t.color }));

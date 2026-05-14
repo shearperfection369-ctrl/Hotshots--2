@@ -2286,8 +2286,11 @@ TRAILER_SPECS = [
     {"id": "40hc", "name": "40' High Cube", "length_ft": 40, "width_ft": 8, "height_ft": 9.5, "max_weight_lbs": 58000, "pallets": 20, "uses": ["Tall machinery", "Volume-out before weight-out"], "color": "#10B981"},
 ]
 
-@api_router.get("/trailers")
-async def get_trailers(_: User = Depends(get_current_user)):
+@api_router.get("/trailer-specs")
+async def get_trailer_specs(_: User = Depends(get_current_user)):
+    """Static reference data for the Trailer Specs page (53' Dry Van, Reefer,
+    Flatbed, ocean containers, etc.). Distinct from /api/trailers which lists
+    physical fleet assets."""
     return TRAILER_SPECS
 
 # -------------------- HS CODES --------------------
