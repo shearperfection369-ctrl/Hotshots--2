@@ -1059,7 +1059,7 @@ async def get_kpis(_: User = Depends(get_current_user)):
         ],
     }
 
-    return {
+    return await _brand_swap({
         "totals": {
             "total": total,
             "in_transit": in_transit,
@@ -1075,7 +1075,7 @@ async def get_kpis(_: User = Depends(get_current_user)):
         "carrier_scorecard": scorecard,
         "network_metrics": network_metrics,
         "trend": trend,
-    }
+    })
 
 # -------------------- KPIs · Weekly Weights --------------------
 def _facility_for_shipment(s: Dict[str, Any]) -> Optional[str]:
@@ -1267,7 +1267,7 @@ async def get_news(category: Optional[str] = None, limit: int = 40, _: User = De
         out.append({**n, "minutes_ago": mins, "time": _mins_ago_to_label(mins),
                     "published_at": (datetime.now(timezone.utc) - timedelta(minutes=mins)).isoformat()})
     out.sort(key=lambda x: x["minutes_ago"])
-    return out[:limit]
+    return await _brand_swap(out[:limit])
 
 
 # 25 traffic incidents with rich detail — agency, lanes closed, source URL,
@@ -1485,9 +1485,9 @@ MOCK_WEATHER_ALERTS = [
 
 @api_router.get("/weather/alerts")
 async def weather_alerts_endpoint(_: User = Depends(get_current_user)):
-    """Mocked NWS-style watches/warnings keyed to Tennant facility regions.
+    """Mocked NWS-style watches/warnings keyed to brand facility regions.
     UI polls every 60 seconds and toasts when a new alert_id appears."""
-    return MOCK_WEATHER_ALERTS
+    return await _brand_swap(MOCK_WEATHER_ALERTS)
 
 
 # -------------------- WELLNESS NUDGES --------------------
@@ -1564,7 +1564,7 @@ async def powerbi_config_get(_: User = Depends(get_current_user)):
     doc = await db.integration_configs.find_one({"_id": "powerbi"}, {"_id": 0})
     reports = (doc or {}).get("reports") or POWERBI_REPORTS_DEFAULT
     workspace_url = (doc or {}).get("workspace_url") or "https://app.powerbi.com/groups/me"
-    return {"reports": reports, "workspace_url": workspace_url, "tenant": "tennantco.onmicrosoft.com"}
+    return await _brand_swap({"reports": reports, "workspace_url": workspace_url, "tenant": "tennantco.onmicrosoft.com"})
 
 
 class PowerBIReport(BaseModel):
@@ -1634,11 +1634,57 @@ async def sharepoint_config(_: User = Depends(get_current_user)):
     sites = (doc or {}).get("sites") or SHAREPOINT_SITES_DEFAULT
     files = (doc or {}).get("recent_files") or SHAREPOINT_RECENT_FILES_DEFAULT
     tenant_url = (doc or {}).get("tenant_url") or "https://tennantco.sharepoint.com"
-    return {"sites": sites, "recent_files": files, "tenant_url": tenant_url}
+    return await _brand_swap({"sites": sites, "recent_files": files, "tenant_url": tenant_url})
 
 
 # -------------------- INTEGRATIONS · S4 LINK BUILDER --------------------
 SAP_S4_BASE = os.environ.get("SAP_S4_BASE_URL", "https://my-s4.tennantco.com")
+
+
+def _brand_short() -> str:
+    """Best-effort sync access to the active brand's short name. Returns
+    'Tennant' if unset. Used only for tenant-string substitution where an
+    async call would be too expensive (called in template formatters)."""
+    return "Tennant"  # sync default; async overlays do the real swap
+
+
+async def _brand_tenant_strings() -> Dict[str, str]:
+    """Returns the replacements applied to integration / SAP responses
+    when a non-Tennant brand is active. Keys are 'Tennant' fragments to be
+    swapped for the brand's short_name. The empty dict means no swap (i.e.
+    Tennant is active)."""
+    brand = await _active_brand_doc()
+    if not brand or brand.get("brand_id") == "tennant":
+        return {}
+    short = brand.get("short_name") or "Brand"
+    slug = re.sub(r"[^a-z0-9]+", "", short.lower())[:20] or "brand"
+    company = brand.get("company_name") or short
+    return {
+        # Word-form replacements (case-sensitive, ordered most-specific first)
+        "Tennant Company": company,
+        "Tennant Companies": company,
+        "Tennant · ": f"{short} · ",
+        "Tennant ": f"{short} ",
+        "TENNANT": short.upper(),
+        # Domains / slugs
+        "tennantco.com": f"{slug}.com",
+        "tennantco.onmicrosoft.com": f"{slug}.onmicrosoft.com",
+        "tennantco.sharepoint.com": f"{slug}.sharepoint.com",
+        "tennantco.s4hana.cloud.sap": f"{slug}.s4hana.cloud.sap",
+        "my-s4.tennantco.com": f"my-s4.{slug}.com",
+        "tennant-": f"{slug}-",
+    }
+
+
+async def _brand_swap(value: Any) -> Any:
+    """Apply tenant string replacements recursively. No-op for Tennant."""
+    repl = await _brand_tenant_strings()
+    if not repl:
+        return value
+    return _swap_strings(value, repl)
+
+
+
 # Fiori app aliases — these are the canonical OData/Web Dynpro paths each
 # S/4HANA tile resolves to. Wrapped in an env var so customers can swap
 # the production hostname with no code changes.
@@ -1666,14 +1712,24 @@ async def sap_deep_link(kind: str, value: str, _: User = Depends(get_current_use
     if not value:
         raise HTTPException(status_code=400, detail="value required")
     path = S4_DEEP_LINK_PATTERNS[kind].format(value=urllib.parse.quote(value, safe=""))
-    return {"url": f"{SAP_S4_BASE}{path}", "kind": kind, "value": value, "base": SAP_S4_BASE}
+    base = SAP_S4_BASE
+    repl = await _brand_tenant_strings()
+    if repl:
+        for src, dst in repl.items():
+            base = base.replace(src, dst)
+    return {"url": f"{base}{path}", "kind": kind, "value": value, "base": base}
 
 
 @api_router.get("/sap/link-config")
 async def sap_link_config(_: User = Depends(get_current_user)):
     """Frontend reads this once to build links locally without a roundtrip
     per token. Returns the base URL + pattern map (with `{value}` placeholder)."""
-    return {"base": SAP_S4_BASE, "patterns": S4_DEEP_LINK_PATTERNS, "kinds": list(S4_DEEP_LINK_PATTERNS.keys())}
+    base = SAP_S4_BASE
+    repl = await _brand_tenant_strings()
+    if repl:
+        for src, dst in repl.items():
+            base = base.replace(src, dst)
+    return {"base": base, "patterns": S4_DEEP_LINK_PATTERNS, "kinds": list(S4_DEEP_LINK_PATTERNS.keys())}
 
 
 # -------------------- CARRIER TRACKING URLs --------------------
@@ -1960,7 +2016,7 @@ async def s4_search(q: str, _: User = Depends(get_current_user)):
                 "url": f"{SAP_S4_BASE}{path}",
                 "matched_on": "header" if rnd.random() > 0.4 else "item",
             })
-    return {"results": results, "query": q, "base": SAP_S4_BASE, "tenant": "tennantco.s4hana.cloud.sap"}
+    return await _brand_swap({"results": results, "query": q, "base": SAP_S4_BASE, "tenant": "tennantco.s4hana.cloud.sap"})
 
 
 # -------------------- ADMIN SETTINGS --------------------
@@ -2011,8 +2067,8 @@ async def s4_invoices(limit: int = 50, _: User = Depends(get_current_user)):
             "po_number": f"PO-{rnd.randint(4500000, 4999999)}",
             "s4_url": f"{SAP_S4_BASE}{path}",
         })
-    return {"invoices": out, "total": len(out), "tenant": "tennantco.s4hana.cloud.sap",
-            "fiori_root": f"{SAP_S4_BASE}/sap/bc/ui2/flp#Shell-home"}
+    return await _brand_swap({"invoices": out, "total": len(out), "tenant": "tennantco.s4hana.cloud.sap",
+            "fiori_root": f"{SAP_S4_BASE}/sap/bc/ui2/flp#Shell-home"})
 
 
 # -------------------- MACHINES · ADD/UPLOAD --------------------
@@ -4413,12 +4469,26 @@ async def sap_open_deliveries(user: User = Depends(get_current_user)):
     """Returns open deliveries from SAP S/4HANA (mocked) for Book Load reference auto-fill."""
     if user.role == "carrier":
         raise HTTPException(status_code=403, detail="Not available for carrier role")
-    return {"deliveries": SAP_OPEN_DELIVERIES, "fetched_at": datetime.now(timezone.utc).isoformat()}
+    out = list(SAP_OPEN_DELIVERIES)
+    brand = await _active_brand_doc()
+    if brand and brand.get("brand_id") != "tennant":
+        products = brand.get("sample_products") or []
+        short = brand.get("short_name") or "BRAND"
+        prefix = re.sub(r"[^A-Z0-9]+", "", short.upper())[:4] or "BRND"
+        for i, d in enumerate(out):
+            if products:
+                desc = products[i % len(products)]
+                d["material_desc"] = desc
+                slug = re.sub(r"[^A-Z0-9]+", "", desc.upper())[:6] or f"P{i:03d}"
+                d["material"] = f"{prefix}-{slug}-{i:02d}"
+    return {"deliveries": out, "fetched_at": datetime.now(timezone.utc).isoformat()}
 
 @api_router.get("/sap/materials")
 async def sap_materials(_: User = Depends(get_current_user)):
-    """Top part numbers (mock) for the Command Center widget."""
-    return {"materials": [
+    """Top part numbers (mock) for the Command Center widget. Brand-aware:
+    when a non-Tennant brand is active, part numbers and descriptions are
+    overlaid with the active brand's sample products."""
+    materials = [
         {"part_no": "TENN-T16AMR-LI", "description": "T16 AMR · Lithium-ion", "plant": "1010", "on_hand": 47, "open_orders": 12, "nmfc": "105820", "freight_class": "85"},
         {"part_no": "TENN-T7AMR", "description": "T7 AMR Scrubber 32 in", "plant": "1020", "on_hand": 86, "open_orders": 18, "nmfc": "105820", "freight_class": "85"},
         {"part_no": "TENN-T350-PROPANE", "description": "T350 LPG Scrubber", "plant": "1010", "on_hand": 22, "open_orders": 9, "nmfc": "105820", "freight_class": "85"},
@@ -4429,7 +4499,20 @@ async def sap_materials(_: User = Depends(get_current_user)):
         {"part_no": "TENN-BRUSH-CYL-32", "description": "Cylindrical Brush · 32 in", "plant": "1020", "on_hand": 312, "open_orders": 56, "nmfc": "16035", "freight_class": "175"},
         {"part_no": "TENN-SQGE-URETH-40", "description": "Squeegee Blade · Urethane · 40 in", "plant": "1020", "on_hand": 218, "open_orders": 41, "nmfc": "84580", "freight_class": "125"},
         {"part_no": "TENN-TANK-SOL-HDPE-30G", "description": "Solution Tank · HDPE · 30 gal", "plant": "1030", "on_hand": 56, "open_orders": 15, "nmfc": "156600", "freight_class": "150"},
-    ]}
+    ]
+    brand = await _active_brand_doc()
+    if brand and brand.get("brand_id") != "tennant":
+        products = brand.get("sample_products") or []
+        short = brand.get("short_name") or "BRAND"
+        prefix = re.sub(r"[^A-Z0-9]+", "", short.upper())[:4] or "BRND"
+        for i, m in enumerate(materials):
+            if products:
+                desc = products[i % len(products)]
+                m["description"] = desc
+                # part_no built from the brand short + 4 chars of the product slug
+                slug = re.sub(r"[^A-Z0-9]+", "", desc.upper())[:6] or f"P{i:03d}"
+                m["part_no"] = f"{prefix}-{slug}-{i:02d}"
+    return {"materials": materials}
 
 # -------------------- CARRIER INVITES (admin-gated) --------------------
 class CarrierInviteCreate(BaseModel):

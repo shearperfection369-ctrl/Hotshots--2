@@ -16,6 +16,7 @@ import MiniCalendar from "../components/MiniCalendar";
 import WeatherAlertsBanner from "../components/WeatherAlertsBanner";
 import WeatherRadar from "../components/WeatherRadar";
 import { useUserLayout } from "../components/DraggableTiles";
+import { useBranding } from "../lib/branding";
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar,
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid
@@ -67,6 +68,7 @@ const Row = ({ k, v, mono, green }) => (
 );
 
 export default function Dashboard() {
+  const { brand } = useBranding();
   const [kpis, setKpis] = useState(null);
   const [shipments, setShipments] = useState([]);
   const [facilities, setFacilities] = useState([]);
@@ -144,7 +146,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <Topbar title="Command Center" subtitle="TENNANT COMPANIES · TMS HUD · LIVE OPERATIONS" />
+      <Topbar title="Command Center" subtitle={`${(brand?.company_name || "TENNANT COMPANIES").toUpperCase()} · TMS HUD · LIVE OPERATIONS`} />
       <div className="p-4 md:p-6 flex flex-col gap-5">
 
         {/* Auto NWS-style weather alert banner — polls every 60s, dismissible per alert_id */}
@@ -508,6 +510,13 @@ export default function Dashboard() {
 function CompactVideoTile() {
   const DEFAULT_ID = "mTxE3g7o4aY";
   const KEY = "tms-dashboard-video";
+  const PLAYLIST_KEY = "tms-dashboard-playlist";
+  const DEFAULT_PLAYLIST = [
+    { id: "mTxE3g7o4aY", title: "Tennant · Is Everywhere Trailer" },
+    { id: "5qap5aO4i9A", title: "Lofi · Study Stream" },
+    { id: "jfKfPfyJRdk", title: "Lofi · Beats to Relax" },
+    { id: "rQ7yA5jb5_M", title: "FedEx · Inside Look" },
+  ];
   const [videoId, setVideoId] = useState(() => {
     try {
       const saved = localStorage.getItem(KEY);
@@ -518,10 +527,23 @@ function CompactVideoTile() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(videoId);
   const [err, setErr] = useState("");
+  const [playlist, setPlaylist] = useState(() => {
+    try {
+      const saved = localStorage.getItem(PLAYLIST_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) { /* ignore */ }
+    return DEFAULT_PLAYLIST;
+  });
 
   useEffect(() => {
     try { localStorage.setItem(KEY, videoId); } catch (e) { /* ignore */ }
   }, [videoId]);
+  useEffect(() => {
+    try { localStorage.setItem(PLAYLIST_KEY, JSON.stringify(playlist)); } catch (e) { /* ignore */ }
+  }, [playlist]);
 
   const parseId = (s) => {
     const t = String(s || "").trim();
@@ -544,6 +566,17 @@ function CompactVideoTile() {
     setErr(""); setVideoId(id); setDraft(id); setEditing(false);
   };
 
+  const pin = () => {
+    if (playlist.some((p) => p.id === videoId)) return;
+    // Use a sensible default title (user can rename later if we add UI).
+    const title = window.prompt("Title for this pinned video?", `Video · ${videoId.slice(0, 6)}`);
+    if (!title) return;
+    setPlaylist([{ id: videoId, title }, ...playlist].slice(0, 12));
+  };
+
+  const playPin = (id) => { setVideoId(id); setDraft(id); setErr(""); };
+  const removePin = (id) => setPlaylist(playlist.filter((p) => p.id !== id));
+
   return (
     <Card className="hud-surface p-3" data-testid="video-player-tile">
       <div className="flex items-center justify-between mb-2 gap-2">
@@ -552,6 +585,14 @@ function CompactVideoTile() {
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 truncate">Video Screen</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={pin}
+            disabled={playlist.some((p) => p.id === videoId)}
+            data-testid="video-pin-btn"
+            title={playlist.some((p) => p.id === videoId) ? "Already pinned" : "Pin to playlist"}
+            className="text-[9px] font-mono uppercase tracking-wider text-emerald-300 hover:text-emerald-200 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-0.5"
+          >＋Pin</button>
           <button
             type="button"
             onClick={() => { setEditing((v) => !v); setErr(""); setDraft(videoId); }}
@@ -566,6 +607,34 @@ function CompactVideoTile() {
           >Open <ExternalLink size={9} /></a>
         </div>
       </div>
+      {/* Pinned playlist — quick-switch with one click. */}
+      {playlist.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2" data-testid="video-playlist">
+          {playlist.map((p) => (
+            <div
+              key={p.id}
+              className={`group flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider border transition ${
+                p.id === videoId
+                  ? "bg-cyan-500 text-black border-cyan-400"
+                  : "border-white/10 text-slate-300 hover:border-cyan-400/40 hover:text-cyan-200"
+              }`}
+            >
+              <button
+                onClick={() => playPin(p.id)}
+                data-testid={`video-play-${p.id}`}
+                title={p.title}
+                className="max-w-[140px] truncate text-left"
+              >{p.title}</button>
+              <button
+                onClick={() => removePin(p.id)}
+                data-testid={`video-unpin-${p.id}`}
+                title="Remove pin"
+                className={`opacity-0 group-hover:opacity-100 ${p.id === videoId ? "hover:text-red-700" : "hover:text-red-400"}`}
+              >×</button>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="relative w-full aspect-video bg-black rounded overflow-hidden border border-white/5 max-h-44">
         <iframe
           key={videoId}
