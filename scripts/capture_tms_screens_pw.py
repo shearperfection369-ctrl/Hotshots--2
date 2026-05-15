@@ -19,6 +19,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 # (URL path, slug) — slug is referenced by SCENES in build_promo_with_screens.py
 SCENES = [
+    ("/about", "00_about"),
     ("/dashboard", "01_command"),
     ("/workbook", "02_booking"),
     ("/shipments", "03_shipments"),
@@ -37,6 +38,8 @@ SCENES = [
     ("/reports", "16_reports"),
     ("/driver-registry", "17_driver_registry"),
     ("/arcade", "18_arcade"),
+    ("/sap-sync", "19_sap"),
+    ("/admin", "20_admin"),
 ]
 
 

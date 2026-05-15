@@ -1,0 +1,49 @@
+{
+  "summary": "Iteration 17 backend tests: SAP brand bleed-through (Pfizer active) across config/sales-orders/purchase-orders/materials/sync-logs/open-deliveries, /api/integrations host swap, KPI network_metrics brand drift, and full Server Registry CRUD + ping + admin-role enforcement. 21/21 pytest passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "review_request credentials", "issue": "Review request listed dispatcher token as 'test_session_disp_1' but the actual valid token (per /app/memory/test_credentials.md and /api/auth/me) is 'test_disp_session'. Used the correct one in tests."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter17.py",
+    "/app/test_reports/pytest/iter17_results.xml"
+  ],
+  "action_items": [
+    "(Doc) Update review-request template / test_credentials reference so future iterations use 'test_disp_session' for dispatcher.",
+    "Consider adding a deterministic seed lock on /api/kpis network_metrics so brand drift values don't change between calls (currently they appear stable, but worth a code review)."
+  ],
+  "critical_code_review_comments": [
+    "_brand_tenant_strings (server.py ~1688) does substring replacement on response strings. The catch-all 'tennant' -> slug at the end works but is fragile — any new field containing the word 'Tennant' anywhere will get swapped. Consider an explicit allowlist or a marker-based template approach long term.",
+    "_detect_system_servers always returns health='healthy' for system::api and system::ingress without an actual probe (only mongo is real-probed). The 'healthy' badge is therefore optimistic for those rows — at minimum, label them 'reported' vs 'probed' so admins know which were measured.",
+    "POST /api/admin/servers does not validate that hostname is a plausible host or that protocol is one of the documented enum values; an admin can store 'protocol: banana'. Add Pydantic Literal[...] validators.",
+    "/api/admin/servers/{id}/ping uses httpx.AsyncClient(timeout=4.0) and socket.create_connection blocking inside an async handler (TCP path). The blocking socket call will stall the event loop on slow networks — move to asyncio.open_connection.",
+    "server.py is now 8364 lines — past the 700-line threshold. The Server Registry block, SAP block, and ERP connectors block are each self-contained and should be split into separate routers/modules.",
+    "MongoDB _id is correctly excluded from servers_registry reads via projection {'_id': 0} ✓.",
+    "Custom server POST returns the raw insert dict; that's fine, but consider stripping any future secret fields before returning to the client."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter17.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "not tested (skipped per request)"},
+  "test_credentials": "admin: test_session_admin_1 (Bearer). dispatcher: test_disp_session (Bearer). Review-request value 'test_session_disp_1' is INVALID — use 'test_disp_session'.",
+  "seed_data_creation": "Tests created two TEST_-prefixed custom servers (TEST_HealthURL Server, TEST_TCP Server) and cleaned them up via DELETE at end of run. db.servers_registry should be empty of TEST_ rows after run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Active brand in /api/branding is Pfizer Inc. (brand_id=pfizer, short_name=Pfizer, slug=pfizer). SAP host should swap to s4hana.pfizer.sap.com and user prefix should not start with TENNANT. /api/kpis network_metrics is a dict of category -> list[metric], NOT a flat metric->value dict — find on_time_pickup via [m for grp in nm.values() if isinstance(grp, list) for m in grp]. Pfizer on_time_pickup observed ≈ 93.04 vs Tennant baseline 95.3. Server Registry: system::api, system::mongo, system::llm always present; system::ingress present when PUBLIC_APP_URL/REACT_APP_BACKEND_URL is set. PATCH/DELETE on system::* IDs return 400. Custom server IDs are 'SRV-' + 10 hex chars uppercase.",
+  "verified_flows": [
+    "GET /api/sap/config returns host=https://s4hana.pfizer.sap.com, user=PFIZER_TMS_SVC (no 'tennant' substring)",
+    "GET /api/sap/sales-orders, purchase-orders, materials, sync-logs, open-deliveries — no 'tennant' substring anywhere in serialized response",
+    "GET /api/integrations contains 'pfizer' slug; tennantco.sharepoint.com and powerbi.com/tennant are absent",
+    "GET /api/kpis network_metrics on_time_pickup = 93.04 (drifted from 95.3 Tennant baseline)",
+    "Dispatcher (test_disp_session) gets 403 on GET/POST/DELETE /api/admin/servers",
+    "GET /api/admin/servers returns {system[4], custom[], totals} — system includes system::api, system::mongo, system::llm, system::ingress",
+    "POST /api/admin/servers creates SRV-<10HEX> doc with system=false; persisted and returned by next GET",
+    "PATCH /api/admin/servers/{id} updates notes; PATCH on system::api → 400",
+    "DELETE /api/admin/servers/{id} removes; DELETE system::mongo → 400; DELETE unknown → 404",
+    "POST /api/admin/servers/{id}/ping with health_url=https://httpbin.org/status/200 returns last_health/last_ping_ms/last_check_at",
+    "POST /api/admin/servers/{id}/ping with hostname=1.1.1.1, port=443 performs TCP probe and returns health/ping"
+  ]
+}

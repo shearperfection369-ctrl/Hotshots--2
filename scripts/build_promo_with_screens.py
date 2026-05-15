@@ -107,6 +107,18 @@ SCENES = [
      ["Challenge a teammate, climb the leaderboard.",
       "Solo chess vs the HUDLINK engine.",
       "Because dispatchers deserve a break too."]),
+    ("/sap-sync", "19_sap", "SAP S/4HANA SYNC", "Live OData · SOs · POs · Audit Logs",
+     ["Brand-aware OData feed re-skins on theme swap.",
+      "Sales & purchase orders, plants, suppliers, IncoTerms.",
+      "One-click sync with full audit log retention."]),
+    ("/admin", "20_admin", "ADMIN COMMAND CENTER", "AI Brand Switcher · ERP · Compliance",
+     ["Type any company — Walmart, Pfizer, FedEx.",
+      "Claude 4.5 generates lanes, suppliers, products.",
+      "Whole app re-skins in under 2 seconds."]),
+    ("/about", "00_about", "MARKETING SITE", "The Multi-Tenant TMS for Any Brand",
+     ["Public landing page for prospects and pitches.",
+      "Demo the AI Brand Switcher in real time.",
+      "Built by Oliver Cummins · v2.1 launch."]),
 ]
 
 W, H = 1920, 1080
@@ -151,7 +163,7 @@ def build_slide(shot_path: Path, slug: str, eyebrow: str, title: str, lines, out
     for line in lines:
         d.text((tx, y), line, font=FONT_BODY, fill=SLATE)
         y += 50
-    d.text((60, H - 50), "TENNANT · TMS v2.0 · LAUNCH BUILD", font=FONT_FOOTER, fill=SLATE_DIM)
+    d.text((60, H - 50), "MULTI-TENANT TMS · v2.1 · LAUNCH BUILD", font=FONT_FOOTER, fill=SLATE_DIM)
     n = slug.split("_")[0]
     d.text((W - 320, H - 50), f"SCENE {n} / {len(SCENES):02d}", font=FONT_FOOTER, fill=SLATE_DIM)
     canvas.save(out_path, "PNG")

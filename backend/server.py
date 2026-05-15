@@ -17,6 +17,7 @@ import uuid
 import json
 import random
 import httpx
+import socket
 import urllib.parse
 from pathlib import Path
 from pydantic import BaseModel, Field
@@ -1059,6 +1060,42 @@ async def get_kpis(_: User = Depends(get_current_user)):
         ],
     }
 
+    # === BRAND OVERLAY — perturb metrics deterministically per active brand ===
+    # Tennant defaults stay untouched. For any other active brand we apply a
+    # stable per-metric drift seeded by the brand_id so each company has its
+    # own coherent KPI fingerprint (e.g. Walmart's OTIF differs from FedEx).
+    brand_doc = await _active_brand_doc()
+    if brand_doc and brand_doc.get("brand_id") != "tennant":
+        bseed = brand_doc.get("brand_id") or brand_doc.get("short_name") or "brand"
+        def _drift(val, key, lo=-0.12, hi=0.12):
+            if not isinstance(val, (int, float)) or val == 0:
+                return val
+            rnd = random.Random(f"{bseed}::{key}")
+            factor = 1 + rnd.uniform(lo, hi)
+            new_val = val * factor
+            if isinstance(val, int):
+                return max(0, int(round(new_val)))
+            if abs(val) >= 100:
+                return round(new_val, 1)
+            if abs(val) >= 1:
+                return round(new_val, 2)
+            return round(new_val, 3)
+        for category, items in network_metrics.items():
+            for m in items:
+                m["value"] = _drift(m["value"], f"nm::{category}::{m['key']}::value")
+                if m.get("unit") == "%" and isinstance(m["value"], (int, float)):
+                    m["value"] = max(0, min(100, m["value"]))
+                m["trend"] = _drift(m["trend"], f"nm::{category}::{m['key']}::trend", -0.25, 0.25)
+        for i, day in enumerate(trend):
+            day["shipments"] = _drift(day["shipments"], f"trend::{i}::ships")
+            day["on_time"] = min(day["shipments"], _drift(day["on_time"], f"trend::{i}::ot"))
+            day["cost"] = _drift(day["cost"], f"trend::{i}::cost")
+        for c in scorecard:
+            c["composite_score"] = round(min(99.9, max(40, _drift(c["composite_score"], f"sc::{c['carrier']}::comp", -0.06, 0.06))), 1)
+            c["on_time_delivery_pct"] = max(0, min(100, _drift(c["on_time_delivery_pct"], f"sc::{c['carrier']}::otd", -0.04, 0.04)))
+            c["on_time_in_full_pct"] = max(0, min(100, _drift(c["on_time_in_full_pct"], f"sc::{c['carrier']}::otif", -0.04, 0.04)))
+        scorecard.sort(key=lambda x: -x["composite_score"])
+
     return await _brand_swap({
         "totals": {
             "total": total,
@@ -1666,13 +1703,20 @@ async def _brand_tenant_strings() -> Dict[str, str]:
         "Tennant · ": f"{short} · ",
         "Tennant ": f"{short} ",
         "TENNANT": short.upper(),
-        # Domains / slugs
+        # Domains / slugs (specific first so they win over generic tennantco. catch-all below)
         "tennantco.com": f"{slug}.com",
         "tennantco.onmicrosoft.com": f"{slug}.onmicrosoft.com",
         "tennantco.sharepoint.com": f"{slug}.sharepoint.com",
         "tennantco.s4hana.cloud.sap": f"{slug}.s4hana.cloud.sap",
         "my-s4.tennantco.com": f"my-s4.{slug}.com",
+        "s4hana.tennantco.sap.com": f"s4hana.{slug}.sap.com",
+        "tennantco.s4.sap.com": f"{slug}.s4.sap.com",
+        "powerbi.com/tennant": f"powerbi.com/{slug}",
+        "tennantco": slug,         # any remaining tennantco.* hostnames
         "tennant-": f"{slug}-",
+        # Final catch-all for stray standalone references
+        "Tennant": short,
+        "tennant": slug,
     }
 
 
@@ -2317,7 +2361,7 @@ INTEGRATIONS = [
 
 @api_router.get("/integrations")
 async def get_integrations(_: User = Depends(get_current_user)):
-    return INTEGRATIONS
+    return await _brand_swap(INTEGRATIONS)
 
 # -------------------- CARRIER RATES & FSC --------------------
 CARRIER_RATES = [
@@ -3219,6 +3263,59 @@ SAP_MOCK_CONFIG = {
     "auth_type": "OAuth 2.0 (SAML Bearer Assertion)",
 }
 
+
+async def _brand_sap_config() -> Dict[str, Any]:
+    """Return SAP_MOCK_CONFIG with hostname / service account swapped to the
+    active brand. Host becomes s4hana.<slug>.sap.com and the service account
+    prefix matches the brand's short name."""
+    cfg = dict(SAP_MOCK_CONFIG)
+    brand = await _active_brand_doc()
+    if brand and brand.get("brand_id") != "tennant":
+        short = brand.get("short_name") or "Brand"
+        slug = re.sub(r"[^a-z0-9]+", "", short.lower())[:20] or "brand"
+        prefix = re.sub(r"[^A-Z0-9]+", "", short.upper())[:6] or "BRND"
+        cfg["host"] = f"https://s4hana.{slug}.sap.com"
+        cfg["user"] = f"{prefix}_TMS_SVC"
+    return cfg
+
+
+async def _overlay_sap_records(rows: List[Dict[str, Any]], kind: str) -> List[Dict[str, Any]]:
+    """Overlay SAP sales/purchase order rows with the active brand's products,
+    suppliers and code prefixes. Falls through unchanged when Tennant is active.
+
+    kind = 'sales' | 'purchase'
+    """
+    brand = await _active_brand_doc()
+    if not brand or brand.get("brand_id") == "tennant":
+        return rows
+    products = brand.get("sample_products") or []
+    suppliers = brand.get("sample_suppliers") or []
+    short = brand.get("short_name") or "Brand"
+    prefix = re.sub(r"[^A-Z0-9]+", "", short.upper())[:4] or "BRND"
+    facilities = brand.get("facilities") or []
+    out = []
+    for i, r in enumerate(rows):
+        d = dict(r)
+        # Material code + description swap
+        if products:
+            desc = products[i % len(products)]
+            slug = re.sub(r"[^A-Z0-9]+", "", desc.upper())[:6] or f"P{i:03d}"
+            d["Material"] = f"{prefix}-{slug}"
+            d["MaterialDescription"] = desc
+        # Supplier swap (purchase orders only)
+        if kind == "purchase" and suppliers:
+            sup_name = suppliers[i % len(suppliers)]
+            sup_code = "VEND-" + re.sub(r"[^A-Z0-9]+", "", sup_name.upper())[:6]
+            d["Supplier"] = sup_code
+            d["SupplierName"] = sup_name
+        # Plant name swap to brand facilities (preserve plant code)
+        if facilities:
+            f = facilities[i % len(facilities)]
+            fname = f.get("name") or f.get("city") or short
+            d["PlantName"] = fname
+        out.append(d)
+    return out
+
 def _gen_sap_sales_orders(n: int = 24) -> List[Dict[str, Any]]:
     """Deterministic-ish sales order data (uses random but reseeded per call for stable demo)."""
     random.seed(42)
@@ -3321,21 +3418,28 @@ def _gen_sap_purchase_orders(n: int = 16) -> List[Dict[str, Any]]:
 
 @api_router.get("/sap/config")
 async def sap_config(_: User = Depends(get_current_user)):
-    return SAP_MOCK_CONFIG
+    cfg = await _brand_sap_config()
+    return await _brand_swap(cfg)
 
 @api_router.get("/sap/sales-orders")
 async def sap_sales_orders(_: User = Depends(get_current_user), plant: Optional[str] = None, status: Optional[str] = None):
     orders = _gen_sap_sales_orders()
     if plant: orders = [o for o in orders if o["Plant"] == plant]
     if status: orders = [o for o in orders if o["OverallStatus"] == status]
-    return {"value": orders, "@odata.count": len(orders), "source": SAP_MOCK_CONFIG["host"] + SAP_MOCK_CONFIG["service"]}
+    orders = await _overlay_sap_records(orders, "sales")
+    cfg = await _brand_sap_config()
+    payload = {"value": orders, "@odata.count": len(orders), "source": cfg["host"] + cfg["service"]}
+    return await _brand_swap(payload)
 
 @api_router.get("/sap/purchase-orders")
 async def sap_purchase_orders(_: User = Depends(get_current_user), plant: Optional[str] = None, only_imports: bool = False):
     orders = _gen_sap_purchase_orders()
     if plant: orders = [o for o in orders if o["Plant"] == plant]
     if only_imports: orders = [o for o in orders if o["IsImport"]]
-    return {"value": orders, "@odata.count": len(orders), "source": SAP_MOCK_CONFIG["host"] + "/sap/opu/odata/sap/API_PURCHASEORDER_PROCESS_SRV"}
+    orders = await _overlay_sap_records(orders, "purchase")
+    cfg = await _brand_sap_config()
+    payload = {"value": orders, "@odata.count": len(orders), "source": cfg["host"] + "/sap/opu/odata/sap/API_PURCHASEORDER_PROCESS_SRV"}
+    return await _brand_swap(payload)
 
 @api_router.post("/sap/sync")
 async def sap_sync(_: User = Depends(require_role("admin", "dispatcher"))):
@@ -3351,12 +3455,12 @@ async def sap_sync(_: User = Depends(require_role("admin", "dispatcher"))):
         "status": "success",
     }
     await db.sap_sync_logs.insert_one(dict(log))
-    return log
+    return await _brand_swap(log)
 
 @api_router.get("/sap/sync-logs")
 async def sap_sync_logs(_: User = Depends(get_current_user)):
     docs = await db.sap_sync_logs.find({}, {"_id": 0}).sort("started_at", -1).limit(30).to_list(30)
-    return docs
+    return await _brand_swap(docs)
 
 # -------------------- SEED --------------------
 # -------------------- AI ASSISTANT (Claude Sonnet 4.5) --------------------
@@ -7428,6 +7532,282 @@ async def admin_quick_toggle(payload: dict, _: User = Depends(require_role("admi
         raise HTTPException(400, "key required")
     await db.admin_settings.update_one({}, {"$set": {key: value}}, upsert=True)
     return {"ok": True, "key": key, "value": value}
+
+
+# -------------------- SERVER REGISTRY (Admin) --------------------
+# Inventories every host/service "attached" to the TMS — auto-detects the
+# running pod + Mongo cluster + LLM provider, and lets the admin register
+# additional backing services (object stores, edge proxies, EDI gateways,
+# dedicated reporting nodes, etc.). Provides liveness checks and audit.
+
+class ServerRegistryCreate(BaseModel):
+    name: str
+    role: str                    # e.g. 'api', 'db', 'cache', 'llm', 'edi', 'storage', 'edge', 'queue', 'reporting'
+    hostname: str                # e.g. 'edi-gateway.tennant.internal'
+    port: Optional[int] = None
+    protocol: Optional[str] = "https"   # https | http | tcp | grpc | amqp
+    region: Optional[str] = None
+    environment: Optional[str] = "production"   # production | staging | dr | dev
+    owner_email: Optional[str] = None
+    notes: Optional[str] = None
+    health_url: Optional[str] = None    # absolute URL the /ping endpoint will hit
+
+
+class ServerRegistryUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    hostname: Optional[str] = None
+    port: Optional[int] = None
+    protocol: Optional[str] = None
+    region: Optional[str] = None
+    environment: Optional[str] = None
+    owner_email: Optional[str] = None
+    notes: Optional[str] = None
+    health_url: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+async def _detect_system_servers() -> List[Dict[str, Any]]:
+    """Live introspection of the actual servers the running pod talks to.
+    These rows are NOT stored in the DB — they are computed every request
+    so the data reflects real health right now."""
+    out: List[Dict[str, Any]] = []
+    now = datetime.now(timezone.utc)
+
+    # 1) FastAPI / API host (the pod we're running in)
+    try:
+        api_host = socket.gethostname()
+        api_ip = socket.gethostbyname(api_host) if api_host else None
+    except Exception:
+        api_host, api_ip = "fastapi", None
+    out.append({
+        "id": "system::api",
+        "name": "TMS Backend API",
+        "role": "api",
+        "hostname": api_host or "fastapi",
+        "ip": api_ip,
+        "port": 8001,
+        "protocol": "http",
+        "region": os.environ.get("REGION") or "kube-cluster",
+        "environment": os.environ.get("ENV") or "production",
+        "owner_email": "ops@tennantco.com",
+        "system": True,
+        "enabled": True,
+        "health": "healthy",
+        "uptime_seconds": int((now - _APP_BOOT_AT).total_seconds()),
+        "boot_at": _APP_BOOT_AT.isoformat(),
+        "version": "v2.1",
+        "last_check_at": now.isoformat(),
+        "notes": "FastAPI/uvicorn — request handler for every /api/* route.",
+    })
+
+    # 2) MongoDB primary
+    mongo_url = os.environ.get("MONGO_URL") or ""
+    mongo_host = "mongo"
+    try:
+        from urllib.parse import urlparse as _urlparse
+        u = _urlparse(mongo_url)
+        if u.hostname:
+            mongo_host = u.hostname
+    except Exception:
+        pass
+    mongo_ok = False
+    mongo_ms = None
+    mongo_meta: Dict[str, Any] = {}
+    try:
+        t0 = now
+        info = await asyncio.wait_for(db.command("serverStatus"), timeout=2.0)
+        mongo_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
+        mongo_ok = True
+        mongo_meta = {
+            "version": info.get("version"),
+            "connections": (info.get("connections") or {}).get("current"),
+            "uptime_seconds": int(info.get("uptime") or 0),
+        }
+    except Exception:
+        pass
+    out.append({
+        "id": "system::mongo",
+        "name": "MongoDB Cluster",
+        "role": "db",
+        "hostname": mongo_host,
+        "port": None,
+        "protocol": "mongodb",
+        "region": "kube-cluster",
+        "environment": "production",
+        "owner_email": "data@tennantco.com",
+        "system": True,
+        "enabled": True,
+        "health": "healthy" if mongo_ok else "down",
+        "ping_ms": mongo_ms,
+        "version": mongo_meta.get("version"),
+        "connections": mongo_meta.get("connections"),
+        "uptime_seconds": mongo_meta.get("uptime_seconds"),
+        "last_check_at": now.isoformat(),
+        "notes": f"Database name: {os.environ.get('DB_NAME', '—')} · 29 indexed collections.",
+    })
+
+    # 3) Emergent LLM gateway
+    llm_configured = bool(os.environ.get("EMERGENT_LLM_KEY"))
+    out.append({
+        "id": "system::llm",
+        "name": "Emergent LLM Gateway",
+        "role": "llm",
+        "hostname": "integrations.emergentagent.com",
+        "port": 443,
+        "protocol": "https",
+        "region": "us-east",
+        "environment": "production",
+        "owner_email": "platform@emergentagent.com",
+        "system": True,
+        "enabled": llm_configured,
+        "health": "healthy" if llm_configured else "unconfigured",
+        "last_check_at": now.isoformat(),
+        "version": "claude-sonnet-4.5 · gpt-image-1 · nano-banana",
+        "notes": "Powers HUDLINK chat, AI Brand Switcher, image gen.",
+    })
+
+    # 4) Public preview / ingress host
+    pub = os.environ.get("PUBLIC_APP_URL") or os.environ.get("REACT_APP_BACKEND_URL") or ""
+    if pub:
+        try:
+            from urllib.parse import urlparse as _urlparse
+            u = _urlparse(pub)
+            pub_host = u.hostname or "ingress"
+            pub_port = u.port or (443 if (u.scheme or "https") == "https" else 80)
+            pub_proto = u.scheme or "https"
+        except Exception:
+            pub_host, pub_port, pub_proto = "ingress", 443, "https"
+        out.append({
+            "id": "system::ingress",
+            "name": "Kubernetes Ingress / Preview",
+            "role": "edge",
+            "hostname": pub_host,
+            "port": pub_port,
+            "protocol": pub_proto,
+            "region": "kube-cluster",
+            "environment": "production",
+            "owner_email": "ops@tennantco.com",
+            "system": True,
+            "enabled": True,
+            "health": "healthy",
+            "last_check_at": now.isoformat(),
+            "notes": "Edge proxy routing /api/* → backend:8001 and /* → frontend:3000.",
+        })
+
+    return out
+
+
+@api_router.get("/admin/servers")
+async def admin_list_servers(_: User = Depends(require_role("admin"))):
+    """Return every attached server: auto-detected system hosts merged with
+    admin-registered custom entries from db.servers_registry."""
+    system = await _detect_system_servers()
+    custom = await db.servers_registry.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    # Compose totals for the header tiles
+    total = len(system) + len(custom)
+    healthy = sum(1 for s in system if s.get("health") == "healthy") + sum(1 for c in custom if c.get("last_health") == "healthy")
+    down = sum(1 for s in system if s.get("health") == "down") + sum(1 for c in custom if c.get("last_health") == "down")
+    by_role: Dict[str, int] = {}
+    for s in system + custom:
+        r = s.get("role") or "other"
+        by_role[r] = by_role.get(r, 0) + 1
+    return {
+        "system": system,
+        "custom": custom,
+        "totals": {"total": total, "healthy": healthy, "down": down, "by_role": by_role},
+    }
+
+
+@api_router.post("/admin/servers")
+async def admin_create_server(payload: ServerRegistryCreate, admin: User = Depends(require_role("admin"))):
+    doc = {
+        "id": f"SRV-{uuid.uuid4().hex[:10].upper()}",
+        "name": payload.name.strip(),
+        "role": payload.role.strip(),
+        "hostname": payload.hostname.strip(),
+        "port": payload.port,
+        "protocol": (payload.protocol or "https").strip(),
+        "region": (payload.region or "").strip() or None,
+        "environment": (payload.environment or "production").strip(),
+        "owner_email": (payload.owner_email or "").strip() or None,
+        "notes": (payload.notes or "").strip() or None,
+        "health_url": (payload.health_url or "").strip() or None,
+        "enabled": True,
+        "system": False,
+        "last_health": "unknown",
+        "last_ping_ms": None,
+        "last_check_at": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": admin.user_id,
+        "created_by_name": admin.name,
+    }
+    await db.servers_registry.insert_one(dict(doc))
+    return doc
+
+
+@api_router.patch("/admin/servers/{server_id}")
+async def admin_update_server(server_id: str, payload: ServerRegistryUpdate, admin: User = Depends(require_role("admin"))):
+    if server_id.startswith("system::"):
+        raise HTTPException(400, "System servers cannot be edited.")
+    patch = {k: v for k, v in payload.model_dump(exclude_unset=True).items()}
+    if not patch:
+        raise HTTPException(400, "No fields to update.")
+    patch["updated_at"] = datetime.now(timezone.utc).isoformat()
+    patch["updated_by"] = admin.user_id
+    r = await db.servers_registry.find_one_and_update(
+        {"id": server_id}, {"$set": patch}, return_document=True, projection={"_id": 0},
+    )
+    if not r:
+        raise HTTPException(404, "Server not found")
+    return r
+
+
+@api_router.delete("/admin/servers/{server_id}")
+async def admin_delete_server(server_id: str, _: User = Depends(require_role("admin"))):
+    if server_id.startswith("system::"):
+        raise HTTPException(400, "System servers cannot be deleted.")
+    r = await db.servers_registry.delete_one({"id": server_id})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Server not found")
+    return {"ok": True}
+
+
+@api_router.post("/admin/servers/{server_id}/ping")
+async def admin_ping_server(server_id: str, _: User = Depends(require_role("admin"))):
+    """Live health probe. Uses HTTP if health_url provided, otherwise TCP."""
+    doc = await db.servers_registry.find_one({"id": server_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Server not found")
+    now = datetime.now(timezone.utc)
+    health, ping_ms, detail = "down", None, None
+    try:
+        if doc.get("health_url"):
+            t0 = now
+            async with httpx.AsyncClient(timeout=4.0, follow_redirects=True) as http:
+                resp = await http.get(doc["health_url"])
+                ping_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
+                if 200 <= resp.status_code < 400:
+                    health = "healthy"
+                    detail = f"HTTP {resp.status_code}"
+                else:
+                    health = "degraded"
+                    detail = f"HTTP {resp.status_code}"
+        elif doc.get("hostname") and doc.get("port"):
+            t0 = now
+            with socket.create_connection((doc["hostname"], int(doc["port"])), timeout=3.0):
+                ping_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
+                health = "healthy"
+                detail = f"TCP {doc['hostname']}:{doc['port']} open"
+        else:
+            detail = "No health_url or hostname:port — nothing to probe."
+            health = "unknown"
+    except Exception as e:
+        detail = f"{type(e).__name__}: {e}"
+        health = "down"
+    patch = {"last_health": health, "last_ping_ms": ping_ms, "last_check_at": now.isoformat(), "last_detail": detail}
+    await db.servers_registry.update_one({"id": server_id}, {"$set": patch})
+    return {"ok": True, **patch}
 
 
 # -------------------- ERP CONNECTORS (multi-system) --------------------
