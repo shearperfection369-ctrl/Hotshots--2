@@ -262,10 +262,28 @@ Subsequent user-requested additions (chronological, all delivered):
 - `/app/backend/tests/test_iter17.py`
 
 ## Backlog (P2)
-- Refactor `server.py` (now ~8364 lines) into routers under `/app/backend/routes/`
+- Refactor `server.py` (now ~8514 lines) into routers under `/app/backend/routes/`
 - ServerRegistry: replace blocking `socket.create_connection` in ping handler with
   `asyncio.open_connection` to avoid event-loop stalls
 - Add Pydantic `Literal[...]` validators on ServerRegistry `role` / `protocol` /
   `environment` to reject invalid enum values
 - Move `_brand_tenant_strings` to a marker-template approach long term (substring
   swap is fragile if new content includes the word "Tennant")
+
+## v2.2 — Manual Brand Template + Location Sweep (May 2026)
+- **"Build Your Own" Brand Template** — new dialog in `ManualBrandDialog.jsx`,
+  embedded in `CompanyTheme.jsx` next to Generate & Activate. Lets the admin
+  manually fill any/all brand fields (name, short, logo letter, tagline,
+  industry, HQ, 3 colors, products, suppliers, lanes, facilities) without
+  needing the LLM. Two save modes: **Save (Don't Activate)** or **Save &
+  Activate** to re-skin the app instantly.
+- Backend endpoints: `POST /api/branding/manual`, `GET /api/branding/template`
+- **Location Sweep** — `_brand_tenant_strings()` extended with a facility-city
+  mapping that auto-swaps every Tennant location token (Golden Valley/Holland/
+  Louisville → active brand's facilities) across **all** wrapped endpoints:
+  news, weather/alerts, traffic, SharePoint, Power BI, specialty carriers,
+  drivers, trailers, integrations, SAP, KPIs.
+- `_overlay_shipment()` now also swaps origin/destination cities so the Live
+  Tracking page, Shipments page, and shipment tracker all use the active
+  brand's facility cities (verified: Pfizer shows New York, Pearl River,
+  Kalamazoo, McPherson — no Tennant cities anywhere).

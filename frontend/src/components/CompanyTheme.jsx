@@ -8,6 +8,7 @@ import { api } from "../lib/api";
 import { useBranding } from "../lib/branding";
 import { toast } from "sonner";
 import { BRAND_DIRECTORY, INDUSTRIES } from "../lib/brandDirectory";
+import ManualBrandDialog from "./ManualBrandDialog";
 
 /**
  * CompanyTheme — single-input company switcher for Admin Settings.
@@ -172,6 +173,7 @@ export default function CompanyTheme() {
           >
             {busy ? <><Loader2 size={14} className="mr-1.5 animate-spin" /> Generating…</> : <><Sparkles size={14} className="mr-1.5" /> Generate & Activate</>}
           </Button>
+          <ManualBrandDialog onActivated={async () => { await refresh(); await loadAll(); }} />
         </div>
       </div>
 

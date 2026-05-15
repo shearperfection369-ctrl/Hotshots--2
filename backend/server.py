@@ -352,6 +352,37 @@ def _overlay_shipment(s: Dict[str, Any], brand: Dict[str, Any]) -> Dict[str, Any
         out["commodity"] = _pick(products, seed)
     if suppliers and out.get("supplier"):
         out["supplier"] = _pick(suppliers, seed + "supplier")
+
+    # === Swap facility cities (origin/destination) ===
+    # Map the canonical Tennant cities to the active brand's facility cities.
+    facilities = brand.get("facilities") or []
+    if facilities:
+        # Build a city/state mapping: Tennant default cities → brand cities
+        tennant_cities = [
+            ("Golden Valley", "MN"),
+            ("Holland", "MI"),
+            ("Louisville", "KY"),
+        ]
+        brand_cities = []
+        for f in facilities[:len(tennant_cities)]:
+            city_str = (f.get("city") or "").strip()
+            if "," in city_str:
+                c, st = [p.strip() for p in city_str.split(",", 1)]
+            else:
+                c, st = city_str, ""
+            brand_cities.append((c, st))
+        for slot_i, (t_city, t_state) in enumerate(tennant_cities):
+            if slot_i >= len(brand_cities):
+                break
+            b_city, b_state = brand_cities[slot_i]
+            for endpoint_key in ("origin", "destination"):
+                ep = out.get(endpoint_key)
+                if isinstance(ep, dict):
+                    if (ep.get("city") or "").strip() == t_city:
+                        ep["city"] = b_city or t_city
+                        if b_state:
+                            ep["state"] = b_state
+
     # Replace "Tennant" verbiage in every string field (reference prefixes,
     # consignee names, facility names baked into origin/destination, notes).
     repl = {"Tennant": short, "TENN-": f"{short[:4].upper()}-"}
@@ -1484,7 +1515,7 @@ async def get_traffic(severity: Optional[str] = None, _: User = Depends(get_curr
     # Severity-weighted sort: high first, then most recent
     sev_rank = {"high": 0, "moderate": 1, "low": 2}
     out.sort(key=lambda x: (sev_rank.get(x.get("severity"), 9), x["minutes_ago"]))
-    return out
+    return await _brand_swap(out)
 
 
 # -------------------- WEATHER ALERTS (NWS-style, MOCKED but realistic) --------------------
@@ -1696,7 +1727,36 @@ async def _brand_tenant_strings() -> Dict[str, str]:
     short = brand.get("short_name") or "Brand"
     slug = re.sub(r"[^a-z0-9]+", "", short.lower())[:20] or "brand"
     company = brand.get("company_name") or short
-    return {
+
+    # === LOCATION SWAP ===
+    # Map Tennant's three canonical facility city/state tokens to whatever
+    # facilities the active brand has provided. Order matters — process
+    # longer/more-specific keys first so e.g. "Golden Valley MN" hits before
+    # "Golden Valley".
+    facilities = brand.get("facilities") or []
+    # Default each Tennant slot to a brand facility (cycling if fewer exist).
+    def _fac_for(slot_i: int, default_city: str, default_state: str) -> Dict[str, str]:
+        if not facilities:
+            return {"name": default_city, "city": default_city, "state": default_state, "label": f"{default_city} {default_state}"}
+        f = facilities[slot_i % len(facilities)]
+        full_city = (f.get("city") or "").strip() or default_city
+        # "Kalamazoo, MI" -> ("Kalamazoo", "MI")
+        if "," in full_city:
+            city, state = [p.strip() for p in full_city.split(",", 1)]
+        else:
+            city, state = full_city, default_state
+        return {
+            "name": f.get("name") or f"{city} {state} Plant",
+            "city": city,
+            "state": state,
+            "label": f"{city} {state}",
+        }
+
+    f0 = _fac_for(0, "Golden Valley", "MN")  # HQ slot
+    f1 = _fac_for(1, "Holland", "MI")        # plant slot 1
+    f2 = _fac_for(2, "Louisville", "KY")     # plant slot 2
+
+    repl = {
         # Word-form replacements (case-sensitive, ordered most-specific first)
         "Tennant Company": company,
         "Tennant Companies": company,
@@ -1712,12 +1772,34 @@ async def _brand_tenant_strings() -> Dict[str, str]:
         "s4hana.tennantco.sap.com": f"s4hana.{slug}.sap.com",
         "tennantco.s4.sap.com": f"{slug}.s4.sap.com",
         "powerbi.com/tennant": f"powerbi.com/{slug}",
-        "tennantco": slug,         # any remaining tennantco.* hostnames
+        "tennantco": slug,
         "tennant-": f"{slug}-",
+        # === Facility locations ===
+        # Long-form first
+        "Golden Valley, MN (HQ)": f"{f0['name']}",
+        "Tennant HQ — Golden Valley MN": f"{short} HQ — {f0['label']}",
+        "Tennant Holland MI Plant": f"{short} {f1['label']} Plant",
+        "Tennant Louisville KY Plant": f"{short} {f2['label']} Plant",
+        "Tennant Holland MI": f"{short} {f1['label']}",
+        "Tennant Louisville KY": f"{short} {f2['label']}",
+        "Golden Valley MN": f0["label"],
+        "Holland MI": f1["label"],
+        "Louisville KY": f2["label"],
+        "Golden Valley, MN": f"{f0['city']}, {f0['state']}",
+        "Holland, MI": f"{f1['city']}, {f1['state']}",
+        "Louisville, KY": f"{f2['city']}, {f2['state']}",
+        "Twin Cities Metro · MN": f"{f0['city']} Metro · {f0['state']}",
+        "Lower Michigan": f"{f1['state']} Region",
+        "Louisville Metro · KY": f"{f2['city']} Metro · {f2['state']}",
+        # Standalone city tokens (least specific — placed last so longer matches win)
+        "Golden Valley": f0["city"],
+        "Holland": f1["city"],
+        "Louisville": f2["city"],
         # Final catch-all for stray standalone references
         "Tennant": short,
         "tennant": slug,
     }
+    return repl
 
 
 async def _brand_swap(value: Any) -> Any:
@@ -1938,7 +2020,7 @@ async def specialty_carriers_list(_: User = Depends(get_current_user)):
     custom = await db.specialty_carriers_custom.find({}, {"_id": 0}).to_list(200)
     for c in custom:
         out.append({**c, "is_seed": False})
-    return {"carriers": out}
+    return await _brand_swap({"carriers": out})
 
 
 class SpecialtyCarrierIn(BaseModel):
@@ -2265,7 +2347,6 @@ class TrailerRecord(BaseModel):
 async def drivers_list(carrier: Optional[str] = None, _: User = Depends(get_current_user)):
     q = {"carrier": carrier} if carrier else {}
     docs = await db.drivers.find(q, {"_id": 0}).sort("name", 1).to_list(1000)
-    # Seed a small starter roster on first read so the page isn't empty
     if not docs:
         starters = [
             {"id": f"DRV-{uuid.uuid4().hex[:6].upper()}", "name": "Carlos Mendoza", "cdl_number": "M523891", "cdl_class": "A", "cdl_state": "MI", "cdl_expiry": "2027-04-15", "medical_card_expiry": "2026-11-20", "phone": "+1-616-555-0421", "email": "cmendoza@logixtrans.com", "carrier": "Logix Transportation", "hazmat_endorsement": False, "tanker_endorsement": False, "twic_card": False, "notes": "Pad-wrap specialist · Tennant T-series"},
@@ -2279,7 +2360,7 @@ async def drivers_list(carrier: Optional[str] = None, _: User = Depends(get_curr
             s["created_by"] = "System Seed"
         await db.drivers.insert_many([dict(s) for s in starters])
         docs = await db.drivers.find({}, {"_id": 0}).sort("name", 1).to_list(1000)
-    return {"drivers": docs}
+    return await _brand_swap({"drivers": docs})
 
 
 @api_router.post("/drivers")
@@ -2318,7 +2399,7 @@ async def trailers_list(carrier: Optional[str] = None, _: User = Depends(get_cur
             s["created_by"] = "System Seed"
         await db.trailers.insert_many([dict(s) for s in starters])
         docs = await db.trailers.find({}, {"_id": 0}).sort("trailer_no", 1).to_list(1000)
-    return {"trailers": docs}
+    return await _brand_swap({"trailers": docs})
 
 
 @api_router.post("/trailers")
@@ -7331,6 +7412,110 @@ async def branding_generate(payload: BrandGenerateIn, user: User = Depends(requi
         await _ensure_brand_erp_stub(doc)
 
     return {"ok": True, "brand": doc}
+
+
+# ---------- BLANK / MANUAL BRAND TEMPLATE ----------
+# Lets the admin paste in their own company info (or generate it later from
+# their ERP) without touching the LLM. Every field is optional except
+# company_name; sane defaults fill the rest.
+class BrandManualIn(BaseModel):
+    company_name: str
+    short_name: Optional[str] = None
+    tagline: Optional[str] = ""
+    industry: Optional[str] = ""
+    headquarters: Optional[str] = ""
+    primary_color: Optional[str] = "#00E5FF"
+    secondary_color: Optional[str] = "#06B6D4"
+    accent_color: Optional[str] = "#10B981"
+    logo_letter: Optional[str] = None
+    catalog_label: Optional[str] = "Product Catalog"
+    sample_products: Optional[List[str]] = []
+    sample_suppliers: Optional[List[str]] = []
+    sample_lanes: Optional[List[str]] = []
+    facilities: Optional[List[Dict[str, str]]] = []
+    activate: bool = True
+
+
+@api_router.post("/branding/manual")
+async def branding_manual(payload: BrandManualIn, user: User = Depends(require_role("admin"))):
+    """Create a brand from manual fields — no AI required. Use this for the
+    'Build Your Own' template flow, or to seed a blank shell that will be
+    filled later via an ERP sync."""
+    name = (payload.company_name or "").strip()
+    if not name:
+        raise HTTPException(400, "company_name is required")
+    short = (payload.short_name or name.split()[0]).strip()
+    brand_id = re.sub(r"[^a-z0-9]+", "-", short.lower()).strip("-") or uuid.uuid4().hex[:6]
+
+    # Normalize facilities list — accept [{"name":..,"city":..}] or strings
+    raw_facs = payload.facilities or []
+    facilities: List[Dict[str, str]] = []
+    for f in raw_facs:
+        if isinstance(f, str):
+            facilities.append({"name": f, "city": f})
+        elif isinstance(f, dict):
+            facilities.append({"name": f.get("name") or f.get("city") or "", "city": f.get("city") or ""})
+
+    doc = {
+        "brand_id": brand_id,
+        "company_name": name,
+        "short_name": short,
+        "tagline": payload.tagline or "",
+        "industry": payload.industry or "",
+        "headquarters": payload.headquarters or "",
+        "primary_color": payload.primary_color or "#00E5FF",
+        "secondary_color": payload.secondary_color or "#06B6D4",
+        "accent_color": payload.accent_color or "#10B981",
+        "logo_letter": (payload.logo_letter or short[:1] or "B").upper()[:1],
+        "sample_products": [p for p in (payload.sample_products or []) if p][:8],
+        "sample_suppliers": [s for s in (payload.sample_suppliers or []) if s][:8],
+        "sample_lanes": [l for l in (payload.sample_lanes or []) if l][:8],
+        "catalog_label": payload.catalog_label or "Product Catalog",
+        "facilities": facilities[:6],
+        "shipments": [],
+        "is_default": False,
+        "is_active": False,
+        "is_manual": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user.user_id,
+        "created_by_name": user.name,
+    }
+    await db.company_brand.update_one({"brand_id": brand_id}, {"$set": doc}, upsert=True)
+
+    if payload.activate:
+        await db.company_brand.update_many({}, {"$set": {"is_active": False}})
+        await db.company_brand.update_one({"brand_id": brand_id}, {"$set": {"is_active": True}})
+        doc["is_active"] = True
+        await _ensure_brand_erp_stub(doc)
+
+    return {"ok": True, "brand": doc}
+
+
+# ---------- BRAND TEMPLATE PRESET ----------
+@api_router.get("/branding/template")
+async def branding_template(_: User = Depends(require_role("admin"))):
+    """Returns a blank/empty brand template the UI uses to pre-fill the
+    'Build Your Own' form. The frontend overlays user input on top of this."""
+    return {
+        "company_name": "",
+        "short_name": "",
+        "tagline": "",
+        "industry": "",
+        "headquarters": "",
+        "primary_color": "#00E5FF",
+        "secondary_color": "#06B6D4",
+        "accent_color": "#10B981",
+        "logo_letter": "",
+        "catalog_label": "Product Catalog",
+        "sample_products": ["", "", "", "", "", ""],
+        "sample_suppliers": ["", "", "", "", "", "", "", ""],
+        "sample_lanes": ["", "", "", "", "", ""],
+        "facilities": [
+            {"name": "", "city": ""},
+            {"name": "", "city": ""},
+            {"name": "", "city": ""},
+        ],
+    }
 
 
 class BrandActivateIn(BaseModel):
