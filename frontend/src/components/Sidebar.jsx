@@ -5,7 +5,7 @@ import {
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
   DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon,
-  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard
+  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -47,6 +47,7 @@ const NAV = [
   { to: "/promo", label: "Launch Promo", icon: Film, tid: "nav-promo", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/music", label: "Music · Focus", icon: MusicIcon, tid: "nav-music", roles: ["admin", "auditor", "dispatcher", "driver"] },
   { to: "/manual", label: "User Manual", icon: BookOpen, tid: "nav-manual", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/admin", label: "Admin · Dashboard", icon: Activity, tid: "nav-admin-dashboard", roles: ["admin"] },
   { to: "/admin/users", label: "Admin · Users", icon: Users, tid: "nav-admin-users", roles: ["admin"] },
   { to: "/admin/settings", label: "Admin · Settings", icon: SettingsIcon, tid: "nav-admin-settings", roles: ["admin"] },
 ];

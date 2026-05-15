@@ -10,6 +10,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import io
 import re
+import asyncio
+import hashlib
 import logging
 import uuid
 import json
@@ -285,7 +287,102 @@ TENNANT_FACILITIES = [
 
 @api_router.get("/facilities")
 async def get_facilities(_: User = Depends(get_current_user)):
+    brand = await _active_brand_doc()
+    if brand and brand.get("facilities"):
+        # Overlay brand facilities on the canonical lat/lng grid so the map
+        # still has coordinates to plot.
+        out = []
+        for i, bf in enumerate(brand["facilities"][:len(TENNANT_FACILITIES)]):
+            base = dict(TENNANT_FACILITIES[i % len(TENNANT_FACILITIES)])
+            base["name"] = bf.get("name") or base["name"]
+            base["city"] = (bf.get("city") or "").split(",")[0].strip() or base["city"]
+            out.append(base)
+        return out or TENNANT_FACILITIES
     return TENNANT_FACILITIES
+
+
+# -------------------- BRAND OVERLAY -----------------------------------------
+# When the active company brand is something other than the built-in Tennant
+# profile, every read endpoint runs its docs through these helpers so the
+# entire app surfaces the active brand's identity / suppliers / products /
+# facilities without re-seeding the database.
+
+async def _active_brand_doc():
+    """Returns the active brand doc, or None if Tennant default is active.
+    Result is intentionally NOT cached at module level because the admin
+    expects the switch to take effect on the next request."""
+    return await db.company_brand.find_one({"is_active": True}, {"_id": 0})
+
+
+def _pick(items: List[str], seed_str: str) -> str:
+    """Deterministically pick one item using a stable hash of seed_str so a
+    given shipment always maps to the same supplier / product across reads."""
+    if not items:
+        return ""
+    h = int(hashlib.md5((seed_str or "").encode()).hexdigest(), 16)
+    return items[h % len(items)]
+
+
+def _swap_strings(value: Any, replacements: Dict[str, str]) -> Any:
+    """Recursively replace string fragments inside any nested structure."""
+    if isinstance(value, str):
+        out = value
+        for src, dst in replacements.items():
+            out = out.replace(src, dst)
+        return out
+    if isinstance(value, list):
+        return [_swap_strings(v, replacements) for v in value]
+    if isinstance(value, dict):
+        return {k: _swap_strings(v, replacements) for k, v in value.items()}
+    return value
+
+
+def _overlay_shipment(s: Dict[str, Any], brand: Dict[str, Any]) -> Dict[str, Any]:
+    if not brand or brand.get("brand_id") == "tennant":
+        return s
+    out = dict(s)
+    seed = out.get("shipment_id") or out.get("reference") or ""
+    suppliers = brand.get("sample_suppliers") or []
+    products = brand.get("sample_products") or []
+    short = brand.get("short_name") or brand.get("company_name") or "Brand"
+
+    # Swap commodity → branded product / supplier → branded supplier.
+    if products and out.get("commodity"):
+        out["commodity"] = _pick(products, seed)
+    if suppliers and out.get("supplier"):
+        out["supplier"] = _pick(suppliers, seed + "supplier")
+    # Replace "Tennant" verbiage in every string field (reference prefixes,
+    # consignee names, facility names baked into origin/destination, notes).
+    repl = {"Tennant": short, "TENN-": f"{short[:4].upper()}-"}
+    out = _swap_strings(out, repl)
+    return out
+
+
+def _overlay_machine(m: Dict[str, Any], brand: Dict[str, Any], i: int) -> Dict[str, Any]:
+    if not brand or brand.get("brand_id") == "tennant":
+        return m
+    products = brand.get("sample_products") or []
+    if not products:
+        return m
+    out = dict(m)
+    branded = products[i % len(products)]
+    short = brand.get("short_name") or "Brand"
+    out["model"] = branded
+    out["display_name"] = branded
+    out["description"] = f"{branded} — {brand.get('industry') or short + ' flagship'}"
+    return out
+
+
+def _overlay_supplier(s: Dict[str, Any], brand: Dict[str, Any], i: int) -> Dict[str, Any]:
+    if not brand or brand.get("brand_id") == "tennant":
+        return s
+    sups = brand.get("sample_suppliers") or []
+    if not sups:
+        return s
+    out = dict(s)
+    out["name"] = sups[i % len(sups)]
+    return out
+
 
 # -------------------- SHIPMENTS --------------------
 @api_router.get("/shipments", response_model=List[Shipment])
@@ -303,6 +400,9 @@ async def list_shipments(user: User = Depends(get_current_user), mode: Optional[
     if user.role == "carrier" and user.carrier_company:
         q["carrier"] = user.carrier_company
     docs = await db.shipments.find(q, {"_id": 0}).limit(limit).to_list(limit)
+    brand = await _active_brand_doc()
+    if brand:
+        docs = [_overlay_shipment(d, brand) for d in docs]
     return [Shipment(**d) for d in docs]
 
 @api_router.get("/shipments/{shipment_id}", response_model=Shipment)
@@ -312,6 +412,9 @@ async def get_shipment(shipment_id: str, user: User = Depends(get_current_user))
         raise HTTPException(status_code=404, detail="Shipment not found")
     if user.role == "carrier" and user.carrier_company and doc.get("carrier") != user.carrier_company:
         raise HTTPException(status_code=403, detail="Not your shipment")
+    brand = await _active_brand_doc()
+    if brand:
+        doc = _overlay_shipment(doc, brand)
     return Shipment(**doc)
 
 class ShipmentCreate(BaseModel):
@@ -5680,10 +5783,12 @@ async def machine_image(model: str):
 @api_router.get("/machines")
 async def list_machines(_: User = Depends(get_current_user), category: Optional[str] = None):
     out = TENNANT_MACHINES if not category else [m for m in TENNANT_MACHINES if m["category"] == category]
-    # Hybrid image strategy: real Tennant CDN photo when we've verified the ID,
-    # branded SVG fallback otherwise. Both guarantee a non-broken image.
     out = [{**m, "image_url": _real_photo_or_svg(m)} for m in out]
-    return {"machines": out, "categories": TENNANT_MACHINE_CATEGORIES, "count": len(out)}
+    # Active brand overlay → swap to brand's catalog when not Tennant.
+    brand = await _active_brand_doc()
+    if brand and brand.get("brand_id") != "tennant":
+        out = [_overlay_machine(m, brand, i) for i, m in enumerate(out)]
+    return {"machines": out, "categories": TENNANT_MACHINE_CATEGORIES, "count": len(out), "catalog_label": (brand or {}).get("catalog_label") or "Machine Catalog"}
 
 # -------------------- ARCADE: Connect Four · Tournaments · Trophies --------------------
 ROWS_C4, COLS_C4 = 6, 7
@@ -6427,6 +6532,10 @@ async def list_suppliers(_: User = Depends(get_current_user), country: Optional[
     # Load custom suppliers (manually added via UI) and merge with seed list
     custom = await db.suppliers_custom.find({}, {"_id": 0}).to_list(1000)
     all_suppliers = list(TENNANT_SUPPLIERS) + custom
+    # Active brand overlay → swap supplier names when not Tennant.
+    brand = await _active_brand_doc()
+    if brand and brand.get("brand_id") != "tennant":
+        all_suppliers = [_overlay_supplier(s, brand, i) for i, s in enumerate(all_suppliers)]
     out = list(all_suppliers)
     if country:
         out = [s for s in out if (s.get("country") or "").lower() == country.lower()]
@@ -6792,10 +6901,11 @@ async def branding_generate(payload: BrandGenerateIn, user: User = Depends(requi
         raise HTTPException(500, "EMERGENT_LLM_KEY not configured")
 
     system = (
-        "You generate company brand profiles for a Transportation Management "
-        "System (TMS) so it can be re-themed for any company. Reply with STRICT "
-        "JSON ONLY — no prose, no markdown fences. Use realistic, public data "
-        "(no proprietary info). Schema:\n"
+        "You generate company brand profiles + realistic operational sample "
+        "data for a Transportation Management System (TMS) so it can be "
+        "re-themed for any company. Reply with STRICT JSON ONLY — no prose, "
+        "no markdown fences. Use realistic, public data (no proprietary info). "
+        "Schema:\n"
         "{\n"
         '  "company_name": "Full legal name",\n'
         '  "short_name": "One-word brand",\n'
@@ -6806,10 +6916,19 @@ async def branding_generate(payload: BrandGenerateIn, user: User = Depends(requi
         '  "secondary_color": "#RRGGBB hex (complementary)",\n'
         '  "accent_color": "#RRGGBB hex (success / highlight)",\n'
         '  "logo_letter": "single uppercase letter from their name",\n'
-        '  "sample_products": ["5 real flagship products"],\n'
-        '  "sample_suppliers": ["5 plausible Tier-1 suppliers"],\n'
-        '  "sample_lanes": ["4 plausible transportation lanes: City ST -> City ST"],\n'
-        '  "catalog_label": "what they call their catalog (e.g. \\"Product Catalog\\", \\"Vehicle Lineup\\")"\n'
+        '  "sample_products": ["6 real flagship products (just names)"],\n'
+        '  "sample_suppliers": ["8 plausible Tier-1 suppliers (just names)"],\n'
+        '  "sample_lanes": ["6 plausible transportation lanes: City ST -> City ST"],\n'
+        '  "catalog_label": "what they call their catalog (e.g. \\"Product Catalog\\", \\"Vehicle Lineup\\")",\n'
+        '  "facilities": [\n'
+        '    {"name": "HQ Distribution Center", "city": "City, ST"},\n'
+        '    {"name": "Regional DC", "city": "City, ST"},\n'
+        '    {"name": "Manufacturing Plant", "city": "City, ST"},\n'
+        '    {"name": "Port Inbound", "city": "City, ST"}\n'
+        '  ],\n'
+        '  "shipments": [\n'
+        '    {"reference": "<COMPANY_PREFIX>-12345", "mode": "TL|LTL|Ocean|Air|Rail|Parcel", "carrier": "real carrier name", "status": "in_transit|delayed|delivered|pending|at_origin|at_dest", "origin_city": "City, ST", "destination_city": "City, ST", "commodity": "plausible item being shipped", "progress": 0.0-1.0}\n'
+        '  ] // generate 12 unique shipments, mix of statuses and modes\n'
         "}"
     )
     prompt = f"Generate the brand profile for: {name}"
@@ -6862,6 +6981,8 @@ async def branding_generate(payload: BrandGenerateIn, user: User = Depends(requi
         "sample_suppliers": profile.get("sample_suppliers", [])[:8],
         "sample_lanes": profile.get("sample_lanes", [])[:8],
         "catalog_label": profile.get("catalog_label", "Product Catalog"),
+        "facilities": profile.get("facilities", [])[:6],
+        "shipments": profile.get("shipments", [])[:20],
         "is_default": False,
         "is_active": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -6909,6 +7030,395 @@ async def branding_delete(brand_id: str, _: User = Depends(require_role("admin")
     if r.deleted_count == 0:
         raise HTTPException(404, "Brand not found")
     return {"ok": True}
+
+
+# -------------------- ADMIN DASHBOARD (system telemetry) --------------------
+_APP_BOOT_AT = datetime.now(timezone.utc)
+
+
+def _human_uptime(sec: int) -> str:
+    d, rem = divmod(sec, 86400)
+    h, rem = divmod(rem, 3600)
+    m, _ = divmod(rem, 60)
+    parts = []
+    if d: parts.append(f"{d}d")
+    if h: parts.append(f"{h}h")
+    if m or not parts: parts.append(f"{m}m")
+    return " ".join(parts)
+
+
+@api_router.get("/admin/dashboard")
+async def admin_dashboard(_: User = Depends(require_role("admin"))):
+    """One-stop telemetry the Admin Dashboard surfaces — DB health,
+    record counts, recent user activity, LLM usage, active brand, and
+    quick-toggle settings state."""
+    now = datetime.now(timezone.utc)
+
+    db_ms = None
+    db_ok = False
+    try:
+        t0 = now
+        await asyncio.wait_for(db.command("ping"), timeout=1.5)
+        db_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
+        db_ok = True
+    except Exception:
+        pass
+
+    collections = [
+        "users", "user_sessions", "shipments", "carrier_onboarding",
+        "drivers", "trailers", "freight_bills", "yard_reports",
+        "truckload_bookings", "workbook_tabs", "outbound_emails",
+        "ai_messages", "audit_log", "suppliers_custom", "company_brand",
+        "claims", "documents",
+    ]
+    counts: Dict[str, int] = {}
+    for c in collections:
+        try:
+            counts[c] = await db[c].estimated_document_count()
+        except Exception:
+            counts[c] = 0
+
+    cutoff_24h = (now - timedelta(hours=24)).isoformat()
+    cutoff_7d = (now - timedelta(days=7)).isoformat()
+    try:
+        active_24h = await db.user_sessions.distinct("user_id", {"created_at": {"$gte": cutoff_24h}})
+        active_7d = await db.user_sessions.distinct("user_id", {"created_at": {"$gte": cutoff_7d}})
+    except Exception:
+        active_24h, active_7d = [], []
+
+    role_counts: Dict[str, int] = {}
+    try:
+        async for u in db.users.find({}, {"_id": 0, "role": 1}):
+            r = u.get("role") or "unknown"
+            role_counts[r] = role_counts.get(r, 0) + 1
+    except Exception:
+        pass
+
+    try:
+        llm_total = await db.ai_messages.count_documents({"role": "user"})
+        llm_24h = await db.ai_messages.count_documents({"role": "user", "created_at": {"$gte": cutoff_24h}})
+    except Exception:
+        llm_total, llm_24h = 0, 0
+
+    trend = []
+    try:
+        for i in range(13, -1, -1):
+            ds = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+            de = ds + timedelta(days=1)
+            cnt = await db.shipments.count_documents({"created_at": {"$gte": ds.isoformat(), "$lt": de.isoformat()}})
+            trend.append({"date": ds.strftime("%m/%d"), "count": cnt})
+    except Exception:
+        pass
+
+    try:
+        recent_audit = await db.audit_log.find({}, {"_id": 0}).sort("at", -1).limit(10).to_list(10)
+    except Exception:
+        recent_audit = []
+
+    active_brand = await db.company_brand.find_one({"is_active": True}, {"_id": 0})
+    if not active_brand:
+        active_brand = {"brand_id": "tennant", "company_name": "Tennant Companies", "short_name": "Tennant", "primary_color": "#00A4E4", "logo_letter": "T", "is_default": True}
+    brand_count = await db.company_brand.count_documents({})
+
+    settings_doc = await db.admin_settings.find_one({}, {"_id": 0}) or {}
+    erp_doc = await db.erp_config.find_one({"is_active": True}, {"_id": 0}) or None
+
+    uptime_sec = int((now - _APP_BOOT_AT).total_seconds())
+
+    return {
+        "system": {
+            "db_ok": db_ok,
+            "db_ping_ms": db_ms,
+            "uptime_seconds": uptime_sec,
+            "uptime_human": _human_uptime(uptime_sec),
+            "boot_at": _APP_BOOT_AT.isoformat(),
+            "server_time": now.isoformat(),
+        },
+        "counts": counts,
+        "users": {
+            "total": counts.get("users", 0),
+            "active_24h": len(active_24h),
+            "active_7d": len(active_7d),
+            "role_breakdown": role_counts,
+        },
+        "llm": {"total_messages": llm_total, "messages_24h": llm_24h},
+        "shipments": {"total": counts.get("shipments", 0), "trend_14d": trend},
+        "brand": {"active": active_brand, "custom_count": brand_count},
+        "erp": {"active": erp_doc},
+        "recent_audit": recent_audit,
+        "settings": settings_doc,
+    }
+
+
+@api_router.post("/admin/dashboard/quick-toggle")
+async def admin_quick_toggle(payload: dict, _: User = Depends(require_role("admin"))):
+    """Quick-toggle endpoint used by the dashboard's switch row."""
+    key = (payload or {}).get("key")
+    value = (payload or {}).get("value")
+    if not key:
+        raise HTTPException(400, "key required")
+    await db.admin_settings.update_one({}, {"$set": {key: value}}, upsert=True)
+    return {"ok": True, "key": key, "value": value}
+
+
+# -------------------- ERP CONNECTORS (multi-system) --------------------
+# Lets the admin point the TMS at the company's actual ERP — SAP S/4HANA,
+# Oracle Fusion, Microsoft D365, NetSuite, Infor M3, Sage X3, Epicor, IFS.
+# Each connector stores its credentials encrypted-at-rest only via the
+# host MongoDB security model; secrets are never returned to the frontend.
+
+ERP_TEMPLATES = [
+    {
+        "key": "sap_s4hana",
+        "name": "SAP S/4HANA",
+        "auth_modes": ["oauth2_client_credentials", "basic"],
+        "fields": [
+            {"key": "base_url", "label": "S/4HANA Base URL", "placeholder": "https://my-s4.company.com:443"},
+            {"key": "client", "label": "Client (mandant)", "placeholder": "100"},
+            {"key": "username", "label": "Service User",     "placeholder": "TMS_INTEGRATION"},
+            {"key": "password", "label": "Service Password", "secret": True},
+            {"key": "oauth_token_url", "label": "OAuth Token URL (if OAuth)", "placeholder": "https://auth.company.com/oauth/token", "optional": True},
+            {"key": "oauth_client_id", "label": "OAuth Client ID", "optional": True},
+            {"key": "oauth_client_secret", "label": "OAuth Client Secret", "secret": True, "optional": True},
+        ],
+        "test_path": "/sap/opu/odata/sap/API_SALES_ORDER_SRV/$metadata",
+    },
+    {
+        "key": "oracle_fusion",
+        "name": "Oracle Fusion Cloud ERP",
+        "auth_modes": ["basic", "oauth2_password"],
+        "fields": [
+            {"key": "base_url", "label": "Fusion Pod URL", "placeholder": "https://fa-xxx.oraclecloud.com"},
+            {"key": "username", "label": "Integration User"},
+            {"key": "password", "label": "Password", "secret": True},
+        ],
+        "test_path": "/fscmRestApi/resources/11.13.18.05/salesOrdersForOrderHub",
+    },
+    {
+        "key": "dynamics_365",
+        "name": "Microsoft Dynamics 365 F&O",
+        "auth_modes": ["oauth2_client_credentials"],
+        "fields": [
+            {"key": "base_url", "label": "F&O Environment URL", "placeholder": "https://company.operations.dynamics.com"},
+            {"key": "tenant_id", "label": "Azure Tenant ID"},
+            {"key": "client_id", "label": "App Registration Client ID"},
+            {"key": "client_secret", "label": "Client Secret", "secret": True},
+        ],
+        "test_path": "/data/SalesOrderHeaders",
+    },
+    {
+        "key": "netsuite",
+        "name": "Oracle NetSuite",
+        "auth_modes": ["tba_oauth1"],
+        "fields": [
+            {"key": "account_id", "label": "NetSuite Account ID", "placeholder": "1234567"},
+            {"key": "consumer_key", "label": "Consumer Key"},
+            {"key": "consumer_secret", "label": "Consumer Secret", "secret": True},
+            {"key": "token_id", "label": "Token ID"},
+            {"key": "token_secret", "label": "Token Secret", "secret": True},
+        ],
+        "test_path": "/services/rest/record/v1/salesOrder",
+    },
+    {
+        "key": "infor_m3",
+        "name": "Infor M3 / CloudSuite",
+        "auth_modes": ["basic", "oauth2_client_credentials"],
+        "fields": [
+            {"key": "base_url",  "label": "Infor Tenant URL", "placeholder": "https://mingle-ionapi.eu1.inforcloudsuite.com"},
+            {"key": "tenant",    "label": "Tenant ID"},
+            {"key": "username",  "label": "Service User"},
+            {"key": "password",  "label": "Password", "secret": True},
+        ],
+        "test_path": "/M3/m3api-rest/v2/execute/CRS610MI/LstByNumber",
+    },
+    {
+        "key": "sage_x3",
+        "name": "Sage X3",
+        "auth_modes": ["basic"],
+        "fields": [
+            {"key": "base_url", "label": "Sage X3 Endpoint", "placeholder": "https://sage.company.com:8124"},
+            {"key": "username", "label": "User"},
+            {"key": "password", "label": "Password", "secret": True},
+            {"key": "pool",     "label": "Pool / Endpoint", "placeholder": "SEED"},
+        ],
+        "test_path": "/api1/x3/erp/SEED/SOH",
+    },
+    {
+        "key": "epicor_kinetic",
+        "name": "Epicor Kinetic",
+        "auth_modes": ["basic", "api_key"],
+        "fields": [
+            {"key": "base_url", "label": "Kinetic Server URL", "placeholder": "https://kinetic.company.com/EpicorERP"},
+            {"key": "api_key",  "label": "API Key",     "secret": True, "optional": True},
+            {"key": "username", "label": "User",        "optional": True},
+            {"key": "password", "label": "Password",    "secret": True, "optional": True},
+            {"key": "company",  "label": "Company ID",  "placeholder": "EPIC06"},
+        ],
+        "test_path": "/api/v2/odata/EPIC06/Erp.BO.SalesOrderSvc/SalesOrders",
+    },
+    {
+        "key": "ifs_cloud",
+        "name": "IFS Cloud",
+        "auth_modes": ["oauth2_password", "oauth2_client_credentials"],
+        "fields": [
+            {"key": "base_url", "label": "IFS Cloud URL", "placeholder": "https://ifs.company.com"},
+            {"key": "client_id", "label": "Client ID"},
+            {"key": "client_secret", "label": "Client Secret", "secret": True},
+            {"key": "username", "label": "Username", "optional": True},
+            {"key": "password", "label": "Password", "secret": True, "optional": True},
+        ],
+        "test_path": "/main/ifsapplications/projection/v1/CustomerOrderHandling.svc/CustomerOrder",
+    },
+    {
+        "key": "custom_rest",
+        "name": "Custom REST API",
+        "auth_modes": ["api_key", "bearer", "basic", "none"],
+        "fields": [
+            {"key": "base_url", "label": "Base URL", "placeholder": "https://erp.company.com/api"},
+            {"key": "api_key",  "label": "API Key / Bearer Token", "secret": True, "optional": True},
+            {"key": "username", "label": "Basic User", "optional": True},
+            {"key": "password", "label": "Basic Password", "secret": True, "optional": True},
+            {"key": "test_endpoint", "label": "Health-check Path", "placeholder": "/health"},
+        ],
+        "test_path": "/health",
+    },
+]
+
+
+def _mask_secrets(cfg: Dict[str, Any], template: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a copy of cfg with secret fields replaced by a masked sentinel."""
+    out = dict(cfg)
+    secret_keys = {f["key"] for f in template.get("fields", []) if f.get("secret")}
+    for k in secret_keys:
+        v = out.get(k)
+        if v:
+            out[k] = "•" * 8 + str(v)[-3:]  # show last 3 chars only
+    return out
+
+
+@api_router.get("/admin/erp/templates")
+async def erp_templates(_: User = Depends(require_role("admin"))):
+    return {"templates": ERP_TEMPLATES}
+
+
+@api_router.get("/admin/erp")
+async def erp_list(_: User = Depends(require_role("admin"))):
+    rows = await db.erp_config.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    by_key = {t["key"]: t for t in ERP_TEMPLATES}
+    return {
+        "connections": [
+            {**r, "config": _mask_secrets(r.get("config", {}), by_key.get(r.get("erp_key"), {}))}
+            for r in rows
+        ],
+    }
+
+
+class ERPConnectionIn(BaseModel):
+    erp_key: str
+    label: str
+    auth_mode: Optional[str] = None
+    config: Dict[str, Any]
+    activate: bool = False
+
+
+@api_router.post("/admin/erp")
+async def erp_save(payload: ERPConnectionIn, user: User = Depends(require_role("admin"))):
+    """Create or update an ERP connection. Each connection has a unique label
+    so admins can keep multiple environments side-by-side (e.g. SAP-QAS, SAP-PRD)."""
+    template = next((t for t in ERP_TEMPLATES if t["key"] == payload.erp_key), None)
+    if not template:
+        raise HTTPException(400, f"Unknown ERP type '{payload.erp_key}'")
+    if not payload.label.strip():
+        raise HTTPException(400, "label required")
+    # Required fields enforcement
+    for f in template["fields"]:
+        if f.get("optional"):
+            continue
+        if not payload.config.get(f["key"]):
+            raise HTTPException(400, f"Missing required field: {f['label']}")
+
+    doc = {
+        "connection_id": re.sub(r"[^a-z0-9-]+", "-", payload.label.lower()).strip("-"),
+        "erp_key": payload.erp_key,
+        "erp_name": template["name"],
+        "label": payload.label,
+        "auth_mode": payload.auth_mode or template["auth_modes"][0],
+        "config": payload.config,
+        "is_active": False,
+        "created_by": user.user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.erp_config.update_one({"connection_id": doc["connection_id"]}, {"$set": doc}, upsert=True)
+    if payload.activate:
+        await db.erp_config.update_many({}, {"$set": {"is_active": False}})
+        await db.erp_config.update_one({"connection_id": doc["connection_id"]}, {"$set": {"is_active": True}})
+        doc["is_active"] = True
+    doc["config"] = _mask_secrets(doc["config"], template)
+    return {"ok": True, "connection": doc}
+
+
+@api_router.post("/admin/erp/activate")
+async def erp_activate(payload: dict, _: User = Depends(require_role("admin"))):
+    cid = (payload or {}).get("connection_id")
+    if not cid:
+        raise HTTPException(400, "connection_id required")
+    found = await db.erp_config.find_one({"connection_id": cid})
+    if not found:
+        raise HTTPException(404, "Connection not found")
+    await db.erp_config.update_many({}, {"$set": {"is_active": False}})
+    await db.erp_config.update_one({"connection_id": cid}, {"$set": {"is_active": True}})
+    return {"ok": True}
+
+
+@api_router.post("/admin/erp/test")
+async def erp_test(payload: dict, _: User = Depends(require_role("admin"))):
+    """Live-tests an ERP connection: GETs the template's test_path with the
+    supplied creds and a 6-second budget. Returns status code + elapsed_ms
+    so the admin sees instantly whether their config is correct."""
+    erp_key = (payload or {}).get("erp_key")
+    cfg = (payload or {}).get("config") or {}
+    template = next((t for t in ERP_TEMPLATES if t["key"] == erp_key), None)
+    if not template:
+        raise HTTPException(400, "Unknown ERP type")
+    base = (cfg.get("base_url") or "").rstrip("/")
+    if not base:
+        raise HTTPException(400, "base_url is required to test")
+    path = cfg.get("test_endpoint") or template.get("test_path", "/")
+    url = f"{base}{path}"
+
+    t0 = datetime.now(timezone.utc)
+    try:
+        auth = None
+        headers = {"Accept": "application/json"}
+        api_key = cfg.get("api_key")
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        if cfg.get("username") and cfg.get("password"):
+            auth = (cfg["username"], cfg["password"])
+        async with httpx.AsyncClient(timeout=6.0, verify=False) as cx:
+            r = await cx.get(url, headers=headers, auth=auth)
+        ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
+        return {
+            "ok": 200 <= r.status_code < 400,
+            "status_code": r.status_code,
+            "elapsed_ms": ms,
+            "url": url,
+            "preview": r.text[:240],
+        }
+    except Exception as e:
+        ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
+        return {"ok": False, "status_code": 0, "elapsed_ms": ms, "url": url, "error": str(e)[:240]}
+
+
+@api_router.delete("/admin/erp/{connection_id}")
+async def erp_delete(connection_id: str, _: User = Depends(require_role("admin"))):
+    r = await db.erp_config.delete_one({"connection_id": connection_id})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Connection not found")
+    return {"ok": True}
+
+
 
 
 

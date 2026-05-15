@@ -45,6 +45,7 @@ import MicrosoftCopilot from "@/pages/MicrosoftCopilot";
 import PowerBI from "@/pages/PowerBI";
 import SharePoint from "@/pages/SharePoint";
 import AdminSettings from "@/pages/AdminSettings";
+import AdminDashboard from "@/pages/AdminDashboard";
 import SpecialtyCarriers from "@/pages/SpecialtyCarriers";
 import DriverRegistry from "@/pages/DriverRegistry";
 import WellnessNudges from "@/components/WellnessNudges";
@@ -94,6 +95,8 @@ function AppRouter() {
         <Route path="/powerbi" element={<PowerBI />} />
         <Route path="/sharepoint" element={<SharePoint />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/specialty-carriers" element={<SpecialtyCarriers />} />
         <Route path="/driver-registry" element={<DriverRegistry />} />
         <Route path="/webex" element={<Webex />} />
