@@ -75,7 +75,7 @@ export default function Manual() {
           >
             <Download size={14} /> Download .PPTX
           </Button>
-          <div className="text-[10px] font-mono text-slate-500 text-center mt-2">Tennant_TMS_User_Manual.pptx</div>
+          <div className="text-[10px] font-mono text-slate-500 text-center mt-2">TMS_User_Manual.pptx</div>
         </Card>
 
         {/* Slide viewer */}

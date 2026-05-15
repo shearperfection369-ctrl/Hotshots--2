@@ -1874,7 +1874,89 @@ SPECIALTY_CARRIERS = [
 
 @api_router.get("/specialty-carriers")
 async def specialty_carriers_list(_: User = Depends(get_current_user)):
-    return {"carriers": SPECIALTY_CARRIERS}
+    """Seeded specialty carriers + any user-added ones. Soft-deletes are
+    honored so admins can hide a built-in carrier without losing the seed."""
+    hidden = await db.specialty_carrier_overrides.find({"hidden": True}, {"_id": 0, "carrier_id": 1}).to_list(100)
+    hidden_ids = {h["carrier_id"] for h in hidden}
+    edits = await db.specialty_carrier_overrides.find({"hidden": {"$ne": True}}, {"_id": 0}).to_list(100)
+    edits_map = {e["carrier_id"]: e for e in edits}
+    out = []
+    for c in SPECIALTY_CARRIERS:
+        cid = c.get("id") or c.get("name", "").lower()
+        if cid in hidden_ids:
+            continue
+        if cid in edits_map:
+            merged = {**c, **edits_map[cid], "id": cid, "is_seed": True}
+            out.append(merged)
+        else:
+            out.append({**c, "id": cid, "is_seed": True})
+    # Custom carriers added by admin
+    custom = await db.specialty_carriers_custom.find({}, {"_id": 0}).to_list(200)
+    for c in custom:
+        out.append({**c, "is_seed": False})
+    return {"carriers": out}
+
+
+class SpecialtyCarrierIn(BaseModel):
+    id: Optional[str] = None
+    name: str
+    type: Optional[str] = "Specialty"
+    description: Optional[str] = ""
+    services: Optional[List[str]] = []
+    coverage: Optional[str] = ""
+    website: Optional[str] = ""
+    phone: Optional[str] = ""
+    primary_contact: Optional[str] = ""
+    primary_email: Optional[str] = ""
+    notes: Optional[str] = ""
+
+
+@api_router.post("/specialty-carriers")
+async def specialty_carriers_create(payload: SpecialtyCarrierIn, user: User = Depends(require_role("admin", "dispatcher"))):
+    """Create a new specialty carrier (custom)."""
+    if not payload.name.strip():
+        raise HTTPException(400, "name is required")
+    cid = re.sub(r"[^a-z0-9]+", "-", payload.name.lower()).strip("-")
+    doc = payload.model_dump()
+    doc["id"] = cid
+    doc["created_by"] = user.user_id
+    doc["created_at"] = datetime.now(timezone.utc).isoformat()
+    await db.specialty_carriers_custom.update_one({"id": cid}, {"$set": doc}, upsert=True)
+    return {"ok": True, "carrier": doc}
+
+
+@api_router.put("/specialty-carriers/{carrier_id}")
+async def specialty_carriers_update(carrier_id: str, payload: SpecialtyCarrierIn, user: User = Depends(require_role("admin", "dispatcher"))):
+    """Edit a carrier. Built-in (seeded) carriers are stored as overrides so
+    the seed list remains immutable."""
+    is_seed = any((c.get("id") or c.get("name", "").lower()) == carrier_id for c in SPECIALTY_CARRIERS)
+    doc = {k: v for k, v in payload.model_dump().items() if v is not None}
+    doc["carrier_id"] = carrier_id
+    doc["updated_by"] = user.user_id
+    doc["updated_at"] = datetime.now(timezone.utc).isoformat()
+    if is_seed:
+        await db.specialty_carrier_overrides.update_one({"carrier_id": carrier_id}, {"$set": doc}, upsert=True)
+    else:
+        await db.specialty_carriers_custom.update_one({"id": carrier_id}, {"$set": {**doc, "id": carrier_id}}, upsert=False)
+    return {"ok": True}
+
+
+@api_router.delete("/specialty-carriers/{carrier_id}")
+async def specialty_carriers_delete(carrier_id: str, _: User = Depends(require_role("admin"))):
+    """Delete a carrier. Seeded carriers are soft-hidden so they can be
+    restored; custom carriers are hard-deleted."""
+    is_seed = any((c.get("id") or c.get("name", "").lower()) == carrier_id for c in SPECIALTY_CARRIERS)
+    if is_seed:
+        await db.specialty_carrier_overrides.update_one(
+            {"carrier_id": carrier_id},
+            {"$set": {"carrier_id": carrier_id, "hidden": True}},
+            upsert=True,
+        )
+        return {"ok": True, "soft_hidden": True}
+    r = await db.specialty_carriers_custom.delete_one({"id": carrier_id})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Carrier not found")
+    return {"ok": True}
 
 
 @api_router.get("/carriers/tracking-url")
@@ -2301,9 +2383,30 @@ CARRIER_RATES = [
 
 @api_router.get("/carrier-rates")
 async def get_carrier_rates(_: User = Depends(get_current_user), mode: Optional[str] = None):
-    if mode:
-        return [l for l in CARRIER_RATES if l["mode"] == mode]
-    return CARRIER_RATES
+    out = [l for l in CARRIER_RATES if (l["mode"] == mode or not mode)]
+    out = [dict(l) for l in out]  # copy so we don't mutate the canonical list
+    # Brand-aware overlay — rewrite origin/destination cities to the active
+    # brand's sample_lanes so a Walmart admin sees Walmart's lanes, not
+    # Golden Valley → Dallas. Rates and carrier mix stay realistic.
+    brand = await _active_brand_doc()
+    if brand and brand.get("brand_id") != "tennant":
+        lanes = brand.get("sample_lanes") or []
+        # Each lane string like "Bentonville, AR -> Dallas, TX". Split safely.
+        parsed = []
+        for s in lanes:
+            if "->" in s:
+                o, d = s.split("->", 1)
+                parsed.append((o.strip(), d.strip()))
+        for i, l in enumerate(out):
+            if parsed:
+                o, d = parsed[i % len(parsed)]
+                l["origin"] = o
+                l["destination"] = d
+                # Re-derive lane_id from new cities so it's still pretty
+                short_o = re.sub(r"[^A-Z]", "", o.upper())[:3]
+                short_d = re.sub(r"[^A-Z]", "", d.upper())[:3]
+                l["lane_id"] = f"{short_o}-{short_d}-{l['mode']}"
+    return out
 
 @api_router.get("/carrier-rates/fsc")
 async def get_fsc_index(_: User = Depends(get_current_user)):
@@ -5865,13 +5968,55 @@ async def machine_image(model: str):
 
 @api_router.get("/machines")
 async def list_machines(_: User = Depends(get_current_user), category: Optional[str] = None):
-    out = TENNANT_MACHINES if not category else [m for m in TENNANT_MACHINES if m["category"] == category]
-    out = [{**m, "image_url": _real_photo_or_svg(m)} for m in out]
-    # Active brand overlay → swap to brand's catalog when not Tennant.
+    # Built-in catalog + admin-added custom machines + soft-hide overrides.
+    hidden = await db.machine_overrides.find({"hidden": True}, {"_id": 0, "model": 1}).to_list(200)
+    hidden_models = {h["model"] for h in hidden}
+    base = [m for m in TENNANT_MACHINES if m["model"] not in hidden_models]
+    custom = await db.machines_custom.find({}, {"_id": 0}).to_list(500)
+    legacy = await db.machines.find({}, {"_id": 0}).to_list(500)
+    out = base + custom + legacy
+    if category:
+        out = [m for m in out if m.get("category") == category]
+    out = [{**m, "image_url": m.get("image_url") or _real_photo_or_svg(m)} for m in out]
+    # Active brand overlay — swap to brand's catalog when not Tennant.
     brand = await _active_brand_doc()
     if brand and brand.get("brand_id") != "tennant":
-        out = [_overlay_machine(m, brand, i) for i, m in enumerate(out)]
+        out = [_overlay_machine(m, brand, i) if not m.get("is_custom") else m for i, m in enumerate(out)]
     return {"machines": out, "categories": TENNANT_MACHINE_CATEGORIES, "count": len(out), "catalog_label": (brand or {}).get("catalog_label") or "Machine Catalog"}
+
+
+class MachineIn(BaseModel):
+    model: str
+    display_name: Optional[str] = None
+    category: str = "Custom"
+    description: Optional[str] = ""
+    image_url: Optional[str] = ""
+    width_in: Optional[float] = None
+    length_in: Optional[float] = None
+    height_in: Optional[float] = None
+    weight_lbs: Optional[float] = None
+    power: Optional[str] = ""
+    tank_gal: Optional[float] = None
+    run_time_hrs: Optional[float] = None
+
+
+@api_router.delete("/machines/{model}")
+async def machines_delete(model: str, _: User = Depends(require_role("admin"))):
+    """Delete a machine. Seeded models are soft-hidden so they can be
+    restored; custom models are hard-deleted."""
+    model_norm = model.upper().strip()
+    is_seed = any(m["model"] == model_norm for m in TENNANT_MACHINES)
+    if is_seed:
+        await db.machine_overrides.update_one(
+            {"model": model_norm}, {"$set": {"model": model_norm, "hidden": True}}, upsert=True
+        )
+        return {"ok": True, "soft_hidden": True}
+    # Both legacy db.machines and new db.machines_custom collections
+    a = await db.machines_custom.delete_one({"model": model_norm})
+    b = await db.machines.delete_one({"model": model_norm})
+    if a.deleted_count == 0 and b.deleted_count == 0:
+        raise HTTPException(404, "Machine not found")
+    return {"ok": True}
 
 # -------------------- ARCADE: Connect Four · Tournaments · Trophies --------------------
 ROWS_C4, COLS_C4 = 6, 7
@@ -7079,6 +7224,7 @@ async def branding_generate(payload: BrandGenerateIn, user: User = Depends(requi
         await db.company_brand.update_many({}, {"$set": {"is_active": False}})
         await db.company_brand.update_one({"brand_id": brand_id}, {"$set": {"is_active": True}})
         doc["is_active"] = True
+        await _ensure_brand_erp_stub(doc)
 
     return {"ok": True, "brand": doc}
 
@@ -7090,9 +7236,18 @@ class BrandActivateIn(BaseModel):
 @api_router.post("/branding/activate")
 async def branding_activate(payload: BrandActivateIn, _: User = Depends(require_role("admin"))):
     """Switch the active brand to a previously generated one (or to the
-    built-in Tennant default by passing brand_id='tennant')."""
+    built-in Tennant default by passing brand_id='tennant').
+
+    Also AUTO-LINKS an ERP stub for the new brand so the admin sees the
+    matching ERP context without having to wire it up by hand. The stub is
+    a non-credentialed "SAP S/4HANA" connection whose base_url is keyed to
+    the brand domain; the admin can fill in real credentials later via the
+    ERP manager (an explicit user-supplied connection remains active over
+    this auto-stub if one already exists)."""
     if payload.brand_id == "tennant":
         await db.company_brand.update_many({}, {"$set": {"is_active": False}})
+        # Restore default Tennant ERP stub
+        await _ensure_brand_erp_stub({"brand_id": "tennant", "short_name": "Tennant"})
         return {"ok": True, "brand": DEFAULT_BRAND}
     found = await db.company_brand.find_one({"brand_id": payload.brand_id})
     if not found:
@@ -7101,7 +7256,38 @@ async def branding_activate(payload: BrandActivateIn, _: User = Depends(require_
     await db.company_brand.update_one({"brand_id": payload.brand_id}, {"$set": {"is_active": True}})
     found.pop("_id", None)
     found["is_active"] = True
+    await _ensure_brand_erp_stub(found)
     return {"ok": True, "brand": found}
+
+
+async def _ensure_brand_erp_stub(brand: Dict[str, Any]):
+    """When a brand is activated, ensure there's an ERP connection labeled
+    for that brand. If the admin hasn't already activated a real ERP, the
+    stub becomes the active one so the Admin Dashboard reflects the brand."""
+    short = brand.get("short_name") or brand.get("company_name") or "Brand"
+    slug = re.sub(r"[^a-z0-9]+", "", short.lower())[:20] or "brand"
+    conn_id = f"sap-{slug}-auto"
+    existing = await db.erp_config.find_one({"connection_id": conn_id})
+    doc = {
+        "connection_id": conn_id,
+        "erp_key": "sap_s4hana",
+        "erp_name": "SAP S/4HANA",
+        "label": f"{short} · S/4HANA (auto)",
+        "auth_mode": "oauth2_client_credentials",
+        "config": {"base_url": f"https://my-s4.{slug}.com", "client": "100"},
+        "auto_stub": True,
+        "brand_id": brand.get("brand_id"),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if not existing:
+        doc["created_at"] = doc["updated_at"]
+    await db.erp_config.update_one({"connection_id": conn_id}, {"$set": doc}, upsert=True)
+    # Activate this stub ONLY if the currently-active ERP is missing or
+    # itself a stub. Don't override an admin-configured real connection.
+    cur = await db.erp_config.find_one({"is_active": True}, {"_id": 0})
+    if not cur or cur.get("auto_stub"):
+        await db.erp_config.update_many({}, {"$set": {"is_active": False}})
+        await db.erp_config.update_one({"connection_id": conn_id}, {"$set": {"is_active": True}})
 
 
 @api_router.delete("/branding/{brand_id}")

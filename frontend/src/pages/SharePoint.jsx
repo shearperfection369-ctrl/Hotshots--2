@@ -3,18 +3,25 @@ import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { FolderOpen, ExternalLink, FileText, Users, Clock } from "lucide-react";
+import { useBranding } from "../lib/branding";
 
 const SP_BLUE = "#03787C"; // SharePoint teal
 
 export default function SharePoint() {
+  const { brand } = useBranding();
+  const shortName = brand?.short_name || "Tennant";
+  const companyName = brand?.company_name || "Tennant Companies";
   const [data, setData] = useState({ sites: [], recent_files: [], tenant_url: "" });
   useEffect(() => {
     api.get("/integrations/sharepoint/config").then((r) => setData(r.data)).catch(() => {});
   }, []);
+  // Derive the displayable tenant host from whatever the API returns (the
+  // backend already brand-swaps this for non-Tennant brands).
+  const tenantHost = (data.tenant_url || "").replace(/^https?:\/\//, "") || `${shortName.toLowerCase()}.sharepoint.com`;
 
   return (
     <>
-      <Topbar title="SharePoint" subtitle="Tennant Companies · sites · libraries · recent activity" />
+      <Topbar title="SharePoint" subtitle={`${companyName} · sites · libraries · recent activity`} />
       <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
         <Card className="hud-surface p-5 lg:col-span-12 flex items-center justify-between flex-wrap gap-3" data-testid="sharepoint-hero">
           <div className="flex items-center gap-3">
@@ -25,8 +32,8 @@ export default function SharePoint() {
               <div className="text-[10px] font-mono uppercase tracking-[0.2em]" style={{ color: SP_BLUE }}>
                 Microsoft SharePoint · Online
               </div>
-              <h2 className="font-display text-xl font-bold text-white">tennantco.sharepoint.com</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Single sign-on via Tennant Entra ID. All edits sync back to SharePoint Online in real time.</p>
+              <h2 className="font-display text-xl font-bold text-white">{tenantHost}</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Single sign-on via {shortName} Entra ID. All edits sync back to SharePoint Online in real time.</p>
             </div>
           </div>
           <a

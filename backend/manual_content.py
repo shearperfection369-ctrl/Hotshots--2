@@ -6,10 +6,10 @@ Shared between the React in-app deck and the .pptx export endpoint.
 SLIDES = [
     {
         "kind": "cover",
-        "eyebrow": "Tennant Companies · Transportation Management System",
-        "title": "User Manual · v2.0",
-        "subtitle": "Launch v2 — Power BI · SharePoint · Copilot · Specialty Carriers · 45-Metric Scorecard · Chess · Driver Registry · 16 Themes",
-        "footnote": "Prepared for the Tennant Transportation Team · Kirk Juergins",
+        "eyebrow": "LiveCleans · Transportation Management System",
+        "title": "User Manual · v2.1",
+        "subtitle": "Now with AI Company Themer · 9 ERP Connectors · Admin Control Deck · Legal Compliance Guide · Specialty Carriers CRUD · Machine Catalog CRUD · Built by Oliver Cummins",
+        "footnote": "13-year logistics operator · Transportation Analyst at Tennant · Minneapolis MN",
     },
     {
         "kind": "toc",
@@ -859,10 +859,129 @@ SLIDES = [
         ],
         "page_url": "/promo",
     },
+    # =========================================================
+    # ============== v2.1 LAUNCH WAVE — NEW SECTIONS ==========
+    # =========================================================
+    {
+        "kind": "section",
+        "title": "v2.1 · Multi-Tenant Launch",
+        "tagline": "The TMS now re-themes for ANY company in 60 seconds. Plus full Admin Control Deck, ERP connector hub, and live CRUD across the catalog.",
+    },
+    {
+        "kind": "feature",
+        "title": "AI Company Themer · Type Any Company",
+        "subtitle": "Admin · Dashboard > Company Theme",
+        "steps": [
+            "Type any company name (Walmart, FedEx, Caterpillar, Apple, etc.) and click Generate & Activate.",
+            "Claude Sonnet 4.5 (via Emergent universal key) generates the brand profile: real colors, logo letter, tagline, industry, flagship products, Tier-1 suppliers, transportation lanes.",
+            "The entire app re-skins in seconds: sidebar logo, header subtitle, SAP base URL, SharePoint tenant, PowerBI workspace, carrier rate lanes, machine catalog labels.",
+            "Activate previously-generated brands with one click. Tennant default is always available to restore.",
+        ],
+        "tips": ["77-company curated directory · industry-filtered chips · search-as-you-type autocomplete."],
+        "page_url": "/admin",
+    },
+    {
+        "kind": "feature",
+        "title": "Admin Control Deck",
+        "subtitle": "Sidebar > Admin · Dashboard",
+        "steps": [
+            "Hero status bar: DB ping (ms), uptime, active 24h users, shipments, LLM 24h calls, active brand, active ERP.",
+            "14-day shipment-volume trend with gradient area chart · auto-refresh every 30s.",
+            "Feature quick-toggles: Wellness Nudges, Weather Alerts, HUDLINK AI, Audit Logging, Auto-Refresh Tracking.",
+            "Collection totals bar chart, role breakdown bars, recent audit feed, LLM usage card, backend status tile.",
+        ],
+        "page_url": "/admin",
+    },
+    {
+        "kind": "feature",
+        "title": "ERP Integration Hub · 9 Systems",
+        "subtitle": "Admin · Dashboard > ERP Integration Hub",
+        "steps": [
+            "Native connectors for SAP S/4HANA, Oracle Fusion, Microsoft Dynamics 365 F&O, Oracle NetSuite, Infor M3, Sage X3, Epicor Kinetic, IFS Cloud, plus a Custom REST API option.",
+            "Each connector ships a template form with the right auth modes (OAuth2 client-credentials, password grant, basic, TBA OAuth1, API key).",
+            "Live Test Connection probes the canonical $metadata / odata endpoint with a 6s budget. See HTTP status, latency, and response preview.",
+            "Save & Activate — credentials encrypted at rest, never returned to the frontend in plaintext.",
+            "Brand activation auto-stubs a matching ERP (e.g. activate Walmart → SAP S/4HANA `https://my-s4.walmart.com` stub appears).",
+        ],
+        "page_url": "/admin",
+    },
+    {
+        "kind": "feature",
+        "title": "Legal & Compliance Guide",
+        "subtitle": "Admin · Dashboard > Legal & Compliance",
+        "steps": [
+            "Surfaces the legal implications of running the TMS with another company's brand or ERP.",
+            "Six panels: authorization to use ERP data, trademark / brand identity, data privacy (GDPR/CCPA/PIPL/LGPD), ERP vendor terms (indirect access models), AI/LLM disclosures, recommended workflow.",
+            "Active-brand banner reminds the admin to confirm a signed agreement is in place for any non-default brand.",
+            "Cites SAP Digital Access (2018), Oracle Master Agreement §B5, MS Customer Agreement §G2, GDPR Articles 28/32, CCPA §1798.140.",
+        ],
+        "tips": ["This panel is INFORMATIONAL — not legal advice. Always consult licensed counsel."],
+        "page_url": "/admin",
+    },
+    {
+        "kind": "feature",
+        "title": "Specialty Carriers · Full CRUD",
+        "subtitle": "Sidebar > Specialty Carriers",
+        "steps": [
+            "Add Carrier dialog (admin/dispatcher): name, type, website, coverage, phone, contact, services, notes.",
+            "Edit hover-icon on each carrier card opens the same dialog pre-filled.",
+            "Delete: built-in carriers (Logix, Panther, Fastfrate, Ryan) are SOFT-HIDDEN so they can be restored; custom carriers are hard-deleted.",
+            "Custom carriers tagged with a green 'Custom' pill so admins know which are user-added.",
+        ],
+        "page_url": "/specialty-carriers",
+    },
+    {
+        "kind": "feature",
+        "title": "Machine Catalog · Full CRUD",
+        "subtitle": "Sidebar > Machine Catalog (label changes with brand)",
+        "steps": [
+            "Add button (admin/dispatcher) opens a dialog: model, display name, category, power, image URL, description.",
+            "Delete icon appears on hover; seeded models soft-hide, custom models hard-delete.",
+            "Catalog label re-themes with the active brand (e.g. 'Walmart Product Catalog', 'FedEx Vehicle Lineup').",
+            "Machine cards show a 'Custom' pill for user-added entries.",
+        ],
+        "page_url": "/machines",
+    },
+    {
+        "kind": "feature",
+        "title": "Brand-Aware Data Everywhere",
+        "subtitle": "All read endpoints",
+        "steps": [
+            "When a non-Tennant brand is active, EVERY read endpoint applies a brand overlay before returning data.",
+            "SAP materials (`TENN-T16AMR-LI` → `WALM-GREATV-00`), Carrier Rates (lanes swap to brand's sample_lanes), shipments (commodity + supplier), KPIs (Tennant strings swap to brand short name).",
+            "Integration endpoints: SAP base URL, SharePoint tenant_url, Power BI workspace_url, news, weather alerts.",
+            "Dashboard subtitle dynamically reads `${brand.company_name} · TMS HUD · LIVE OPERATIONS`.",
+        ],
+        "page_url": "anywhere",
+    },
+    {
+        "kind": "feature",
+        "title": "YouTube Tile · Pinned Playlist",
+        "subtitle": "Command Center · Video Screen",
+        "steps": [
+            "Change Video field accepts any YouTube URL form (youtube.com/watch, youtu.be, /embed, /shorts) or 11-char ID.",
+            "+Pin button saves the current video to a per-user playlist (localStorage).",
+            "Click any playlist chip to switch · × on hover to remove pin.",
+            "Defaults: Tennant trailer, two Lofi streams, FedEx Inside Look.",
+        ],
+        "page_url": "/dashboard",
+    },
+    {
+        "kind": "feature",
+        "title": "Built by Oliver Cummins · Founder Story",
+        "subtitle": "Sidebar > About · Business Plan (also at /about)",
+        "steps": [
+            "Public-facing landing page with the founder bio, theme reel mockup, 8-feature grid, 9 ERP grid, business plan preview.",
+            "Founder credentials: 13 years in supply chain & logistics · all modes (TL, LTL, parcel, ocean, air, rail) · international specialist · Transportation Analyst at Tennant Companies.",
+            "Direct contact link: oliver@livecleans.com.",
+            "Full written business plan available at /app/BUSINESS_PLAN.md.",
+        ],
+        "page_url": "/about",
+    },
     {
         "kind": "closing",
         "title": "Questions?",
-        "subtitle": "Microsoft Copilot is built in — ask it anything.",
-        "footnote": "Tennant Companies · TMS v2.0 · Launch Update · Generated by Tennant Transportation Team",
+        "subtitle": "HUDLINK AI lives in the sidebar — ask it anything.",
+        "footnote": "LiveCleans · TMS v2.1 · Multi-Tenant Launch · Built by Oliver Cummins · oliver@livecleans.com",
     },
 ]

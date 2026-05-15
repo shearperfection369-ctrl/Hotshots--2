@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import Topbar from "../components/Topbar";
 import { Card } from "../components/ui/card";
 import { Bot, ExternalLink, Sparkles, MessageSquare, FileText, Search, Lightbulb, Shield } from "lucide-react";
+import { useBranding } from "../lib/branding";
 
 /**
  * Microsoft Copilot launch page.
@@ -79,6 +80,8 @@ function MSLogoMark({ size = 24 }) {
 }
 
 export default function MicrosoftCopilot() {
+  const { brand } = useBranding();
+  const shortName = brand?.short_name || "Tennant";
   // X-Frame-Options: DENY still emits a `load` event for a blank document,
   // so we can't trust onLoad to mean "Copilot rendered". Instead we just
   // assume embedding will fail (because it always does in production) and
@@ -124,7 +127,7 @@ export default function MicrosoftCopilot() {
                 <div className="flex items-center gap-2">
                   <MSLogoMark size={16} />
                   <div className="text-[10px] font-mono uppercase tracking-[0.25em]" style={{ color: COPILOT_BLUE }}>
-                    Microsoft Copilot · Inside Tennant TMS
+                    Microsoft Copilot · Inside {shortName} TMS
                   </div>
                 </div>
                 <h2 className="font-display text-3xl font-bold mt-2 text-white">
@@ -133,7 +136,7 @@ export default function MicrosoftCopilot() {
                 <p className="text-sm text-slate-300 mt-2 max-w-2xl leading-relaxed">
                   Logistics questions, HS codes, Incoterms, email drafts, PDF summaries, code
                   snippets — Copilot grounds answers in Microsoft search and (with an M365
-                  license) in your Tennant tenant data.
+                  license) in your {shortName} tenant data.
                 </p>
               </div>
             </div>
@@ -169,7 +172,7 @@ export default function MicrosoftCopilot() {
 
             <div className="mt-4 flex items-center gap-2 text-[10px] font-mono text-slate-400">
               <Shield size={11} style={{ color: COPILOT_BLUE }} />
-              <span>Auth happens on microsoft.com — Tennant sign-on via Entra ID.</span>
+              <span>Auth happens on microsoft.com — {shortName} sign-on via Entra ID.</span>
             </div>
           </div>
         </Card>
@@ -267,7 +270,7 @@ export default function MicrosoftCopilot() {
               <p className="text-sm text-slate-400 mt-2 max-w-xl mx-auto">
                 Microsoft blocks framing of <span className="font-mono text-cyan-300">copilot.microsoft.com</span> for
                 security reasons. Click below to open Copilot in a new tab — your
-                Tennant Entra ID sign-on carries over.
+                {shortName} Entra ID sign-on carries over.
               </p>
               <div className="mt-5 inline-flex flex-wrap gap-2 justify-center">
                 <a

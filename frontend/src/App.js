@@ -6,6 +6,7 @@ import { AuthProvider } from "@/lib/auth";
 import Layout from "@/components/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Login from "@/pages/Login";
+import About from "@/pages/About";
 import AuthCallback from "@/pages/AuthCallback";
 import Dashboard from "@/pages/Dashboard";
 import Shipments from "@/pages/Shipments";
@@ -63,6 +64,9 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/about" element={<About />} />
+      <Route path="/marketing" element={<About />} />
+      <Route path="/landing" element={<About />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
       {/* Driver mobile is auth-free */}
       <Route path="/driver" element={<DriverMobile />} />

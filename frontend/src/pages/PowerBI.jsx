@@ -3,11 +3,15 @@ import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { BarChart3, ExternalLink, RefreshCw, User, Folder } from "lucide-react";
+import { useBranding } from "../lib/branding";
 
 const MS_BLUE = "#F2C811"; // Power BI yellow
 const PBI_BLUE = "#0078D4";
 
 export default function PowerBI() {
+  const { brand } = useBranding();
+  const shortName = brand?.short_name || "Tennant";
+  const companyName = brand?.company_name || "Tennant Companies";
   const [config, setConfig] = useState(null);
   const [activeReportId, setActiveReportId] = useState(null);
   const [embedFailed, setEmbedFailed] = useState(false);
@@ -29,7 +33,7 @@ export default function PowerBI() {
 
   return (
     <>
-      <Topbar title="Power BI" subtitle="Tennant · live executive dashboards & analytics" />
+      <Topbar title="Power BI" subtitle={`${shortName} · live executive dashboards & analytics`} />
       <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
         <Card className="hud-surface p-5 lg:col-span-4" data-testid="powerbi-reports-list">
           <div className="flex items-center gap-2 mb-3">
@@ -66,7 +70,7 @@ export default function PowerBI() {
             className="mt-4 block w-full text-center px-3 py-2 rounded font-bold text-black text-[10px] uppercase tracking-wider"
             style={{ background: MS_BLUE }}
           >
-            Open Tennant Workspace in Power BI ↗
+            Open {shortName} Workspace in Power BI ↗
           </a>
         </Card>
 
@@ -117,7 +121,7 @@ export default function PowerBI() {
               <h3 className="font-display text-xl font-bold text-white">Power BI embed unavailable</h3>
               <p className="text-sm text-slate-400 mt-2 max-w-xl mx-auto">
                 Power BI blocks framing for unauthenticated sessions. Click below to open this
-                report in Power BI — your Tennant Entra ID sign-on carries over.
+                report in Power BI — your {shortName} Entra ID sign-on carries over.
               </p>
               {activeReport?.view_url && (
                 <a

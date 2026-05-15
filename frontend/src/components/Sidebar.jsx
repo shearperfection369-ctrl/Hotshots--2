@@ -48,6 +48,7 @@ const NAV = [
   { to: "/music", label: "Music · Focus", icon: MusicIcon, tid: "nav-music", roles: ["admin", "auditor", "dispatcher", "driver"] },
   { to: "/manual", label: "User Manual", icon: BookOpen, tid: "nav-manual", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/admin", label: "Admin · Dashboard", icon: Activity, tid: "nav-admin-dashboard", roles: ["admin"] },
+  { to: "/about", label: "About · Business Plan", icon: Award, tid: "nav-about", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/admin/users", label: "Admin · Users", icon: Users, tid: "nav-admin-users", roles: ["admin"] },
   { to: "/admin/settings", label: "Admin · Settings", icon: SettingsIcon, tid: "nav-admin-settings", roles: ["admin"] },
 ];

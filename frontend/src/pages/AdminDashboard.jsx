@@ -17,6 +17,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, BarChart, 
 import { toast } from "sonner";
 import CompanyTheme from "../components/CompanyTheme";
 import ERPManager from "../components/ERPManager";
+import LegalCompliance from "../components/LegalCompliance";
 
 /**
  * AdminDashboard — system-of-systems control deck for the admin.
@@ -214,6 +215,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 gap-5">
           <CompanyTheme />
           <ERPManager active={data?.erp?.active} onChange={load} />
+          <LegalCompliance />
         </div>
 
       </div>
