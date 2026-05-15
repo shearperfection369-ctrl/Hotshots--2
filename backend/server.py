@@ -836,13 +836,23 @@ async def generate_bol_from_shipment(
 
     origin = s.get("origin", {}) or {}
     dest = s.get("destination", {}) or {}
+    # Brand-aware default shipper / commodity: pull from active brand so a
+    # Pfizer-active TMS doesn't print "Tennant Company" on every BOL.
+    brand = await _active_brand_doc()
+    brand_company = (brand or {}).get("company_name") or "Tennant Company"
+    brand_default_commodity = "industrial cleaning equipment"
+    if brand and brand.get("brand_id") != "tennant":
+        # Use the first sample product as the brand's representative commodity.
+        sp = (brand.get("sample_products") or [None])[0]
+        if sp:
+            brand_default_commodity = sp
     data = {
-        "shipper": payload.shipper or "Tennant Company",
+        "shipper": payload.shipper or brand_company,
         "consignee": dest.get("name") or dest.get("city") or "",
         "origin": f"{origin.get('city', '')}, {origin.get('state', '')}".strip(", "),
         "destination": f"{dest.get('city', '')}, {dest.get('state', '')}".strip(", "),
         "carrier": s.get("carrier") or "",
-        "commodity": s.get("commodity") or "Tennant industrial cleaning equipment",
+        "commodity": s.get("commodity") or f"{brand_company} {brand_default_commodity}",
         "weight": s.get("weight_lbs") or "",
         "pieces": s.get("pieces") or s.get("skids") or "",
         "value": s.get("value_usd") or "",

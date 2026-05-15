@@ -545,17 +545,28 @@ function CompactVideoTile() {
     return null;
   };
 
-  const apply = () => {
+  const apply = async () => {
     const id = parseId(draft);
     if (!id) { setErr("Couldn't read that link — paste a youtube.com / youtu.be URL or 11-char ID."); return; }
     setErr(""); setVideoId(id); setDraft(id); setEditing(false);
+    // Auto-pin newly-added videos to the playlist with a real title
+    if (!playlist.some((p) => p.id === id)) {
+      let title = `Video · ${id.slice(0, 6)}`;
+      try {
+        const r = await fetch(`https://www.youtube.com/oembed?url=https://youtube.com/watch?v=${id}&format=json`);
+        if (r.ok) { const j = await r.json(); if (j.title) title = j.title; }
+      } catch { /* noop */ }
+      setPlaylist([{ id, title }, ...playlist].slice(0, 12));
+    }
   };
 
-  const pin = () => {
+  const pin = async () => {
     if (playlist.some((p) => p.id === videoId)) return;
-    // Use a sensible default title (user can rename later if we add UI).
-    const title = window.prompt("Title for this pinned video?", `Video · ${videoId.slice(0, 6)}`);
-    if (!title) return;
+    let title = `Video · ${videoId.slice(0, 6)}`;
+    try {
+      const r = await fetch(`https://www.youtube.com/oembed?url=https://youtube.com/watch?v=${videoId}&format=json`);
+      if (r.ok) { const j = await r.json(); if (j.title) title = j.title; }
+    } catch { /* noop */ }
     setPlaylist([{ id: videoId, title }, ...playlist].slice(0, 12));
   };
 

@@ -270,7 +270,48 @@ Subsequent user-requested additions (chronological, all delivered):
 - Move `_brand_tenant_strings` to a marker-template approach long term (substring
   swap is fragile if new content includes the word "Tennant")
 
-## v2.2 — Manual Brand Template + Location Sweep (May 2026)
+## v2.3 — Brand-Reactive Refresh + BOL Preview + Arcade Polish (May 2026)
+- **Package A · Brand-Reactive Data Refresh** — `BrandingProvider` now fires a
+  `brand-changed` `window` event whenever the active brand actually changes,
+  and a new `useBrandRefresh(callback)` hook plugs every brand-aware page into
+  the loop. Re-wired pages: Dashboard, Shipments, Tracking, Reports, SAP Sync,
+  Specialty Carriers, Machines, Driver Registry (drivers + trailers),
+  Documents, Carrier Rates, PowerBI, SharePoint, Integrations, Carrier
+  Onboarding, Supplier Sourcing. Every endpoint listed in iteration_18.json
+  is brand-aware on the server side AND every consumer page re-fetches on
+  theme switch — no full reload required.
+- **Package B1 · Facility Conditions Dropdown** — Command Center weather card
+  gained an in-card **"+ Add Location"** flow (open-meteo + geocoding API).
+  Custom cities persist in `localStorage`. Auto-refreshes from the brand's
+  facilities list on every theme switch.
+- **Package B2 · Brand-aware Promo Video** — Admin pastes up to 6 YouTube
+  video IDs into the brand template (new `promo_video_ids` field on
+  `/api/branding/manual` + `/api/branding/template`). `PromoVideo.jsx` reads
+  `brand.promo_video_ids` from context and renders a per-brand playlist;
+  reset to slot 0 on theme switch; falls back to the Tennant trailer if
+  the active brand has no videos configured.
+- **Package B3 · Video Tile UX Polish** — Command Center `CompactVideoTile`
+  auto-fetches YouTube titles via `oembed` (no more `window.prompt`). The
+  standalone `YouTubeVideoTile` was overhauled to a thumbnail-grid playlist
+  with hover-to-remove × controls.
+- **Package C · BOL Preview + Save** — On `BookLoad.jsx` submit:
+  `POST /api/shipments` → `POST /api/shipments/{id}/generate-bol` → opens a
+  full BOL preview modal. **"Save BOL (PDF)"** downloads the ReportLab-rendered
+  PDF; **"Open in Documents"** navigates to the Document Vault. Backend now
+  uses the active brand's `company_name` as the BOL shipper / commodity
+  defaults so a Pfizer-active TMS no longer prints "Tennant Company" on its
+  BOLs.
+- **Package D · Arcade Visual Polish** — Hero banner with gradient title,
+  cyan grid backdrop, pulsing orb backgrounds, and a 6-tile personal-stats
+  KPI strip (My Trophies / Rank / Tier / Active Games / Live Tournaments /
+  Total Players). Leaderboard #1 row glows gold.
+
+## Tests
+- `/app/test_reports/iteration_18.json` — 16/16 pytest passed (no regressions)
+- Verified: `/api/branding/template` has `promo_video_ids`, `/api/branding/manual`
+  accepts & persists them, end-to-end book-then-BOL flow returns a real PDF,
+  brand-reactive sweep clean of `Tennant` substring across drivers, trailers,
+  specialty carriers, traffic, weather alerts, shipments (cities), KPIs.
 - **"Build Your Own" Brand Template** — new dialog in `ManualBrandDialog.jsx`,
   embedded in `CompanyTheme.jsx` next to Generate & Activate. Lets the admin
   manually fill any/all brand fields (name, short, logo letter, tagline,
