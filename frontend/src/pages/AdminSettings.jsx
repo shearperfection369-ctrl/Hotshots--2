@@ -10,6 +10,7 @@ import { Settings, Save, Bell, Mail, Database, Globe, Shield, Zap } from "lucide
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
+import CompanyTheme from "../components/CompanyTheme";
 
 /**
  * AdminSettings · single page for admin-tunable knobs. Persists to
@@ -123,6 +124,10 @@ export default function AdminSettings() {
             <Save size={14} className="mr-1.5" /> {saving ? "Saving…" : "Save all changes"}
           </Button>
         </div>
+
+        {/* Company Theme switcher — full-width, top of the grid so it sets
+            the context (the brand) before any of the other knobs. */}
+        <CompanyTheme />
 
         {SECTIONS.map((s) => {
           const Icon = s.icon;

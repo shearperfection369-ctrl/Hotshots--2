@@ -49,6 +49,7 @@ import SpecialtyCarriers from "@/pages/SpecialtyCarriers";
 import DriverRegistry from "@/pages/DriverRegistry";
 import WellnessNudges from "@/components/WellnessNudges";
 import { ThemeProvider } from "@/lib/theme";
+import { BrandingProvider } from "@/lib/branding";
 import { MusicProvider } from "@/lib/music";
 import MiniPlayer from "@/components/MiniPlayer";
 
@@ -84,8 +85,10 @@ function AppRouter() {
         <Route path="/carrier-onboarding" element={<CarrierOnboarding />} />
         <Route path="/driver-console" element={<DriverConsole />} />
         <Route path="/sap-sync" element={<SapSync />} />
-        <Route path="/ai-assistant" element={<MicrosoftCopilot />} />
+        <Route path="/ai-assistant" element={<AIAssistant />} />
+        <Route path="/hudlink" element={<AIAssistant />} />
         <Route path="/copilot" element={<MicrosoftCopilot />} />
+        <Route path="/microsoft-copilot" element={<MicrosoftCopilot />} />
         <Route path="/routing-guide" element={<RoutingGuide />} />
         <Route path="/legacy-hudlink" element={<AIAssistant />} />
         <Route path="/powerbi" element={<PowerBI />} />
@@ -118,18 +121,20 @@ export default function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <MusicProvider>
-            <AppRouter />
-            <MiniPlayer />
-            <WellnessNudges />
-            <Toaster
-              theme="dark"
-              position="bottom-right"
-              toastOptions={{
-                style: { background: "#131821", border: "1px solid rgba(0,229,255,0.3)", color: "#F8FAFC" }
-              }}
-            />
-          </MusicProvider>
+          <BrandingProvider>
+            <MusicProvider>
+              <AppRouter />
+              <MiniPlayer />
+              <WellnessNudges />
+              <Toaster
+                theme="dark"
+                position="bottom-right"
+                toastOptions={{
+                  style: { background: "#131821", border: "1px solid rgba(0,229,255,0.3)", color: "#F8FAFC" }
+                }}
+              />
+            </MusicProvider>
+          </BrandingProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

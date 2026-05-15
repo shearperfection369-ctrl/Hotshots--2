@@ -14,7 +14,7 @@ import { useAuth } from "../lib/auth";
 const NAV = [
   { to: "/dashboard", label: "Command Center", icon: LayoutDashboard, tid: "nav-dashboard", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/workbook", label: "Truckload Booking Sheet", icon: Table2, tid: "nav-workbook", roles: ["admin", "auditor", "dispatcher"] },
-  { to: "/copilot", label: "Microsoft Copilot", icon: Sparkles, tid: "nav-copilot", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/hudlink", label: "HUDLINK AI", icon: Sparkles, tid: "nav-hudlink", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/shipments", label: "Shipments", icon: Package, tid: "nav-shipments", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/book-load", label: "Book Load", icon: PlusSquare, tid: "nav-book-load", roles: ["admin", "dispatcher"] },
   { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher", "carrier"] },
