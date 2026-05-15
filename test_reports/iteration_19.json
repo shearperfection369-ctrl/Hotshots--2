@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 19 backend tests for real NWS weather alerts + admin-managed alert locations. 16/16 tests pass. Verified GET/POST /api/weather/alert-locations (auth, validation, drop-bad-rows, 12-cap, state/country upper-casing, label trim to 80, persistence). Verified GET /api/weather/alerts auto-seeds from active brand on first call, returns required schema fields with severity in {high,moderate,low}, doesn't crash for Denver point, _brand_swap removes 'Tennant' literals while Pfizer is active. Regression: /api/branding/manual still saves promo_video_ids (used activate=false + TEST_ company so active Pfizer brand untouched) and /api/admin/servers still returns totals. Admin alert-locations were cleared at module teardown so next iteration re-seeds from Pfizer facilities.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/weather/alerts", "issue": "Seeding relies on geocoding-api.open-meteo.com (no API key) which could be flaky in CI — fallback only triggers if no facilities at all. Currently working but a network dip would slow first-call by 6s per facility."},
+      {"endpoint": "POST /api/weather/alert-locations", "issue": "Validates body shape but silently drops malformed rows — clients get no per-row error feedback. Spec allows either 400 or drop, so acceptable."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter19_weather.py",
+    "/app/test_reports/pytest/iter19_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 8739 lines — well over the 700-line guideline; should be split into routers (weather, branding, admin, etc.).",
+    "_fetch_live_nws_alerts swallows ALL exceptions per location with `continue` — silent failures hide NWS outages from logs. Add structured logging.",
+    "WeatherAlertLocationIn pydantic model is declared but never used in set_weather_alert_locations — endpoint accepts raw Dict[str,Any]. Either use the model (FastAPI auto-validates lat/lng types and returns 422 cleanly) or remove the unused class.",
+    "POST /api/weather/alert-locations returns 200 even when zero valid rows came out of a non-empty list (e.g. all dicts bad) — caller has no signal that nothing was saved.",
+    "Hard-coded Tennant default seed in _seed_alert_locations_from_brand makes brand_swap responsible for hiding it on Pfizer; safer to derive defaults from active brand only.",
+    "No rate-limiting / debounce on /api/weather/alerts which fires NWS calls per user per 60s poll — at scale this will hammer api.weather.gov."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter19_weather.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "skipped"},
+  "test_credentials": "admin Bearer test_session_admin_1 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created throw-away brand 'TEST PromoCo Iter19' via /api/branding/manual with activate=false (no impact on active Pfizer brand). Admin's weather_alert_locations is cleared on module teardown so next /alerts call re-seeds from active brand as requested.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Test file is reusable at /app/backend/tests/test_iter19_weather.py. Active brand should still be Pfizer (we didn't activate the TEST brand). Admin's monitored locations is empty (cleared in teardown); first /api/weather/alerts call will re-seed from Pfizer facilities via open-meteo geocode. NWS API may be quiet so live=true assertion is gated; do not strengthen that assertion. WeatherAlertLocationIn pydantic model is defined but unused — POST uses raw Dict; if main agent wires the model in, the bad-body test now expects 400 but FastAPI would return 422 — adjust accordingly.",
+  "rca of the issue": "n/a — no failing functionality. One residual TEST brand 'TEST PromoCo Iter19' exists in db.company_brand (is_active=False); harmless but main agent may delete it if cleanliness matters."
+}

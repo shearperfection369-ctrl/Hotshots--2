@@ -1562,10 +1562,187 @@ MOCK_WEATHER_ALERTS = [
 
 
 @api_router.get("/weather/alerts")
-async def weather_alerts_endpoint(_: User = Depends(get_current_user)):
-    """Mocked NWS-style watches/warnings keyed to brand facility regions.
-    UI polls every 60 seconds and toasts when a new alert_id appears."""
+async def weather_alerts_endpoint(user: User = Depends(get_current_user)):
+    """Real-time weather advisories.
+
+    1. Loads the user's monitored locations from `db.weather_alert_locations`
+       (defaults to the active brand's facilities on first read).
+    2. For each US location, calls the public National Weather Service API
+       at `api.weather.gov/alerts/active?point=<lat>,<lng>` (no auth needed)
+       to pull live watches / warnings / advisories.
+    3. Falls back to brand-mock alerts only if the network call fails OR the
+       user has no locations configured (so the UI never goes empty).
+
+    The UI polls this every 60 s so alerts auto-refresh.
+    """
+    cfg = await db.weather_alert_locations.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not cfg or not cfg.get("locations"):
+        # Seed from active brand's facilities the first time the user opens
+        # the page. Falls back to Tennant defaults if no facilities are set.
+        brand = await _active_brand_doc()
+        seeded = await _seed_alert_locations_from_brand(brand)
+        await db.weather_alert_locations.update_one(
+            {"user_id": user.user_id},
+            {"$set": {"user_id": user.user_id, "locations": seeded,
+                      "updated_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True,
+        )
+        locations = seeded
+    else:
+        locations = cfg.get("locations") or []
+
+    live = await _fetch_live_nws_alerts(locations)
+    if live:
+        return await _brand_swap(live)
+
+    # Network failure or zero hits → degrade gracefully to the mock list.
     return await _brand_swap(MOCK_WEATHER_ALERTS)
+
+
+# ---------- Helpers ----------
+async def _seed_alert_locations_from_brand(brand: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Best-effort: geocode the active brand's facility cities so the user
+    starts with sensible defaults. Falls back to Tennant's 3 US plants.
+    """
+    defaults = [
+        {"label": "Golden Valley, MN", "lat": 44.9847, "lng": -93.3486, "state": "MN"},
+        {"label": "Holland, MI",       "lat": 42.7875, "lng": -86.1089, "state": "MI"},
+        {"label": "Louisville, KY",    "lat": 38.2527, "lng": -85.7585, "state": "KY"},
+    ]
+    if not brand or brand.get("brand_id") == "tennant":
+        return defaults
+    facilities = brand.get("facilities") or []
+    if not facilities:
+        return defaults
+    out: List[Dict[str, Any]] = []
+    async with httpx.AsyncClient(timeout=6.0) as http:
+        for f in facilities[:6]:
+            label = (f.get("city") or f.get("name") or "").strip()
+            if not label:
+                continue
+            try:
+                r = await http.get(
+                    "https://geocoding-api.open-meteo.com/v1/search",
+                    params={"name": label, "count": 1, "language": "en", "format": "json"},
+                )
+                hits = (r.json() or {}).get("results") or []
+                if hits:
+                    h = hits[0]
+                    out.append({
+                        "label": f"{h.get('name')}{', ' + h.get('admin1') if h.get('admin1') else ''}",
+                        "lat": h.get("latitude"),
+                        "lng": h.get("longitude"),
+                        "state": (h.get("admin1") or "")[:2].upper() if h.get("country_code") == "US" else None,
+                        "country": h.get("country_code"),
+                    })
+            except Exception:
+                continue
+    return out or defaults
+
+
+async def _fetch_live_nws_alerts(locations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Hit api.weather.gov for each location and translate the GeoJSON
+    payload to the schema the frontend already speaks.
+
+    The NWS API only covers the US — non-US locations are silently skipped.
+    Each location call is timeout-bound at 4s; total work bounded at ~24s
+    even with 6 locations.
+    """
+    if not locations:
+        return []
+    out: List[Dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    headers = {
+        "User-Agent": "Tennant-TMS/2.3 (ops@tennantco.com)",
+        "Accept": "application/geo+json",
+    }
+    sev_map = {"Extreme": "high", "Severe": "high", "Moderate": "moderate", "Minor": "low", "Unknown": "low"}
+    async with httpx.AsyncClient(timeout=4.0, headers=headers) as http:
+        for loc in locations:
+            lat, lng = loc.get("lat"), loc.get("lng")
+            # NWS is US-only; skip if no coords or international.
+            if lat is None or lng is None:
+                continue
+            country = (loc.get("country") or "US").upper()
+            if country and country != "US":
+                continue
+            url = f"https://api.weather.gov/alerts/active?point={lat},{lng}"
+            try:
+                r = await http.get(url)
+                if r.status_code != 200:
+                    continue
+                data = r.json()
+                for feat in (data.get("features") or []):
+                    p = feat.get("properties") or {}
+                    aid = p.get("id") or feat.get("id")
+                    if not aid or aid in seen_ids:
+                        continue
+                    seen_ids.add(aid)
+                    out.append({
+                        "alert_id": aid,
+                        "type": p.get("event") or "Weather Alert",
+                        "severity": sev_map.get(p.get("severity"), "low"),
+                        "area": p.get("areaDesc") or loc.get("label"),
+                        "affected_facility": loc.get("label"),
+                        "headline": p.get("headline") or p.get("event"),
+                        "body": p.get("description") or "",
+                        "issued_at": p.get("sent") or datetime.now(timezone.utc).isoformat(),
+                        "expires_at": p.get("expires") or (datetime.now(timezone.utc) + timedelta(hours=6)).isoformat(),
+                        "source": p.get("senderName") or "National Weather Service",
+                        "source_url": p.get("@id") or "https://www.weather.gov/",
+                        "live": True,
+                    })
+            except Exception:
+                continue
+    # Sort by severity then most-recent
+    sev_rank = {"high": 0, "moderate": 1, "low": 2}
+    out.sort(key=lambda a: (sev_rank.get(a.get("severity"), 9), -1 * len(a.get("issued_at") or "")))
+    return out
+
+
+class WeatherAlertLocationIn(BaseModel):
+    label: str
+    lat: float
+    lng: float
+    state: Optional[str] = None
+    country: Optional[str] = "US"
+
+
+@api_router.get("/weather/alert-locations")
+async def get_weather_alert_locations(user: User = Depends(get_current_user)):
+    """Return the user's currently-monitored locations. Empty list means
+    'auto-seed from the active brand on next /api/weather/alerts read'."""
+    cfg = await db.weather_alert_locations.find_one({"user_id": user.user_id}, {"_id": 0})
+    return {"locations": (cfg or {}).get("locations") or []}
+
+
+@api_router.post("/weather/alert-locations")
+async def set_weather_alert_locations(payload: Dict[str, Any], user: User = Depends(get_current_user)):
+    """Replace the user's monitored-location list. Body: {locations: [...]}"""
+    raw = payload.get("locations") if isinstance(payload, dict) else None
+    if not isinstance(raw, list):
+        raise HTTPException(400, "Body must be {locations: [...]}")
+    cleaned: List[Dict[str, Any]] = []
+    for item in raw[:12]:  # cap at 12 per user
+        if not isinstance(item, dict):
+            continue
+        try:
+            cleaned.append({
+                "label": str(item.get("label") or "").strip()[:80] or "Unnamed",
+                "lat": float(item.get("lat")),
+                "lng": float(item.get("lng")),
+                "state": (item.get("state") or None) and str(item["state"]).upper()[:2],
+                "country": (item.get("country") or "US").upper()[:2],
+            })
+        except Exception:
+            continue
+    await db.weather_alert_locations.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"user_id": user.user_id, "locations": cleaned,
+                  "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    return {"ok": True, "locations": cleaned}
 
 
 # -------------------- WELLNESS NUDGES --------------------
