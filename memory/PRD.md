@@ -222,3 +222,50 @@ Subsequent user-requested additions (chronological, all delivered):
 - SAP S/4HANA endpoints (`/api/sap/*`) — curated Tennant-relevant mock data
 - Machine catalog images — public Unsplash CDN URLs (replaceable with Tennant product DAM)
 - Customs broker, news feeds — mocked
+
+
+## v2.1 — Multi-Tenant & Server Registry (May 2026 — current session)
+- **Tennant Bleed-through Sweep on SAP** — every `/api/sap/*` endpoint now runs
+  through `_brand_swap` + a new `_overlay_sap_records` helper. When a non-Tennant
+  brand (e.g. Pfizer) is active:
+  - `/api/sap/config` → `host: https://s4hana.<slug>.sap.com`, `user: <PREFIX>_TMS_SVC`
+  - `/api/sap/sales-orders`, `/api/sap/purchase-orders` → Material, MaterialDescription,
+    Plant, Supplier, SupplierName replaced with the brand's `sample_products` /
+    `sample_suppliers` / `facilities`
+  - `/api/sap/materials`, `/api/sap/sync-logs`, `/api/sap/open-deliveries` brand-aware
+  - `/api/integrations` endpoints swap (e.g. `pfizer.sharepoint.com`, `powerbi.com/pfizer`)
+- **KPI Brand Drift** — `/api/kpis` `network_metrics`, 14-day trend, and carrier
+  scorecard composite scores now drift deterministically per brand seed (±12% on
+  values, ±25% on trend). Tennant baseline is untouched. Verified Pfizer
+  `on_time_pickup` ≈ 93.0% vs Tennant baseline 95.3%.
+- **`_brand_tenant_strings`** extended with catch-all rules so any residual
+  `tennantco`, `tennant`, or `Tennant` substring is swapped to the active brand's
+  slug / short name.
+- **Server Registry** (NEW admin feature) — `/app/frontend/src/components/ServerRegistry.jsx`
+  embedded in Admin Control Deck. Auto-detects 4 system servers (TMS Backend API,
+  MongoDB Cluster, Emergent LLM Gateway, Kubernetes Ingress) with live MongoDB ping
+  + uptime. Admins can register custom servers (EDI gateways, reporting nodes,
+  object stores, etc.) with `name / role / hostname / port / protocol / region /
+  environment / owner_email / health_url / notes`.
+  - Endpoints: `GET /api/admin/servers`, `POST /api/admin/servers`,
+    `PATCH /api/admin/servers/{id}`, `DELETE /api/admin/servers/{id}`,
+    `POST /api/admin/servers/{id}/ping` (HTTP if `health_url`, else TCP)
+  - System servers (`system::*`) are read-only — edit/delete return 400
+  - Storage: `db.servers_registry`
+- **Promo Video v2.1** — `/app/scripts/capture_tms_screens_pw.py` + 
+  `build_promo_with_screens.py` updated with 3 new scenes (SAP Sync, Admin Control
+  Deck, Marketing/About). Final MP4: 5.72 MB · 111s · 23 slides · AI narration +
+  ambient bed. Lives at `/app/frontend/public/promo.mp4`.
+
+## Tests
+- `/app/test_reports/iteration_17.json` — 21/21 pytest passed
+- `/app/backend/tests/test_iter17.py`
+
+## Backlog (P2)
+- Refactor `server.py` (now ~8364 lines) into routers under `/app/backend/routes/`
+- ServerRegistry: replace blocking `socket.create_connection` in ping handler with
+  `asyncio.open_connection` to avoid event-loop stalls
+- Add Pydantic `Literal[...]` validators on ServerRegistry `role` / `protocol` /
+  `environment` to reject invalid enum values
+- Move `_brand_tenant_strings` to a marker-template approach long term (substring
+  swap is fragile if new content includes the word "Tennant")
