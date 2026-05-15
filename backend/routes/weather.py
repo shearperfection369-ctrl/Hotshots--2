@@ -4,11 +4,11 @@ locations. Extracted from server.py as the first conservative refactor."""
 from __future__ import annotations
 
 import logging
-import time as _time
 from datetime import datetime, timezone, timedelta
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 import httpx
+from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -17,8 +17,8 @@ logger = logging.getLogger("tennant_tms.weather")
 
 
 # ---- NWS upstream cache: 1 call / coord / minute, shared across users ----
-_NWS_CACHE: Dict[Tuple[float, float], Tuple[float, List[Dict[str, Any]]]] = {}
-_NWS_CACHE_TTL_S = 60.0
+# Bounded LRU so a long-running pod never grows the cache unboundedly.
+_NWS_CACHE: TTLCache = TTLCache(maxsize=512, ttl=60)
 
 
 class WeatherAlertLocationIn(BaseModel):
@@ -44,7 +44,6 @@ async def _fetch_live_nws_alerts(locations: List[Dict[str, Any]]) -> List[Dict[s
         "Accept": "application/geo+json",
     }
     sev_map = {"Extreme": "high", "Severe": "high", "Moderate": "moderate", "Minor": "low", "Unknown": "low"}
-    now = _time.monotonic()
 
     async with httpx.AsyncClient(timeout=4.0, headers=headers) as http:
         for loc in locations:
@@ -56,10 +55,9 @@ async def _fetch_live_nws_alerts(locations: List[Dict[str, Any]]) -> List[Dict[s
                 continue
             cache_key = (round(float(lat), 3), round(float(lng), 3))
 
-            cached = _NWS_CACHE.get(cache_key)
-            features: Optional[List[Dict[str, Any]]] = None
-            if cached and (now - cached[0]) < _NWS_CACHE_TTL_S:
-                features = cached[1]
+            cached_features = _NWS_CACHE.get(cache_key)
+            if cached_features is not None:
+                features: Optional[List[Dict[str, Any]]] = cached_features
             else:
                 url = f"https://api.weather.gov/alerts/active?point={lat},{lng}"
                 try:
@@ -69,10 +67,10 @@ async def _fetch_live_nws_alerts(locations: List[Dict[str, Any]]) -> List[Dict[s
                         features = []
                     else:
                         features = (r.json() or {}).get("features") or []
-                    _NWS_CACHE[cache_key] = (now, features)
+                    _NWS_CACHE[cache_key] = features
                 except Exception as e:
                     logger.warning("NWS request failed for (%s,%s): %s: %s", lat, lng, type(e).__name__, e)
-                    features = cached[1] if cached else []
+                    features = []
 
             for feat in features or []:
                 p = feat.get("properties") or {}

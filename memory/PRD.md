@@ -270,6 +270,34 @@ Subsequent user-requested additions (chronological, all delivered):
 - Move `_brand_tenant_strings` to a marker-template approach long term (substring
   swap is fragile if new content includes the word "Tennant")
 
+## v2.5 — P2 Cleanup: Cache + Async Ping + Conservative Refactor (May 2026)
+- **NWS shared cache** — added a 60-second `cachetools.TTLCache(maxsize=512)`
+  keyed by rounded (lat, lng) so 100 polling users monitoring the same city
+  generate **one** upstream NWS call per minute. Bounded LRU prevents the
+  cache from growing forever in long-running pods.
+- **Structured NWS logging** — non-200 responses, network errors and geocoder
+  failures now log at WARNING with structured fields (lat/lng/status/error
+  type). NWS outages are no longer silent.
+- **Async ServerRegistry ping** — replaced blocking
+  `socket.create_connection` with `asyncio.open_connection` wrapped in
+  `asyncio.wait_for`. The event loop is no longer stalled on slow TCP
+  connects.
+- **Conservative refactor** — extracted weather endpoints to
+  `/app/backend/routes/weather.py` (`build_weather_router`) and
+  ServerRegistry endpoints to `/app/backend/routes/server_registry.py`
+  (`build_server_registry_router`). Both use a **factory-function pattern**
+  that takes the shared DB handle + helpers as parameters so there are no
+  circular imports. `server.py` shrank from ~8587 → ~8305 lines and
+  `socket` is no longer imported in the main file. Pattern is ready for
+  the next domain group to be extracted.
+
+## v2.5 Tests
+- `/app/test_reports/iteration_20.json` — 17/17 pytest passed
+  (`/app/backend/tests/test_iter20_refactor.py`). Cache correctness verified
+  with two back-to-back calls; non-blocking ping confirmed by interleaving
+  ping with a `/api/branding` call that stayed sub-100 ms during a 3-second
+  TCP timeout.
+
 ## v2.4 — Real-Time NWS Weather Alerts + Manual Location Control (May 2026)
 - **Live NWS feed** — `/api/weather/alerts` now hits the public
   `api.weather.gov/alerts/active?point=<lat>,<lng>` endpoint (User-Agent

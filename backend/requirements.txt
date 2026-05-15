@@ -129,3 +129,4 @@ websockets==16.0
 xlsxwriter==3.2.9
 yarl==1.23.0
 zipp==3.23.1
+cachetools==7.1.1
