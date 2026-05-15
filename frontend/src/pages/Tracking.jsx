@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useBrandRefresh } from "../lib/branding";
 import Topbar from "../components/Topbar";
 import MapView from "../components/MapView";
 import { api } from "../lib/api";
@@ -37,6 +38,7 @@ export default function Tracking() {
     setRefreshAt(Date.now());
   };
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
+  useBrandRefresh(() => load());
 
   // Match against EVERY useful tracking identifier — not just container_no.
   const matches = useMemo(() => {

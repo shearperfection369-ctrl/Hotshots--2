@@ -135,6 +135,22 @@ export default function Arcade() {
            (activeGame.turn === 2 && activeGame.player2_id === user?.user_id);
   }, [activeGame, user]);
 
+  // Hero banner stats — must be declared BEFORE the early `activeGame` return
+  // so React's hooks rule (consistent call order) is honored.
+  const heroStats = useMemo(() => {
+    const activeGames = games.filter((g) => g.status === "active").length;
+    const liveTourneys = tournaments.filter((t) => t.status !== "completed").length;
+    const myRow = leaderboard.find((r) => r.user_id === user?.user_id);
+    return {
+      activeGames,
+      liveTourneys,
+      myTrophies: myRow?.trophies || 0,
+      myTier: myRow?.tier || "Rookie",
+      myRank: myRow ? (leaderboard.findIndex((r) => r.user_id === user?.user_id) + 1) : null,
+      totalPlayers: leaderboard.length,
+    };
+  }, [games, tournaments, leaderboard, user]);
+
   // --------- Active game view ---------
   if (activeGame) {
     return (
@@ -205,11 +221,53 @@ export default function Arcade() {
   // --------- Main lobby/arcade view ---------
   return (
     <>
-      <Topbar title="Arcade · Tennant Tournaments" subtitle="Play Connect 4 against teammates · earn trophies · climb the leaderboard" />
-      <div className="p-4 md:p-6 space-y-4">
+      <Topbar title="Arcade · Tournaments" subtitle="Play Connect 4 against teammates · earn trophies · climb the leaderboard" />
+      <div className="p-4 md:p-6 space-y-4 relative">
+
+        {/* Animated arcade background — subtle gradient orbs */}
+        <div aria-hidden className="absolute inset-0 pointer-events-none overflow-hidden -z-0">
+          <div className="absolute top-10 -left-20 w-96 h-96 rounded-full bg-cyan-500/[0.06] blur-3xl animate-pulse" style={{ animationDuration: "8s" }} />
+          <div className="absolute bottom-10 -right-20 w-96 h-96 rounded-full bg-fuchsia-500/[0.05] blur-3xl animate-pulse" style={{ animationDuration: "10s", animationDelay: "2s" }} />
+        </div>
+
+        {/* Hero banner */}
+        <Card className="hud-surface relative overflow-hidden border-cyan-500/30" data-testid="arcade-hero">
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.08] via-transparent to-fuchsia-500/[0.06]" />
+          {/* Pixel-grid background */}
+          <div
+            className="absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage: "linear-gradient(rgba(34,211,238,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.4) 1px, transparent 1px)",
+              backgroundSize: "24px 24px",
+            }}
+          />
+          <div className="relative p-6 md:p-7 flex flex-col md:flex-row md:items-end gap-5 md:gap-8">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.3em] text-cyan-400 mb-2">
+                <Sparkles size={11} /> ARCADE · v2.2 · LIVE
+              </div>
+              <h1 className="font-display text-3xl md:text-5xl font-black tracking-tighter leading-none">
+                <span className="bg-gradient-to-r from-cyan-300 via-cyan-100 to-fuchsia-300 bg-clip-text text-transparent">Lunch-Break</span><br/>
+                <span className="text-white">Tournaments</span>
+              </h1>
+              <p className="mt-3 text-sm text-slate-300 max-w-xl">
+                Challenge a teammate · climb the leaderboard · win a trophy · talk a little trash. The dispatcher's break room, on the inside of your TMS.
+              </p>
+            </div>
+            {/* My stats card */}
+            <div className="grid grid-cols-3 gap-2 md:gap-3 shrink-0">
+              <HeroStat label="My Trophies" value={`${heroStats.myTrophies}`} accent="text-yellow-300" suffix={<Trophy size={11} className="inline ml-1 -mt-0.5 text-yellow-400" />} />
+              <HeroStat label="Rank" value={heroStats.myRank ? `#${heroStats.myRank}` : "—"} accent="text-cyan-300" suffix={heroStats.myRank ? <span className="text-[10px] text-slate-500"> / {heroStats.totalPlayers}</span> : null} />
+              <HeroStat label="Tier" value={heroStats.myTier} accent="text-fuchsia-300" />
+              <HeroStat label="Active Games" value={heroStats.activeGames} accent="text-emerald-300" />
+              <HeroStat label="Live Tournaments" value={heroStats.liveTourneys} accent="text-orange-300" />
+              <HeroStat label="Total Players" value={heroStats.totalPlayers} accent="text-slate-300" />
+            </div>
+          </div>
+        </Card>
 
         {/* Top action bar */}
-        <Card className="hud-surface p-3 flex flex-wrap items-center gap-2">
+        <Card className="hud-surface p-3 flex flex-wrap items-center gap-2 relative">
           {[
             { id: "lobby", label: "Lobby", Icon: Swords },
             { id: "chess", label: "Chess · Solo", Icon: Bot },
@@ -334,9 +392,13 @@ export default function Arcade() {
               </thead>
               <tbody className="font-mono">
                 {leaderboard.map((r, i) => (
-                  <tr key={r.user_id} className={`border-t border-white/5 hover:bg-white/[0.02] ${r.user_id === user?.user_id ? "bg-cyan-500/[0.03]" : ""}`} data-testid={`leaderboard-row-${r.user_id}`}>
+                  <tr key={r.user_id}
+                    className={`border-t border-white/5 hover:bg-white/[0.02] transition ${
+                      r.user_id === user?.user_id ? "bg-cyan-500/[0.06] ring-1 ring-inset ring-cyan-500/30" : ""
+                    } ${i === 0 ? "bg-gradient-to-r from-yellow-500/[0.06] to-transparent" : ""}`}
+                    data-testid={`leaderboard-row-${r.user_id}`}>
                     <td className="py-2.5 px-4">
-                      {i === 0 ? <span className="text-2xl">🥇</span> : i === 1 ? <span className="text-2xl">🥈</span> : i === 2 ? <span className="text-2xl">🥉</span> : <span className="text-slate-400">{i + 1}</span>}
+                      {i === 0 ? <span className="text-2xl drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]">🥇</span> : i === 1 ? <span className="text-2xl">🥈</span> : i === 2 ? <span className="text-2xl">🥉</span> : <span className="text-slate-400">{i + 1}</span>}
                     </td>
                     <td className="py-2.5 px-4 text-cyan-300">{r.name} {r.user_id === user?.user_id && <span className="text-[9px] text-emerald-400 ml-1">(you)</span>}</td>
                     <td className="py-2.5 px-4 text-center"><span className={`px-2 py-0.5 rounded border text-[10px] font-mono uppercase ${TIER_BADGE[r.tier]}`}>{r.tier}</span></td>
@@ -485,6 +547,17 @@ function PlayerBadge({ color, name, active }) {
     <div className={`flex items-center gap-2 px-3 py-1.5 rounded border ${active ? "border-cyan-400 bg-cyan-500/[0.06]" : "border-white/10"}`}>
       <span className={`w-3 h-3 rounded-full ${dot} ${active ? "animate-pulse" : ""}`} />
       <span className="text-sm font-mono">{name}</span>
+    </div>
+  );
+}
+
+function HeroStat({ label, value, accent = "text-cyan-300", suffix = null }) {
+  return (
+    <div className="px-3 py-2 rounded bg-black/40 border border-white/5 backdrop-blur min-w-[100px]">
+      <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-slate-500 mb-0.5">{label}</div>
+      <div className={`font-display text-xl md:text-2xl font-black tabular-nums leading-none ${accent}`}>
+        {value}{suffix}
+      </div>
     </div>
   );
 }

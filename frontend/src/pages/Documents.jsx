@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Topbar from "../components/Topbar";
 import { api, BACKEND_URL } from "../lib/api";
+import { useBrandRefresh } from "../lib/branding";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -72,6 +73,7 @@ export default function Documents() {
     setDocs(data);
   };
   useEffect(() => { load(); }, []);
+  useBrandRefresh(() => load());
   useEffect(() => {
     api.get("/shipments?limit=200").then(({ data }) => setShipments(data)).catch(() => { /* ignore */ });
   }, []);

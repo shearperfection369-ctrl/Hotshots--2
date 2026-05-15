@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useBrandRefresh } from "../lib/branding";
 import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
 import { Card } from "../components/ui/card";
@@ -29,6 +30,7 @@ export default function SupplierSourcing() {
 
   const refresh = () => api.get("/suppliers").then(({ data }) => setData(data));
   useEffect(() => { refresh(); }, []);
+  useBrandRefresh(() => refresh());
 
   const saveSupplier = async () => {
     if (!form.name) { toast.error("Supplier name is required"); return; }

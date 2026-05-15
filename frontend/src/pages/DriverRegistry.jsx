@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
+import { useBrandRefresh } from "../lib/branding";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -40,6 +41,7 @@ function DriversTab() {
   const [form, setForm] = useState({});
   const load = () => api.get("/drivers").then(({ data }) => setDrivers(data.drivers || []));
   useEffect(() => { load(); }, []);
+  useBrandRefresh(() => load());
   const filtered = drivers.filter((d) => !q || [d.name, d.cdl_number, d.carrier, d.phone].some((v) => (v || "").toLowerCase().includes(q.toLowerCase())));
   const create = async () => {
     if (!form.name) { toast.error("Name required"); return; }
@@ -149,6 +151,7 @@ function TrailersTab() {
   const [form, setForm] = useState({ type: "Dry Van 53'" });
   const load = () => api.get("/trailers").then(({ data }) => setTrailers(data.trailers || []));
   useEffect(() => { load(); }, []);
+  useBrandRefresh(() => load());
   const filtered = trailers.filter((t) => !q || [t.trailer_no, t.type, t.carrier, t.license_plate, t.vin].some((v) => (v || "").toLowerCase().includes(q.toLowerCase())));
   const create = async () => {
     if (!form.trailer_no) { toast.error("Trailer # required"); return; }

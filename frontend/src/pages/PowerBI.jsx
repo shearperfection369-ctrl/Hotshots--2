@@ -3,7 +3,7 @@ import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { BarChart3, ExternalLink, RefreshCw, User, Folder } from "lucide-react";
-import { useBranding } from "../lib/branding";
+import { useBranding, useBrandRefresh } from "../lib/branding";
 
 const MS_BLUE = "#F2C811"; // Power BI yellow
 const PBI_BLUE = "#0078D4";
@@ -16,12 +16,14 @@ export default function PowerBI() {
   const [activeReportId, setActiveReportId] = useState(null);
   const [embedFailed, setEmbedFailed] = useState(false);
 
-  useEffect(() => {
+  const loadConfig = () => {
     api.get("/integrations/powerbi/config").then((r) => {
       setConfig(r.data);
       setActiveReportId(r.data.reports?.[0]?.id || null);
     }).catch(() => {});
-  }, []);
+  };
+  useEffect(() => { loadConfig(); }, []);
+  useBrandRefresh(() => loadConfig());
 
   useEffect(() => {
     setEmbedFailed(false);

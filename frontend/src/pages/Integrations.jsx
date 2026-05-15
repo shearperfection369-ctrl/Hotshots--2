@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
+import { useBrandRefresh } from "../lib/branding";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { CheckCircle2, AlertTriangle, XCircle, ExternalLink } from "lucide-react";
@@ -13,7 +14,9 @@ const STATUS = {
 
 export default function Integrations() {
   const [items, setItems] = useState([]);
-  useEffect(() => { api.get("/integrations").then(({ data }) => setItems(data)); }, []);
+  const loadItems = () => api.get("/integrations").then(({ data }) => setItems(data));
+  useEffect(() => { loadItems(); }, []);
+  useBrandRefresh(() => loadItems());
   const grouped = items.reduce((acc, it) => { (acc[it.category] ||= []).push(it); return acc; }, {});
 
   return (

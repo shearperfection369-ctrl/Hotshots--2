@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
+import { useBrandRefresh } from "../lib/branding";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -37,6 +38,7 @@ export default function SapSync() {
   };
 
   useEffect(() => { load(); }, []);
+  useBrandRefresh(() => load());
 
   const sync = async () => {
     setSyncing(true);

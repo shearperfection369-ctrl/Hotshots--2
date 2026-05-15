@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Topbar from "../components/Topbar";
 import { api, BACKEND_URL } from "../lib/api";
+import { useBrandRefresh } from "../lib/branding";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
@@ -135,6 +136,7 @@ export default function Shipments() {
     setShipments(data);
   };
   useEffect(() => { load(); }, []);
+  useBrandRefresh(() => load());
 
   const carriers = useMemo(() => {
     const set = new Set(shipments.map((s) => s.carrier));

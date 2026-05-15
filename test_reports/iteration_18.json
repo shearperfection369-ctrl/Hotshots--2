@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 18 backend tests for v2.2 polish: promo_video_ids field on /api/branding/template + /api/branding/manual; book-then-BOL flow (POST /api/shipments -> /generate-bol -> /pdf); brand-reactive endpoints (/api/shipments, /api/drivers, /api/trailers, /api/specialty-carriers, /api/kpis, /api/traffic, /api/weather/alerts) with Pfizer active; round-trip restore to tennant then back to pfizer; server-registry regression. 16/16 pytest passed. System left with Pfizer active.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter18.py",
+    "/app/test_reports/pytest/iter18_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BrandManualIn.promo_video_ids is typed Optional[List[str]] (server.py:7436). If a client sends an item that's null in the list, FastAPI returns 422 before the post-validation falsy-filter runs. Server-side filter (line 7476) already tolerates falsy strings — consider widening the schema to Optional[List[Optional[str]]] OR documenting that the client must omit nulls. Currently a tolerant frontend can crash on this.",
+    "_overlay_shipment (server.py:341) only swaps origin/destination cities when the existing city EXACTLY equals one of the three Tennant defaults ('Golden Valley','Holland','Louisville'). Any non-default origin_city (e.g. user-supplied 'Minneapolis' via POST /api/shipments) is NOT overlaid. This is correct for new bookings but means historical / seeded data with other Tennant cities (e.g., a city we didn't list) will leak through. Consider an explicit allowlist of Tennant cities OR a marker-based template approach (mentioned in iter17 review).",
+    "generate_bol_from_shipment (server.py:822) hard-codes 'Tennant Company' as the default shipper and 'Tennant industrial cleaning equipment' as the default commodity. With a non-Tennant active brand (Pfizer), the generated BOL will still say 'Tennant Company' as shipper unless the caller passes an override. Pull the default shipper from the active brand's company_name.",
+    "/api/branding/manual response returns the full mongo doc including the bare insert; verify _id is never serialized (currently the doc is built fresh in-memory before insert_one, so _id is not present — good).",
+    "server.py is now 8552 lines (was 8364 in iter17). Still over the 700-line threshold; previous recommendation to split into routers/modules stands.",
+    "POST /api/shipments validates payload but accepts a free-text 'carrier' string — there's no FK check against /api/carriers or specialty-carriers. Booking 'TEST_Carrier_LLC' works fine, which is good for tests but means typos in production create orphan carriers."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter18.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "not tested (skipped per request)"},
+  "test_credentials": "admin Bearer: test_session_admin_1. dispatcher Bearer: test_disp_session. From /app/memory/test_credentials.md.",
+  "seed_data_creation": "Test created one TEST_-prefixed shipment (SHP-... ref TEST-IT18-<ts>) and its BOL document; both remain in db.shipments / db.documents (intentional — they validate persistence and history). Two TEST_ brand rows were created during 'promo_video_ids' and 'activate=true' tests; both were deleted at teardown. Verified no TEST_/test- brand rows remain. Two TEST_ server-registry rows were created and deleted in regression test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Active brand at start = Pfizer (brand_id='pfizer'). Tests leave Pfizer active. /api/branding/template now returns {'promo_video_ids': ['','','']} as a default. /api/branding/manual accepts promo_video_ids (max 6, falsy/whitespace-only strings dropped); REJECTS null items in the list with 422 (Pydantic schema is Optional[List[str]], not Optional[List[Optional[str]]]). /api/shipments/{id}/generate-bol returns Document(type='BOL') with data.origin / data.destination / data.carrier populated; shipper defaults to 'Tennant Company' even under non-Tennant brand — caller must override via payload.shipper. /api/documents/{id}/pdf returns real ReportLab PDF (magic '%PDF' present, content-type application/pdf). Brand-reactive sweep: /api/shipments (origin/destination.city overlay, but only swaps the 3 Tennant default cities), /api/drivers, /api/trailers, /api/specialty-carriers, /api/traffic, /api/weather/alerts all wrapped in _brand_swap and free of literal 'Tennant'/'TENNANT' substring under Pfizer. /api/kpis.network_metrics is a dict-of-lists keyed by category; iterate values and find m['key']=='on_time_pickup'. POST /api/admin/servers schema requires {name, role, hostname, port, protocol}; the system list rows use key 'id' (NOT 'server_id') — values like 'system::api', 'system::mongo', 'system::llm'.",
+  "verified_flows": [
+    "GET /api/branding/template -> 200, promo_video_ids == ['','','']",
+    "POST /api/branding/manual with 8 non-empty promo_video_ids (incl. whitespace and empty) -> trimmed, empties dropped, capped at 6",
+    "POST /api/branding/manual {activate: true} -> /api/branding reflects new brand; then POST /api/branding/activate {brand_id:'pfizer'} restores Pfizer",
+    "POST /api/shipments {carrier:'TEST_Carrier_LLC', destination:'Chicago', ...} -> SHP-* returned",
+    "POST /api/shipments/{id}/generate-bol -> Document {type:'BOL', document_id:'DOC-*', data:{origin, destination='Chicago, ', carrier='TEST_Carrier_LLC'}}",
+    "GET /api/documents/{doc}/pdf -> 200, content-type application/pdf, body starts with %PDF",
+    "GET /api/shipments?limit=20 (Pfizer active) -> origin/destination.city contains no Holland/Louisville/Golden Valley",
+    "GET /api/drivers / /api/trailers / /api/specialty-carriers / /api/traffic / /api/weather/alerts (Pfizer active) -> no 'Tennant' substring anywhere in serialized response",
+    "GET /api/kpis (Pfizer active) -> network_metrics present; on_time_pickup metric (if found) != 95.3 Tennant baseline",
+    "POST /api/branding/activate {brand_id:'tennant'} -> /api/shipments returns Tennant default cities again",
+    "POST /api/branding/activate {brand_id:'pfizer'} -> active brand restored to Pfizer at end of suite",
+    "GET /api/admin/servers -> {system, custom, totals} with system::api and system::mongo present",
+    "POST /api/admin/servers {name, role:'api', hostname, port, protocol:'https'} -> SRV-<10HEX>; DELETE cleans it up"
+  ]
+}

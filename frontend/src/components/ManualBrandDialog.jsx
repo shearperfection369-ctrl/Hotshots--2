@@ -30,13 +30,14 @@ export default function ManualBrandDialog({ onActivated }) {
         sample_suppliers: data.sample_suppliers.join("\n"),
         sample_lanes: data.sample_lanes.join("\n"),
         facilities: data.facilities.map((f) => `${f.name || ""}|${f.city || ""}`).join("\n"),
+        promo_video_ids: (data.promo_video_ids || []).join("\n"),
       });
     }).catch(() => {
       setForm({
         company_name: "", short_name: "", tagline: "", industry: "", headquarters: "",
         primary_color: "#00E5FF", secondary_color: "#06B6D4", accent_color: "#10B981",
         logo_letter: "", catalog_label: "Product Catalog",
-        sample_products: "", sample_suppliers: "", sample_lanes: "", facilities: "",
+        sample_products: "", sample_suppliers: "", sample_lanes: "", facilities: "", promo_video_ids: "",
       });
     });
   }, [open, form]);
@@ -67,6 +68,7 @@ export default function ManualBrandDialog({ onActivated }) {
           if (!name && !city) return null;
           return { name: name || city, city: city || name };
         }).filter(Boolean),
+        promo_video_ids: (form.promo_video_ids || "").split("\n").map(s => s.trim()).filter(Boolean),
         activate,
       };
       const { data } = await api.post("/branding/manual", payload);
@@ -184,6 +186,20 @@ export default function ManualBrandDialog({ onActivated }) {
             <div className="col-span-12 md:col-span-6">
               <Field label="Facilities (one per line · 'Facility Name | City, ST')">
                 <Textarea rows={5} value={form.facilities} onChange={(e) => setForm({ ...form, facilities: e.target.value })} placeholder="Acme HQ | Phoenix, AZ&#10;East DC | Atlanta, GA&#10;West DC | Los Angeles, CA" data-testid="manual-facilities" />
+              </Field>
+            </div>
+            <div className="col-span-12">
+              <Field label="Promo YouTube Video IDs (one per line · max 6)">
+                <Textarea
+                  rows={3}
+                  value={form.promo_video_ids}
+                  onChange={(e) => setForm({ ...form, promo_video_ids: e.target.value })}
+                  placeholder={"mTxE3g7o4aY\nP-AdjT9kLrk\nDl_5stf0WxA"}
+                  data-testid="manual-promo-videos"
+                />
+                <div className="text-[10px] text-slate-500 mt-1.5">
+                  Paste only the <span className="text-cyan-300">video ID</span> portion (e.g. from <code>youtube.com/watch?v=<b>mTxE3g7o4aY</b></code>). These show up on the TMS Launch page as a playlist tied to this brand.
+                </div>
               </Field>
             </div>
           </div>

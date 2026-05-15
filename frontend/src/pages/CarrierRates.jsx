@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
+import { useBrandRefresh } from "../lib/branding";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Fuel, TrendingUp, TrendingDown, Minus, Truck } from "lucide-react";
@@ -10,11 +11,13 @@ export default function CarrierRates() {
   const [fsc, setFsc] = useState(null);
   const [mode, setMode] = useState("ALL");
 
-  useEffect(() => {
+  const loadRates = () => {
     Promise.all([api.get("/carrier-rates"), api.get("/carrier-rates/fsc")]).then(([l, f]) => {
       setLanes(l.data); setFsc(f.data);
     });
-  }, []);
+  };
+  useEffect(() => { loadRates(); }, []);
+  useBrandRefresh(() => loadRates());
 
   const modes = useMemo(() => ["ALL", ...Array.from(new Set(lanes.map((l) => l.mode)))], [lanes]);
   const filtered = lanes.filter((l) => mode === "ALL" || l.mode === mode);

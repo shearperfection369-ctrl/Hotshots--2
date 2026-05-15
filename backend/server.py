@@ -7433,6 +7433,7 @@ class BrandManualIn(BaseModel):
     sample_suppliers: Optional[List[str]] = []
     sample_lanes: Optional[List[str]] = []
     facilities: Optional[List[Dict[str, str]]] = []
+    promo_video_ids: Optional[List[str]] = []
     activate: bool = True
 
 
@@ -7472,6 +7473,7 @@ async def branding_manual(payload: BrandManualIn, user: User = Depends(require_r
         "sample_lanes": [l for l in (payload.sample_lanes or []) if l][:8],
         "catalog_label": payload.catalog_label or "Product Catalog",
         "facilities": facilities[:6],
+        "promo_video_ids": [v.strip() for v in (payload.promo_video_ids or []) if v and v.strip()][:6],
         "shipments": [],
         "is_default": False,
         "is_active": False,
@@ -7515,6 +7517,7 @@ async def branding_template(_: User = Depends(require_role("admin"))):
             {"name": "", "city": ""},
             {"name": "", "city": ""},
         ],
+        "promo_video_ids": ["", "", ""],
     }
 
 

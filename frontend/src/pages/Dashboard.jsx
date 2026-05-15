@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import Topbar from "../components/Topbar";
 import MapView from "../components/MapView";
 import { api } from "../lib/api";
+import { toast } from "sonner";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Link } from "react-router-dom";
@@ -16,7 +17,7 @@ import MiniCalendar from "../components/MiniCalendar";
 import WeatherAlertsBanner from "../components/WeatherAlertsBanner";
 import WeatherRadar from "../components/WeatherRadar";
 import { useUserLayout } from "../components/DraggableTiles";
-import { useBranding } from "../lib/branding";
+import { useBranding, useBrandRefresh } from "../lib/branding";
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar,
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid
@@ -78,19 +79,22 @@ export default function Dashboard() {
   const [sapMaterials, setSapMaterials] = useState([]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const [k, s, f, w, n, t, m] = await Promise.all([
-          api.get("/kpis"), api.get("/shipments"), api.get("/facilities"),
-          api.get("/weather"), api.get("/news"), api.get("/traffic"),
-          api.get("/sap/materials"),
-        ]);
-        setKpis(k.data); setShipments(s.data); setFacilities(f.data);
-        setWeather(w.data); setNews(n.data); setTraffic(t.data);
-        setSapMaterials(m.data?.materials || []);
-      } catch (e) { console.error(e); }
-    })();
+    loadAll();
   }, []);
+  useBrandRefresh(() => loadAll());
+
+  async function loadAll() {
+    try {
+      const [k, s, f, w, n, t, m] = await Promise.all([
+        api.get("/kpis"), api.get("/shipments"), api.get("/facilities"),
+        api.get("/weather"), api.get("/news"), api.get("/traffic"),
+        api.get("/sap/materials"),
+      ]);
+      setKpis(k.data); setShipments(s.data); setFacilities(f.data);
+      setWeather(w.data); setNews(n.data); setTraffic(t.data);
+      setSapMaterials(m.data?.materials || []);
+    } catch (e) { console.error(e); }
+  }
 
   const modeData = kpis ? Object.entries(kpis.by_mode).map(([k, v]) => ({ name: k, value: v, color: MODE_COLOR[k] })) : [];
   const recentShipments = shipments.slice(0, 8);
@@ -385,26 +389,7 @@ export default function Dashboard() {
 
           <div className="lg:col-span-4 space-y-4">
             {/* Weather */}
-            <Card className="hud-surface p-4">
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-3">Facility Conditions</div>
-              <div className="space-y-2.5" data-testid="weather-widget">
-                {weather.map((w) => {
-                  const Icon = weatherIcon(w.weather_code);
-                  return (
-                    <div key={w.facility_id} className="flex items-center justify-between p-2.5 rounded border border-white/5 bg-white/[0.02]">
-                      <div className="flex items-center gap-3">
-                        <Icon size={20} className="text-cyan-400" />
-                        <div>
-                          <div className="text-sm text-white">{w.facility_name}</div>
-                          <div className="text-[10px] font-mono text-slate-500">{w.humidity}% RH · {w.wind_mph} mph</div>
-                        </div>
-                      </div>
-                      <div className="font-mono text-xl font-bold text-cyan-400 tabular-nums">{w.temperature_f != null ? `${Math.round(w.temperature_f)}°` : "—"}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
+            <FacilityConditions weather={weather} />
 
             {/* Traffic Alerts */}
             <Card className="hud-surface p-4">
@@ -664,6 +649,148 @@ function CompactVideoTile() {
         </div>
       )}
       {err && <div className="mt-1.5 text-[10px] font-mono text-red-400" data-testid="video-error">{err}</div>}
+    </Card>
+  );
+}
+
+
+/**
+ * FacilityConditions — brand-aware weather widget.
+ *   - auto-lists the active brand's facilities (re-fetched on theme switch)
+ *   - admin/dispatcher can ADD ad-hoc cities to track + REMOVE any extra
+ *   - extra cities persist in localStorage so they survive page reloads
+ */
+function FacilityConditions({ weather }) {
+  const STORAGE_KEY = "tms.extra_weather_cities.v1";
+  const [extras, setExtras] = React.useState([]);
+  const [adding, setAdding] = React.useState(false);
+  const [city, setCity] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    try { setExtras(JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]")); } catch { /* noop */ }
+  }, []);
+
+  // Re-load every 5 minutes
+  React.useEffect(() => {
+    if (extras.length === 0) return;
+    refreshExtras();
+    const t = setInterval(refreshExtras, 300_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extras.map((e) => e.id).join(",")]);
+
+  const refreshExtras = async () => {
+    const next = await Promise.all(extras.map(async (e) => {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${e.lat}&longitude=${e.lng}&current=temperature_2m,wind_speed_10m,weather_code,relative_humidity_2m&temperature_unit=fahrenheit&wind_speed_unit=mph`;
+        const r = await fetch(url).then((x) => x.json());
+        const d = r.current || {};
+        return { ...e, temperature_f: d.temperature_2m, humidity: d.relative_humidity_2m, wind_mph: d.wind_speed_10m, weather_code: d.weather_code };
+      } catch { return e; }
+    }));
+    setExtras(next);
+  };
+
+  const geocode = async (q) => {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`;
+    const r = await fetch(url).then((x) => x.json());
+    const hit = (r.results || [])[0];
+    if (!hit) return null;
+    return { lat: hit.latitude, lng: hit.longitude, label: `${hit.name}${hit.admin1 ? ", " + hit.admin1 : ""}` };
+  };
+
+  const submitAdd = async () => {
+    if (!city.trim()) return;
+    setBusy(true);
+    try {
+      const geo = await geocode(city.trim());
+      if (!geo) { toast.error("Couldn't find that location"); return; }
+      const id = `extra-${Date.now()}`;
+      const entry = { id, facility_id: id, facility_name: geo.label, lat: geo.lat, lng: geo.lng };
+      const next = [...extras, entry];
+      setExtras(next);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      setCity("");
+      setAdding(false);
+      toast.success(`Added ${geo.label}`);
+    } catch { toast.error("Lookup failed"); } finally { setBusy(false); }
+  };
+
+  const removeExtra = (id) => {
+    const next = extras.filter((e) => e.id !== id);
+    setExtras(next);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const allRows = [...weather, ...extras];
+
+  return (
+    <Card className="hud-surface p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Facility Conditions</div>
+        <button
+          onClick={() => setAdding((v) => !v)}
+          data-testid="weather-add-toggle"
+          className="text-[10px] font-mono uppercase tracking-wider text-cyan-300 hover:text-cyan-200 flex items-center gap-1"
+        >
+          {adding ? "Cancel" : "+ Add Location"}
+        </button>
+      </div>
+
+      {adding && (
+        <div className="mb-3 flex gap-2" data-testid="weather-add-form">
+          <input
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submitAdd(); }}
+            placeholder="Type any city — Tokyo, Berlin…"
+            data-testid="weather-add-input"
+            className="flex-1 bg-[#11151F] border border-white/10 rounded px-2 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+            disabled={busy}
+          />
+          <button
+            onClick={submitAdd}
+            disabled={busy || !city.trim()}
+            data-testid="weather-add-submit"
+            className="text-[10px] font-mono uppercase tracking-wider px-3 py-1 bg-cyan-500 text-black font-bold rounded hover:bg-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {busy ? "…" : "Add"}
+          </button>
+        </div>
+      )}
+
+      <div className="space-y-2.5" data-testid="weather-widget">
+        {allRows.map((w) => {
+          const Icon = weatherIcon(w.weather_code);
+          const isExtra = w.id?.startsWith?.("extra-");
+          return (
+            <div key={w.facility_id || w.id} className="group flex items-center justify-between p-2.5 rounded border border-white/5 bg-white/[0.02] hover:border-cyan-500/30 transition-colors">
+              <div className="flex items-center gap-3 min-w-0">
+                <Icon size={20} className="text-cyan-400 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm text-white truncate">{w.facility_name}</div>
+                  <div className="text-[10px] font-mono text-slate-500">{w.humidity != null ? `${w.humidity}% RH · ` : ""}{w.wind_mph != null ? `${w.wind_mph} mph` : "—"}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="font-mono text-xl font-bold text-cyan-400 tabular-nums">{w.temperature_f != null ? `${Math.round(w.temperature_f)}°` : "—"}</div>
+                {isExtra && (
+                  <button
+                    onClick={() => removeExtra(w.id)}
+                    data-testid={`weather-remove-${w.id}`}
+                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition"
+                    title="Remove"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {allRows.length === 0 && <div className="text-xs text-slate-500 italic py-3 text-center">No facilities configured.</div>}
+      </div>
     </Card>
   );
 }

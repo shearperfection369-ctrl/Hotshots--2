@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useBranding } from "../lib/branding";
+import { useBranding, useBrandRefresh } from "../lib/branding";
 import { useAuth } from "../lib/auth";
 import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
@@ -166,6 +166,7 @@ export default function SpecialtyCarriers() {
 
   const load = () => api.get("/specialty-carriers").then((r) => setCarriers(r.data.carriers || [])).catch(() => {});
   useEffect(() => { load(); }, []);
+  useBrandRefresh(() => load());
 
   const openNew = () => { setForm(DEFAULT_FORM); setEditing("new"); };
   const openEdit = (c) => {

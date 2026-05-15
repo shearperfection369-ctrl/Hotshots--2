@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useBrandRefresh } from "../lib/branding";
 import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
 import { Card } from "../components/ui/card";
@@ -56,6 +57,7 @@ export default function CarrierOnboarding() {
     setItems(data);
   };
   useEffect(() => { load(); }, []);
+  useBrandRefresh(() => load());
 
   const submit = async () => {
     if (!form.legal_name || !form.contact_email) {

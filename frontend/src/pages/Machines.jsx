@@ -7,7 +7,7 @@ import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Search, Cpu, Battery, Gauge, Ruler, Weight, DollarSign, Sparkles, Plus, Trash2 } from "lucide-react";
-import { useBranding } from "../lib/branding";
+import { useBranding, useBrandRefresh } from "../lib/branding";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 
@@ -30,6 +30,7 @@ export default function Machines() {
     setCatalogLabel(data.catalog_label || "Machine Catalog");
   });
   useEffect(() => { load(); }, []);
+  useBrandRefresh(() => load());
 
   const filtered = useMemo(() => machines.filter((m) => {
     if (category !== "ALL" && m.category !== category) return false;

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import Topbar from "../components/Topbar";
 import { Card } from "../components/ui/card";
 import { TennantLogo } from "../components/TennantLogo";
+import { useBranding } from "../lib/branding";
 import {
   Truck, Plane, Ship, Package, Train, Sparkles, ShieldCheck, Receipt,
   Smartphone, Database, MessagesSquare, Video, BarChart3, Globe2,
@@ -49,12 +50,21 @@ const SAP_FLOW = [
 ];
 
 export default function PromoVideo() {
-  // Tennant Company official trailer — embedded so it launches reliably
-  // without depending on Sora 2 generation or local /promo.mp4 asset.
-  const TENNANT_TRAILER_ID = "mTxE3g7o4aY"; // "Tennant is Everywhere | Company Trailer"
+  const { brand } = useBranding();
+  // Brand-aware YouTube playlist: admin pastes 2-3 video IDs into the
+  // brand template (`promo_video_ids` field). Falls back to the original
+  // Tennant trailer if the active brand has none configured.
+  const TENNANT_TRAILER_ID = "mTxE3g7o4aY";
+  const brandVideoIds = (brand?.promo_video_ids || []).filter(Boolean);
+  const playlist = brandVideoIds.length > 0 ? brandVideoIds : [TENNANT_TRAILER_ID];
+  const [activeIdx, setActiveIdx] = useState(0);
+  const activeVideoId = playlist[activeIdx] || playlist[0];
   const [hasLocalMp4, setHasLocalMp4] = useState(false);
   const [muted, setMuted] = useState(true);
   const videoRef = React.useRef(null);
+
+  // Reset to first video whenever the active brand changes
+  useEffect(() => { setActiveIdx(0); }, [brand?.brand_id]);
 
   useEffect(() => {
     // SPA serves index.html for unknown paths (text/html), which we MUST
@@ -112,8 +122,9 @@ export default function PromoVideo() {
               </>
             ) : (
               <iframe
-                src={`https://www.youtube.com/embed/${TENNANT_TRAILER_ID}?rel=0&modestbranding=1&playsinline=1`}
-                title="Tennant is Everywhere — Company Trailer"
+                key={activeVideoId}
+                src={`https://www.youtube.com/embed/${activeVideoId}?rel=0&modestbranding=1&playsinline=1`}
+                title={`${brand?.short_name || "Tennant"} · Promo`}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
                 data-testid="promo-video-iframe"
@@ -121,6 +132,23 @@ export default function PromoVideo() {
               />
             )}
           </div>
+          {/* Brand video playlist switcher — only renders when the active brand has ≥2 promo videos configured */}
+          {playlist.length > 1 && (
+            <div className="px-6 pt-4 flex flex-wrap gap-2" data-testid="promo-playlist">
+              {playlist.map((id, i) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveIdx(i)}
+                  data-testid={`promo-playlist-${i}`}
+                  className={`px-3 py-1.5 rounded text-[11px] font-mono uppercase tracking-wider border transition ${
+                    i === activeIdx ? "bg-cyan-500 text-black border-cyan-400" : "border-white/10 text-slate-400 hover:border-cyan-400/40"
+                  }`}
+                >
+                  Video {i + 1}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="p-6 md:p-8">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-2">Tennant Companies · Transportation Management System · v2.0 Launch</div>
             <h1 className="font-display text-4xl md:text-5xl font-black tracking-tighter leading-none">

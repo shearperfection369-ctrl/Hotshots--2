@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Database, AlertTriangle, Search } from "lucide-react";
+import { Database, AlertTriangle, Search, FileText, Download, ArrowRight } from "lucide-react";
+import { BACKEND_URL } from "../lib/api";
 
 const CARRIERS = {
   TL: ["XPO Logistics", "ArcBest", "Schneider", "J.B. Hunt"],
@@ -87,6 +88,9 @@ export default function BookLoad() {
     liftgate_required: false,
     accessorials: [],
   });
+  // BOL preview modal state
+  const [bookedShipment, setBookedShipment] = useState(null);
+  const [generatedBol, setGeneratedBol] = useState(null);
 
   useEffect(() => {
     api.get("/facilities").then(({ data }) => setFacilities(data));
@@ -145,12 +149,39 @@ export default function BookLoad() {
         ...form,
         sap_material_numbers: form.sap_material_numbers && form.sap_material_numbers.length ? form.sap_material_numbers : null,
       };
-      const { data } = await api.post("/shipments", payload);
-      toast.success(`Load booked: ${data.reference}`, { description: `${data.mode} via ${data.carrier} — ${data.shipment_id}` });
-      navigate("/shipments");
+      const { data: shipment } = await api.post("/shipments", payload);
+      toast.success(`Load booked: ${shipment.reference}`, { description: `${shipment.mode} via ${shipment.carrier} — ${shipment.shipment_id}` });
+
+      // Auto-generate the BOL so it shows up as a preview the dispatcher can save.
+      try {
+        const { data: bol } = await api.post(`/shipments/${shipment.shipment_id}/generate-bol`, {
+          shipper: "",
+        });
+        setBookedShipment(shipment);
+        setGeneratedBol(bol);
+      } catch (bolErr) {
+        // If BOL generation fails for any reason we still consider the booking a success.
+        console.error("BOL generation failed", bolErr);
+        navigate("/shipments");
+      }
     } catch (err) {
       toast.error("Failed to book load");
     }
+  };
+
+  // Persist BOL to Document Vault is implicit (already saved by generate-bol).
+  // This handler downloads the PDF to the user's machine.
+  const downloadBol = () => {
+    if (!generatedBol?.document_id) return;
+    const url = `${BACKEND_URL}/api/documents/${generatedBol.document_id}/pdf`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `BOL-${generatedBol.shipment_ref || generatedBol.document_id}.pdf`;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast.success("BOL download started");
   };
 
   const labelCls = "text-[10px] font-mono uppercase tracking-wider text-slate-400";
@@ -404,6 +435,92 @@ export default function BookLoad() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* BOL Preview Modal — auto-opens after a load is booked */}
+      <Dialog
+        open={!!generatedBol}
+        onOpenChange={(v) => { if (!v) { setGeneratedBol(null); setBookedShipment(null); navigate("/shipments"); } }}
+      >
+        <DialogContent className="max-w-4xl bg-[#0B0E14] border-cyan-500/30 max-h-[92vh] overflow-y-auto" data-testid="bol-preview-modal">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg flex items-center gap-2">
+              <FileText size={18} className="text-cyan-400" />
+              Bill of Lading — {bookedShipment?.reference}
+            </DialogTitle>
+          </DialogHeader>
+
+          {generatedBol && bookedShipment && (
+            <div className="space-y-4">
+              <div className="px-3 py-2 rounded bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300">
+                ✓ Load booked as <span className="font-mono">{bookedShipment.shipment_id}</span>.
+                BOL <span className="font-mono">{generatedBol.document_id}</span> auto-saved to the Document Vault.
+              </div>
+
+              {/* BOL preview card */}
+              <div className="bg-white text-slate-900 rounded-md p-6 shadow-lg" data-testid="bol-preview-card">
+                <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3 mb-4">
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500">Straight Bill of Lading — Short Form</div>
+                    <div className="font-display text-2xl font-black tracking-tight">{generatedBol.data?.shipper || "Shipper"}</div>
+                  </div>
+                  <div className="text-right text-xs">
+                    <div className="font-mono text-slate-500">DOC: {generatedBol.document_id}</div>
+                    <div className="font-mono text-slate-500">SHIP REF: {generatedBol.shipment_ref}</div>
+                    <div className="font-mono text-slate-500">DATE: {new Date(generatedBol.created_at).toLocaleDateString()}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  <BolField label="From (Origin)" value={generatedBol.data?.origin} />
+                  <BolField label="To (Consignee)" value={generatedBol.data?.consignee} />
+                  <BolField label="To (Destination)" value={generatedBol.data?.destination} />
+                  <BolField label="Carrier" value={generatedBol.data?.carrier} />
+                  <BolField label="Commodity" value={generatedBol.data?.commodity} />
+                  <BolField label="Country of Origin" value={generatedBol.data?.country_origin} />
+                  <BolField label="Weight (lbs)" value={generatedBol.data?.weight} />
+                  <BolField label="Pieces / Skids" value={generatedBol.data?.pieces} />
+                  <BolField label="Declared Value (USD)" value={generatedBol.data?.value ? `$${Number(generatedBol.data.value).toLocaleString()}` : ""} />
+                  <BolField label="BOL #" value={generatedBol.data?.bol_no} />
+                  <BolField label="PRO #" value={generatedBol.data?.pro_no} />
+                  <BolField label="NMFC / Freight Class" value={`${form.nmfc_code} · Class ${form.freight_class}`} />
+                </div>
+
+                <div className="mt-6 pt-3 border-t border-slate-300 grid grid-cols-2 gap-x-6 text-[10px] font-mono uppercase tracking-wider text-slate-600">
+                  <div>
+                    <div className="mt-6 border-t border-slate-500 pt-1">Shipper Signature</div>
+                  </div>
+                  <div>
+                    <div className="mt-6 border-t border-slate-500 pt-1">Carrier Signature</div>
+                  </div>
+                </div>
+                <div className="mt-3 text-[9px] text-slate-500">
+                  RECEIVED, subject to the classifications and tariffs in effect on the date of issue of this Bill of Lading,
+                  the property described above in apparent good order, except as noted, marked, consigned, and destined as indicated above.
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2 justify-end">
+                <Button variant="ghost" onClick={() => navigate("/documents")} data-testid="bol-go-documents">
+                  Open in Documents <ArrowRight size={13} className="ml-1.5" />
+                </Button>
+                <Button onClick={downloadBol} data-testid="bol-download-btn" className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold">
+                  <Download size={14} className="mr-1.5" /> Save BOL (PDF)
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
+  );
+}
+
+function BolField({ label, value }) {
+  return (
+    <div>
+      <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="font-medium text-slate-900 mt-0.5">{value || <span className="text-slate-400 italic">—</span>}</div>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Topbar from "../components/Topbar";
 import { api, BACKEND_URL } from "../lib/api";
+import { useBrandRefresh } from "../lib/branding";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -24,10 +25,12 @@ export default function Reports() {
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailForm, setEmailForm] = useState({ to: "", cc: "", note: "", format: "both" });
   const [composed, setComposed] = useState(null);
-  useEffect(() => {
+  const loadReports = () => {
     api.get("/kpis").then(({ data }) => setKpis(data));
     api.get("/kpis/weekly-weights").then(({ data }) => setWeekly(data));
-  }, []);
+  };
+  useEffect(() => { loadReports(); }, []);
+  useBrandRefresh(() => loadReports());
 
   const downloadReport = (fmt) => {
     const a = document.createElement("a");
