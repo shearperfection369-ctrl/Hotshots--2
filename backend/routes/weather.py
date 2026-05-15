@@ -3,6 +3,7 @@ locations. Extracted from server.py as the first conservative refactor."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Any, Callable, Dict, List, Optional
@@ -19,6 +20,18 @@ logger = logging.getLogger("tennant_tms.weather")
 # ---- NWS upstream cache: 1 call / coord / minute, shared across users ----
 # Bounded LRU so a long-running pod never grows the cache unboundedly.
 _NWS_CACHE: TTLCache = TTLCache(maxsize=512, ttl=60)
+# Per-coordinate lock map prevents thundering-herd on cold cache fetches.
+# When 50 users all ask for Denver at once, only ONE actually calls NWS;
+# the other 49 await the lock and read from cache on the next tick.
+_NWS_LOCKS: Dict[tuple, asyncio.Lock] = {}
+
+
+def _lock_for(key: tuple) -> asyncio.Lock:
+    lock = _NWS_LOCKS.get(key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _NWS_LOCKS[key] = lock
+    return lock
 
 
 class WeatherAlertLocationIn(BaseModel):
@@ -59,18 +72,26 @@ async def _fetch_live_nws_alerts(locations: List[Dict[str, Any]]) -> List[Dict[s
             if cached_features is not None:
                 features: Optional[List[Dict[str, Any]]] = cached_features
             else:
-                url = f"https://api.weather.gov/alerts/active?point={lat},{lng}"
-                try:
-                    r = await http.get(url)
-                    if r.status_code != 200:
-                        logger.warning("NWS non-200 for (%s,%s): HTTP %s", lat, lng, r.status_code)
-                        features = []
+                # Acquire per-coord lock so only one task actually hits NWS;
+                # the rest find the result in cache the moment the lock
+                # releases.
+                async with _lock_for(cache_key):
+                    cached_features = _NWS_CACHE.get(cache_key)
+                    if cached_features is not None:
+                        features = cached_features
                     else:
-                        features = (r.json() or {}).get("features") or []
-                    _NWS_CACHE[cache_key] = features
-                except Exception as e:
-                    logger.warning("NWS request failed for (%s,%s): %s: %s", lat, lng, type(e).__name__, e)
-                    features = []
+                        url = f"https://api.weather.gov/alerts/active?point={lat},{lng}"
+                        try:
+                            r = await http.get(url)
+                            if r.status_code != 200:
+                                logger.warning("NWS non-200 for (%s,%s): HTTP %s", lat, lng, r.status_code)
+                                features = []
+                            else:
+                                features = (r.json() or {}).get("features") or []
+                            _NWS_CACHE[cache_key] = features
+                        except Exception as e:
+                            logger.warning("NWS request failed for (%s,%s): %s: %s", lat, lng, type(e).__name__, e)
+                            features = []
 
             for feat in features or []:
                 p = feat.get("properties") or {}
@@ -98,29 +119,34 @@ async def _fetch_live_nws_alerts(locations: List[Dict[str, Any]]) -> List[Dict[s
 
 
 async def _seed_alert_locations_from_brand(brand: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Best-effort: geocode the active brand's facility cities so the user
-    starts with sensible defaults. Falls back to Tennant's 3 US plants.
+    """Geocode the active brand's facility cities so the user starts with
+    sensible defaults. **No brand is special-cased** — Tennant facilities are
+    treated like any other brand's facilities (looked up via the same
+    Open-Meteo geocoder). If the geocoder is unreachable we fall through to
+    a tiny baked-in seed so the UI is never empty.
     """
-    defaults = [
+    fallback_seed = [
         {"label": "Golden Valley, MN", "lat": 44.9847, "lng": -93.3486, "state": "MN"},
         {"label": "Holland, MI",       "lat": 42.7875, "lng": -86.1089, "state": "MI"},
         {"label": "Louisville, KY",    "lat": 38.2527, "lng": -85.7585, "state": "KY"},
     ]
-    if not brand or brand.get("brand_id") == "tennant":
-        return defaults
-    facilities = brand.get("facilities") or []
+    facilities = (brand or {}).get("facilities") or []
     if not facilities:
-        return defaults
+        return fallback_seed
     out: List[Dict[str, Any]] = []
     async with httpx.AsyncClient(timeout=6.0) as http:
         for f in facilities[:6]:
-            label = (f.get("city") or f.get("name") or "").strip()
-            if not label:
+            raw_label = (f.get("city") or f.get("name") or "").strip()
+            if not raw_label:
                 continue
+            # The Open-Meteo geocoder doesn't accept "City, ST" — strip
+            # the state suffix before calling it, otherwise we get zero hits
+            # and silently fall through to the hard-coded fallback seed.
+            city_only = raw_label.split(",", 1)[0].strip()
             try:
                 r = await http.get(
                     "https://geocoding-api.open-meteo.com/v1/search",
-                    params={"name": label, "count": 1, "language": "en", "format": "json"},
+                    params={"name": city_only, "count": 1, "language": "en", "format": "json"},
                 )
                 hits = (r.json() or {}).get("results") or []
                 if hits:
@@ -132,10 +158,12 @@ async def _seed_alert_locations_from_brand(brand: Optional[Dict[str, Any]]) -> L
                         "state": (h.get("admin1") or "")[:2].upper() if h.get("country_code") == "US" else None,
                         "country": h.get("country_code"),
                     })
+                else:
+                    logger.info("Geocoder returned 0 hits for %s", city_only)
             except Exception as e:
-                logger.warning("Geocoder failed for %s: %s", label, e)
+                logger.warning("Geocoder failed for %s: %s", city_only, e)
                 continue
-    return out or defaults
+    return out or fallback_seed
 
 
 def build_weather_router(

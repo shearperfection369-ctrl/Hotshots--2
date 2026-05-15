@@ -13,36 +13,36 @@ from typing import Any, Callable, Dict, List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 logger = logging.getLogger("tennant_tms.server_registry")
 
 
 class ServerRegistryCreate(BaseModel):
-    name: str
-    role: str
-    hostname: str
-    port: Optional[int] = None
-    protocol: Optional[str] = "https"
-    region: Optional[str] = None
-    environment: Optional[str] = "production"
-    owner_email: Optional[str] = None
-    notes: Optional[str] = None
-    health_url: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=120)
+    role: str = Field(..., min_length=1, max_length=40)
+    hostname: str = Field(..., min_length=1, max_length=255)
+    port: Optional[int] = Field(default=None, ge=1, le=65535)
+    protocol: Optional[str] = Field(default="https", max_length=20)
+    region: Optional[str] = Field(default=None, max_length=60)
+    environment: Optional[str] = Field(default="production", max_length=40)
+    owner_email: Optional[str] = Field(default=None, max_length=120)
+    notes: Optional[str] = Field(default=None, max_length=2000)
+    health_url: Optional[str] = Field(default=None, max_length=400)
 
 
 class ServerRegistryUpdate(BaseModel):
-    name: Optional[str] = None
-    role: Optional[str] = None
-    hostname: Optional[str] = None
-    port: Optional[int] = None
-    protocol: Optional[str] = None
-    region: Optional[str] = None
-    environment: Optional[str] = None
-    owner_email: Optional[str] = None
-    notes: Optional[str] = None
-    health_url: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    role: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    hostname: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    port: Optional[int] = Field(default=None, ge=1, le=65535)
+    protocol: Optional[str] = Field(default=None, max_length=20)
+    region: Optional[str] = Field(default=None, max_length=60)
+    environment: Optional[str] = Field(default=None, max_length=40)
+    owner_email: Optional[str] = Field(default=None, max_length=120)
+    notes: Optional[str] = Field(default=None, max_length=2000)
+    health_url: Optional[str] = Field(default=None, max_length=400)
     enabled: Optional[bool] = None
 
 

@@ -270,7 +270,43 @@ Subsequent user-requested additions (chronological, all delivered):
 - Move `_brand_tenant_strings` to a marker-template approach long term (substring
   swap is fragile if new content includes the word "Tennant")
 
-## v2.5 — P2 Cleanup: Cache + Async Ping + Conservative Refactor (May 2026)
+## v2.6 — Continued Refactor + Marker-Template Fallback (May 2026)
+- **Continued refactor** — extracted branding endpoints to
+  `/app/backend/routes/branding.py` (`build_branding_router`) and SAP
+  endpoints to `/app/backend/routes/sap.py` (`build_sap_router`). Both use
+  the same factory pattern. `server.py` shrank from 8305 → 7782 lines
+  (~520 lines pulled out). `DEFAULT_BRAND` now lives in `routes/branding.py`
+  and is re-exported for backward compatibility with the admin dashboard.
+- **ServerRegistry Pydantic constraints** — `port` is `ge=1 le=65535`;
+  `name/role/hostname` have `min_length=1`; every string field has an
+  upper-bound `max_length`. Out-of-range values now return clean 422s
+  before they hit the DB.
+- **NWS thundering-herd lock** — added `_NWS_LOCKS: Dict[tuple,
+  asyncio.Lock]` keyed by rounded coord. The cache lookup is now
+  double-checked inside the lock so 50 concurrent users monitoring the
+  same city → exactly **1** upstream NWS call. Verified: 5 simultaneous
+  `/api/weather/alerts` requests completed in 1.16 s total, all returned
+  identical alert_id sets.
+- **Marker-template seed fix** — `_seed_alert_locations_from_brand` now
+  strips the `", ST"` state suffix before calling Open-Meteo's geocoder
+  (which doesn't accept the comma format), so Pfizer's facilities seed
+  correctly to New York, Kalamazoo, Pearl River, McPherson instead of
+  silently falling back to Tennant's defaults. Tennant brand is no
+  longer special-cased in the function — every brand goes through the
+  same code path.
+
+## v2.6 Tests (self-validated 11/11)
+- Branding: GET /api/branding, /api/branding/all, /api/branding/template
+  (has promo_video_ids), DELETE rejects 'tennant' with 400 — ALL PASS
+- SAP: /sap/config returns `s4hana.pfizer.sap.com` + `PFIZER_TMS_SVC`;
+  sales/purchase orders use `PFIZ-*` material prefix; sync + sync-logs
+  work — ALL PASS
+- ServerRegistry: port=99999 → 422; port=-1 → 422; name='' → 422; valid
+  POST → 200 + DELETE → 200 — ALL PASS
+- Marker-template: clearing locations + GET /api/weather/alerts seeds
+  with Pfizer's actual cities (no Tennant city bleed) — PASS
+- Thundering-herd: 5 concurrent requests → 1 upstream NWS call, same
+  alert_id set returned to all 5, wall-clock 1.16 s — PASS
 - **NWS shared cache** — added a 60-second `cachetools.TTLCache(maxsize=512)`
   keyed by rounded (lat, lng) so 100 polling users monitoring the same city
   generate **one** upstream NWS call per minute. Bounded LRU prevents the
