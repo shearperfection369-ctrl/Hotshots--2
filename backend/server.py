@@ -1718,31 +1718,36 @@ async def get_weather_alert_locations(user: User = Depends(get_current_user)):
 
 @api_router.post("/weather/alert-locations")
 async def set_weather_alert_locations(payload: Dict[str, Any], user: User = Depends(get_current_user)):
-    """Replace the user's monitored-location list. Body: {locations: [...]}"""
+    """Replace the user's monitored-location list. Body: {locations: [...]}.
+
+    Each row must have label / lat / lng. state and country default to "US".
+    The list is capped at 12 entries to keep NWS poll fan-out reasonable.
+    """
     raw = payload.get("locations") if isinstance(payload, dict) else None
     if not isinstance(raw, list):
         raise HTTPException(400, "Body must be {locations: [...]}")
     cleaned: List[Dict[str, Any]] = []
-    for item in raw[:12]:  # cap at 12 per user
+    dropped = 0
+    for item in raw[:12]:
         if not isinstance(item, dict):
+            dropped += 1
             continue
         try:
-            cleaned.append({
-                "label": str(item.get("label") or "").strip()[:80] or "Unnamed",
-                "lat": float(item.get("lat")),
-                "lng": float(item.get("lng")),
-                "state": (item.get("state") or None) and str(item["state"]).upper()[:2],
-                "country": (item.get("country") or "US").upper()[:2],
-            })
+            # Use the WeatherAlertLocationIn pydantic model for shape validation.
+            row = WeatherAlertLocationIn(**item).model_dump()
+            row["label"] = (row.get("label") or "Unnamed").strip()[:80] or "Unnamed"
+            row["state"] = (row.get("state") or "").upper()[:2] or None
+            row["country"] = (row.get("country") or "US").upper()[:2]
+            cleaned.append(row)
         except Exception:
-            continue
+            dropped += 1
     await db.weather_alert_locations.update_one(
         {"user_id": user.user_id},
         {"$set": {"user_id": user.user_id, "locations": cleaned,
                   "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True,
     )
-    return {"ok": True, "locations": cleaned}
+    return {"ok": True, "locations": cleaned, "dropped": dropped}
 
 
 # -------------------- WELLNESS NUDGES --------------------

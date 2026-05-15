@@ -270,6 +270,30 @@ Subsequent user-requested additions (chronological, all delivered):
 - Move `_brand_tenant_strings` to a marker-template approach long term (substring
   swap is fragile if new content includes the word "Tennant")
 
+## v2.4 — Real-Time NWS Weather Alerts + Manual Location Control (May 2026)
+- **Live NWS feed** — `/api/weather/alerts` now hits the public
+  `api.weather.gov/alerts/active?point=<lat>,<lng>` endpoint (User-Agent
+  required, no auth) for each user-monitored US location and returns real
+  watches/warnings/advisories. Falls back to brand mock alerts when no live
+  alerts are active so the UI never goes empty.
+- **Manual location control** — new `GET/POST /api/weather/alert-locations`
+  endpoints persist a per-user list (capped at 12) in
+  `db.weather_alert_locations`. First read auto-seeds from the active brand's
+  facilities (geocoded via Open-Meteo). The Command Center banner now has a
+  **"Configure Locations"** gear that opens a dialog with debounced
+  Open-Meteo geocoder autocomplete + add/remove rows + Save & Refresh.
+- **Live indicator** — banner header now shows `LIVE WEATHER FEED · updated
+  HH:MM:SS · NWS live` so dispatchers know the data is real-time. Each alert
+  card gets a green **LIVE** badge when it came from NWS (vs the fallback
+  mock).
+- **Brand-reactive** — when the admin switches themes, the banner re-fires
+  via `useBrandRefresh()` so the alert locations re-seed from the new
+  brand's facilities automatically.
+
+## Tests
+- `/app/test_reports/iteration_19.json` — 16/16 pytest passed (real NWS
+  call verified for Denver during dev).
+
 ## v2.3 — Brand-Reactive Refresh + BOL Preview + Arcade Polish (May 2026)
 - **Package A · Brand-Reactive Data Refresh** — `BrandingProvider` now fires a
   `brand-changed` `window` event whenever the active brand actually changes,
