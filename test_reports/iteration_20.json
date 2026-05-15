@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 20 — refactor regression. Verified the conservative move of weather & server-registry endpoints into /app/backend/routes/ kept identical behaviour. 17/17 pytest cases pass against the live preview URL covering: (a) GET /api/weather/alerts shape (alert_id/type/severity/area/headline/body/issued_at/expires_at, severity in {high,moderate,low}); (b) GET/POST /api/weather/alert-locations including 12-cap, state upper-cased, bad-body=400, drops only invalid rows; (c) NWS 60s cache correctness — two back-to-back calls within 5s returned identical alert_id sets and second call was sub-second (cache hit); (d) brand swap clean (no literal 'Tennant' substring in /api/weather/alerts while Pfizer is the active brand — verified via /api/branding company_name='Pfizer Inc.'); (e) /api/admin/servers system + custom + totals, CRUD on custom server, system::* PATCH/DELETE → 400; (f) /api/admin/servers/{id}/ping with health_url=https://www.google.com → healthy, hostname=localhost port=1 → down within ~3s (asyncio non-blocking confirmed: /api/branding stayed responsive immediately after); (g) non-admin (test_disp_session) gets 403 on /api/admin/servers; (h) regression — /api/branding, /api/shipments?limit=5, /api/kpis, /api/sap/config all 200. Custom servers created during the run were cleaned up by the module-scoped teardown fixture.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter20_refactor.py",
+    "/app/test_reports/pytest/iter20_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is still ~8300 lines after the refactor — only weather + server_registry pulled out. Continue moving feature groups (branding, shipments, equipment helpers, SAP) into /app/backend/routes/ to get under the 1000-line guideline.",
+    "_NWS_CACHE in routes/weather.py is a module-level unbounded dict — no max size or eviction. If hundreds of distinct lat/lng coords are monitored over time the dict grows forever. Use an LRU (functools.lru_cache or cachetools.TTLCache(maxsize=512, ttl=60)).",
+    "_NWS_CACHE has no lock — under high concurrency two requests for the same coord can race and both hit NWS. Acceptable for low traffic but consider asyncio.Lock per cache_key for thundering-herd protection.",
+    "Server-registry POST /api/admin/servers does not validate hostname/port (any string accepted, port can be negative or >65535). Add Pydantic Field constraints.",
+    "admin_ping_server only catches asyncio.TimeoutError for TCP path explicitly — other socket errors (ConnectionRefusedError, OSError) fall to outer try/except and end up health='down' anyway, but `detail` shows 'ConnectionRefusedError: ...' which leaks internals. Map to a friendlier message.",
+    "WeatherAlertLocationIn pydantic model still validates via try/except in code — would be cleaner to expose List[WeatherAlertLocationIn] in the FastAPI signature and let 422 happen automatically.",
+    "_seed_alert_locations_from_brand still hardcodes Tennant fallback when brand_id == 'tennant' OR brand missing — same issue flagged in iter19; brand_swap is the only thing hiding it for Pfizer."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter20_refactor.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "skipped"},
+  "test_credentials": "admin Bearer test_session_admin_1; non-admin Bearer test_disp_session (per /app/memory/test_credentials.md — review_request quoted 'test_session_disp_1' which does NOT authenticate; test code probes both and uses whichever returns 200 on /api/auth/me)",
+  "seed_data_creation": "Created up to 3 throw-away custom servers (TEST_iter20_*) via POST /api/admin/servers and deleted each at module teardown. Also overwrote admin's weather_alert_locations during validation tests — final state has the 1-row 'Valid/MN' set from test_post_alert_locations_drops_invalid_only.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable regression suite at /app/backend/tests/test_iter20_refactor.py (17 tests, ~4s). Active brand is Pfizer Inc. (company_name field) — /api/branding returns {brand: {...}} not flat. Admin's weather_alert_locations is left with a single 'Valid, MN' point from the last POST test; re-seeding from brand only happens when locations is empty, so next /api/weather/alerts call will use that single point — clear it if you need a brand-seeded test. NWS cache TTL is 60s and unbounded; cache identity across runs is acceptable. Non-admin token name in review_request ('test_session_disp_1') is wrong — use 'test_disp_session'.",
+  "rca of the issue": "n/a — refactor is clean, all bullets validated."
+}

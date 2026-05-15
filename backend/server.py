@@ -13,15 +13,15 @@ import re
 import asyncio
 import hashlib
 import logging
+import time as _time
 import uuid
 import json
 import random
 import httpx
-import socket
 import urllib.parse
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
 
 from reportlab.lib.pagesizes import letter
@@ -1561,193 +1561,7 @@ MOCK_WEATHER_ALERTS = [
 ]
 
 
-@api_router.get("/weather/alerts")
-async def weather_alerts_endpoint(user: User = Depends(get_current_user)):
-    """Real-time weather advisories.
-
-    1. Loads the user's monitored locations from `db.weather_alert_locations`
-       (defaults to the active brand's facilities on first read).
-    2. For each US location, calls the public National Weather Service API
-       at `api.weather.gov/alerts/active?point=<lat>,<lng>` (no auth needed)
-       to pull live watches / warnings / advisories.
-    3. Falls back to brand-mock alerts only if the network call fails OR the
-       user has no locations configured (so the UI never goes empty).
-
-    The UI polls this every 60 s so alerts auto-refresh.
-    """
-    cfg = await db.weather_alert_locations.find_one({"user_id": user.user_id}, {"_id": 0})
-    if not cfg or not cfg.get("locations"):
-        # Seed from active brand's facilities the first time the user opens
-        # the page. Falls back to Tennant defaults if no facilities are set.
-        brand = await _active_brand_doc()
-        seeded = await _seed_alert_locations_from_brand(brand)
-        await db.weather_alert_locations.update_one(
-            {"user_id": user.user_id},
-            {"$set": {"user_id": user.user_id, "locations": seeded,
-                      "updated_at": datetime.now(timezone.utc).isoformat()}},
-            upsert=True,
-        )
-        locations = seeded
-    else:
-        locations = cfg.get("locations") or []
-
-    live = await _fetch_live_nws_alerts(locations)
-    if live:
-        return await _brand_swap(live)
-
-    # Network failure or zero hits → degrade gracefully to the mock list.
-    return await _brand_swap(MOCK_WEATHER_ALERTS)
-
-
-# ---------- Helpers ----------
-async def _seed_alert_locations_from_brand(brand: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Best-effort: geocode the active brand's facility cities so the user
-    starts with sensible defaults. Falls back to Tennant's 3 US plants.
-    """
-    defaults = [
-        {"label": "Golden Valley, MN", "lat": 44.9847, "lng": -93.3486, "state": "MN"},
-        {"label": "Holland, MI",       "lat": 42.7875, "lng": -86.1089, "state": "MI"},
-        {"label": "Louisville, KY",    "lat": 38.2527, "lng": -85.7585, "state": "KY"},
-    ]
-    if not brand or brand.get("brand_id") == "tennant":
-        return defaults
-    facilities = brand.get("facilities") or []
-    if not facilities:
-        return defaults
-    out: List[Dict[str, Any]] = []
-    async with httpx.AsyncClient(timeout=6.0) as http:
-        for f in facilities[:6]:
-            label = (f.get("city") or f.get("name") or "").strip()
-            if not label:
-                continue
-            try:
-                r = await http.get(
-                    "https://geocoding-api.open-meteo.com/v1/search",
-                    params={"name": label, "count": 1, "language": "en", "format": "json"},
-                )
-                hits = (r.json() or {}).get("results") or []
-                if hits:
-                    h = hits[0]
-                    out.append({
-                        "label": f"{h.get('name')}{', ' + h.get('admin1') if h.get('admin1') else ''}",
-                        "lat": h.get("latitude"),
-                        "lng": h.get("longitude"),
-                        "state": (h.get("admin1") or "")[:2].upper() if h.get("country_code") == "US" else None,
-                        "country": h.get("country_code"),
-                    })
-            except Exception:
-                continue
-    return out or defaults
-
-
-async def _fetch_live_nws_alerts(locations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Hit api.weather.gov for each location and translate the GeoJSON
-    payload to the schema the frontend already speaks.
-
-    The NWS API only covers the US — non-US locations are silently skipped.
-    Each location call is timeout-bound at 4s; total work bounded at ~24s
-    even with 6 locations.
-    """
-    if not locations:
-        return []
-    out: List[Dict[str, Any]] = []
-    seen_ids: set[str] = set()
-    headers = {
-        "User-Agent": "Tennant-TMS/2.3 (ops@tennantco.com)",
-        "Accept": "application/geo+json",
-    }
-    sev_map = {"Extreme": "high", "Severe": "high", "Moderate": "moderate", "Minor": "low", "Unknown": "low"}
-    async with httpx.AsyncClient(timeout=4.0, headers=headers) as http:
-        for loc in locations:
-            lat, lng = loc.get("lat"), loc.get("lng")
-            # NWS is US-only; skip if no coords or international.
-            if lat is None or lng is None:
-                continue
-            country = (loc.get("country") or "US").upper()
-            if country and country != "US":
-                continue
-            url = f"https://api.weather.gov/alerts/active?point={lat},{lng}"
-            try:
-                r = await http.get(url)
-                if r.status_code != 200:
-                    continue
-                data = r.json()
-                for feat in (data.get("features") or []):
-                    p = feat.get("properties") or {}
-                    aid = p.get("id") or feat.get("id")
-                    if not aid or aid in seen_ids:
-                        continue
-                    seen_ids.add(aid)
-                    out.append({
-                        "alert_id": aid,
-                        "type": p.get("event") or "Weather Alert",
-                        "severity": sev_map.get(p.get("severity"), "low"),
-                        "area": p.get("areaDesc") or loc.get("label"),
-                        "affected_facility": loc.get("label"),
-                        "headline": p.get("headline") or p.get("event"),
-                        "body": p.get("description") or "",
-                        "issued_at": p.get("sent") or datetime.now(timezone.utc).isoformat(),
-                        "expires_at": p.get("expires") or (datetime.now(timezone.utc) + timedelta(hours=6)).isoformat(),
-                        "source": p.get("senderName") or "National Weather Service",
-                        "source_url": p.get("@id") or "https://www.weather.gov/",
-                        "live": True,
-                    })
-            except Exception:
-                continue
-    # Sort by severity then most-recent
-    sev_rank = {"high": 0, "moderate": 1, "low": 2}
-    out.sort(key=lambda a: (sev_rank.get(a.get("severity"), 9), -1 * len(a.get("issued_at") or "")))
-    return out
-
-
-class WeatherAlertLocationIn(BaseModel):
-    label: str
-    lat: float
-    lng: float
-    state: Optional[str] = None
-    country: Optional[str] = "US"
-
-
-@api_router.get("/weather/alert-locations")
-async def get_weather_alert_locations(user: User = Depends(get_current_user)):
-    """Return the user's currently-monitored locations. Empty list means
-    'auto-seed from the active brand on next /api/weather/alerts read'."""
-    cfg = await db.weather_alert_locations.find_one({"user_id": user.user_id}, {"_id": 0})
-    return {"locations": (cfg or {}).get("locations") or []}
-
-
-@api_router.post("/weather/alert-locations")
-async def set_weather_alert_locations(payload: Dict[str, Any], user: User = Depends(get_current_user)):
-    """Replace the user's monitored-location list. Body: {locations: [...]}.
-
-    Each row must have label / lat / lng. state and country default to "US".
-    The list is capped at 12 entries to keep NWS poll fan-out reasonable.
-    """
-    raw = payload.get("locations") if isinstance(payload, dict) else None
-    if not isinstance(raw, list):
-        raise HTTPException(400, "Body must be {locations: [...]}")
-    cleaned: List[Dict[str, Any]] = []
-    dropped = 0
-    for item in raw[:12]:
-        if not isinstance(item, dict):
-            dropped += 1
-            continue
-        try:
-            # Use the WeatherAlertLocationIn pydantic model for shape validation.
-            row = WeatherAlertLocationIn(**item).model_dump()
-            row["label"] = (row.get("label") or "Unnamed").strip()[:80] or "Unnamed"
-            row["state"] = (row.get("state") or "").upper()[:2] or None
-            row["country"] = (row.get("country") or "US").upper()[:2]
-            cleaned.append(row)
-        except Exception:
-            dropped += 1
-    await db.weather_alert_locations.update_one(
-        {"user_id": user.user_id},
-        {"$set": {"user_id": user.user_id, "locations": cleaned,
-                  "updated_at": datetime.now(timezone.utc).isoformat()}},
-        upsert=True,
-    )
-    return {"ok": True, "locations": cleaned, "dropped": dropped}
+# Weather alerts + locations live in routes.weather (see end of file for include).
 
 
 # -------------------- WELLNESS NUDGES --------------------
@@ -7914,280 +7728,7 @@ async def admin_quick_toggle(payload: dict, _: User = Depends(require_role("admi
     return {"ok": True, "key": key, "value": value}
 
 
-# -------------------- SERVER REGISTRY (Admin) --------------------
-# Inventories every host/service "attached" to the TMS — auto-detects the
-# running pod + Mongo cluster + LLM provider, and lets the admin register
-# additional backing services (object stores, edge proxies, EDI gateways,
-# dedicated reporting nodes, etc.). Provides liveness checks and audit.
-
-class ServerRegistryCreate(BaseModel):
-    name: str
-    role: str                    # e.g. 'api', 'db', 'cache', 'llm', 'edi', 'storage', 'edge', 'queue', 'reporting'
-    hostname: str                # e.g. 'edi-gateway.tennant.internal'
-    port: Optional[int] = None
-    protocol: Optional[str] = "https"   # https | http | tcp | grpc | amqp
-    region: Optional[str] = None
-    environment: Optional[str] = "production"   # production | staging | dr | dev
-    owner_email: Optional[str] = None
-    notes: Optional[str] = None
-    health_url: Optional[str] = None    # absolute URL the /ping endpoint will hit
-
-
-class ServerRegistryUpdate(BaseModel):
-    name: Optional[str] = None
-    role: Optional[str] = None
-    hostname: Optional[str] = None
-    port: Optional[int] = None
-    protocol: Optional[str] = None
-    region: Optional[str] = None
-    environment: Optional[str] = None
-    owner_email: Optional[str] = None
-    notes: Optional[str] = None
-    health_url: Optional[str] = None
-    enabled: Optional[bool] = None
-
-
-async def _detect_system_servers() -> List[Dict[str, Any]]:
-    """Live introspection of the actual servers the running pod talks to.
-    These rows are NOT stored in the DB — they are computed every request
-    so the data reflects real health right now."""
-    out: List[Dict[str, Any]] = []
-    now = datetime.now(timezone.utc)
-
-    # 1) FastAPI / API host (the pod we're running in)
-    try:
-        api_host = socket.gethostname()
-        api_ip = socket.gethostbyname(api_host) if api_host else None
-    except Exception:
-        api_host, api_ip = "fastapi", None
-    out.append({
-        "id": "system::api",
-        "name": "TMS Backend API",
-        "role": "api",
-        "hostname": api_host or "fastapi",
-        "ip": api_ip,
-        "port": 8001,
-        "protocol": "http",
-        "region": os.environ.get("REGION") or "kube-cluster",
-        "environment": os.environ.get("ENV") or "production",
-        "owner_email": "ops@tennantco.com",
-        "system": True,
-        "enabled": True,
-        "health": "healthy",
-        "uptime_seconds": int((now - _APP_BOOT_AT).total_seconds()),
-        "boot_at": _APP_BOOT_AT.isoformat(),
-        "version": "v2.1",
-        "last_check_at": now.isoformat(),
-        "notes": "FastAPI/uvicorn — request handler for every /api/* route.",
-    })
-
-    # 2) MongoDB primary
-    mongo_url = os.environ.get("MONGO_URL") or ""
-    mongo_host = "mongo"
-    try:
-        from urllib.parse import urlparse as _urlparse
-        u = _urlparse(mongo_url)
-        if u.hostname:
-            mongo_host = u.hostname
-    except Exception:
-        pass
-    mongo_ok = False
-    mongo_ms = None
-    mongo_meta: Dict[str, Any] = {}
-    try:
-        t0 = now
-        info = await asyncio.wait_for(db.command("serverStatus"), timeout=2.0)
-        mongo_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
-        mongo_ok = True
-        mongo_meta = {
-            "version": info.get("version"),
-            "connections": (info.get("connections") or {}).get("current"),
-            "uptime_seconds": int(info.get("uptime") or 0),
-        }
-    except Exception:
-        pass
-    out.append({
-        "id": "system::mongo",
-        "name": "MongoDB Cluster",
-        "role": "db",
-        "hostname": mongo_host,
-        "port": None,
-        "protocol": "mongodb",
-        "region": "kube-cluster",
-        "environment": "production",
-        "owner_email": "data@tennantco.com",
-        "system": True,
-        "enabled": True,
-        "health": "healthy" if mongo_ok else "down",
-        "ping_ms": mongo_ms,
-        "version": mongo_meta.get("version"),
-        "connections": mongo_meta.get("connections"),
-        "uptime_seconds": mongo_meta.get("uptime_seconds"),
-        "last_check_at": now.isoformat(),
-        "notes": f"Database name: {os.environ.get('DB_NAME', '—')} · 29 indexed collections.",
-    })
-
-    # 3) Emergent LLM gateway
-    llm_configured = bool(os.environ.get("EMERGENT_LLM_KEY"))
-    out.append({
-        "id": "system::llm",
-        "name": "Emergent LLM Gateway",
-        "role": "llm",
-        "hostname": "integrations.emergentagent.com",
-        "port": 443,
-        "protocol": "https",
-        "region": "us-east",
-        "environment": "production",
-        "owner_email": "platform@emergentagent.com",
-        "system": True,
-        "enabled": llm_configured,
-        "health": "healthy" if llm_configured else "unconfigured",
-        "last_check_at": now.isoformat(),
-        "version": "claude-sonnet-4.5 · gpt-image-1 · nano-banana",
-        "notes": "Powers HUDLINK chat, AI Brand Switcher, image gen.",
-    })
-
-    # 4) Public preview / ingress host
-    pub = os.environ.get("PUBLIC_APP_URL") or os.environ.get("REACT_APP_BACKEND_URL") or ""
-    if pub:
-        try:
-            from urllib.parse import urlparse as _urlparse
-            u = _urlparse(pub)
-            pub_host = u.hostname or "ingress"
-            pub_port = u.port or (443 if (u.scheme or "https") == "https" else 80)
-            pub_proto = u.scheme or "https"
-        except Exception:
-            pub_host, pub_port, pub_proto = "ingress", 443, "https"
-        out.append({
-            "id": "system::ingress",
-            "name": "Kubernetes Ingress / Preview",
-            "role": "edge",
-            "hostname": pub_host,
-            "port": pub_port,
-            "protocol": pub_proto,
-            "region": "kube-cluster",
-            "environment": "production",
-            "owner_email": "ops@tennantco.com",
-            "system": True,
-            "enabled": True,
-            "health": "healthy",
-            "last_check_at": now.isoformat(),
-            "notes": "Edge proxy routing /api/* → backend:8001 and /* → frontend:3000.",
-        })
-
-    return out
-
-
-@api_router.get("/admin/servers")
-async def admin_list_servers(_: User = Depends(require_role("admin"))):
-    """Return every attached server: auto-detected system hosts merged with
-    admin-registered custom entries from db.servers_registry."""
-    system = await _detect_system_servers()
-    custom = await db.servers_registry.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
-    # Compose totals for the header tiles
-    total = len(system) + len(custom)
-    healthy = sum(1 for s in system if s.get("health") == "healthy") + sum(1 for c in custom if c.get("last_health") == "healthy")
-    down = sum(1 for s in system if s.get("health") == "down") + sum(1 for c in custom if c.get("last_health") == "down")
-    by_role: Dict[str, int] = {}
-    for s in system + custom:
-        r = s.get("role") or "other"
-        by_role[r] = by_role.get(r, 0) + 1
-    return {
-        "system": system,
-        "custom": custom,
-        "totals": {"total": total, "healthy": healthy, "down": down, "by_role": by_role},
-    }
-
-
-@api_router.post("/admin/servers")
-async def admin_create_server(payload: ServerRegistryCreate, admin: User = Depends(require_role("admin"))):
-    doc = {
-        "id": f"SRV-{uuid.uuid4().hex[:10].upper()}",
-        "name": payload.name.strip(),
-        "role": payload.role.strip(),
-        "hostname": payload.hostname.strip(),
-        "port": payload.port,
-        "protocol": (payload.protocol or "https").strip(),
-        "region": (payload.region or "").strip() or None,
-        "environment": (payload.environment or "production").strip(),
-        "owner_email": (payload.owner_email or "").strip() or None,
-        "notes": (payload.notes or "").strip() or None,
-        "health_url": (payload.health_url or "").strip() or None,
-        "enabled": True,
-        "system": False,
-        "last_health": "unknown",
-        "last_ping_ms": None,
-        "last_check_at": None,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "created_by": admin.user_id,
-        "created_by_name": admin.name,
-    }
-    await db.servers_registry.insert_one(dict(doc))
-    return doc
-
-
-@api_router.patch("/admin/servers/{server_id}")
-async def admin_update_server(server_id: str, payload: ServerRegistryUpdate, admin: User = Depends(require_role("admin"))):
-    if server_id.startswith("system::"):
-        raise HTTPException(400, "System servers cannot be edited.")
-    patch = {k: v for k, v in payload.model_dump(exclude_unset=True).items()}
-    if not patch:
-        raise HTTPException(400, "No fields to update.")
-    patch["updated_at"] = datetime.now(timezone.utc).isoformat()
-    patch["updated_by"] = admin.user_id
-    r = await db.servers_registry.find_one_and_update(
-        {"id": server_id}, {"$set": patch}, return_document=True, projection={"_id": 0},
-    )
-    if not r:
-        raise HTTPException(404, "Server not found")
-    return r
-
-
-@api_router.delete("/admin/servers/{server_id}")
-async def admin_delete_server(server_id: str, _: User = Depends(require_role("admin"))):
-    if server_id.startswith("system::"):
-        raise HTTPException(400, "System servers cannot be deleted.")
-    r = await db.servers_registry.delete_one({"id": server_id})
-    if r.deleted_count == 0:
-        raise HTTPException(404, "Server not found")
-    return {"ok": True}
-
-
-@api_router.post("/admin/servers/{server_id}/ping")
-async def admin_ping_server(server_id: str, _: User = Depends(require_role("admin"))):
-    """Live health probe. Uses HTTP if health_url provided, otherwise TCP."""
-    doc = await db.servers_registry.find_one({"id": server_id}, {"_id": 0})
-    if not doc:
-        raise HTTPException(404, "Server not found")
-    now = datetime.now(timezone.utc)
-    health, ping_ms, detail = "down", None, None
-    try:
-        if doc.get("health_url"):
-            t0 = now
-            async with httpx.AsyncClient(timeout=4.0, follow_redirects=True) as http:
-                resp = await http.get(doc["health_url"])
-                ping_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
-                if 200 <= resp.status_code < 400:
-                    health = "healthy"
-                    detail = f"HTTP {resp.status_code}"
-                else:
-                    health = "degraded"
-                    detail = f"HTTP {resp.status_code}"
-        elif doc.get("hostname") and doc.get("port"):
-            t0 = now
-            with socket.create_connection((doc["hostname"], int(doc["port"])), timeout=3.0):
-                ping_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
-                health = "healthy"
-                detail = f"TCP {doc['hostname']}:{doc['port']} open"
-        else:
-            detail = "No health_url or hostname:port — nothing to probe."
-            health = "unknown"
-    except Exception as e:
-        detail = f"{type(e).__name__}: {e}"
-        health = "down"
-    patch = {"last_health": health, "last_ping_ms": ping_ms, "last_check_at": now.isoformat(), "last_detail": detail}
-    await db.servers_registry.update_one({"id": server_id}, {"$set": patch})
-    return {"ok": True, **patch}
+# Server Registry endpoints live in routes.server_registry — included below.
 
 
 # -------------------- ERP CONNECTORS (multi-system) --------------------
@@ -8612,6 +8153,26 @@ async def health():
 # -------------------- EQUIPMENT / YARD MODULE --------------------
 from equipment_module import register_equipment_routes  # noqa: E402
 register_equipment_routes(api_router, db, get_current_user, require_role)
+
+# -------------------- ROUTES PACKAGE — modular routers --------------------
+# Conservative refactor: each feature group lives in its own file under
+# /app/backend/routes/ and exposes a build_*_router() factory that takes
+# the shared DB handle + helpers. Adding more groups here over time
+# pulls server.py back under the 1000-line guideline.
+from routes.weather import build_weather_router  # noqa: E402
+from routes.server_registry import build_server_registry_router  # noqa: E402
+api_router.include_router(build_weather_router(
+    db=db,
+    get_current_user=get_current_user,
+    brand_swap=_brand_swap,
+    active_brand_doc=_active_brand_doc,
+    mock_weather_alerts=MOCK_WEATHER_ALERTS,
+))
+api_router.include_router(build_server_registry_router(
+    db=db,
+    require_role=require_role,
+    app_boot_at=_APP_BOOT_AT,
+))
 
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
