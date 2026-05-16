@@ -596,3 +596,43 @@ Subsequent user-requested additions (chronological, all delivered):
   sub-1MB sizes, `Content-Type: application/pdf`, BOL stamps `bol_no` on the booking, POD
   email dry-run persists outreach + updates booking status, QB OAuth start without creds
   returns the help message, with creds returns a valid appcenter.intuit.com authorize URL.
+
+
+## 2026-02-15 (later) · Queen Calafia rebrand · POD Photos · Auto-Mail · Live Load Board
+- **Logo rebranded** — Islamic 8-point Khatim al-Sulayman replaced with a Queen Calafia
+  + griffin heraldic medallion (regenerated via nano-banana, gemini-3.1-flash-image-preview).
+  Files: `/app/frontend/public/brand/orisei_logo.png`, `_pdf.png` (PDF-optimized),
+  `orisei_wordmark.png`. `routes/orisei_docs.py` swaps the 8-point star corners for
+  heraldic diamond-flourish corners and renames the helper to `_draw_heraldic_border`.
+  Landing page caption updated to "◇ Queen Calafia · Mounted on her Griffin ◇".
+- **POD Photos** (`routes/brokerage.py` lines 1148–1216) — max-3 dock photos per booking,
+  mobile camera-friendly (`<input capture="environment">`), PIL-downsampled server-side
+  to ≤1024px @ 82-quality JPEG. Embedded as a 2nd page in `pod.pdf` ("Delivery Photos").
+  Endpoints: `POST /api/brokerage/bookings/{id}/pod/photos` (multipart file+caption),
+  `GET /pod/photos`, `GET /pod/photos/{photo_id}` (image/jpeg), `DELETE /pod/photos/{photo_id}`.
+- **Auto-Mail Automation** — new `brokerage_settings` singleton collection with
+  `auto_email_bol_on_book` and `auto_email_pod_on_delivery` toggles + optional
+  `bol_message_template` / `pod_message_template`. Endpoints `GET/PUT /api/brokerage/settings`.
+  Hooks:
+   - `PUT /bookings/{id}/customer` — on a fresh `customer_email` transition, renders the
+     BOL and emails via Resend (returns `_auto_bol.auto_email_error` with helpful Resend
+     hint when Resend isn't configured).
+   - `POST /bookings/{id}/mark-delivered` (NEW) — one-tap "delivered" for dispatchers;
+     stores delivery + flips status; if toggle enabled + Resend configured, mails POD
+     with embedded photos to the customer.
+- **Live Load Board adapters** (`routes/loadboard_adapters.py`) — DAT One, Truckstop,
+  Convoy/Flexport Trucking adapters using `httpx`. `board_loads` tries `try_fetch_live`
+  with credentials from the Connections vault and falls back to synthetic feed when keys
+  are missing or the upstream API fails. Response now exposes `source: 'live'|'synthetic'`.
+- **Frontend** (`pages/Brokerage.jsx`) —
+   - `BrokerageAutoMailCard` toggles + templates on Dashboard tab.
+   - `PodPhotoUploader` inside the PodEmailDialog (live thumbnails + remove buttons).
+   - `Mark Delivered` button on each booking row that triggers `/mark-delivered`.
+   - `board-source-badge` shows LIVE API FEED / SYNTHETIC FALLBACK in Boards tab.
+
+### Tests
+- `/app/test_reports/iteration_23.json` — 24/24 backend tests pass; Playwright smoke confirms
+  Calafia emblem + caption render on /home, BrokerageAutoMailCard toggles + auto-mail
+  templates render in Dashboard, board-source-badge appears, PodPhotoUploader sits inside
+  the email dialog, mark-delivered button + endpoint round-trip works. Test file added at
+  `/app/backend/tests/test_iter23_calafia_photos_automail.py` (preview-URL-based).
