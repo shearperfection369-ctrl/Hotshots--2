@@ -7678,7 +7678,9 @@ from routes.server_registry import build_server_registry_router  # noqa: E402
 from routes.sap import build_sap_router  # noqa: E402
 from routes.brokerage import build_brokerage_router  # noqa: E402
 from routes.connections import build_connections_router  # noqa: E402
+from routes.freight_news import build_freight_news_router  # noqa: E402
 from routes.provider_outreach import build_provider_outreach_router  # noqa: E402
+from routes.public_site import build_public_router  # noqa: E402
 api_router.include_router(build_weather_router(
     db=db,
     get_current_user=get_current_user,
@@ -7724,6 +7726,8 @@ build_provider_outreach_router(
     get_current_user=get_current_user,
     require_role=require_role,
 )
+build_public_router(api_router=api_router, db=db)
+build_freight_news_router(api_router=api_router, get_current_user=get_current_user)
 
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)

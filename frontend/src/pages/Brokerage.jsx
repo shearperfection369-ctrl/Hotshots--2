@@ -14,7 +14,7 @@ import {
   Building2, Calculator, Plug, Send, CheckCircle2, AlertCircle, Loader2, Download,
   ArrowUpRight, ArrowDownRight, Zap, Receipt, FileSpreadsheet, Bot, Plus, BookOpen, Printer,
   Wallet, Server, Mail, Linkedin, Eye, Users, MapPin, Phone, Snowflake, ShieldAlert, ShieldCheck, Banknote, X,
-  PackageCheck, Stamp,
+  PackageCheck, Stamp, Newspaper, ExternalLink, RefreshCw,
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
@@ -29,6 +29,7 @@ import remarkGfm from "remark-gfm";
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
   { id: "boards",    label: "Load Boards", icon: Truck },
+  { id: "news",      label: "Industry News", icon: Newspaper },
   { id: "drivers",   label: "Drivers", icon: Users },
   { id: "accounting", label: "Accounting", icon: Calculator },
   { id: "forms",     label: "Forms Library", icon: FileText },
@@ -69,6 +70,7 @@ export default function Brokerage() {
 
         {tab === "dashboard" && <DashboardTab dash={dash} refresh={loadDash} />}
         {tab === "boards"    && <BoardsTab refresh={loadDash} />}
+        {tab === "news"      && <NewsTab />}
         {tab === "drivers"   && <DriversTab />}
         {tab === "accounting" && <AccountingTab refresh={loadDash} />}
         {tab === "forms"     && <FormsTab />}
@@ -2150,3 +2152,157 @@ function BrokerageAutoMailCard({ refresh }) {
     </Card>
   );
 }
+
+// ============================================================
+//          INDUSTRY NEWS · Freight + Trucking RSS aggregator
+// ============================================================
+function NewsTab() {
+  const [items, setItems] = useState([]);
+  const [sources, setSources] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeCat, setActiveCat] = useState("all");
+  const [activeSource, setActiveSource] = useState("all");
+  const [fetchedAt, setFetchedAt] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/freight-news");
+      setItems(data.items || []);
+      setSources(data.sources || []);
+      setFetchedAt(data.fetched_at);
+    } catch (e) {
+      toast.error("Failed to load news");
+    } finally { setLoading(false); }
+  };
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      await api.post("/freight-news/refresh");
+      await load();
+      toast.success("News refreshed");
+    } catch (e) { toast.error("Refresh failed"); }
+    finally { setRefreshing(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const cats = useMemo(() => {
+    const s = new Set(items.map((x) => x.category).filter(Boolean));
+    return Array.from(s).sort();
+  }, [items]);
+  const sourceLabels = useMemo(() => {
+    const s = new Set(items.map((x) => x.source).filter(Boolean));
+    return Array.from(s).sort();
+  }, [items]);
+
+  const filtered = items.filter((x) =>
+    (activeCat === "all" || x.category === activeCat)
+    && (activeSource === "all" || x.source === activeSource));
+
+  const fmtDate = (iso) => {
+    try { return new Date(iso).toLocaleString(undefined, {
+      month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+    }); } catch { return ""; }
+  };
+
+  return (
+    <div className="space-y-4" data-testid="brokerage-news-tab">
+      <Card className="hud-surface p-4">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em]" style={{ color: "#C9A24A" }}>Industry Pulse</div>
+            <h3 className="font-display text-xl font-bold flex items-center gap-2">
+              <Newspaper size={18} style={{ color: "#C9A24A" }} /> Freight & Trucking News
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Aggregated from FreightWaves, Trucking Dive, Transport Topics, CCJ, Land Line, and Trucking Info.
+              {fetchedAt && <span className="ml-1">Updated {fmtDate(fetchedAt)}.</span>}
+            </p>
+          </div>
+          <button
+            onClick={refresh}
+            disabled={refreshing}
+            data-testid="news-refresh-btn"
+            className="text-[10px] font-mono uppercase tracking-wider px-3 py-1.5 rounded border border-white/10 hover:border-amber-400/40 hover:text-amber-300 transition flex items-center gap-1.5"
+          >
+            {refreshing ? <Loader2 className="animate-spin" size={11} /> : <RefreshCw size={11} />}
+            Refresh
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Category:</span>
+          <CatPill active={activeCat === "all"} onClick={() => setActiveCat("all")} tid="news-cat-all">All</CatPill>
+          {cats.map((c) => (
+            <CatPill key={c} active={activeCat === c} onClick={() => setActiveCat(c)} tid={`news-cat-${c.toLowerCase().replace(/\s+/g,'-')}`}>{c}</CatPill>
+          ))}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Source:</span>
+          <CatPill active={activeSource === "all"} onClick={() => setActiveSource("all")}>All sources</CatPill>
+          {sourceLabels.map((s) => (
+            <CatPill key={s} active={activeSource === s} onClick={() => setActiveSource(s)}>{s}</CatPill>
+          ))}
+        </div>
+      </Card>
+
+      {loading && (
+        <div className="text-center py-12 text-slate-500 text-sm">
+          <Loader2 className="animate-spin mx-auto mb-2" size={18} /> Loading freight headlines…
+        </div>
+      )}
+
+      {!loading && filtered.length === 0 && (
+        <Card className="hud-surface p-8 text-center text-sm text-slate-400" data-testid="news-empty">
+          No headlines match this filter. Try clearing the filter or hitting Refresh.
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {filtered.map((n, i) => (
+          <a
+            key={n.url || `${n.title}-${i}`}
+            href={n.url || "#"}
+            target="_blank"
+            rel="noreferrer"
+            data-testid={`news-item-${i}`}
+            className="block rounded-lg border bg-white/[0.02] p-4 transition hover:bg-white/[0.04]"
+            style={{ borderColor: "rgba(201,162,74,0.18)" }}
+          >
+            <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider mb-2">
+              <span style={{ color: "#C9A24A" }}>{n.source}</span>
+              <span className="text-slate-500">{n.category} · {fmtDate(n.published)}</span>
+            </div>
+            <h4 className="font-display font-semibold text-slate-100 leading-snug">{n.title}</h4>
+            {n.summary && (
+              <p className="text-sm text-slate-400 mt-2 leading-relaxed line-clamp-3">{n.summary}</p>
+            )}
+            <div className="mt-3 text-[11px] font-mono uppercase tracking-wider text-cyan-300/80 inline-flex items-center gap-1">
+              Read on {n.source} <ExternalLink size={10} />
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CatPill({ active, onClick, children, tid }) {
+  return (
+    <button
+      onClick={onClick}
+      data-testid={tid}
+      className="px-2.5 py-1 rounded text-[10px] font-mono uppercase tracking-wider border transition"
+      style={
+        active
+          ? { background: "#C9A24A", color: "#0E3A6B", borderColor: "#C9A24A" }
+          : { borderColor: "rgba(255,255,255,0.1)", color: "#94a3b8" }
+      }
+    >
+      {children}
+    </button>
+  );
+}
+

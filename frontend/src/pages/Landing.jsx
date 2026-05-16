@@ -3,6 +3,9 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Truck, Mail, ArrowRight, ShieldCheck, Wallet, Sparkles, MapPin, Phone } from "lucide-react";
 import { api } from "../lib/api";
+import QuoteForm from "../components/QuoteForm";
+import PublicNav from "../components/PublicNav";
+import PublicFooter from "../components/PublicFooter";
 
 /**
  * Orisei Freight Solutions · public marketing landing page.
@@ -28,31 +31,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-[#0B1320] text-slate-100" data-testid="orisei-landing">
-      {/* Top bar */}
-      <header className="sticky top-0 z-30 backdrop-blur-xl bg-[#0B1320]/85 border-b border-white/5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
-          <Link to="/home" className="flex items-center gap-3" data-testid="landing-logo-link">
-            <img src={brand.logo_url} alt="Orisei" className="h-9 w-9 rounded" />
-            <span className="font-display font-black text-lg tracking-tight" style={{ color: gold }}>
-              ORISEI
-              <span className="ml-2 text-xs font-mono text-slate-400 uppercase tracking-[0.2em]">Freight Solutions</span>
-            </span>
-          </Link>
-          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
-            <a href="#services" className="hover:text-white">Services</a>
-            <a href="#why" className="hover:text-white">Why Orisei</a>
-            <a href="#network" className="hover:text-white">Network</a>
-            <a href="#contact" className="hover:text-white">Contact</a>
-          </nav>
-          <Link
-            to="/login"
-            data-testid="landing-signin-cta"
-            className="text-xs font-mono uppercase tracking-wider px-4 py-2 rounded-md border border-white/10 hover:border-[#C9A24A]/60 hover:text-[#C9A24A] transition-colors"
-          >
-            Operator Sign-In →
-          </Link>
-        </div>
-      </header>
+      <PublicNav brand={brand} />
 
       {/* Hero */}
       <section className="relative overflow-hidden">
@@ -208,44 +187,51 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Contact */}
+      {/* Contact + Quote Form */}
       <section id="contact" className="max-w-7xl mx-auto px-6 py-20">
-        <div className="rounded-2xl border p-10 text-center" style={{ borderColor: `${gold}55`, background: `linear-gradient(135deg, ${azure}cc, ${azure}99)` }}>
-          <div className="text-[10px] font-mono uppercase tracking-[0.3em]" style={{ color: gold }}>Get in touch</div>
-          <h2 className="font-display font-black text-3xl md:text-4xl mt-3">Have a lane? Let's quote it in 15 minutes.</h2>
-          <p className="text-slate-300 mt-3 max-w-2xl mx-auto">
-            Email us the origin, destination, equipment, and weekly volume — we'll send back a fixed-rate trial on your top 3 lanes within 24 business hours, with disclosed margin.
-          </p>
-          <div className="mt-7 flex flex-col sm:flex-row gap-3 justify-center">
-            <a
-              href="mailto:oliver@oriseifreight.com?subject=Lane%20quote%20request"
-              data-testid="landing-contact-email"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-bold text-sm tracking-wider uppercase font-mono"
-              style={{ background: gold, color: azure }}
-            >
-              <Mail size={14} /> oliver@oriseifreight.com
-            </a>
-            <a
-              href="tel:+16125550117"
-              data-testid="landing-contact-phone"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-bold text-sm tracking-wider uppercase font-mono border border-white/20 text-white"
-            >
-              <Phone size={14} /> (612) 555-0117
-            </a>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.3em]" style={{ color: gold }}>Get a quote</div>
+            <h2 className="font-display font-black text-3xl md:text-4xl mt-3">Have a lane?<br/>We'll quote it in 60 minutes.</h2>
+            <p className="text-slate-300 mt-4 leading-relaxed">
+              Tell us about the freight. A named broker will email back within an hour
+              during business hours with a firm rate and a covered carrier — no
+              tire-kicking, no fishing-for-margin nonsense.
+            </p>
+            <div className="mt-6 space-y-2 text-sm text-slate-300">
+              <div className="flex items-center gap-3">
+                <Mail size={14} style={{ color: gold }} />
+                <a href="mailto:oliver@oriseifreight.com" data-testid="landing-contact-email" className="hover:underline">oliver@oriseifreight.com</a>
+              </div>
+              <div className="flex items-center gap-3">
+                <Phone size={14} style={{ color: gold }} />
+                <a href="tel:+16125550117" data-testid="landing-contact-phone" className="hover:underline">(612) 555-0117</a>
+              </div>
+            </div>
+            <div className="mt-6 grid grid-cols-2 gap-3 text-xs">
+              <div className="rounded p-3 border" style={{ borderColor: `${gold}33`, background: "rgba(0,0,0,0.2)" }}>
+                <div className="font-mono uppercase tracking-wider text-[9px]" style={{ color: gold }}>Coverage</div>
+                <div className="text-slate-200 mt-1">48-state · TL · LTL · Reefer · Flatbed · Step-Deck</div>
+              </div>
+              <div className="rounded p-3 border" style={{ borderColor: `${gold}33`, background: "rgba(0,0,0,0.2)" }}>
+                <div className="font-mono uppercase tracking-wider text-[9px]" style={{ color: gold }}>Insurance</div>
+                <div className="text-slate-200 mt-1">BMC-84 · Contingent Cargo · E&amp;O</div>
+              </div>
+            </div>
+          </div>
+          <div
+            id="quote"
+            className="rounded-2xl border p-6 md:p-8"
+            style={{ borderColor: `${gold}55`, background: `linear-gradient(135deg, ${azure}cc, ${azure}66)` }}
+          >
+            <div className="text-[10px] font-mono uppercase tracking-[0.3em] mb-3" style={{ color: gold }}>Quote request</div>
+            <QuoteForm />
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 bg-[#080F1B]">
-        <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div className="flex items-center gap-3">
-            <img src={brand.logo_url} alt="Orisei" className="h-6 w-6" />
-            <span>{brand.company_name} · Minneapolis · Saint Paul · Minnesota</span>
-          </div>
-          <div className="font-mono uppercase tracking-wider">© {new Date().getFullYear()} · MC# pending · BMC-84 surety bond filed</div>
-        </div>
-      </footer>
+      <PublicFooter brand={brand} />
     </div>
   );
 }

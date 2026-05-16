@@ -19,6 +19,9 @@ import Integrations from "@/pages/Integrations";
 import Connections from "@/pages/Connections";
 import ProviderOutreach from "@/pages/ProviderOutreach";
 import Landing from "@/pages/Landing";
+import Services from "@/pages/Services";
+import Lanes from "@/pages/Lanes";
+import Contact from "@/pages/Contact";
 import Reports from "@/pages/Reports";
 import Chat from "@/pages/Chat";
 import QuickLinks from "@/pages/QuickLinks";
@@ -60,6 +63,13 @@ import { MusicProvider } from "@/lib/music";
 import MiniPlayer from "@/components/MiniPlayer";
 import DeployHealthBanner from "@/components/DeployHealthBanner";
 
+function RootRedirect() {
+  // Public root: just show the Landing page. Authenticated operators have
+  // /dashboard in the sidebar / can sign in via the nav. This way the public
+  // root of the domain is the marketing site, exactly as a customer expects.
+  return <Landing />;
+}
+
 function AppRouter() {
   const location = useLocation();
   // Synchronous check (before useEffects) — handle Emergent OAuth fragment
@@ -68,8 +78,12 @@ function AppRouter() {
   }
   return (
     <Routes>
+      <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<Login />} />
       <Route path="/home" element={<Landing />} />
+      <Route path="/services" element={<Services />} />
+      <Route path="/lanes" element={<Lanes />} />
+      <Route path="/contact" element={<Contact />} />
       <Route path="/about" element={<About />} />
       <Route path="/marketing" element={<About />} />
       <Route path="/landing" element={<About />} />
@@ -79,7 +93,6 @@ function AppRouter() {
       <Route path="/driver/:shipmentId" element={<DriverMobile />} />
 
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-        <Route path="/" element={<Dashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/shipments" element={<Shipments />} />
         <Route path="/book-load" element={<BookLoad />} />
