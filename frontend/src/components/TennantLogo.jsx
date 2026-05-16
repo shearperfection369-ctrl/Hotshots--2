@@ -11,7 +11,7 @@ export const TennantLogo = ({ size = "md", className = "" }) => {
   const { brand } = useBranding();
   const isDefault = brand?.brand_id === "tennant" || !brand?.brand_id;
 
-  // Orisei custom-asset path — uses the Moorish-inspired generated logo.
+  // Orisei custom-asset path — uses the Queen Calafia + griffin emblem.
   if (brand?.brand_id === "orisei-freight") {
     const px = { sm: 28, md: 36, lg: 52 }[size] || 36;
     return (

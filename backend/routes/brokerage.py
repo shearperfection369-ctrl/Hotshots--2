@@ -24,8 +24,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import resend
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, EmailStr, Field
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -34,6 +34,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from routes.connections import get_connection_credentials
+from routes.loadboard_adapters import try_fetch_live
 from routes.orisei_docs import build_bol_pdf, build_pod_pdf
 
 
@@ -684,10 +685,24 @@ def build_brokerage_router(
         origin: Optional[str] = None,
         _=Depends(get_current_user),
     ):
-        rows = _gen_loads_for_board(board_id)
+        # Try live adapter first if API keys are configured in the Connections vault.
+        live_source: Optional[str] = None
+        rows: List[Dict[str, Any]] = []
+        try:
+            creds = await get_connection_credentials(db, board_id)
+        except Exception:
+            creds = None
+        if creds:
+            live = await try_fetch_live(board_id, creds)
+            if live:
+                rows = live
+                live_source = "live"
+        if not rows:
+            rows = _gen_loads_for_board(board_id)
+            live_source = "synthetic"
         if equipment: rows = [r for r in rows if r["equipment"].lower() == equipment.lower()]
         if origin:    rows = [r for r in rows if origin.lower() in r["origin"].lower()]
-        return {"board_id": board_id, "count": len(rows), "loads": rows}
+        return {"board_id": board_id, "count": len(rows), "loads": rows, "source": live_source}
 
     @router.get("/boards/{board_id}/loads/{load_id}")
     async def board_load_detail(board_id: str, load_id: str, _=Depends(get_current_user)):
@@ -815,9 +830,17 @@ def build_brokerage_router(
         return {"bookings": rows, "count": len(rows)}
 
     @router.put("/bookings/{booked_id}/customer")
-    async def set_booking_customer(booked_id: str, payload: CustomerInfoIn, _=Depends(get_current_user)):
-        """Attach customer contact info to a booked load so we can email POD."""
+    async def set_booking_customer(booked_id: str, payload: CustomerInfoIn, user=Depends(get_current_user)):
+        """Attach customer contact info to a booked load so we can email POD.
+
+        If `auto_email_bol_on_book` is enabled in /settings and the saved
+        customer has an email, the freshly-rendered BOL is mailed to them
+        automatically as a one-step "book → tender" hand-off.
+        """
         update = payload.model_dump(exclude_none=True)
+        had_email_before = bool((await db.brokerage_bookings.find_one(
+            {"booked_id": booked_id}, {"_id": 0, "customer_email": 1}
+        ) or {}).get("customer_email"))
         r = await db.brokerage_bookings.find_one_and_update(
             {"booked_id": booked_id},
             {"$set": update},
@@ -826,13 +849,103 @@ def build_brokerage_router(
         )
         if not r:
             raise HTTPException(404, "Booking not found")
+
+        settings = await db.brokerage_settings.find_one({"_id": "main"}, {"_id": 0}) or {}
+        auto_result: Dict[str, Any] = {}
+        if (settings.get("auto_email_bol_on_book")
+                and r.get("customer_email")
+                and not had_email_before):
+            try:
+                auto_result = await _send_bol_email(r, settings.get("bol_message_template"), user)
+            except HTTPException as exc:
+                auto_result = {"auto_email_error": exc.detail}
+            except Exception as exc:                                # noqa: BLE001
+                logger.exception("Auto-BOL email failed")
+                auto_result = {"auto_email_error": str(exc)[:200]}
+        if auto_result:
+            r["_auto_bol"] = auto_result
         return r
+
+    async def _send_bol_email(booking: Dict[str, Any], message_template: Optional[str], user) -> Dict[str, Any]:
+        """Render BOL PDF + send to booking.customer_email via Resend. Mirrors POD flow."""
+        brand = await _active_brand(db)
+        shipper, consignee = _brand_addresses(booking, brand)
+        doc_id = f"ORI-BOL-{booking['booked_id'].replace('BK-', '')}"
+        pdf_bytes = build_bol_pdf(
+            doc_id=doc_id, booking=booking,
+            shipper=shipper, consignee=consignee,
+            user_name=getattr(user, "name", None),
+        )
+        await db.brokerage_bookings.update_one(
+            {"booked_id": booking["booked_id"]},
+            {"$set": {"bol_no": doc_id, "bol_generated_at": datetime.now(timezone.utc).isoformat()}},
+        )
+        creds = await get_connection_credentials(db, "resend") or {}
+        api_key = creds.get("api_key")
+        if not api_key:
+            return {"auto_email_error": "Resend not configured", "doc_id": doc_id}
+        from_addr = creds.get("from_email") or "Orisei Freight <oliver@oriseifreight.com>"
+        reply_to = creds.get("reply_to") or "oliver@oriseifreight.com"
+        subject = f"BOL · {booking.get('load_id') or booking['booked_id']} · {booking.get('origin','')} → {booking.get('destination','')}"
+        msg_html = (message_template or "").replace("\n", "<br>")
+        body_html = f"""<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#FBF8F0;padding:24px;color:#0B1320;">
+<div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #E6CB85;border-radius:8px;overflow:hidden;">
+  <div style="background:#0E3A6B;color:#fff;padding:22px 26px;border-bottom:3px solid #C9A24A;">
+    <div style="font-size:11px;letter-spacing:.3em;color:#C9A24A;text-transform:uppercase;font-family:Courier,monospace;">Orisei Freight Solutions</div>
+    <div style="font-size:22px;font-weight:800;margin-top:6px;">Bill of Lading · {booking.get('load_id') or booking['booked_id']}</div>
+  </div>
+  <div style="padding:24px 26px;font-size:14px;line-height:1.6;">
+    <p>Hi {booking.get('customer_contact') or booking.get('customer_name') or 'Team'},</p>
+    <p>Attached is the signed BOL for the tendered load. Pickup will be confirmed shortly.</p>
+    {f'<p style="background:#FBF8F0;border-left:3px solid #C9A24A;padding:10px 14px;font-style:italic;">{msg_html}</p>' if msg_html else ''}
+    <p style="margin-top:20px;">— Operations<br><b>Orisei Freight Solutions LLC</b><br>oliver@oriseifreight.com · (612) 555-0117</p>
+  </div></div></body></html>"""
+        try:
+            resend.api_key = api_key
+            resp = resend.Emails.send({
+                "from": from_addr, "to": [booking["customer_email"]],
+                "subject": subject, "html": body_html, "reply_to": reply_to,
+                "attachments": [{"filename": f"{doc_id}.pdf", "content": list(pdf_bytes)}],
+            })
+        except Exception as exc:                                    # noqa: BLE001
+            logger.exception("BOL auto-email Resend failed")
+            return {"auto_email_error": str(exc)[:200], "doc_id": doc_id}
+        msg_id = (resp or {}).get("id") if isinstance(resp, dict) else None
+        await db.bol_outreach.insert_one({
+            "id": f"BOL-{uuid.uuid4().hex[:10].upper()}",
+            "booked_id": booking["booked_id"], "doc_id": doc_id,
+            "to_email": booking["customer_email"],
+            "subject": subject,
+            "message_id": msg_id, "status": "sent",
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "sent_by": getattr(user, "user_id", None),
+        })
+        return {"auto_email_sent": True, "doc_id": doc_id, "message_id": msg_id}
+
 
     async def _booking_or_404(booked_id: str) -> Dict[str, Any]:
         b = await db.brokerage_bookings.find_one({"booked_id": booked_id}, {"_id": 0})
         if not b:
             raise HTTPException(404, "Booking not found")
         return b
+
+    async def _load_pod_photos(booked_id: str) -> List[Dict[str, Any]]:
+        """Load up to 3 attached delivery photos as bytes for PDF embedding."""
+        rows = await db.pod_photos.find(
+            {"booked_id": booked_id}, {"_id": 0}
+        ).sort("uploaded_at", 1).to_list(3)
+        out: List[Dict[str, Any]] = []
+        for r in rows:
+            data = r.get("data")
+            if isinstance(data, bytes):
+                out.append({"bytes": data, "filename": r.get("filename"), "caption": r.get("caption")})
+            elif isinstance(data, str):
+                import base64 as _b64
+                try:
+                    out.append({"bytes": _b64.b64decode(data), "filename": r.get("filename"), "caption": r.get("caption")})
+                except Exception:                                    # noqa: BLE001
+                    continue
+        return out
 
     def _brand_addresses(booking: Dict[str, Any], brand: Dict[str, Any]):
         shipper = {
@@ -878,7 +991,8 @@ def build_brokerage_router(
         booking = await _booking_or_404(booked_id)
         brand = await _active_brand(db)
         shipper, consignee = _brand_addresses(booking, brand)
-        delivery = booking.get("delivery") or {}
+        delivery = dict(booking.get("delivery") or {})
+        delivery["photos"] = await _load_pod_photos(booked_id)
         doc_id = f"ORI-POD-{booked_id.replace('BK-', '')}"
         pdf = build_pod_pdf(
             doc_id=doc_id, booking=booking,
@@ -1031,6 +1145,140 @@ def build_brokerage_router(
     async def pod_history(booked_id: str, _=Depends(get_current_user)):
         rows = await db.pod_outreach.find({"booked_id": booked_id}, {"_id": 0}).sort("sent_at", -1).to_list(50)
         return {"items": rows, "count": len(rows)}
+
+    # ---------- POD photo attachments (max 3 per booking, mobile-friendly) ----------
+    @router.post("/bookings/{booked_id}/pod/photos")
+    async def upload_pod_photo(
+        booked_id: str,
+        file: UploadFile = File(...),
+        caption: Optional[str] = Form(None),
+        user=Depends(get_current_user),
+    ):
+        await _booking_or_404(booked_id)
+        existing = await db.pod_photos.count_documents({"booked_id": booked_id})
+        if existing >= 3:
+            raise HTTPException(400, "Maximum 3 photos per booking — delete one first")
+        content = await file.read()
+        if not content:
+            raise HTTPException(400, "Empty upload")
+        if len(content) > 8 * 1024 * 1024:
+            raise HTTPException(400, "Photo too large (8 MB max)")
+        # Downsample to ~1024px max edge before storing to keep DB lean.
+        try:
+            from PIL import Image as PILImage
+            im = PILImage.open(io.BytesIO(content)).convert("RGB")
+            im.thumbnail((1024, 1024), PILImage.LANCZOS)
+            out = io.BytesIO()
+            im.save(out, format="JPEG", quality=82, optimize=True)
+            content = out.getvalue()
+        except Exception:                                            # noqa: BLE001
+            logger.exception("PIL downsample failed — storing original")
+        photo_id = f"PHO-{uuid.uuid4().hex[:10].upper()}"
+        await db.pod_photos.insert_one({
+            "photo_id": photo_id,
+            "booked_id": booked_id,
+            "filename": file.filename or f"{photo_id}.jpg",
+            "caption": caption or None,
+            "data": content,
+            "size_bytes": len(content),
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "uploaded_by": getattr(user, "user_id", None),
+        })
+        return {"photo_id": photo_id, "size_bytes": len(content),
+                "filename": file.filename, "caption": caption}
+
+    @router.get("/bookings/{booked_id}/pod/photos")
+    async def list_pod_photos(booked_id: str, _=Depends(get_current_user)):
+        rows = await db.pod_photos.find(
+            {"booked_id": booked_id},
+            {"_id": 0, "data": 0},
+        ).sort("uploaded_at", 1).to_list(10)
+        return {"photos": rows, "count": len(rows)}
+
+    @router.get("/bookings/{booked_id}/pod/photos/{photo_id}")
+    async def get_pod_photo(booked_id: str, photo_id: str, _=Depends(get_current_user)):
+        row = await db.pod_photos.find_one(
+            {"booked_id": booked_id, "photo_id": photo_id},
+            {"_id": 0},
+        )
+        if not row:
+            raise HTTPException(404, "Photo not found")
+        return Response(content=row["data"], media_type="image/jpeg")
+
+    @router.delete("/bookings/{booked_id}/pod/photos/{photo_id}")
+    async def delete_pod_photo(booked_id: str, photo_id: str, _=Depends(get_current_user)):
+        r = await db.pod_photos.delete_one({"booked_id": booked_id, "photo_id": photo_id})
+        if not r.deleted_count:
+            raise HTTPException(404, "Photo not found")
+        return {"deleted": True}
+
+    # ---------- Brokerage settings (auto-mail toggles) ----------
+    @router.get("/settings")
+    async def get_settings(_=Depends(get_current_user)):
+        doc = await db.brokerage_settings.find_one({"_id": "main"}, {"_id": 0})
+        return doc or {
+            "auto_email_bol_on_book": False,
+            "auto_email_pod_on_delivery": False,
+            "bol_message_template": "",
+            "pod_message_template": "",
+        }
+
+    @router.put("/settings")
+    async def update_settings(payload: Dict[str, Any], _=Depends(require_role("admin"))):
+        allowed = {"auto_email_bol_on_book", "auto_email_pod_on_delivery",
+                   "bol_message_template", "pod_message_template"}
+        clean = {k: v for k, v in (payload or {}).items() if k in allowed}
+        if not clean:
+            raise HTTPException(400, "No valid settings keys provided")
+        await db.brokerage_settings.update_one(
+            {"_id": "main"}, {"$set": clean}, upsert=True,
+        )
+        doc = await db.brokerage_settings.find_one({"_id": "main"}, {"_id": 0})
+        return doc
+
+    # ---------- Mark Delivered (triggers POD auto-mail when enabled) ----------
+    @router.post("/bookings/{booked_id}/mark-delivered")
+    async def mark_delivered(booked_id: str, payload: PodDeliveryIn, user=Depends(get_current_user)):
+        """One-tap 'mark delivered' for dispatchers.
+
+        Stores delivery fields, flips booking.status='delivered', and — if
+        auto_email_pod_on_delivery is enabled in brokerage_settings AND a
+        customer_email is on the booking — emails the POD automatically.
+        """
+        booking = await _booking_or_404(booked_id)
+        delivery_payload = payload.model_dump(exclude_none=True)
+        delivery_payload.setdefault("delivered_at",
+                                    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
+        await db.brokerage_bookings.update_one(
+            {"booked_id": booked_id},
+            {"$set": {
+                "delivery": delivery_payload,
+                "status": "delivered",
+                "delivered_at": delivery_payload["delivered_at"],
+            }},
+        )
+        booking = await db.brokerage_bookings.find_one({"booked_id": booked_id}, {"_id": 0})
+
+        settings = await db.brokerage_settings.find_one({"_id": "main"}, {"_id": 0}) or {}
+        result = {"ok": True, "auto_email_sent": False}
+        if (settings.get("auto_email_pod_on_delivery")
+                and booking and booking.get("customer_email")):
+            try:
+                auto_payload = PodEmailIn(
+                    to_email=booking["customer_email"],
+                    to_name=booking.get("customer_contact") or booking.get("customer_name"),
+                    subject=None, message=settings.get("pod_message_template"),
+                    delivery=payload, dry_run=False,
+                )
+                resp = await email_booking_pod(booked_id, auto_payload, user)  # type: ignore[arg-type]
+                result["auto_email_sent"] = True
+                result["pod_outreach_id"] = resp.get("id")
+            except HTTPException as exc:
+                result["auto_email_error"] = exc.detail
+            except Exception as exc:                                # noqa: BLE001
+                logger.exception("Auto-POD email failed")
+                result["auto_email_error"] = str(exc)[:200]
+        return result
 
     # ============================ DRIVER ROSTER ============================
     @router.get("/drivers")

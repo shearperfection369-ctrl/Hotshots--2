@@ -56,7 +56,7 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        {/* Moorish-pattern decorative backdrop */}
+        {/* Heraldic dot-pattern decorative backdrop */}
         <div
           aria-hidden
           className="absolute inset-0 opacity-[0.10] pointer-events-none"
@@ -121,7 +121,7 @@ export default function Landing() {
             >
               <img src={brand.logo_url} alt="Orisei mark" className="w-72 h-72 object-contain drop-shadow-2xl" data-testid="landing-hero-logo" />
               <div className="text-center mt-4 font-mono text-[10px] tracking-[0.3em] uppercase" style={{ color: gold }}>
-                ◇ Khatim al-Sulayman ◇
+                ◇ Queen Calafia · Mounted on her Griffin ◇
               </div>
             </div>
           </div>

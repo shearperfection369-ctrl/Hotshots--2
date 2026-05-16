@@ -152,6 +152,9 @@ function DashboardTab({ dash, refresh }) {
         </Card>
       </div>
 
+      {/* Auto-mail automation */}
+      <BrokerageAutoMailCard refresh={refresh} />
+
       {/* Margin by board */}
       <Card className="hud-surface p-4" data-testid="brokerage-margin-table">
         <div className="flex items-center justify-between mb-3">
@@ -263,6 +266,7 @@ function BoardsTab({ refresh }) {
   const [boards, setBoards] = useState([]);
   const [active, setActive] = useState("dat");
   const [loads, setLoads] = useState([]);
+  const [source, setSource] = useState(null);
   const [book, setBook] = useState(null);
   const [carrier, setCarrier] = useState("");
   const [carrierMc, setCarrierMc] = useState("");
@@ -271,7 +275,9 @@ function BoardsTab({ refresh }) {
   useEffect(() => { api.get("/brokerage/boards").then(({ data }) => setBoards(data.boards)).catch(() => {}); }, []);
   useEffect(() => {
     if (!active) return;
-    api.get(`/brokerage/boards/${active}/loads`).then(({ data }) => setLoads(data.loads)).catch(() => {});
+    api.get(`/brokerage/boards/${active}/loads`).then(({ data }) => {
+      setLoads(data.loads); setSource(data.source || null);
+    }).catch(() => {});
   }, [active]);
 
   const doBook = async () => {
@@ -308,7 +314,19 @@ function BoardsTab({ refresh }) {
       </div>
 
       <Card className="hud-surface p-4">
-        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-3">{active.toUpperCase()} · Live Postings</div>
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-3 flex items-center justify-between">
+          <span>{active.toUpperCase()} · Live Postings</span>
+          {source && (
+            <span
+              data-testid="board-source-badge"
+              className={`px-1.5 py-0.5 rounded text-[9px] ${
+                source === "live"
+                  ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                  : "bg-slate-500/15 text-slate-400 border border-slate-500/30"
+              }`}
+            >{source === "live" ? "LIVE API FEED" : "SYNTHETIC FALLBACK"}</span>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
@@ -1735,6 +1753,29 @@ function BookedLoadsPanel({ refresh }) {
                     >
                       <Mail size={11} className="inline-block mr-1" /> Email POD
                     </button>
+                    {b.status !== "delivered" && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const { data } = await api.post(`/brokerage/bookings/${b.booked_id}/mark-delivered`, {
+                              delivered_at: new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC",
+                              condition: "Received in apparent good order — no visible damage.",
+                              seal_intact: true,
+                            });
+                            if (data.auto_email_sent) toast.success("Delivered · POD auto-mailed");
+                            else if (data.auto_email_error) toast.success(`Delivered · auto-mail skipped: ${data.auto_email_error}`);
+                            else toast.success("Marked delivered");
+                            load();
+                          } catch (e) { toast.error("Failed to mark delivered"); }
+                        }}
+                        title="Mark delivered (may auto-mail POD)"
+                        className="px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider"
+                        style={{ background: "#10B98120", border: "1px solid #10B98155", color: "#6EE7B7" }}
+                        data-testid={`mark-delivered-${b.booked_id}`}
+                      >
+                        <CheckCircle2 size={11} className="inline-block mr-1" /> Delivered
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -1924,6 +1965,9 @@ function PodEmailDialog({ booking, onClose, onSent }) {
             <Label className="text-[10px] font-mono uppercase">Condition / Notes</Label>
             <Textarea value={f.condition || ""} onChange={set("condition")} rows={2} className="bg-slate-950 border-white/10" />
           </div>
+          <div className="md:col-span-2 border-t border-white/5 pt-3">
+            <PodPhotoUploader bookedId={booking?.booked_id} />
+          </div>
         </div>
         <DialogFooter className="gap-2">
           <Button onClick={onClose} variant="ghost" disabled={busy}>Cancel</Button>
@@ -1936,5 +1980,173 @@ function PodEmailDialog({ booking, onClose, onSent }) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+
+// ============================================================
+//   POD PHOTO UPLOADER · mobile-friendly, max 3 dock photos
+// ============================================================
+function PodPhotoUploader({ bookedId }) {
+  const [photos, setPhotos] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const load = () => {
+    if (!bookedId) return;
+    api.get(`/brokerage/bookings/${bookedId}/pod/photos`)
+       .then(({ data }) => setPhotos(data.photos || []))
+       .catch(() => {});
+  };
+  useEffect(load, [bookedId]);
+  const upload = async (file, caption) => {
+    if (!file || !bookedId) return;
+    if (photos.length >= 3) { toast.error("Max 3 photos"); return; }
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (caption) fd.append("caption", caption);
+      await api.post(`/brokerage/bookings/${bookedId}/pod/photos`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success("Photo attached");
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Upload failed");
+    } finally { setBusy(false); }
+  };
+  const remove = async (photoId) => {
+    try {
+      await api.delete(`/brokerage/bookings/${bookedId}/pod/photos/${photoId}`);
+      toast.success("Photo removed"); load();
+    } catch (e) { toast.error("Remove failed"); }
+  };
+  return (
+    <div data-testid="pod-photo-uploader">
+      <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2 flex items-center justify-between"
+           style={{ color: "#C9A24A" }}>
+        <span>Dock Photos · attached to POD PDF ({photos.length}/3)</span>
+        {busy && <Loader2 className="animate-spin" size={12} />}
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {photos.map((p) => (
+          <div key={p.photo_id} className="relative border border-white/10 rounded p-2 bg-white/[0.02]">
+            <img
+              src={`${BACKEND_URL}/api/brokerage/bookings/${bookedId}/pod/photos/${p.photo_id}`}
+              alt={p.caption || p.filename}
+              className="w-full h-24 object-cover rounded"
+            />
+            <div className="text-[10px] font-mono mt-1 text-slate-400 truncate">{p.caption || p.filename}</div>
+            <button
+              onClick={() => remove(p.photo_id)}
+              className="absolute top-1 right-1 bg-black/70 hover:bg-red-500 text-white rounded-full w-5 h-5 text-[10px] flex items-center justify-center"
+              data-testid={`pod-photo-remove-${p.photo_id}`}
+              title="Remove"
+            >×</button>
+          </div>
+        ))}
+        {photos.length < 3 && (
+          <label
+            className="flex flex-col items-center justify-center border border-dashed rounded h-24 cursor-pointer text-[10px] font-mono uppercase tracking-wider hover:bg-white/[0.04]"
+            style={{ borderColor: "#C9A24A55", color: "#C9A24A" }}
+            data-testid="pod-photo-upload-btn"
+          >
+            <Plus size={14} className="mb-1" />
+            Add Photo
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }}
+            />
+          </label>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+//   AUTO-MAIL SETTINGS · BOL on tender / POD on delivered
+// ============================================================
+function BrokerageAutoMailCard({ refresh }) {
+  const [s, setS] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = () => api.get("/brokerage/settings").then(({ data }) => setS(data)).catch(() => {});
+  useEffect(() => { load(); }, []);
+  const update = async (patch) => {
+    setBusy(true);
+    try {
+      const { data } = await api.put("/brokerage/settings", { ...s, ...patch });
+      setS(data); toast.success("Settings saved"); refresh?.();
+    } catch (e) { toast.error("Save failed"); } finally { setBusy(false); }
+  };
+  if (!s) return null;
+  const Toggle = ({ k, label, hint, tid }) => (
+    <label className="flex items-start gap-3 p-3 rounded border border-white/5 hover:border-white/15 cursor-pointer transition" data-testid={tid}>
+      <input
+        type="checkbox"
+        checked={!!s[k]}
+        disabled={busy}
+        onChange={(e) => update({ [k]: e.target.checked })}
+        className="mt-1 accent-amber-400"
+      />
+      <div>
+        <div className="text-sm text-slate-200 font-medium">{label}</div>
+        <div className="text-[11px] text-slate-500 leading-snug mt-0.5">{hint}</div>
+      </div>
+    </label>
+  );
+  return (
+    <Card className="hud-surface p-4" data-testid="auto-mail-card">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em]" style={{ color: "#C9A24A" }}>Automation</div>
+          <h3 className="font-display text-lg font-bold flex items-center gap-2">
+            <Zap size={16} style={{ color: "#C9A24A" }} /> Auto-Mail Documents
+          </h3>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Toggle
+          k="auto_email_bol_on_book"
+          label="Email BOL when customer is added"
+          hint="As soon as customer info + email is attached to a booking, mail the rendered BOL automatically."
+          tid="toggle-auto-bol"
+        />
+        <Toggle
+          k="auto_email_pod_on_delivery"
+          label="Email POD when driver marks delivered"
+          hint="Calls /mark-delivered → renders POD + photos → mails the customer. Skips silently if customer email is missing."
+          tid="toggle-auto-pod"
+        />
+        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+          <div>
+            <Label className="text-[10px] font-mono uppercase">BOL note (optional)</Label>
+            <Textarea
+              value={s.bol_message_template || ""}
+              onChange={(e) => setS((p) => ({ ...p, bol_message_template: e.target.value }))}
+              onBlur={() => update({ bol_message_template: s.bol_message_template })}
+              rows={2}
+              className="bg-slate-950 border-white/10 text-sm"
+              placeholder="Optional intro message stamped into auto-sent BOL emails."
+              data-testid="auto-bol-template"
+            />
+          </div>
+          <div>
+            <Label className="text-[10px] font-mono uppercase">POD note (optional)</Label>
+            <Textarea
+              value={s.pod_message_template || ""}
+              onChange={(e) => setS((p) => ({ ...p, pod_message_template: e.target.value }))}
+              onBlur={() => update({ pod_message_template: s.pod_message_template })}
+              rows={2}
+              className="bg-slate-950 border-white/10 text-sm"
+              placeholder="Optional thank-you note stamped into auto-sent POD emails."
+              data-testid="auto-pod-template"
+            />
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }

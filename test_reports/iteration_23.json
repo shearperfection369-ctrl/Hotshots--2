@@ -1,0 +1,42 @@
+{
+  "summary": "Iter 23 — Orisei Calafia logo + POD Photos + Auto-mail toggles + Mark-Delivered + Live load-board source field. Backend: created /app/backend/tests/test_iter23_calafia_photos_automail.py (24 tests, all pass against the preview URL) covering GET/PUT /brokerage/settings (defaults, allowlist filter, admin-only, empty-payload 400), PUT /bookings/{id}/customer auto_email_bol hook (returns _auto_bol.auto_email_error mentioning Resend on a fresh booking transition), POST/GET/DELETE /pod/photos (max-3 enforced w/ 400, list omits binary, fetch returns image/jpeg, delete + 404 retry), POD pdf grows when photos attached (verified larger than a photo-less booking), POST /bookings/{id}/mark-delivered (status flips to delivered + auto_email_error 'Resend' hint, silent skip when customer_email missing), GET /boards/{id}/loads `source: synthetic` present on dat/truckstop/convoy, plus regression on dashboard, bookings shape, bol.pdf, pod email dry-run, pod-history, qb oauth start, loads/book, margins. Frontend: verified Landing /home renders Queen Calafia + griffin emblem with caption '◇ QUEEN CALAFIA · MOUNTED ON HER GRIFFIN ◇' (no stale Khatim/Sulayman text). Brokerage Dashboard tab BrokerageAutoMailCard renders with toggle-auto-bol + toggle-auto-pod. Boards tab shows board-source-badge='SYNTHETIC FALLBACK' next to active board, BookedLoadsPanel renders CUSTOMER/BOL/POD/EMAIL POD/DELIVERED buttons per row (mark-delivered-{id} testids present). PodEmailDialog opens with PodPhotoUploader section 'Dock Photos · 0/3' + 'Add Photo' dropzone. FOUND + FIXED one CRITICAL frontend bug: BrokerageAutoMailCard had `useEffect(load, [])` where `load` is an arrow fn implicit-returning a Promise — caused 'destroy is not a function' uncaught runtime error overlay that crashed the whole Brokerage page. Wrapped with `useEffect(() => { load(); }, [])`. After fix, all dashboard + boards + dialog elements render cleanly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Landing /home logo medallion", "issues": ["The Queen-Calafia + griffin PNG appears to have transparent regions that render as a checkerboard pattern inside the heraldic medallion frame (visible in the screenshot). Confirm /app/frontend/public/brand/orisei_logo.png has a solid deep-navy fill on the medallion disc OR drop the PNG onto a solid background div instead of relying on a transparent PNG."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter23_calafia_photos_automail.py",
+    "/app/test_reports/pytest/iter23_results.xml"
+  ],
+  "action_items": [
+    "[verify] BrokerageAutoMailCard useEffect was fixed by testing agent (line 2076 in /app/frontend/src/pages/Brokerage.jsx) — the same arrow-function-implicit-return-Promise pattern may exist elsewhere; grep `useEffect\\([a-z]+, *\\[` for similar shapes.",
+    "[low/design] Queen Calafia medallion PNG shows transparency checkerboard inside the deep-navy disc on /home — re-flatten the logo onto its navy background OR set medallion container bg = #0E3A6B before rendering the PNG.",
+    "[carryover from iter22] db.brokerage_bookings still has a legacy doc without booked_id → React 'unique key' warning in BookedLoadsPanel tbody (still observed). Filter the find or delete the legacy row."
+  ],
+  "critical_code_review_comments": [
+    "/app/frontend/src/pages/Brokerage.jsx is 2153 lines — well past 700-line guideline. Extract BrokerageAutoMailCard, BookedLoadsPanel, PodEmailDialog, PodPhotoUploader, BoardsTab into their own files under components/brokerage/.",
+    "BrokerageAutoMailCard.update() does an optimistic full-doc PUT (`{...s, ...patch}`) — fine, but on save failure it does not revert local state, so the UI shows the failed value until next /settings GET.",
+    "/api/brokerage/bookings/{id}/mark-delivered calls email_booking_pod(...) by directly invoking the route function with the FastAPI Depends-injected `user` object. This works in practice because get_current_user is bypassed (user is already authenticated), but it tightly couples two route handlers. Consider factoring the POD email logic into an internal `_send_pod_email(booking, payload, user)` helper (matching `_send_bol_email`).",
+    "/brokerage/settings has no audit-log — admins can silently flip auto_email_pod_on_delivery and customers start receiving auto-mails. Persist a `last_updated_by` + `last_updated_at` in db.brokerage_settings.",
+    "pod_photos collection stores binary `data` field on every doc — at 3 photos × ~80KB each × many bookings, Mongo doc size + index size grows fast. Consider GridFS or S3 for photo bytes; keep metadata in pod_photos.",
+    "PUT /bookings/{id}/customer auto-BOL hook only fires when transitioning empty→has email. If the customer email gets corrected (e.g. typo fix) the BOL is NOT re-mailed silently — good — but there is no surfaced indicator to the user that the auto-mail was skipped. Add `_auto_bol: {skipped: 'already had email'}` for clarity."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter23_calafia_photos_automail.py",
+    "/app/frontend/src/pages/Brokerage.jsx (fixed useEffect Promise-return crash on line ~2076)"
+  ],
+  "success_rate": {"backend": "100% (24/24)", "frontend": "100% — landing, dashboard auto-mail card, boards source badge, booked-loads panel buttons, POD email dialog with photo uploader all verified"},
+  "test_credentials": "Admin Bearer test_session_admin_1 + Dispatcher Bearer test_disp_session (used to confirm settings PUT 403). Resend NOT configured (validated auto_email_error hint path on both /customer and /mark-delivered). DAT/Truckstop/Convoy live keys NOT configured (validated synthetic-fallback path).",
+  "seed_data_creation": "Booked 3 fresh TEST_ bookings across dat/truckstop boards (TEST_Iter23_Carrier, TEST_NoEmail_Carrier, TEST_PodSizeBaseline, TEST_Regression_Carrier). Uploaded up to 3 POD photos per booking then deleted one. Persisted TEST_AutoMailCo customer info on the auto-BOL fixture booking. Flipped 2 bookings to status='delivered' via mark-delivered.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend suite at /app/backend/tests/test_iter23_calafia_photos_automail.py is module-scoped — fresh_booking fixture books a new DAT load each run, so DB grows by ~3 TEST_ bookings + a few pod_photos per run. The mark-delivered auto-mail hint test depends on the EARLIER test in the same suite setting customer_email + auto_email_bol_on_book; do NOT run it in isolation. Last test (test_zz_reset_settings) resets toggles back to false. Frontend fix applied on /app/frontend/src/pages/Brokerage.jsx line ~2076 — please don't revert.",
+  "rca of the issue": "BrokerageAutoMailCard crash: `useEffect(load, [])` where `load = () => api.get(...).then(...).catch(...)`. The arrow-fn implicit-returns the axios Promise. React 19 in StrictMode treats the return value of a useEffect callback as the cleanup function and on unmount/double-invoke calls it as a function — calling a Promise as a function throws 'destroy is not a function'. Fix: wrap in a block-bodied arrow so the effect returns undefined: `useEffect(() => { load(); }, []);`."
+}

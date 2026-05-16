@@ -1,9 +1,9 @@
 """routes.orisei_docs — Brand-aware, beautiful PDF generators for Orisei.
 
 Renders the Bill of Lading (BOL) and Proof of Delivery (POD) with:
-  • Embedded Orisei logo and wordmark (from /app/frontend/public/brand/)
-  • Moorish-inspired gold/azure palette
-  • Decorative geometric border accent
+  • Embedded Orisei logo (Queen Calafia + griffin) and wordmark
+  • Heraldic gold/azure palette inspired by the California flag's grizzly + crown
+  • Decorative scroll-end corners and gold double-rule border
   • Clean parties / freight / signatures structure
 
 Used by `routes/brokerage.py` for the load-board "Generate BOL" and
@@ -35,7 +35,7 @@ from reportlab.platypus import (
 
 logger = logging.getLogger("tennant_tms.orisei_docs")
 
-# Moorish-inspired palette: deep azure + gold leaf accents
+# Heraldic palette: deep azure + gold leaf accents (Queen Calafia tribute)
 ORISEI_AZURE = colors.HexColor("#0E3A6B")
 ORISEI_GOLD = colors.HexColor("#C9A24A")
 ORISEI_GOLD_LIGHT = colors.HexColor("#E6CB85")
@@ -56,8 +56,8 @@ if not WORDMARK_PATH.exists():
 
 
 # ---------- Page decoration ----------
-def _draw_moorish_border(canvas: Canvas, doc: BaseDocTemplate) -> None:
-    """Decorative gold border + Moorish star pattern in corners."""
+def _draw_heraldic_border(canvas: Canvas, doc: BaseDocTemplate) -> None:
+    """Decorative gold border + heraldic scroll-end corner flourishes."""
     canvas.saveState()
     width, height = letter
     # Outer hairline frame
@@ -69,28 +69,34 @@ def _draw_moorish_border(canvas: Canvas, doc: BaseDocTemplate) -> None:
     canvas.setLineWidth(0.4)
     canvas.rect(0.42 * inch, 0.42 * inch, width - 0.84 * inch, height - 0.84 * inch, stroke=1, fill=0)
 
-    # 8-point star corners
-    def _star(cx: float, cy: float, size: float = 8) -> None:
+    # Heraldic scroll-end corners (small filled diamond + flanking lines)
+    def _flourish(cx: float, cy: float, size: float = 7) -> None:
         canvas.setFillColor(ORISEI_GOLD)
         canvas.setStrokeColor(ORISEI_GOLD)
-        from math import cos, pi, sin
-        pts = []
-        for i in range(16):
-            r = size if i % 2 == 0 else size * 0.45
-            a = (i * pi / 8) - pi / 2
-            pts.extend([cx + r * cos(a), cy + r * sin(a)])
+        # Central diamond
+        canvas.setLineWidth(0.8)
         path = canvas.beginPath()
-        path.moveTo(pts[0], pts[1])
-        for i in range(2, len(pts), 2):
-            path.lineTo(pts[i], pts[i + 1])
+        path.moveTo(cx, cy + size)
+        path.lineTo(cx + size, cy)
+        path.lineTo(cx, cy - size)
+        path.lineTo(cx - size, cy)
         path.close()
         canvas.drawPath(path, stroke=0, fill=1)
+        # Inner highlight
+        canvas.setFillColor(ORISEI_GOLD_LIGHT)
+        path2 = canvas.beginPath()
+        path2.moveTo(cx, cy + size * 0.45)
+        path2.lineTo(cx + size * 0.45, cy)
+        path2.lineTo(cx, cy - size * 0.45)
+        path2.lineTo(cx - size * 0.45, cy)
+        path2.close()
+        canvas.drawPath(path2, stroke=0, fill=1)
 
     margin = 0.55 * inch
-    _star(margin, margin)
-    _star(width - margin, margin)
-    _star(margin, height - margin)
-    _star(width - margin, height - margin)
+    _flourish(margin, margin)
+    _flourish(width - margin, margin)
+    _flourish(margin, height - margin)
+    _flourish(width - margin, height - margin)
 
     # Footer text
     canvas.setFillColor(ORISEI_SLATE)
@@ -277,7 +283,7 @@ def _build_doc(buf: io.BytesIO, title: str) -> BaseDocTemplate:
     frame = Frame(0.6 * inch, 0.55 * inch,
                   letter[0] - 1.2 * inch, letter[1] - 1.1 * inch,
                   showBoundary=0)
-    doc.addPageTemplates([PageTemplate(id="orisei", frames=[frame], onPage=_draw_moorish_border)])
+    doc.addPageTemplates([PageTemplate(id="orisei", frames=[frame], onPage=_draw_heraldic_border)])
     return doc
 
 
@@ -531,6 +537,44 @@ def build_pod_pdf(*, doc_id: str, booking: Dict[str, Any],
         signed_label="Orisei Operator",
         signed_name=user_name,
     ))
+
+    # Dock photos (optional) — up to 3 thumbnails on a second page
+    photos = delivery.get("photos") or []
+    if photos:
+        from reportlab.platypus import PageBreak
+        story.append(PageBreak())
+        story.append(_header(
+            "DELIVERY PHOTOS",
+            f"Dock photos — {len(photos)} attached",
+            doc_id,
+        ))
+        story.append(Spacer(1, 12))
+        story.append(_section_header("Photo evidence captured at delivery"))
+        story.append(Spacer(1, 8))
+        cells: List[Any] = []
+        for p in photos[:3]:
+            try:
+                img = Image(io.BytesIO(p["bytes"]), width=2.2 * inch, height=2.2 * inch, kind="proportional")
+                cap = Paragraph(
+                    f"<font size='7' color='#475569'>{p.get('caption') or p.get('filename') or 'Photo'}</font>",
+                    s["legal"],
+                )
+                cell = Table([[img], [cap]], colWidths=[2.3 * inch])
+                cell.setStyle(TableStyle([
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("BOX", (0, 0), (-1, 0), 0.5, ORISEI_GOLD),
+                    ("TOPPADDING", (0, 0), (-1, -1), 2),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ]))
+                cells.append(cell)
+            except Exception:                                        # noqa: BLE001
+                logger.exception("Failed to embed delivery photo")
+        if cells:
+            while len(cells) < 3:
+                cells.append(Paragraph("", s["body"]))
+            grid = Table([cells], colWidths=[2.4 * inch, 2.4 * inch, 2.4 * inch])
+            grid.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+            story.append(grid)
 
     doc.build(story)
     return buf.getvalue()
