@@ -7624,6 +7624,7 @@ register_equipment_routes(api_router, db, get_current_user, require_role)
 from routes.weather import build_weather_router  # noqa: E402
 from routes.server_registry import build_server_registry_router  # noqa: E402
 from routes.sap import build_sap_router  # noqa: E402
+from routes.brokerage import build_brokerage_router  # noqa: E402
 api_router.include_router(build_weather_router(
     db=db,
     get_current_user=get_current_user,
@@ -7650,6 +7651,14 @@ api_router.include_router(build_sap_router(
     require_role=require_role,
     brand_swap=_brand_swap,
     active_brand_doc=_active_brand_doc,
+))
+api_router.include_router(build_brokerage_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+    emergent_llm_key=EMERGENT_LLM_KEY,
+    LlmChat=LlmChat,
+    UserMessage=UserMessage,
 ))
 
 # -------------------- WIRE UP --------------------

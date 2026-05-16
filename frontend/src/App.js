@@ -47,6 +47,7 @@ import PowerBI from "@/pages/PowerBI";
 import SharePoint from "@/pages/SharePoint";
 import AdminSettings from "@/pages/AdminSettings";
 import AdminDashboard from "@/pages/AdminDashboard";
+import Brokerage from "@/pages/Brokerage";
 import SpecialtyCarriers from "@/pages/SpecialtyCarriers";
 import DriverRegistry from "@/pages/DriverRegistry";
 import WellnessNudges from "@/components/WellnessNudges";
@@ -77,6 +78,7 @@ function AppRouter() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/shipments" element={<Shipments />} />
         <Route path="/book-load" element={<BookLoad />} />
+        <Route path="/brokerage" element={<Brokerage />} />
         <Route path="/documents" element={<Documents />} />
         <Route path="/tracking" element={<Tracking />} />
         <Route path="/live-tracking" element={<Tracking />} />

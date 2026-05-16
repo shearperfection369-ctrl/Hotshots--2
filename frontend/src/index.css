@@ -406,3 +406,164 @@ body.theme-solar aside[data-testid="sidebar"] .text-cyan-300 { color: #FBBF24 !i
 
 /* Solar mode — Topbar */
 body.theme-solar header { background: #FFFFFF !important; border-bottom-color: rgba(15, 23, 42, 0.10) !important; }
+
+/* ============================================================
+ * Brokerage Business Plan markdown prose
+ * ============================================================ */
+.brokerage-plan-prose h1 {
+  font-family: var(--tt-font-display, "Space Grotesk", system-ui, sans-serif);
+  font-weight: 900;
+  font-size: 2.25rem;
+  letter-spacing: -0.02em;
+  color: #E2E8F0;
+  margin: 0.25rem 0 0.5rem;
+  line-height: 1.1;
+}
+.brokerage-plan-prose h2 {
+  font-family: var(--tt-font-display, "Space Grotesk", system-ui, sans-serif);
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+  color: #67E8F9;
+  margin: 2rem 0 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.18);
+}
+.brokerage-plan-prose h3 {
+  font-family: var(--tt-font-display, "Space Grotesk", system-ui, sans-serif);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #E2E8F0;
+  margin: 1.4rem 0 0.4rem;
+}
+.brokerage-plan-prose p {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: #CBD5E1;
+  margin: 0.6rem 0;
+}
+.brokerage-plan-prose strong { color: #F1F5F9; font-weight: 700; }
+.brokerage-plan-prose em { color: #67E8F9; font-style: italic; }
+.brokerage-plan-prose ul,
+.brokerage-plan-prose ol {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: #CBD5E1;
+  margin: 0.5rem 0 0.8rem;
+  padding-left: 1.4rem;
+}
+.brokerage-plan-prose li { margin: 0.2rem 0; }
+.brokerage-plan-prose ul li::marker { color: rgba(34, 211, 238, 0.7); }
+.brokerage-plan-prose ol li::marker { color: rgba(34, 211, 238, 0.7); font-weight: 700; }
+.brokerage-plan-prose blockquote {
+  margin: 1rem 0;
+  padding: 0.6rem 1rem;
+  border-left: 3px solid #22D3EE;
+  background: rgba(34, 211, 238, 0.06);
+  color: #E2E8F0;
+  font-style: italic;
+  border-radius: 0 6px 6px 0;
+}
+.brokerage-plan-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: rgba(255, 255, 255, 0.06);
+  color: #67E8F9;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.82em;
+}
+.brokerage-plan-prose pre {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.82rem;
+  margin: 0.8rem 0;
+}
+.brokerage-plan-prose pre code { background: transparent; padding: 0; color: #E2E8F0; }
+.brokerage-plan-prose hr {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.35), transparent);
+  margin: 2rem 0;
+}
+.brokerage-plan-prose a { color: #67E8F9; text-decoration: underline; text-underline-offset: 2px; }
+.brokerage-plan-prose a:hover { color: #22D3EE; }
+.brokerage-plan-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8rem 0 1.2rem;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.brokerage-plan-prose thead { background: rgba(34, 211, 238, 0.08); }
+.brokerage-plan-prose th {
+  text-align: left;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #67E8F9;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.25);
+}
+.brokerage-plan-prose td {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #CBD5E1;
+  vertical-align: top;
+}
+.brokerage-plan-prose tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
+
+/* Light themes — flip the prose palette */
+body.theme-solar .brokerage-plan-prose,
+body.theme-paper .brokerage-plan-prose { color: #1E293B; }
+body.theme-solar .brokerage-plan-prose p,
+body.theme-paper .brokerage-plan-prose p,
+body.theme-solar .brokerage-plan-prose ul,
+body.theme-solar .brokerage-plan-prose ol,
+body.theme-paper .brokerage-plan-prose ul,
+body.theme-paper .brokerage-plan-prose ol,
+body.theme-solar .brokerage-plan-prose td,
+body.theme-paper .brokerage-plan-prose td { color: #334155; }
+body.theme-solar .brokerage-plan-prose h1,
+body.theme-paper .brokerage-plan-prose h1,
+body.theme-solar .brokerage-plan-prose h3,
+body.theme-paper .brokerage-plan-prose h3,
+body.theme-solar .brokerage-plan-prose strong,
+body.theme-paper .brokerage-plan-prose strong { color: #0F172A; }
+body.theme-solar .brokerage-plan-prose h2,
+body.theme-paper .brokerage-plan-prose h2 {
+  color: #0E7490;
+  border-bottom-color: rgba(14, 116, 144, 0.25);
+}
+body.theme-solar .brokerage-plan-prose blockquote,
+body.theme-paper .brokerage-plan-prose blockquote {
+  background: rgba(14, 116, 144, 0.06);
+  border-left-color: #0E7490;
+  color: #1E293B;
+}
+body.theme-solar .brokerage-plan-prose th,
+body.theme-paper .brokerage-plan-prose th { color: #0E7490; border-bottom-color: rgba(14, 116, 144, 0.3); }
+
+/* Print — only show the prose, hide the rest of the app shell */
+@media print {
+  body * { visibility: hidden !important; }
+  [data-testid="brokerage-plan-body"],
+  [data-testid="brokerage-plan-body"] * { visibility: visible !important; }
+  [data-testid="brokerage-plan-body"] {
+    position: absolute !important;
+    inset: 0 !important;
+    background: white !important;
+    color: black !important;
+    padding: 0.5in !important;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+  [data-testid="brokerage-plan-body"] .brokerage-plan-prose,
+  [data-testid="brokerage-plan-body"] .brokerage-plan-prose * { color: #111 !important; background: transparent !important; border-color: #aaa !important; }
+  [data-testid="brokerage-plan-body"] .brokerage-plan-prose h2 { color: #0E7490 !important; }
+}
+

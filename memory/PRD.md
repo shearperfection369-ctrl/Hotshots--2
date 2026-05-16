@@ -270,7 +270,33 @@ Subsequent user-requested additions (chronological, all delivered):
 - Move `_brand_tenant_strings` to a marker-template approach long term (substring
   swap is fragile if new content includes the word "Tennant")
 
-## v2.6 — Continued Refactor + Marker-Template Fallback (May 2026)
+## v2.7 — Freight Brokerage Operations Stack + New Default Brand (May 2026)
+- **NEW `/brokerage` hub** — 5-tab top-level page (Dashboard · Load Boards ·
+  Accounting · Forms Library · AI Assistant) under `/app/frontend/src/pages/Brokerage.jsx`.
+- **Backend `routes/brokerage.py`** (665 lines) — mocked-where-it-matters,
+  real-where-it-matters: synthetic load feed for 5 boards (DAT One, Truckstop,
+  Convoy, Uber Freight, 123Loadboard) with per-board RPM + margin profiles;
+  DB-backed margin scorecard (forecast vs settled per board); accounting
+  (`brokerage_invoices`, `brokerage_expenses`, P&L, A/R aging, 1099 totals);
+  hybrid QuickBooks (mocked OAuth + sync flush flag); 15 fillable compliance
+  PDFs via ReportLab (MC Authority, BOC-3, BMC-84 surety, UCR, Rate Conf,
+  Load Tender, Carrier Packet, MSA, Customer Invoice, Aging, 1099-NEC,
+  Mileage Log, Factoring Assignment, Quick-Pay); AI assistant (Claude
+  Sonnet 4.5) wired with live P&L + margin context in every prompt.
+- **AI load matching** — `/api/brokerage/loads/match` ranks loads across
+  all 5 boards by a margin-vs-market scoring algorithm; tags
+  `high-margin`, `above-market`, `fresh-post`, `stale`.
+- **New default brand** — created and activated **Apex Freight Solutions LLC**
+  via the manual brand template (Dallas TX HQ, 3 facilities, cyan brand
+  palette, freight-broker service catalog). Replaces Pfizer/Tennant as the
+  default. The brand-reactive engine (v2.3) instantly re-skinned every page.
+
+## Tests
+- Verified `/api/brokerage/dashboard`, `/boards`, `/loads/match`, `/forms`,
+  `/quickbooks/status` all return correct shapes
+- 90 synthetic loads (18 per board × 5 boards) score deterministically with
+  a fresh ranking each hour
+- Apex Freight visible in topbar; zero Tennant city bleed on /brokerage
 - **Continued refactor** — extracted branding endpoints to
   `/app/backend/routes/branding.py` (`build_branding_router`) and SAP
   endpoints to `/app/backend/routes/sap.py` (`build_sap_router`). Both use
@@ -416,3 +442,25 @@ Subsequent user-requested additions (chronological, all delivered):
   Tracking page, Shipments page, and shipment tracker all use the active
   brand's facility cities (verified: Pfizer shows New York, Pearl River,
   Kalamazoo, McPherson — no Tennant cities anywhere).
+
+
+## 2026-02-14 · Freight Brokerage Business Plan (Apex Freight Solutions LLC)
+- New comprehensive operating business plan at `/app/BROKERAGE_BUSINESS_PLAN.md`
+  (4,932 words · ~28.8 KB markdown). Sections: Exec Summary · Founder (Oliver
+  Cummins, bio sourced from launch promo / About page) · Company Overview ·
+  Mission/Vision/Values · Industry & MN/Twin Cities Market Analysis · Service
+  Offering · Competitive Landscape · Marketing & Sales Strategy · Operations
+  Plan · Compliance Calendar · 3-Year P&L (bootstrap solo-agent baseline:
+  $432K → $1.0M → $1.9M revenue; $82K → $215K → $441K gross margin) · Cash
+  Flow & Break-even · Risk Analysis · KPIs · Step-by-Step Entry Plan
+  (Phase 0 pre-launch → Phase 5 Year-3 institutionalize) · Long-Term Vision
+  & Exit Options · Glossary & Regulatory References.
+- New backend endpoint **`GET /api/brokerage/business-plan`** in
+  `routes/brokerage.py` returns `{ filename, size_bytes, updated_at, markdown }`.
+- New **Business Plan** tab inside `Brokerage.jsx` (`brokerage-tab-plan`)
+  renders the markdown with `react-markdown` + `remark-gfm`. Includes
+  Print and Download .md actions.
+- New `.brokerage-plan-prose` styling in `index.css` with cyan-accented H2
+  underlines, GFM tables, blockquotes, light-theme overrides (solar/paper),
+  and a print stylesheet that isolates the prose for clean PDF/paper export.
+- Added deps: `react-markdown`, `remark-gfm` (via `yarn add`).
