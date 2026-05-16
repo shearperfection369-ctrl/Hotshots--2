@@ -2,14 +2,38 @@ import React from "react";
 import { useBranding } from "../lib/branding";
 
 /**
- * BrandLogo — renders the active company's logo as a colored pill containing
- * the company short_name. When the active brand is the built-in Tennant
- * default, it renders the iconic Tennant blue oval exactly as before (no
- * regression). For generated brands it uses the brand's primary color.
+ * BrandLogo — renders the active company's logo. For brands that ship a
+ * dedicated logo asset (orisei-freight → /brand/orisei_logo.png) the PNG is
+ * shown inside a gold-ringed disc. For the built-in Tennant and generated
+ * brands, the original colored pill with the short_name is rendered.
  */
 export const TennantLogo = ({ size = "md", className = "" }) => {
   const { brand } = useBranding();
   const isDefault = brand?.brand_id === "tennant" || !brand?.brand_id;
+
+  // Orisei custom-asset path — uses the Moorish-inspired generated logo.
+  if (brand?.brand_id === "orisei-freight") {
+    const px = { sm: 28, md: 36, lg: 52 }[size] || 36;
+    return (
+      <div
+        className={`relative inline-flex items-center justify-center rounded-full ${className}`}
+        style={{
+          width: px, height: px,
+          background: "#0E3A6B",
+          border: "1.5px solid #C9A24A",
+          boxShadow: "0 0 0 1px rgba(201,162,74,0.25), 0 4px 12px -4px rgba(14,58,107,0.6)",
+        }}
+        data-testid="brand-logo"
+        aria-label={brand?.company_name || "Orisei Freight Solutions"}
+      >
+        <img
+          src="/brand/orisei_logo.png"
+          alt="Orisei"
+          style={{ width: px - 6, height: px - 6, objectFit: "contain", borderRadius: "50%" }}
+        />
+      </div>
+    );
+  }
 
   const text = (brand?.short_name || "TENNANT").toUpperCase();
   const fill = isDefault ? "#00A4E4" : (brand?.primary_color || "#00A4E4");

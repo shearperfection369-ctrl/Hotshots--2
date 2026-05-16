@@ -1,0 +1,47 @@
+{
+  "summary": "Iteration 22 — Orisei BOL / POD / QuickBooks OAuth review. Wrote 21 pytest cases covering all new endpoints in /app/backend/routes/brokerage.py plus regression of dashboard/boards/book/settle/margins/factoring/investor-pitch/business-plan/cost-analysis. 21/21 backend tests pass against the live preview URL. Frontend Playwright smoke confirmed: Booked Loads panel renders on Load Boards tab, Customer Info dialog and POD Email dialog open via their data-testids on every booking row, BOL/POD download buttons are visible, QB OAuth button (qb-oauth-btn) is present when QB is not yet OAuth-connected, and Landing page at /home is fully public (no auth gate) — shows the new Moorish-style Khatim Al-Sulayman 8-point star wordmark + ORISEI FREIGHT SOLUTIONS header with the gold/azure palette as designed. Coverage validated: (a) list_bookings shape (booked_id/status/carrier_name, no _id leak); (b) PUT /customer persists name/email/address and 404s on unknown id; (c) bol.pdf returns Content-Type application/pdf, %PDF magic, 1KB-1MB, stamps bol_no='ORI-BOL-...' on the booking doc; (d) pod.pdf same shape; (e) POST /pod/email dry_run=true returns html_preview + pdf_bytes count + status='dry_run', persists to db.pod_outreach, updates booking.status='delivered' and writes delivery.received_by / driver_name / pieces_received / weight_received; (f) /pod-history returns sorted-desc list, no _id leak; (g) without Resend creds returns 400 with 'Resend' in detail; (h) qb/oauth/start without creds returns 400 mentioning 'QuickBooks' + 'Client ID'; (i) qb/oauth/start with creds returns authorize_url containing appcenter.intuit.com + client_id + state, plus environment & redirect_uri echo.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/brokerage/bookings", "issue": "Returns stale legacy documents that have no `booked_id` field (e.g. 1 doc out of 3 had only 4 keys: status='settled' + no booked_id). Causes React 'unique key prop' warning in BookedLoadsPanel and is brittle for any consumer keyed off booked_id. Fix: filter the find with {'booked_id': {'$exists': True}} OR migrate/delete the legacy doc."},
+      {"endpoint": "GET /api/connections/quickbooks", "issue": "Non-secret field values are serialized as the literal Python repr string \"{'set': False, 'value': ''}\" (a dict was stringified by the value-getter). Stored values are fine (oauth/start works) but the GET payload is unusable for display in the Connections UI. Look at the value/preview helper in /app/backend/routes/connections.py."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Document <title>", "issue": "Landing page /home (Orisei brand) still shows browser tab title 'Tennant · TMS' — wordmark is Orisei but document.title is stale.", "selector": "<title>", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Landing /home", "issues": ["Hero rendered correctly with Moorish star + gold-on-azure palette; copy reads clean; CTAs (Request a Lane Quote / Carrier Portal Sign-In) are well contrasted."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter22_bol_pod_qb.py",
+    "/app/test_reports/pytest/iter22_results.xml"
+  ],
+  "action_items": [
+    "[minor] Filter `db.brokerage_bookings.find` in list_bookings to only return docs with booked_id (or clean up the legacy doc) — eliminates the React 'missing key' warning in BookedLoadsPanel and makes downstream consumers safe.",
+    "[minor] Fix the GET /api/connections/quickbooks (and any other non-secret field) value serialization — currently emits the literal string \"{'set': False, 'value': ''}\" instead of the value or a clean masked shape.",
+    "[low] Update document.title (or react-helmet) on the public Landing page to 'Orisei Freight Solutions' (or brand-aware) — currently inherits 'Tennant · TMS'."
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/routes/brokerage.py is 1802 lines — well past the 700-line guideline. Split into bookings/quickbooks/factoring/business-plan modules under routes/brokerage/.",
+    "POD email path inserts the outreach record at TWO different points (dry_run branch + sent/error branch). The 'missing_credentials' branch persists then raises HTTPException 400, but the record then has `_id` injected by motor (the .pop is in the success path, not the missing-creds path) — harmless because the response is the HTTPException, but leaves a slowly-growing pile of 'missing_credentials' rows in db.pod_outreach. Consider rate-limiting these inserts.",
+    "qb_oauth_start stores OAuth state in db.brokerage_qb_oauth_state but never expires it. Add a TTL index (`expireAfterSeconds=900`) on created_at so failed/abandoned auth attempts don't accumulate.",
+    "qb_oauth_callback strips access_token/refresh_token from the response (good) but persists them PLAINTEXT in brokerage_qb_config. They should be encrypted with the same Fernet that protects /api/connections (the helper already exists in /app/backend/routes/connections.py).",
+    "POD email html template inlines `{message_html}` after only newline-to-<br> replacement — no other escaping. If `payload.message` contains `</p><script>...`, it renders inside the email body. EmailStr/Pydantic constrains the recipient but not the message body; HTML-escape user-supplied subject/message/customer_name before interpolation.",
+    "build_bol_pdf / build_pod_pdf load the brand logo from disk on every request. Cache the bytes at module import (or use functools.lru_cache).",
+    "Pydantic CustomerInfoIn forbids no fields (extra='allow' by default); a malicious caller can write arbitrary keys onto the booking via the $set. Add `model_config = ConfigDict(extra='forbid')`."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter22_bol_pod_qb.py"
+  ],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% smoke (panel + 2 dialogs + QB button + public landing)"},
+  "test_credentials": "Admin Bearer test_session_admin_1 (/app/memory/test_credentials.md). Resend not configured in this env (validated the 400 branch). QuickBooks creds were planted with TEST_qb_* values during the with-creds test and restored from snapshot in fixture teardown.",
+  "seed_data_creation": "Created 1 fresh booking off DAT (BK-... · TEST_RegressionCarrier · MC-111222) for the book/settle regression and 1 dry-run POD outreach row in db.pod_outreach (status='dry_run'). Existing test bookings were updated with TEST_Acme Manufacturing customer info + delivery details (status flipped to 'delivered'). All test data is TEST_-prefixed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression suite at /app/backend/tests/test_iter22_bol_pod_qb.py (21 tests, ~2s, all pass). The fixture `booking_id` reuses the first existing booking — running the suite mutates that booking's customer/delivery/status fields, so don't assert on an exact pristine state across runs. There is at least one stale brokerage_bookings doc in the DB without a `booked_id` field; tests use `.get('booked_id')` to tolerate it. POD email dry-run path always writes to db.pod_outreach — pod_history count grows by 1 per run.",
+  "rca of the issue": "n/a — all targeted endpoints behave as specified; only minor data-hygiene & escaping concerns flagged."
+}

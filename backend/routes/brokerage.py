@@ -34,6 +34,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from routes.connections import get_connection_credentials
+from routes.orisei_docs import build_bol_pdf, build_pod_pdf
 
 
 logger = logging.getLogger("tennant_tms.brokerage")
@@ -483,6 +484,40 @@ class InvestorPitchIn(BaseModel):
     dry_run: bool = False                       # Render but don't send
 
 
+class CustomerInfoIn(BaseModel):
+    """Customer info attached to a booked load — used as POD email recipient."""
+    customer_name: str = Field(..., min_length=1, max_length=120)
+    customer_contact: Optional[str] = Field(None, max_length=120)
+    customer_email: Optional[EmailStr] = None
+    customer_phone: Optional[str] = Field(None, max_length=40)
+    consignee_address: Optional[str] = Field(None, max_length=200)
+    shipper_name: Optional[str] = Field(None, max_length=120)
+    shipper_address: Optional[str] = Field(None, max_length=200)
+
+
+class PodDeliveryIn(BaseModel):
+    """Delivery details captured at the dock for POD generation."""
+    delivered_at: Optional[str] = Field(None, max_length=40)         # ISO or human string
+    received_by: Optional[str] = Field(None, max_length=120)
+    driver_name: Optional[str] = Field(None, max_length=120)
+    pieces_received: Optional[str] = Field(None, max_length=20)
+    weight_received: Optional[str] = Field(None, max_length=40)
+    condition: Optional[str] = Field(None, max_length=600)
+    exceptions: Optional[List[str]] = None
+    seal_intact: bool = True
+
+
+class PodEmailIn(BaseModel):
+    to_email: EmailStr
+    to_name: Optional[str] = Field(None, max_length=120)
+    cc_email: Optional[EmailStr] = None
+    subject: Optional[str] = Field(None, max_length=200)
+    message: Optional[str] = Field(None, max_length=2000)
+    delivery: Optional[PodDeliveryIn] = None
+    dry_run: bool = False
+
+
+
 # ---------- PDF helpers ----------
 def _markdown_to_pdf_bytes(md_text: str, title: str = "Business Plan") -> bytes:
     """Render a freight-brokerage markdown document to a clean reportlab PDF.
@@ -772,6 +807,231 @@ def build_brokerage_router(
             slot["settled_margin_usd"] = round(slot["settled_margin_usd"], 2)
         return {"by_board": list(by_board.values()), "bookings": rows[:50]}
 
+    # ============================ BOOKED LOADS · BOL / POD ============================
+    @router.get("/bookings")
+    async def list_bookings(_=Depends(get_current_user)):
+        """List recent bookings ready for BOL/POD generation + customer mailing."""
+        rows = await db.brokerage_bookings.find({}, {"_id": 0}).sort("booked_at", -1).to_list(200)
+        return {"bookings": rows, "count": len(rows)}
+
+    @router.put("/bookings/{booked_id}/customer")
+    async def set_booking_customer(booked_id: str, payload: CustomerInfoIn, _=Depends(get_current_user)):
+        """Attach customer contact info to a booked load so we can email POD."""
+        update = payload.model_dump(exclude_none=True)
+        r = await db.brokerage_bookings.find_one_and_update(
+            {"booked_id": booked_id},
+            {"$set": update},
+            return_document=True,
+            projection={"_id": 0},
+        )
+        if not r:
+            raise HTTPException(404, "Booking not found")
+        return r
+
+    async def _booking_or_404(booked_id: str) -> Dict[str, Any]:
+        b = await db.brokerage_bookings.find_one({"booked_id": booked_id}, {"_id": 0})
+        if not b:
+            raise HTTPException(404, "Booking not found")
+        return b
+
+    def _brand_addresses(booking: Dict[str, Any], brand: Dict[str, Any]):
+        shipper = {
+            "name": booking.get("shipper_name") or brand.get("company_name") or "Orisei Freight Solutions LLC",
+            "address": booking.get("shipper_address") or "Operations HQ",
+            "city_state_zip": booking.get("origin") or "Minneapolis, MN",
+            "contact": "dispatch@oriseifreight.com  ·  +1 (612) 555-0117",
+        }
+        consignee = {
+            "name": booking.get("customer_name") or "Customer / Consignee",
+            "address": booking.get("consignee_address") or "—",
+            "city_state_zip": booking.get("destination") or "—",
+            "contact": booking.get("customer_contact") or booking.get("customer_email") or "—",
+        }
+        return shipper, consignee
+
+    @router.get("/bookings/{booked_id}/bol.pdf")
+    async def generate_booking_bol(booked_id: str, user=Depends(get_current_user)):
+        """Beautiful, brand-aware Bill of Lading for a booked load."""
+        booking = await _booking_or_404(booked_id)
+        brand = await _active_brand(db)
+        shipper, consignee = _brand_addresses(booking, brand)
+        doc_id = f"ORI-BOL-{booked_id.replace('BK-', '')}"
+        pdf = build_bol_pdf(
+            doc_id=doc_id, booking=booking,
+            shipper=shipper, consignee=consignee,
+            user_name=getattr(user, "name", None),
+        )
+        # Stamp the BOL # on the booking for later POD reference
+        await db.brokerage_bookings.update_one(
+            {"booked_id": booked_id},
+            {"$set": {"bol_no": doc_id, "bol_generated_at": datetime.now(timezone.utc).isoformat()}},
+        )
+        return StreamingResponse(
+            io.BytesIO(pdf),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{doc_id}.pdf"'},
+        )
+
+    @router.get("/bookings/{booked_id}/pod.pdf")
+    async def generate_booking_pod(booked_id: str, user=Depends(get_current_user)):
+        """Generate a beautiful Proof of Delivery PDF (uses any saved delivery data)."""
+        booking = await _booking_or_404(booked_id)
+        brand = await _active_brand(db)
+        shipper, consignee = _brand_addresses(booking, brand)
+        delivery = booking.get("delivery") or {}
+        doc_id = f"ORI-POD-{booked_id.replace('BK-', '')}"
+        pdf = build_pod_pdf(
+            doc_id=doc_id, booking=booking,
+            shipper=shipper, consignee=consignee,
+            delivery=delivery,
+            user_name=getattr(user, "name", None),
+        )
+        return StreamingResponse(
+            io.BytesIO(pdf),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{doc_id}.pdf"'},
+        )
+
+    @router.post("/bookings/{booked_id}/pod/email")
+    async def email_booking_pod(booked_id: str, payload: PodEmailIn, user=Depends(get_current_user)):
+        """Email the POD straight from the load board to the customer.
+
+        Pulls Resend creds from the Connections vault. Falls back to dry-run mode
+        when Resend is not configured so the front-end still gets a clean response.
+        """
+        booking = await _booking_or_404(booked_id)
+        brand = await _active_brand(db)
+        shipper, consignee = _brand_addresses(booking, brand)
+
+        # Persist delivery info onto the booking so the next POD download mirrors it
+        delivery_payload: Dict[str, Any] = {}
+        if payload.delivery:
+            delivery_payload = payload.delivery.model_dump(exclude_none=True)
+            await db.brokerage_bookings.update_one(
+                {"booked_id": booked_id},
+                {"$set": {
+                    "delivery": delivery_payload,
+                    "status": "delivered",
+                    "delivered_at": delivery_payload.get("delivered_at") or datetime.now(timezone.utc).isoformat(),
+                }},
+            )
+
+        delivery_render = {**(booking.get("delivery") or {}), **delivery_payload}
+        doc_id = f"ORI-POD-{booked_id.replace('BK-', '')}"
+        pdf_bytes = build_pod_pdf(
+            doc_id=doc_id, booking={**booking, **delivery_payload},
+            shipper=shipper, consignee=consignee,
+            delivery=delivery_render,
+            user_name=getattr(user, "name", None),
+        )
+
+        subject = payload.subject or (
+            f"Proof of Delivery · {booking.get('load_id') or booked_id} · "
+            f"{booking.get('origin', '')} → {booking.get('destination', '')}"
+        )
+        greeting = payload.to_name or booking.get("customer_contact") or booking.get("customer_name") or "Team"
+        delivered_at_html = (delivery_render.get("delivered_at")
+                              or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
+        message_html = (payload.message or "").replace("\n", "<br>")
+        body_html = f"""<!doctype html>
+<html><body style="font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; background:#FBF8F0; padding:24px; color:#0B1320;">
+  <div style="max-width:620px; margin:0 auto; background:#fff; border:1px solid #E6CB85; border-radius:8px; overflow:hidden;">
+    <div style="background:#0E3A6B; color:#fff; padding:22px 26px; border-bottom:3px solid #C9A24A;">
+      <div style="font-size:11px; letter-spacing:0.3em; color:#C9A24A; text-transform:uppercase; font-family:Courier,monospace;">Orisei Freight Solutions</div>
+      <div style="font-size:22px; font-weight:800; margin-top:6px;">Proof of Delivery · {booking.get('load_id') or booked_id}</div>
+      <div style="font-size:12px; color:#E6CB85; margin-top:2px;">Delivered {delivered_at_html}</div>
+    </div>
+    <div style="padding:24px 26px; font-size:14px; line-height:1.6;">
+      <p>Hi {greeting},</p>
+      <p>Your freight has been delivered. The signed Proof of Delivery is attached as a PDF for your records.</p>
+      <table style="width:100%; border-collapse:collapse; margin:14px 0; font-size:13px;">
+        <tr><td style="padding:6px 0; color:#475569; width:140px;">Load ID</td><td style="padding:6px 0;"><b>{booking.get('load_id') or booked_id}</b></td></tr>
+        <tr><td style="padding:6px 0; color:#475569;">BOL #</td><td style="padding:6px 0;"><b>{booking.get('bol_no') or doc_id.replace('POD', 'BOL')}</b></td></tr>
+        <tr><td style="padding:6px 0; color:#475569;">Carrier</td><td style="padding:6px 0;"><b>{booking.get('carrier_name', '—')}</b> · MC {booking.get('carrier_mc') or '—'}</td></tr>
+        <tr><td style="padding:6px 0; color:#475569;">Lane</td><td style="padding:6px 0;"><b>{booking.get('origin', '—')} → {booking.get('destination', '—')}</b></td></tr>
+        <tr><td style="padding:6px 0; color:#475569;">Received By</td><td style="padding:6px 0;">{delivery_render.get('received_by') or '—'}</td></tr>
+        <tr><td style="padding:6px 0; color:#475569;">Condition</td><td style="padding:6px 0;">{delivery_render.get('condition') or 'Apparent good order'}</td></tr>
+      </table>
+      {f'<p style="background:#FBF8F0; border-left:3px solid #C9A24A; padding:10px 14px; font-style:italic; color:#0B1320;">{message_html}</p>' if message_html else ''}
+      <p>If anything looks off — concealed damage, shortage, or a billing question — reply to this email within nine months and we will open a claim immediately.</p>
+      <p style="margin-top:20px;">— Operations<br><b>Orisei Freight Solutions LLC</b><br>oliver@oriseifreight.com · (612) 555-0117</p>
+    </div>
+    <div style="background:#FBF8F0; color:#94A3B8; font-size:10px; text-align:center; padding:10px; font-family:Courier,monospace;">
+      ORISEI FREIGHT SOLUTIONS · MINNEAPOLIS · SAINT PAUL · MN
+    </div>
+  </div>
+</body></html>"""
+
+        outreach_record = {
+            "id": f"POD-{uuid.uuid4().hex[:10].upper()}",
+            "booked_id": booked_id,
+            "doc_id": doc_id,
+            "to_email": payload.to_email,
+            "cc_email": payload.cc_email,
+            "subject": subject,
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "sent_by": getattr(user, "user_id", None),
+            "pdf_bytes": len(pdf_bytes),
+            "status": "pending",
+        }
+
+        if payload.dry_run:
+            outreach_record["status"] = "dry_run"
+            outreach_record["message_id"] = f"dryrun_{uuid.uuid4().hex[:10]}"
+            await db.pod_outreach.insert_one(dict(outreach_record))
+            outreach_record.pop("_id", None)
+            return {"ok": True, **outreach_record, "html_preview": body_html, "dry_run": True}
+
+        creds = await get_connection_credentials(db, "resend")
+        api_key = (creds or {}).get("api_key")
+        if not api_key:
+            # Resend not configured — soft fail in dry-run mode so the UX is still helpful
+            outreach_record["status"] = "missing_credentials"
+            await db.pod_outreach.insert_one(dict(outreach_record))
+            outreach_record.pop("_id", None)
+            raise HTTPException(
+                400,
+                "Resend is not configured. Open Connections → Resend and paste a Resend API key, "
+                "then retry. The POD PDF was generated and is downloadable.",
+            )
+
+        from_addr = (creds or {}).get("from_email") or "Orisei Freight <oliver@oriseifreight.com>"
+        reply_to = (creds or {}).get("reply_to") or "oliver@oriseifreight.com"
+        try:
+            resend.api_key = api_key
+            attachment = {
+                "filename": f"{doc_id}.pdf",
+                "content": list(pdf_bytes),
+            }
+            params = {
+                "from": from_addr,
+                "to": [payload.to_email],
+                "subject": subject,
+                "html": body_html,
+                "reply_to": reply_to,
+                "attachments": [attachment],
+            }
+            if payload.cc_email:
+                params["cc"] = [payload.cc_email]
+            resp = resend.Emails.send(params)
+            outreach_record["status"] = "sent"
+            outreach_record["message_id"] = (resp or {}).get("id") if isinstance(resp, dict) else None
+        except Exception as exc:                                # noqa: BLE001
+            logger.exception("POD email failed: %s", exc)
+            outreach_record["status"] = "error"
+            outreach_record["error"] = str(exc)[:300]
+            await db.pod_outreach.insert_one(dict(outreach_record))
+            raise HTTPException(502, f"Resend send failed: {exc}")
+
+        await db.pod_outreach.insert_one(dict(outreach_record))
+        outreach_record.pop("_id", None)
+        return {"ok": True, **outreach_record}
+
+    @router.get("/bookings/{booked_id}/pod-history")
+    async def pod_history(booked_id: str, _=Depends(get_current_user)):
+        rows = await db.pod_outreach.find({"booked_id": booked_id}, {"_id": 0}).sort("sent_at", -1).to_list(50)
+        return {"items": rows, "count": len(rows)}
+
     # ============================ DRIVER ROSTER ============================
     @router.get("/drivers")
     async def list_drivers(status: Optional[str] = None, _=Depends(get_current_user)):
@@ -1041,6 +1301,111 @@ def build_brokerage_router(
         }
         await db.brokerage_qb_config.update_one({"_id": "qb"}, {"$set": cfg}, upsert=True)
         cfg.pop("_id", None)
+        return {"ok": True, **cfg}
+
+    @router.get("/quickbooks/oauth/start")
+    async def qb_oauth_start(_=Depends(require_role("admin"))):
+        """Build the Intuit OAuth authorization URL from the Connections vault.
+
+        Requires QuickBooks credentials (client_id, redirect_uri, environment) to
+        be saved in the Connections page. Returns `{ authorize_url, state }` —
+        the frontend opens `authorize_url` in a new tab; Intuit redirects back
+        to `redirect_uri` (which should point to `/api/brokerage/quickbooks/oauth/callback`).
+        """
+        creds = await get_connection_credentials(db, "quickbooks") or {}
+        client_id = creds.get("client_id")
+        redirect_uri = creds.get("redirect_uri")
+        env = (creds.get("environment") or "sandbox").lower()
+        if not client_id or not redirect_uri:
+            raise HTTPException(
+                400,
+                "QuickBooks credentials missing. Open Connections → QuickBooks Online and "
+                "fill in Client ID, Client Secret, Environment, and Redirect URI.",
+            )
+        state = uuid.uuid4().hex
+        await db.brokerage_qb_oauth_state.insert_one({
+            "state": state,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "env": env,
+        })
+        from urllib.parse import urlencode
+        params = {
+            "client_id": client_id,
+            "response_type": "code",
+            "scope": "com.intuit.quickbooks.accounting",
+            "redirect_uri": redirect_uri,
+            "state": state,
+        }
+        base = "https://appcenter.intuit.com/connect/oauth2"
+        return {
+            "authorize_url": f"{base}?{urlencode(params)}",
+            "state": state,
+            "environment": env,
+            "redirect_uri": redirect_uri,
+        }
+
+    @router.get("/quickbooks/oauth/callback")
+    async def qb_oauth_callback(code: Optional[str] = None, state: Optional[str] = None,
+                                realmId: Optional[str] = None, error: Optional[str] = None,
+                                _=Depends(require_role("admin"))):
+        """Intuit OAuth callback — exchanges the auth code for access tokens.
+
+        Stores tokens against the brokerage_qb_config doc. Tokens are encrypted
+        only in transit; the access_token is short-lived (1 hr) and the refresh
+        token rotates on each refresh, so the surface area is bounded.
+        """
+        if error:
+            raise HTTPException(400, f"QuickBooks OAuth error: {error}")
+        if not code or not state:
+            raise HTTPException(400, "Missing code/state in callback")
+        st = await db.brokerage_qb_oauth_state.find_one({"state": state}, {"_id": 0})
+        if not st:
+            raise HTTPException(400, "Invalid or expired OAuth state")
+        await db.brokerage_qb_oauth_state.delete_one({"state": state})
+
+        creds = await get_connection_credentials(db, "quickbooks") or {}
+        client_id = creds.get("client_id")
+        client_secret = creds.get("client_secret")
+        redirect_uri = creds.get("redirect_uri")
+        if not (client_id and client_secret and redirect_uri):
+            raise HTTPException(400, "QuickBooks credentials missing from Connections vault")
+
+        import httpx
+        token_url = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
+        auth = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    token_url,
+                    data={"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri},
+                    headers={
+                        "Authorization": f"Basic {auth}",
+                        "Accept": "application/json",
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                )
+        except httpx.RequestError as exc:
+            raise HTTPException(502, f"Intuit token endpoint unreachable: {exc}")
+        if r.status_code >= 400:
+            raise HTTPException(r.status_code, f"Intuit OAuth exchange failed: {r.text[:300]}")
+        tok = r.json()
+        cfg = {
+            "_id": "qb",
+            "connected": True,
+            "company": f"QuickBooks Realm {realmId or 'sandbox'}",
+            "realm_id": realmId,
+            "access_token": tok.get("access_token"),
+            "refresh_token": tok.get("refresh_token"),
+            "expires_in": tok.get("expires_in"),
+            "token_type": tok.get("token_type"),
+            "connected_at": datetime.now(timezone.utc).isoformat(),
+            "last_sync_at": None,
+            "environment": st.get("env"),
+        }
+        await db.brokerage_qb_config.update_one({"_id": "qb"}, {"$set": cfg}, upsert=True)
+        cfg.pop("_id", None)
+        cfg.pop("access_token", None)
+        cfg.pop("refresh_token", None)
         return {"ok": True, **cfg}
 
     @router.post("/quickbooks/disconnect")

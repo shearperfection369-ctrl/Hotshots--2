@@ -68,6 +68,7 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/home" element={<Landing />} />
       <Route path="/about" element={<About />} />
       <Route path="/marketing" element={<About />} />
       <Route path="/landing" element={<About />} />
@@ -89,7 +90,6 @@ function AppRouter() {
         <Route path="/trailers" element={<Trailers />} />
         <Route path="/integrations" element={<Integrations />} />
         <Route path="/connections" element={<Connections />} />
-        <Route path="/home" element={<Landing />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/links" element={<QuickLinks />} />

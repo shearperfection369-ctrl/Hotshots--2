@@ -13,7 +13,8 @@ import {
   Truck, DollarSign, FileText, Sparkles, TrendingUp, TrendingDown, BarChart3,
   Building2, Calculator, Plug, Send, CheckCircle2, AlertCircle, Loader2, Download,
   ArrowUpRight, ArrowDownRight, Zap, Receipt, FileSpreadsheet, Bot, Plus, BookOpen, Printer,
-  Wallet, Server, Mail, Linkedin, Eye, Users, MapPin, Phone, Snowflake, ShieldAlert, Banknote, X,
+  Wallet, Server, Mail, Linkedin, Eye, Users, MapPin, Phone, Snowflake, ShieldAlert, ShieldCheck, Banknote, X,
+  PackageCheck, Stamp,
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
@@ -197,6 +198,18 @@ function QbControls({ qb, onChange }) {
       onChange();
     } catch (e) { toast.error("Connect failed"); } finally { setBusy(false); }
   };
+  const connectOAuth = async () => {
+    setBusy(true);
+    try {
+      const { data } = await api.get("/brokerage/quickbooks/oauth/start");
+      // Open the Intuit authorize URL in a new tab so the user can log in.
+      window.open(data.authorize_url, "_blank", "noopener,width=900,height=720");
+      toast.info("Opening Intuit OAuth — complete sign-in then refresh the dashboard.");
+    } catch (e) {
+      const msg = e?.response?.data?.detail || "OAuth start failed — paste keys in Connections first";
+      toast.error(msg);
+    } finally { setBusy(false); }
+  };
   const sync = async () => {
     setBusy(true);
     try {
@@ -218,10 +231,13 @@ function QbControls({ qb, onChange }) {
     return (
       <div className="mt-3 space-y-3">
         <Badge className="bg-slate-500/20 text-slate-300 border-slate-500/30">Not connected</Badge>
-        <p className="text-xs text-slate-400">Sync invoices, expenses, and the P&L straight into QuickBooks Online. (Mocked OAuth — flip to real flow when you have a Dev App.)</p>
-        <Button onClick={connect} disabled={busy} className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold" data-testid="qb-connect-btn">
-          {busy ? <Loader2 className="animate-spin" size={14} /> : <Plug size={13} className="mr-1.5" />} Connect to QuickBooks
+        <p className="text-xs text-slate-400">Sync invoices, expenses, and the P&L straight into QuickBooks Online. Configure keys in <a href="/connections" className="underline text-cyan-300">Connections</a> first.</p>
+        <Button onClick={connectOAuth} disabled={busy} className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold" data-testid="qb-oauth-btn">
+          {busy ? <Loader2 className="animate-spin" size={14} /> : <Plug size={13} className="mr-1.5" />} Connect via Intuit OAuth
         </Button>
+        <button onClick={connect} disabled={busy} className="w-full text-[10px] font-mono uppercase tracking-wider text-slate-500 hover:text-cyan-300" data-testid="qb-mock-connect-btn">
+          Or use mock connection (dev)
+        </button>
       </div>
     );
   }
@@ -350,6 +366,9 @@ function BoardsTab({ refresh }) {
         onClose={() => setDetail(null)}
         onBook={(l) => { setDetail(null); setBook(l); }}
       />
+
+      {/* Booked Loads · Generate & email BOL/POD to customers */}
+      <BookedLoadsPanel refresh={refresh} />
     </div>
   );
 }
@@ -1576,6 +1595,344 @@ function DriverFormDialog({ open, driver, onClose, onSaved }) {
         <DialogFooter>
           <Button onClick={onClose} className="bg-white/5 border border-white/10 text-slate-300">Cancel</Button>
           <Button onClick={save} data-testid="driver-save-btn" className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase">Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+// ============================================================
+//          BOOKED LOADS · BOL / POD MAILING PANEL
+// ============================================================
+function BookedLoadsPanel({ refresh }) {
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [customer, setCustomer] = useState(null);      // booking targeted for customer-info edit
+  const [pod, setPod] = useState(null);                // booking targeted for POD email
+  const load = () => {
+    setLoading(true);
+    api.get("/brokerage/bookings")
+       .then(({ data }) => setBookings(data.bookings || []))
+       .catch(() => {})
+       .finally(() => setLoading(false));
+  };
+  useEffect(load, []);
+
+  const downloadDoc = async (booked_id, kind) => {
+    try {
+      const res = await api.get(`/brokerage/bookings/${booked_id}/${kind}.pdf`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = `ORI-${kind.toUpperCase()}-${booked_id.replace("BK-","")}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(`${kind.toUpperCase()} downloaded`);
+    } catch (e) { toast.error(`${kind.toUpperCase()} generation failed`); }
+  };
+
+  return (
+    <Card className="hud-surface p-4" data-testid="booked-loads-panel">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em]" style={{ color: "#C9A24A" }}>Booked Loads</div>
+          <h3 className="font-display text-lg font-bold flex items-center gap-2">
+            <PackageCheck size={16} style={{ color: "#C9A24A" }} /> BOL & POD · Email Customers
+          </h3>
+        </div>
+        <button onClick={load} className="text-[10px] font-mono uppercase tracking-wider text-slate-400 hover:text-cyan-200">
+          Refresh
+        </button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+            <tr>
+              <th className="text-left py-2 px-2">Booked</th>
+              <th className="text-left py-2 px-2">Lane</th>
+              <th className="text-left py-2 px-2">Carrier</th>
+              <th className="text-left py-2 px-2">Customer</th>
+              <th className="text-left py-2 px-2">Status</th>
+              <th className="text-right py-2 px-2">Docs</th>
+            </tr>
+          </thead>
+          <tbody className="font-mono">
+            {loading && <tr><td colSpan={6} className="py-6 text-center text-slate-500">Loading bookings…</td></tr>}
+            {!loading && bookings.length === 0 && (
+              <tr><td colSpan={6} className="py-6 text-center text-slate-500">No bookings yet. Book a load above to enable POD mailing.</td></tr>
+            )}
+            {bookings.map((b) => (
+              <tr key={b.booked_id} className="border-t border-white/5" data-testid={`booking-row-${b.booked_id}`}>
+                <td className="py-2.5 px-2">
+                  <div className="text-slate-200">{b.booked_id}</div>
+                  <div className="text-[10px] text-slate-500">{new Date(b.booked_at).toLocaleDateString()}</div>
+                </td>
+                <td className="py-2.5 px-2 text-slate-300">
+                  {b.origin} → {b.destination}
+                  <div className="text-[10px] text-slate-500">{b.miles}mi · {b.equipment}</div>
+                </td>
+                <td className="py-2.5 px-2 text-slate-300">
+                  {b.carrier_name}
+                  <div className="text-[10px] text-slate-500">{b.carrier_mc || "—"}</div>
+                </td>
+                <td className="py-2.5 px-2 text-slate-300">
+                  {b.customer_name ? (
+                    <>
+                      {b.customer_name}
+                      <div className="text-[10px] text-slate-500">{b.customer_email || "—"}</div>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setCustomer(b)}
+                      className="text-[10px] font-mono uppercase tracking-wider text-amber-300 hover:text-amber-200"
+                      data-testid={`set-customer-${b.booked_id}`}
+                    >
+                      + add customer
+                    </button>
+                  )}
+                </td>
+                <td className="py-2.5 px-2">
+                  <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded ${
+                    b.status === "delivered" ? "bg-emerald-500/10 text-emerald-300"
+                    : b.status === "settled" ? "bg-cyan-500/10 text-cyan-300"
+                    : "bg-amber-500/10 text-amber-300"
+                  }`}>{b.status}</span>
+                </td>
+                <td className="py-2.5 px-2 text-right">
+                  <div className="inline-flex gap-1.5">
+                    <button
+                      onClick={() => setCustomer(b)}
+                      title="Edit customer info"
+                      className="px-2 py-1 rounded border border-white/10 hover:border-white/30 text-[10px] font-mono uppercase tracking-wider text-slate-300"
+                      data-testid={`edit-customer-${b.booked_id}`}
+                    >
+                      Customer
+                    </button>
+                    <button
+                      onClick={() => downloadDoc(b.booked_id, "bol")}
+                      title="Generate Orisei BOL"
+                      className="px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider"
+                      style={{ background: "#C9A24A20", border: "1px solid #C9A24A55", color: "#E6CB85" }}
+                      data-testid={`bol-${b.booked_id}`}
+                    >
+                      <Stamp size={11} className="inline-block mr-1" /> BOL
+                    </button>
+                    <button
+                      onClick={() => downloadDoc(b.booked_id, "pod")}
+                      title="Download Proof of Delivery"
+                      className="px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider"
+                      style={{ background: "#0E3A6B40", border: "1px solid #0EA5E955", color: "#67E8F9" }}
+                      data-testid={`pod-dl-${b.booked_id}`}
+                    >
+                      <Download size={11} className="inline-block mr-1" /> POD
+                    </button>
+                    <button
+                      onClick={() => setPod(b)}
+                      title="Email POD to customer"
+                      className="px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider font-bold"
+                      style={{ background: "#C9A24A", color: "#0E3A6B" }}
+                      data-testid={`pod-email-${b.booked_id}`}
+                    >
+                      <Mail size={11} className="inline-block mr-1" /> Email POD
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <CustomerInfoDialog
+        booking={customer}
+        onClose={() => setCustomer(null)}
+        onSaved={() => { setCustomer(null); load(); refresh?.(); }}
+      />
+      <PodEmailDialog
+        booking={pod}
+        onClose={() => setPod(null)}
+        onSent={() => { setPod(null); load(); refresh?.(); }}
+      />
+    </Card>
+  );
+}
+
+function CustomerInfoDialog({ booking, onClose, onSaved }) {
+  const [f, setF] = useState({});
+  useEffect(() => {
+    if (!booking) return;
+    setF({
+      customer_name: booking.customer_name || "",
+      customer_contact: booking.customer_contact || "",
+      customer_email: booking.customer_email || "",
+      customer_phone: booking.customer_phone || "",
+      consignee_address: booking.consignee_address || "",
+      shipper_name: booking.shipper_name || "Orisei Freight Solutions LLC",
+      shipper_address: booking.shipper_address || "500 Operations Blvd, Minneapolis, MN 55401",
+    });
+  }, [booking]);
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const save = async () => {
+    if (!f.customer_name?.trim()) { toast.error("Customer name required"); return; }
+    try {
+      await api.put(`/brokerage/bookings/${booking.booked_id}/customer`, f);
+      toast.success("Customer info saved");
+      onSaved?.();
+    } catch (e) { toast.error("Save failed"); }
+  };
+  return (
+    <Dialog open={!!booking} onOpenChange={(v) => !v && onClose?.()}>
+      <DialogContent className="max-w-2xl bg-[#0B0E14] border-amber-500/40" data-testid="customer-info-dialog">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Building2 size={16} style={{ color: "#C9A24A" }} /> Customer / Consignee</DialogTitle>
+          <DialogDescription className="text-xs">
+            {booking?.booked_id} · {booking?.origin} → {booking?.destination}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2"><Label className="text-[10px] font-mono uppercase">Customer Name *</Label><Input value={f.customer_name || ""} onChange={set("customer_name")} data-testid="customer-name-input" /></div>
+          <div><Label className="text-[10px] font-mono uppercase">Contact</Label><Input value={f.customer_contact || ""} onChange={set("customer_contact")} placeholder="Receiving Mgr." /></div>
+          <div><Label className="text-[10px] font-mono uppercase">Email *</Label><Input type="email" value={f.customer_email || ""} onChange={set("customer_email")} placeholder="receiving@customer.com" data-testid="customer-email-input" /></div>
+          <div><Label className="text-[10px] font-mono uppercase">Phone</Label><Input value={f.customer_phone || ""} onChange={set("customer_phone")} placeholder="(555) 123-4567" /></div>
+          <div><Label className="text-[10px] font-mono uppercase">Consignee Address</Label><Input value={f.consignee_address || ""} onChange={set("consignee_address")} placeholder="100 Receiving Dock" /></div>
+          <div><Label className="text-[10px] font-mono uppercase">Shipper Name</Label><Input value={f.shipper_name || ""} onChange={set("shipper_name")} /></div>
+          <div><Label className="text-[10px] font-mono uppercase">Shipper Address</Label><Input value={f.shipper_address || ""} onChange={set("shipper_address")} /></div>
+        </div>
+        <DialogFooter>
+          <Button onClick={onClose} variant="ghost">Cancel</Button>
+          <Button onClick={save} className="font-bold" style={{ background: "#C9A24A", color: "#0E3A6B" }} data-testid="customer-save-btn">Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PodEmailDialog({ booking, onClose, onSent }) {
+  const [f, setF] = useState({});
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!booking) return;
+    setF({
+      to_email: booking.customer_email || "",
+      to_name: booking.customer_contact || booking.customer_name || "",
+      cc_email: "",
+      subject: `Proof of Delivery · ${booking.load_id} · ${booking.origin} → ${booking.destination}`,
+      message: `Hi ${booking.customer_contact || "Team"},\n\nAttached is the signed POD for your reference. Thank you for shipping with Orisei Freight Solutions.\n\n— Orisei Operations`,
+      delivered_at: new Date().toISOString().slice(0, 16).replace("T", " "),
+      received_by: "",
+      driver_name: "",
+      pieces_received: "",
+      weight_received: "",
+      condition: "Received in apparent good order — no visible damage.",
+      seal_intact: true,
+    });
+  }, [booking]);
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+
+  const send = async (dryRun = false) => {
+    if (!f.to_email?.trim()) { toast.error("Recipient email required"); return; }
+    setBusy(true);
+    try {
+      const payload = {
+        to_email: f.to_email, to_name: f.to_name, cc_email: f.cc_email || null,
+        subject: f.subject, message: f.message,
+        dry_run: dryRun,
+        delivery: {
+          delivered_at: f.delivered_at,
+          received_by: f.received_by,
+          driver_name: f.driver_name,
+          pieces_received: f.pieces_received,
+          weight_received: f.weight_received,
+          condition: f.condition,
+          seal_intact: f.seal_intact,
+        },
+      };
+      const { data } = await api.post(`/brokerage/bookings/${booking.booked_id}/pod/email`, payload);
+      if (dryRun) toast.success(`Dry-run rendered (${data.pdf_bytes} bytes PDF)`);
+      else toast.success(`POD emailed to ${f.to_email}`);
+      onSent?.();
+    } catch (e) {
+      const msg = e?.response?.data?.detail || "Send failed";
+      toast.error(msg);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open={!!booking} onOpenChange={(v) => !v && onClose?.()}>
+      <DialogContent className="max-w-3xl bg-[#0B0E14] border-amber-500/40 max-h-[90vh] overflow-y-auto" data-testid="pod-email-dialog">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><PackageCheck size={16} style={{ color: "#C9A24A" }} /> Email Proof of Delivery</DialogTitle>
+          <DialogDescription className="text-xs">
+            {booking?.booked_id} · {booking?.load_id} · {booking?.origin} → {booking?.destination}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <div>
+            <Label className="text-[10px] font-mono uppercase">To Email *</Label>
+            <Input value={f.to_email || ""} onChange={set("to_email")} type="email" data-testid="pod-to-email" />
+          </div>
+          <div>
+            <Label className="text-[10px] font-mono uppercase">To Name</Label>
+            <Input value={f.to_name || ""} onChange={set("to_name")} />
+          </div>
+          <div>
+            <Label className="text-[10px] font-mono uppercase">CC</Label>
+            <Input value={f.cc_email || ""} onChange={set("cc_email")} type="email" placeholder="optional" />
+          </div>
+          <div>
+            <Label className="text-[10px] font-mono uppercase">Subject</Label>
+            <Input value={f.subject || ""} onChange={set("subject")} />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-[10px] font-mono uppercase">Message</Label>
+            <Textarea value={f.message || ""} onChange={set("message")} rows={3} className="bg-slate-950 border-white/10" />
+          </div>
+          <div className="md:col-span-2 border-t border-white/5 pt-3">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: "#C9A24A" }}>Delivery Details (printed on POD)</div>
+          </div>
+          <div>
+            <Label className="text-[10px] font-mono uppercase">Delivered At</Label>
+            <Input value={f.delivered_at || ""} onChange={set("delivered_at")} placeholder="2026-02-14 16:30 UTC" />
+          </div>
+          <div>
+            <Label className="text-[10px] font-mono uppercase">Received By</Label>
+            <Input value={f.received_by || ""} onChange={set("received_by")} placeholder="J. Smith, Dock 14" data-testid="pod-received-by" />
+          </div>
+          <div>
+            <Label className="text-[10px] font-mono uppercase">Driver Name</Label>
+            <Input value={f.driver_name || ""} onChange={set("driver_name")} />
+          </div>
+          <div>
+            <Label className="text-[10px] font-mono uppercase">Pieces Received</Label>
+            <Input value={f.pieces_received || ""} onChange={set("pieces_received")} placeholder="24" />
+          </div>
+          <div>
+            <Label className="text-[10px] font-mono uppercase">Weight Received</Label>
+            <Input value={f.weight_received || ""} onChange={set("weight_received")} placeholder="38,500 lbs" />
+          </div>
+          <div className="flex items-end">
+            <label className="flex items-center gap-2 text-xs text-slate-300">
+              <input
+                type="checkbox"
+                checked={f.seal_intact !== false}
+                onChange={(e) => setF((p) => ({ ...p, seal_intact: e.target.checked }))}
+              />
+              Seal intact
+            </label>
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-[10px] font-mono uppercase">Condition / Notes</Label>
+            <Textarea value={f.condition || ""} onChange={set("condition")} rows={2} className="bg-slate-950 border-white/10" />
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button onClick={onClose} variant="ghost" disabled={busy}>Cancel</Button>
+          <Button onClick={() => send(true)} disabled={busy} className="bg-white/5 border border-white/10 text-slate-200" data-testid="pod-dry-run">
+            {busy ? <Loader2 className="animate-spin" size={14} /> : <Eye size={13} className="mr-1.5" />} Dry Run
+          </Button>
+          <Button onClick={() => send(false)} disabled={busy} className="font-bold" style={{ background: "#C9A24A", color: "#0E3A6B" }} data-testid="pod-send-btn">
+            {busy ? <Loader2 className="animate-spin" size={14} /> : <Send size={13} className="mr-1.5" />} Send Email
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
