@@ -56,6 +56,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { BrandingProvider } from "@/lib/branding";
 import { MusicProvider } from "@/lib/music";
 import MiniPlayer from "@/components/MiniPlayer";
+import DeployHealthBanner from "@/components/DeployHealthBanner";
 
 function AppRouter() {
   const location = useLocation();
@@ -134,6 +135,7 @@ export default function App() {
         <AuthProvider>
           <BrandingProvider>
             <MusicProvider>
+              <DeployHealthBanner />
               <AppRouter />
               <MiniPlayer />
               <WellnessNudges />

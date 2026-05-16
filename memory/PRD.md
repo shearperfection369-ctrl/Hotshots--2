@@ -508,6 +508,36 @@ Subsequent user-requested additions (chronological, all delivered):
   `MarkdownDocTab` component so both tabs share one implementation.
 
   delete-roundtrip, business-plan rename, brokerage regression).
+
+## 2026-02-14 (later 3) · Investor Outreach + Home-Office Plan + Deploy Banner
+- Authored **`/app/HOME_OFFICE_SETUP.md`** — 20.5 KB / 14-day self-hosting build guide
+  (3 hardware tiers, day-by-day plan, security hardening, vs-cloud cost comparison,
+  failure-mode runbook). Backend endpoint `GET /api/brokerage/home-office-setup`
+  + new **Self-Host** tab in Brokerage Command Deck (reuses `MarkdownDocTab`).
+- **Investor Outreach feature**:
+  - `POST /api/brokerage/investor-pitch/preview` returns email HTML + PDF size
+  - `POST /api/brokerage/investor-pitch` sends via Resend (creds pulled from
+    Connections vault); falls back to dry-run mode when Resend isn't configured.
+    Records every send into a new `investor_outreach` collection (id, recipient,
+    status, sent_by, pdf attached, message_id from Resend).
+  - `GET /api/brokerage/investor-outreach` returns recent outreach history.
+  - PDF generated on-the-fly from `BROKERAGE_BUSINESS_PLAN.md` via reportlab
+    (~21 KB, professionally styled with section headings + bullets, tables
+    replaced by hyperlinks to the online plan to keep the PDF small).
+  - HTML email template uses inline CSS / table layout (email-client safe).
+    Includes founder bio paragraph, business plan exec summary, "Connect on
+    LinkedIn" CTA button, signature, and unsubscribe-friendly footer.
+  - Frontend: **"Email to Investor"** button in the Business Plan tab header
+    opens a dialog with iframe HTML preview, recent-outreach history list,
+    and Send / Dry Run / Preview buttons. LinkedIn URL + founder name + reply-to
+    persist to localStorage between sends.
+- **`DeployHealthBanner` component** auto-detects "frontend bundle is calling
+  preview backend from a production domain" misconfig. Renders a red
+  sticky banner (admin-only, dismissible per session) with the exact fix
+  instructions ("Save to GitHub → Deploy") and the env-var Emergent Support
+  would need to set. Pure client-side — no backend round-trip.
+- New deps: `resend==2.30.1`, `Markdown==3.10.2`.
+
 - Custom-provider flow verified end-to-end via curl (add → list as 11 → configure
   with masked preview → built-in protection 400 → delete → back to 10).
 

@@ -12,22 +12,28 @@ Mocked-where-it-matters, real-where-it-matters:
 
 from __future__ import annotations
 
+import asyncio
+import base64
 import io
 import logging
 import random
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+import resend
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+from routes.connections import get_connection_credentials
 
 
 logger = logging.getLogger("tennant_tms.brokerage")
@@ -202,6 +208,19 @@ async def _persist_snapshot(db, summary: Dict[str, Any], *, force: bool = False)
         )
 
 
+async def _active_brand(db) -> Dict[str, Any]:
+    """Return the currently-active company brand profile (without _id)."""
+    doc = await db.company_brand.find_one({"is_active": True}, {"_id": 0})
+    if doc:
+        return doc
+    return {
+        "company_name": "Orisei Freight Solutions LLC",
+        "tagline": "Operator-built freight brokerage · Minneapolis · Saint Paul",
+        "primary_color": "#22D3EE",
+        "owner_name": "Oliver Cummins",
+    }
+
+
 LOAD_BOARDS = [
     {"id": "dat", "name": "DAT One", "color": "#FF6B35", "subscription_tier": "Power"},
     {"id": "truckstop", "name": "Truckstop", "color": "#0066CC", "subscription_tier": "Premium"},
@@ -351,6 +370,156 @@ class FormFillIn(BaseModel):
 class BrokerageAIIn(BaseModel):
     question: str = Field(..., min_length=2, max_length=1500)
     context: Optional[str] = None
+
+
+class InvestorPitchIn(BaseModel):
+    to_email: EmailStr
+    to_name: Optional[str] = Field(None, max_length=120)
+    subject: Optional[str] = Field(None, max_length=200)
+    personal_note: Optional[str] = Field(None, max_length=2000)
+    founder_name: Optional[str] = Field(None, max_length=120)
+    linkedin_url: Optional[str] = Field(None, max_length=300)
+    reply_to: Optional[EmailStr] = None
+    attach_pdf: bool = True
+    dry_run: bool = False                       # Render but don't send
+
+
+# ---------- PDF helpers ----------
+def _markdown_to_pdf_bytes(md_text: str, title: str = "Business Plan") -> bytes:
+    """Render a freight-brokerage markdown document to a clean reportlab PDF.
+
+    Honors headings (#, ##, ###), bold/italic, bullet/numbered lists, and
+    pipe-tables. Output is intentionally minimal — designed to look professional
+    on an investor's iPad without battling email-client renderers.
+    """
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter, leftMargin=0.7*inch, rightMargin=0.7*inch, topMargin=0.7*inch, bottomMargin=0.7*inch, title=title)
+    base = getSampleStyleSheet()
+    styles = {
+        "h1":  ParagraphStyle("h1",  parent=base["Heading1"], fontSize=22, leading=26, textColor=colors.HexColor("#0F172A"), spaceAfter=10),
+        "h2":  ParagraphStyle("h2",  parent=base["Heading2"], fontSize=15, leading=19, textColor=colors.HexColor("#0E7490"), spaceBefore=14, spaceAfter=6),
+        "h3":  ParagraphStyle("h3",  parent=base["Heading3"], fontSize=12, leading=16, textColor=colors.HexColor("#0F172A"), spaceBefore=8, spaceAfter=4),
+        "p":   ParagraphStyle("p",   parent=base["BodyText"], fontSize=9.5, leading=13, textColor=colors.HexColor("#1F2937"), spaceAfter=4),
+        "li":  ParagraphStyle("li",  parent=base["BodyText"], fontSize=9.5, leading=13, leftIndent=14, bulletIndent=2, textColor=colors.HexColor("#1F2937"), spaceAfter=2),
+        "quo": ParagraphStyle("quo", parent=base["BodyText"], fontSize=9.5, leading=13, leftIndent=14, textColor=colors.HexColor("#475569"), italic=True, spaceAfter=4),
+    }
+    story: List[Any] = []
+
+    def _inline(text: str) -> str:
+        # Markdown bold/italic/code → minimal reportlab HTML
+        text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+        text = re.sub(r"(?<!\*)\*([^*]+?)\*(?!\*)", r"<i>\1</i>", text)
+        text = re.sub(r"`([^`]+?)`", r'<font face="Courier">\1</font>', text)
+        # Escape leftover & / < / > that could confuse reportlab. (Order matters.)
+        text = text.replace("&", "&amp;").replace("<b>", "\x00b\x00").replace("</b>", "\x00B\x00").replace("<i>", "\x00i\x00").replace("</i>", "\x00I\x00")
+        text = text.replace("<", "&lt;").replace(">", "&gt;")
+        text = text.replace("\x00b\x00", "<b>").replace("\x00B\x00", "</b>").replace("\x00i\x00", "<i>").replace("\x00I\x00", "</i>")
+        return text
+
+    lines = md_text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i].rstrip()
+        stripped = line.strip()
+        # Skip horizontal rules and stray separators
+        if not stripped or re.fullmatch(r"-{3,}|={3,}|\*{3,}", stripped):
+            story.append(Spacer(1, 4)); i += 1; continue
+        # Tables — skip the rendering (would blow up PDF length); leave a hint
+        if "|" in stripped and i + 1 < len(lines) and re.match(r"\|?\s*[:-]+\s*\|", lines[i+1]):
+            j = i
+            while j < len(lines) and lines[j].strip().startswith("|"):
+                j += 1
+            story.append(Paragraph("<i>[Table omitted — see full plan online]</i>", styles["quo"]))
+            i = j; continue
+        # Headings
+        if stripped.startswith("### "):
+            story.append(Paragraph(_inline(stripped[4:]), styles["h3"])); i += 1; continue
+        if stripped.startswith("## "):
+            story.append(Paragraph(_inline(stripped[3:]), styles["h2"])); i += 1; continue
+        if stripped.startswith("# "):
+            story.append(Paragraph(_inline(stripped[2:]), styles["h1"])); i += 1; continue
+        # Blockquote
+        if stripped.startswith("> "):
+            story.append(Paragraph(_inline(stripped[2:]), styles["quo"])); i += 1; continue
+        # Bullets
+        m = re.match(r"^[-*+]\s+(.+)$", stripped)
+        if m:
+            story.append(Paragraph(_inline(m.group(1)), styles["li"], bulletText="•"))
+            i += 1; continue
+        # Numbered lists
+        m = re.match(r"^(\d+)\.\s+(.+)$", stripped)
+        if m:
+            story.append(Paragraph(_inline(m.group(2)), styles["li"], bulletText=f"{m.group(1)}."))
+            i += 1; continue
+        # Paragraph
+        story.append(Paragraph(_inline(stripped), styles["p"]))
+        i += 1
+    doc.build(story)
+    return buf.getvalue()
+
+
+def _build_investor_email_html(*, brand: Dict[str, Any], to_name: Optional[str], founder_name: str,
+                               linkedin_url: Optional[str], personal_note: Optional[str]) -> str:
+    """Render the investor outreach email body. Inline-CSS, table-layout — email-client safe."""
+    company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+    tagline = brand.get("tagline") or "Operator-built freight brokerage · Minneapolis · Saint Paul"
+    accent  = brand.get("primary_color") or "#22D3EE"
+    greeting = f"Hi {to_name}," if to_name else "Hello,"
+    note_block = f"""
+      <tr><td style="padding:0 0 14px 0;color:#334155;font-size:14px;line-height:1.55;">
+        {personal_note}
+      </td></tr>
+    """ if personal_note else ""
+    linkedin_btn = f"""
+      <a href="{linkedin_url}" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#0A66C2;color:#ffffff;text-decoration:none;font-weight:600;font-size:13px;margin-right:8px;">
+        Connect on LinkedIn &rarr;
+      </a>
+    """ if linkedin_url else ""
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0F172A;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#F1F5F9;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(15,23,42,0.06);">
+        <tr><td style="padding:24px 28px;border-bottom:3px solid {accent};">
+          <div style="font-family:'Inter',-apple-system,Helvetica,Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.01em;color:#0F172A;">{company}</div>
+          <div style="font-size:12px;color:#64748B;margin-top:2px;">{tagline}</div>
+        </td></tr>
+
+        <tr><td style="padding:22px 28px 6px 28px;">
+          <div style="font-size:14px;color:#0F172A;margin-bottom:14px;">{greeting}</div>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            {note_block}
+            <tr><td style="padding:0 0 14px 0;color:#334155;font-size:14px;line-height:1.55;">
+              I'm <strong>{founder_name}</strong>, founder of <strong>{company}</strong> — a Twin Cities-based property freight brokerage built around an operator-grade in-house TMS. I'm reaching out because I'd value 15 minutes to share my launch plan and explore where we might be useful to each other.
+            </td></tr>
+            <tr><td style="padding:0 0 14px 0;color:#334155;font-size:14px;line-height:1.55;">
+              The attached <strong>business plan</strong> covers the founder background, market thesis, 3-year financial projections (bootstrap baseline ~$432K → $1.9M revenue), regulatory roadmap (MC authority · BMC-84 · BOC-3), and the step-by-step entry plan I'm executing through Q1.
+            </td></tr>
+          </table>
+        </td></tr>
+
+        <tr><td style="padding:6px 28px 22px 28px;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+            <tr><td>
+              {linkedin_btn}
+            </td></tr>
+          </table>
+        </td></tr>
+
+        <tr><td style="padding:18px 28px;border-top:1px solid #E2E8F0;background:#F8FAFC;font-size:12px;color:#64748B;line-height:1.5;">
+          <div><strong style="color:#0F172A;">{founder_name}</strong> · Founder &amp; Principal Broker</div>
+          <div>{company} · Minneapolis &middot; Saint Paul, MN</div>
+          {f'<div><a href="{linkedin_url}" style="color:#0A66C2;text-decoration:none;">LinkedIn profile</a></div>' if linkedin_url else ""}
+        </td></tr>
+
+        <tr><td style="padding:14px 28px;background:#0F172A;color:#94A3B8;font-size:11px;line-height:1.5;">
+          You received this message because {founder_name} identified you as a potential partner or investor. Reply directly to opt out or to schedule a 15-minute intro call.
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
 
 
 # ---------- Router builder ----------
@@ -706,6 +875,128 @@ def build_brokerage_router(
     async def cost_analysis(_=Depends(get_current_user)):
         """Return the real-world operating cost analysis markdown."""
         return _read_doc("COST_ANALYSIS.md", "Cost analysis document not found")
+
+    @router.get("/home-office-setup")
+    async def home_office_setup(_=Depends(get_current_user)):
+        """Return the step-by-step home-office self-hosting plan markdown."""
+        return _read_doc("HOME_OFFICE_SETUP.md", "Home office setup document not found")
+
+    # ============================ INVESTOR OUTREACH ============================
+    @router.post("/investor-pitch/preview")
+    async def investor_pitch_preview(payload: InvestorPitchIn, _=Depends(get_current_user)):
+        """Render the email HTML + (optional) PDF size, WITHOUT sending."""
+        brand = await _active_brand(db)
+        founder = payload.founder_name or brand.get("owner_name") or "Oliver Cummins"
+        html = _build_investor_email_html(
+            brand=brand, to_name=payload.to_name, founder_name=founder,
+            linkedin_url=payload.linkedin_url, personal_note=payload.personal_note,
+        )
+        out: Dict[str, Any] = {
+            "subject": payload.subject or f"{brand.get('company_name', 'Orisei Freight Solutions LLC')} · Business Plan & Founder Introduction",
+            "html": html,
+            "preview_text": (payload.personal_note or "")[:120],
+            "attach_pdf": payload.attach_pdf,
+        }
+        if payload.attach_pdf:
+            doc = _read_doc("BROKERAGE_BUSINESS_PLAN.md", "Business plan document not found")
+            pdf_bytes = _markdown_to_pdf_bytes(doc["markdown"], title=brand.get("company_name", "Business Plan"))
+            out["pdf_size_kb"] = round(len(pdf_bytes) / 1024, 1)
+        return out
+
+    @router.post("/investor-pitch")
+    async def investor_pitch_send(payload: InvestorPitchIn, user=Depends(get_current_user)):
+        """Send the investor pitch via Resend (credentials pulled from Connections vault)."""
+        brand = await _active_brand(db)
+        founder = payload.founder_name or brand.get("owner_name") or "Oliver Cummins"
+        company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+        subject = payload.subject or f"{company} · Business Plan & Founder Introduction"
+
+        html = _build_investor_email_html(
+            brand=brand, to_name=payload.to_name, founder_name=founder,
+            linkedin_url=payload.linkedin_url, personal_note=payload.personal_note,
+        )
+
+        attachments: List[Dict[str, str]] = []
+        pdf_size_kb = 0.0
+        if payload.attach_pdf:
+            doc = _read_doc("BROKERAGE_BUSINESS_PLAN.md", "Business plan document not found")
+            pdf_bytes = _markdown_to_pdf_bytes(doc["markdown"], title=company)
+            pdf_size_kb = round(len(pdf_bytes) / 1024, 1)
+            attachments.append({
+                "filename": f"{company.replace(' ', '_')}_Business_Plan.pdf",
+                "content":  base64.b64encode(pdf_bytes).decode("ascii"),
+            })
+
+        creds = await get_connection_credentials(db, "resend")
+        outreach_record: Dict[str, Any] = {
+            "id": str(uuid.uuid4()),
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "sent_by": getattr(user, "user_id", None),
+            "sent_by_email": getattr(user, "email", None),
+            "to_email": str(payload.to_email),
+            "to_name": payload.to_name,
+            "subject": subject,
+            "founder_name": founder,
+            "linkedin_url": payload.linkedin_url,
+            "personal_note": payload.personal_note,
+            "pdf_attached": bool(attachments),
+            "pdf_size_kb": pdf_size_kb,
+            "status": "queued",
+            "provider": "resend" if creds else "not_configured",
+            "dry_run": payload.dry_run,
+            "company_name": company,
+        }
+
+        # Dry run: just record & return
+        if payload.dry_run:
+            outreach_record["status"] = "dry_run"
+            await db.investor_outreach.insert_one(dict(outreach_record))
+            outreach_record.pop("_id", None)
+            return {"ok": True, "dry_run": True, **outreach_record}
+
+        if not creds or not creds.get("api_key"):
+            outreach_record["status"] = "blocked"
+            outreach_record["error"] = "Resend connection not configured. Open Connections · Keys and enable Resend."
+            await db.investor_outreach.insert_one(dict(outreach_record))
+            raise HTTPException(400, outreach_record["error"])
+
+        from_email = creds.get("from_email") or "onboarding@resend.dev"
+        from_display = f"{founder} <{from_email}>"
+        params = {
+            "from": from_display,
+            "to": [str(payload.to_email)],
+            "subject": subject,
+            "html": html,
+            "attachments": attachments,
+        }
+        if payload.reply_to:
+            params["reply_to"] = [str(payload.reply_to)]
+
+        try:
+            resend.api_key = creds["api_key"]
+            result = await asyncio.to_thread(resend.Emails.send, params)
+            outreach_record["status"] = "sent"
+            outreach_record["provider_message_id"] = result.get("id") if isinstance(result, dict) else None
+        except Exception as exc:
+            logger.exception("investor_pitch_send failed")
+            outreach_record["status"] = "failed"
+            outreach_record["error"] = str(exc)[:400]
+            await db.investor_outreach.insert_one(dict(outreach_record))
+            raise HTTPException(502, f"Resend failed: {exc}")
+
+        await db.investor_outreach.insert_one(dict(outreach_record))
+        outreach_record.pop("_id", None)
+        return {"ok": True, **outreach_record}
+
+    @router.get("/investor-outreach")
+    async def investor_outreach_list(limit: int = 50, _=Depends(get_current_user)):
+        """Recent investor pitch history (newest first)."""
+        limit = max(1, min(int(limit or 50), 500))
+        cursor = db.investor_outreach.find({}, {"_id": 0, "personal_note": 0}).sort("sent_at", -1).limit(limit)
+        out: List[Dict[str, Any]] = []
+        async for r in cursor:
+            out.append(r)
+        return {"count": len(out), "items": out}
 
     # ============================ LIVE COST SUMMARY ============================
     @router.get("/cost-summary")

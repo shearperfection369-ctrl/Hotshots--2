@@ -13,7 +13,7 @@ import {
   Truck, DollarSign, FileText, Sparkles, TrendingUp, TrendingDown, BarChart3,
   Building2, Calculator, Plug, Send, CheckCircle2, AlertCircle, Loader2, Download,
   ArrowUpRight, ArrowDownRight, Zap, Receipt, FileSpreadsheet, Bot, Plus, BookOpen, Printer,
-  Wallet,
+  Wallet, Server, Mail, Linkedin, Eye,
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
@@ -32,6 +32,7 @@ const TABS = [
   { id: "forms",     label: "Forms Library", icon: FileText },
   { id: "plan",      label: "Business Plan", icon: BookOpen },
   { id: "costs",     label: "Cost Analysis", icon: Wallet },
+  { id: "infra",     label: "Self-Host", icon: Server },
   { id: "ai",        label: "AI Assistant", icon: Sparkles },
 ];
 
@@ -70,6 +71,7 @@ export default function Brokerage() {
         {tab === "forms"     && <FormsTab />}
         {tab === "plan"      && <BusinessPlanTab />}
         {tab === "costs"     && <CostAnalysisTab />}
+        {tab === "infra"     && <HomeOfficeTab />}
         {tab === "ai"        && <AITab />}
       </div>
     </>
@@ -655,13 +657,42 @@ function AITab() {
 //                     BUSINESS PLAN TAB
 // ============================================================
 function BusinessPlanTab() {
+  const [showPitch, setShowPitch] = useState(false);
+  const extraActions = (
+    <Button
+      onClick={() => setShowPitch(true)}
+      data-testid="business-plan-email-investor-btn"
+      className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase tracking-wider"
+    >
+      <Mail size={13} className="mr-1.5" /> Email to Investor
+    </Button>
+  );
+  return (
+    <>
+      <MarkdownDocTab
+        endpoint="/brokerage/business-plan"
+        eyebrow="Operating Document"
+        title="Orisei Freight Solutions · Business Plan"
+        icon={BookOpen}
+        testidScope="brokerage-plan"
+        extraActions={extraActions}
+      />
+      <InvestorPitchDialog open={showPitch} onClose={() => setShowPitch(false)} />
+    </>
+  );
+}
+
+// ============================================================
+//                     HOME OFFICE / SELF-HOST TAB
+// ============================================================
+function HomeOfficeTab() {
   return (
     <MarkdownDocTab
-      endpoint="/brokerage/business-plan"
-      eyebrow="Operating Document"
-      title="Orisei Freight Solutions · Business Plan"
-      icon={BookOpen}
-      testidScope="brokerage-plan"
+      endpoint="/brokerage/home-office-setup"
+      eyebrow="Self-Hosting Blueprint"
+      title="Home-Office Server Setup · 14-Day Build Plan"
+      icon={Server}
+      testidScope="brokerage-infra"
     />
   );
 }
@@ -869,7 +900,7 @@ function Sparkline({ values, testid }) {
 // ============================================================
 //        SHARED · Markdown document tab renderer
 // ============================================================
-function MarkdownDocTab({ endpoint, eyebrow, title, icon: Icon, testidScope }) {
+function MarkdownDocTab({ endpoint, eyebrow, title, icon: Icon, testidScope, extraActions }) {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
@@ -918,6 +949,7 @@ function MarkdownDocTab({ endpoint, eyebrow, title, icon: Icon, testidScope }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {extraActions}
           <Button
             onClick={() => window.print()}
             data-testid={`${testidScope}-print-btn`}
@@ -943,6 +975,187 @@ function MarkdownDocTab({ endpoint, eyebrow, title, icon: Icon, testidScope }) {
     </div>
   );
 }
+
+// ============================================================
+//             INVESTOR PITCH DIALOG (email)
+// ============================================================
+const PITCH_LS_KEY = "investor_pitch_defaults_v1";
+function InvestorPitchDialog({ open, onClose }) {
+  const [toEmail, setToEmail] = useState("");
+  const [toName, setToName] = useState("");
+  const [founderName, setFounderName] = useState("Oliver Cummins");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [replyTo, setReplyTo] = useState("");
+  const [subject, setSubject] = useState("");
+  const [note, setNote] = useState("");
+  const [attachPdf, setAttachPdf] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [history, setHistory] = useState([]);
+
+  // Persist + restore defaults across sessions
+  useEffect(() => {
+    if (!open) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(PITCH_LS_KEY) || "{}");
+      if (saved.founderName) setFounderName(saved.founderName);
+      if (saved.linkedinUrl) setLinkedinUrl(saved.linkedinUrl);
+      if (saved.replyTo) setReplyTo(saved.replyTo);
+    } catch (_) {}
+    api.get("/brokerage/investor-outreach?limit=10").then(({ data }) => setHistory(data.items || [])).catch(() => {});
+  }, [open]);
+
+  const persist = () => {
+    try {
+      localStorage.setItem(PITCH_LS_KEY, JSON.stringify({ founderName, linkedinUrl, replyTo }));
+    } catch (_) {}
+  };
+
+  const payload = () => ({
+    to_email: toEmail.trim(),
+    to_name: toName.trim() || null,
+    subject: subject.trim() || null,
+    personal_note: note.trim() || null,
+    founder_name: founderName.trim() || null,
+    linkedin_url: linkedinUrl.trim() || null,
+    reply_to: replyTo.trim() || null,
+    attach_pdf: attachPdf,
+  });
+
+  const doPreview = async () => {
+    if (!toEmail.trim()) { toast.error("Recipient email required"); return; }
+    setBusy(true);
+    try {
+      const { data } = await api.post("/brokerage/investor-pitch/preview", payload());
+      setPreview(data);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Preview failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doSend = async ({ dryRun }) => {
+    if (!toEmail.trim()) { toast.error("Recipient email required"); return; }
+    persist();
+    setBusy(true);
+    try {
+      const { data } = await api.post("/brokerage/investor-pitch", { ...payload(), dry_run: !!dryRun });
+      if (dryRun) {
+        toast.success(`Dry-run recorded · ${data.pdf_size_kb || 0} KB PDF prepared`);
+      } else {
+        toast.success(`Sent to ${toEmail}`);
+      }
+      // Refresh history
+      api.get("/brokerage/investor-outreach?limit=10").then(({ data }) => setHistory(data.items || [])).catch(() => {});
+      if (!dryRun) {
+        setToEmail(""); setToName(""); setNote(""); setSubject("");
+      }
+    } catch (e) {
+      const msg = e?.response?.data?.detail || "Send failed";
+      if (msg.includes("Resend connection not configured")) {
+        toast.error("Resend not configured — open Connections · Keys to add the API key.", { duration: 5000 });
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-3xl bg-slate-900 border-cyan-500/20 max-h-[90vh] overflow-y-auto" data-testid="investor-pitch-dialog">
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl flex items-center gap-2">
+            <Mail size={18} className="text-cyan-400" /> Email Business Plan to Investor
+          </DialogTitle>
+          <DialogDescription className="text-xs text-slate-400">
+            Sends a polished HTML email (with the business-plan PDF attached) via Resend. Configure Resend in <span className="text-cyan-300">Connections · Keys</span> first, or use Dry Run to preview without sending.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-2">
+          <Field label="Recipient email" required>
+            <Input type="email" value={toEmail} onChange={(e) => setToEmail(e.target.value)} placeholder="investor@example.com" data-testid="pitch-to-email" className="bg-slate-950 border-white/10" />
+          </Field>
+          <Field label="Recipient name">
+            <Input value={toName} onChange={(e) => setToName(e.target.value)} placeholder="Jane Doe" data-testid="pitch-to-name" className="bg-slate-950 border-white/10" />
+          </Field>
+          <Field label="Founder name (signature)">
+            <Input value={founderName} onChange={(e) => setFounderName(e.target.value)} data-testid="pitch-founder-name" className="bg-slate-950 border-white/10" />
+          </Field>
+          <Field label="LinkedIn profile URL">
+            <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/oliver-cummins" data-testid="pitch-linkedin" className="bg-slate-950 border-white/10" />
+          </Field>
+          <Field label="Reply-to (optional)">
+            <Input type="email" value={replyTo} onChange={(e) => setReplyTo(e.target.value)} placeholder="oliver@oriseifreight.com" data-testid="pitch-reply-to" className="bg-slate-950 border-white/10" />
+          </Field>
+          <Field label="Custom subject (optional)">
+            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="defaults to '… Business Plan & Founder Introduction'" data-testid="pitch-subject" className="bg-slate-950 border-white/10" />
+          </Field>
+          <div className="md:col-span-2 space-y-1">
+            <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Personal note (top of email)</Label>
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Jane — great meeting you at MN CSCMP last month. Here's the plan I mentioned for the Twin Cities brokerage. Would love your read." data-testid="pitch-note" className="bg-slate-950 border-white/10 text-sm" />
+          </div>
+          <label className="md:col-span-2 flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+            <input type="checkbox" checked={attachPdf} onChange={(e) => setAttachPdf(e.target.checked)} data-testid="pitch-attach-pdf" className="accent-cyan-500" />
+            Attach the business plan as a PDF (~50 KB)
+          </label>
+        </div>
+
+        {preview && (
+          <div className="rounded border border-cyan-500/30 bg-slate-950 p-3 space-y-2" data-testid="pitch-preview">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Email preview</div>
+              <div className="text-[10px] font-mono text-slate-500">Subject: {preview.subject} {preview.pdf_size_kb ? `· PDF ${preview.pdf_size_kb} KB` : ""}</div>
+            </div>
+            <iframe srcDoc={preview.html} title="Pitch preview" className="w-full h-72 rounded bg-white" data-testid="pitch-preview-iframe" />
+          </div>
+        )}
+
+        {history.length > 0 && (
+          <div className="rounded border border-white/5 bg-white/[0.02] p-3" data-testid="pitch-history">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-2">Recent outreach · {history.length}</div>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {history.map((h) => (
+                <div key={h.id} className="flex items-center justify-between text-[11px] font-mono">
+                  <div className="text-slate-300 truncate">{h.to_email} {h.to_name && <span className="text-slate-500">· {h.to_name}</span>}</div>
+                  <div className={`uppercase text-[9px] ${h.status === "sent" ? "text-emerald-300" : h.status === "dry_run" ? "text-cyan-300" : "text-red-300"}`}>{h.status}</div>
+                  <div className="text-slate-600 ml-2">{new Date(h.sent_at).toLocaleDateString()}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="gap-2 flex-wrap">
+          <Button onClick={doPreview} disabled={busy} data-testid="pitch-preview-btn" className="bg-white/5 border border-white/10 text-slate-300 hover:border-cyan-400/40 font-mono text-[11px] uppercase mr-auto">
+            <Eye size={12} className="mr-1.5" /> Preview
+          </Button>
+          <Button onClick={() => doSend({ dryRun: true })} disabled={busy} data-testid="pitch-dryrun-btn" className="bg-white/5 border border-white/10 text-slate-300 hover:border-yellow-400/40 font-mono text-[11px] uppercase">
+            Dry Run
+          </Button>
+          <Button onClick={() => doSend({ dryRun: false })} disabled={busy} data-testid="pitch-send-btn" className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase">
+            {busy ? <Loader2 size={12} className="animate-spin mr-1.5" /> : <Send size={12} className="mr-1.5" />} Send
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Field({ label, required, children }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
 
 // ============================================================
 //                     SHARED
