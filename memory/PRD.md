@@ -541,3 +541,58 @@ Subsequent user-requested additions (chronological, all delivered):
 - Custom-provider flow verified end-to-end via curl (add → list as 11 → configure
   with masked preview → built-in protection 400 → delete → back to 10).
 
+
+
+## 2026-02-15 · Beautiful Orisei BOL · NEW Proof of Delivery (POD) · QuickBooks OAuth · Landing route public
+- **`routes/orisei_docs.py`** (NEW, ~360 lines) — brand-aware ReportLab PDF generators
+  for the Bill of Lading and Proof of Delivery. Embeds downsampled Orisei logo +
+  wordmark (`_orisei_logo_pdf.png` / `_orisei_wordmark_pdf.png`, ~120KB each so
+  final PDFs stay ~300KB email-safe), Moorish-inspired 8-point gold stars in
+  all 4 corners, deep-azure (#0E3A6B) + gold-leaf (#C9A24A) palette, parties /
+  shipment / freight / charges / signature blocks. POD adds a prominent
+  "◆ DELIVERED ◆" azure banner with timestamp + Khatim al-Sulayman accents.
+- **NEW brokerage endpoints** in `routes/brokerage.py`:
+  - `GET  /api/brokerage/bookings` — list all bookings ready for BOL/POD/mailing
+  - `PUT  /api/brokerage/bookings/{id}/customer` — attach customer name/email/phone/addresses
+  - `GET  /api/brokerage/bookings/{id}/bol.pdf` — beautiful Orisei BOL PDF (stamps `bol_no` on the doc)
+  - `GET  /api/brokerage/bookings/{id}/pod.pdf` — Orisei POD PDF (uses any saved delivery data)
+  - `POST /api/brokerage/bookings/{id}/pod/email` — emails POD via Resend (creds from Connections vault),
+    persists to `db.pod_outreach`, updates booking.status='delivered' + delivery fields. Supports
+    `dry_run=true` to render HTML+PDF without sending. Returns 400 with helpful detail when Resend
+    is not configured.
+  - `GET  /api/brokerage/bookings/{id}/pod-history` — recent POD send log per booking
+- **QuickBooks OAuth wiring** — replaced the mocked "Connect to QuickBooks" with a real flow:
+  - `GET /api/brokerage/quickbooks/oauth/start` builds the Intuit authorize URL from the
+    Connections vault (`client_id`, `redirect_uri`, `environment`), stores a state in
+    `db.brokerage_qb_oauth_state`, returns `{authorize_url, state, environment}`.
+  - `GET /api/brokerage/quickbooks/oauth/callback` exchanges the code via `httpx` against
+    `oauth.platform.intuit.com/oauth2/v1/tokens/bearer`, stores access/refresh tokens +
+    realm_id on `brokerage_qb_config`.
+  - The legacy `/quickbooks/connect` (mock) is still available for local dev under the
+    "Or use mock connection (dev)" link.
+- **Frontend** (`pages/Brokerage.jsx`):
+  - New **Booked Loads · BOL & POD · Email Customers** panel inside the Load Boards tab.
+    Shows every booking with status pill (booked/settled/delivered), customer chip, and
+    four actions per row: CUSTOMER (info dialog), BOL (download PDF), POD (download PDF),
+    EMAIL POD (mailing dialog with delivery-confirmation fields + dry-run).
+  - `CustomerInfoDialog` captures customer/consignee + shipper info that gets stamped on BOL/POD.
+  - `PodEmailDialog` captures delivered_at / received_by / driver_name / pieces / weight /
+    seal_intact / condition, plus full email controls (To, CC, Subject, Message). Persists
+    delivery details to the booking on send.
+  - QbControls now offers **"Connect via Intuit OAuth"** as the primary CTA (opens
+    authorize_url in a new tab) and keeps a small "Or use mock connection (dev)" link.
+- **`components/TennantLogo.jsx`** — when `brand_id === "orisei-freight"` renders the actual
+  Orisei logo PNG inside a gold-ringed azure disc. Other brands keep the colored pill behavior.
+- **`App.js`** — `/home` (Landing.jsx) moved out of the ProtectedRoute block so the public
+  Moorish-themed landing page is reachable without sign-in.
+- **`pages/Landing.jsx`** — eslint pragma broadened so it compiles (the `jsx-a11y/anchor-is-valid`
+  rule wasn't loaded in this preset).
+- New DB collections: `brokerage_qb_oauth_state`, `pod_outreach`.
+
+### Tests
+- `/app/test_reports/iteration_22.json` — 21/21 pytest passed, frontend Playwright smoke OK.
+  Covered every new endpoint + regression of dashboard/boards/book/settle/margins/factoring/
+  investor-pitch/business-plan/cost-analysis. Verified PDFs render with valid `%PDF` magic,
+  sub-1MB sizes, `Content-Type: application/pdf`, BOL stamps `bol_no` on the booking, POD
+  email dry-run persists outreach + updates booking status, QB OAuth start without creds
+  returns the help message, with creds returns a valid appcenter.intuit.com authorize URL.
