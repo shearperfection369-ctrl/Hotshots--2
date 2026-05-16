@@ -674,3 +674,22 @@ Subsequent user-requested additions (chronological, all delivered):
   added with full coverage for catalog shape, send dry-run, send-without-resend 400,
   email override honoring, admin RBAC, history sort, status-update happy/sad paths,
   and BOL/non-BOL Documents PDF regressions.
+
+
+## 2026-02-15 (later 3) · P0 Carrier Onboarding Packet Fix
+- **Bug**: `POST /api/carrier-onboarding/{onboarding_id}/send-packet` returned 500
+  with the toast "Failed to compose packet". Root cause: the endpoint referenced
+  `doc['name']` but `carrier_onboarding` records store the carrier name under
+  `legal_name` → `KeyError` → 500.
+- **Fix** (`server.py` `send_onboarding_packet`):
+  - Resolve carrier display name as `legal_name` → `name` → `dba` → "Carrier".
+  - Brand-aware packet body: reads active brand via `_active_brand_doc()` and
+    swaps in `company_name`, `short_name`, derived `carriers@{slug}.com`
+    contact, and `phone` so packets now read "Orisei Freight Solutions LLC"
+    (or any active brand) instead of being hard-coded to Tennant.
+  - Cleaner empty-field rendering ("—" instead of "None") for MC/DOT/SCAC/Mode.
+  - `mailto:` link now URL-encodes subject + body via `urllib.parse.quote`.
+- **Frontend** (`pages/CarrierOnboarding.jsx`): packet modal title now reads
+  "{brand_short} Onboarding Packet" via `useBranding()`.
+- **Verified**: `curl POST /api/carrier-onboarding/OB-A90459A0/send-packet` → 200
+  with full Orisei-branded body.

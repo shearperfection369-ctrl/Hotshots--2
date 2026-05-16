@@ -4757,37 +4757,57 @@ async def accept_carrier_invite(payload: CarrierInviteAccept):
     )
     return {"session_token": session_token, "user_id": user_id, "role": "carrier", "carrier_company": invite["carrier_company"]}
 
-# -------------------- ONBOARDING: Send Tennant requirements packet --------------------
+# -------------------- ONBOARDING: Send carrier requirements packet (brand-aware) --------------------
 @api_router.post("/carrier-onboarding/{onboarding_id}/send-packet")
 async def send_onboarding_packet(onboarding_id: str, admin: User = Depends(require_role("admin", "dispatcher"))):
     doc = await db.carrier_onboarding.find_one({"onboarding_id": onboarding_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Onboarding record not found")
-    subject = f"Tennant Companies — Carrier Onboarding Requirements Packet · {doc['name']}"
+
+    # Carrier display name (records use legal_name; fall back gracefully)
+    carrier_name = doc.get("legal_name") or doc.get("name") or doc.get("dba") or "Carrier"
+    contact_name = doc.get("contact_name") or carrier_name
+
+    # Pull active brand so the packet reflects Orisei/Calafia (or whatever brand is active)
+    brand = await _active_brand_doc() or {}
+    company = brand.get("company_name") or "Tennant Companies"
+    short = brand.get("short_name") or "Tennant"
+    contact_email = (brand.get("contact_emails") or {}).get("carriers") if isinstance(brand.get("contact_emails"), dict) else None
+    if not contact_email:
+        # derive a sane default from the brand's primary email domain or short name
+        slug = re.sub(r"[^a-z0-9]+", "", short.lower())[:24] or "brand"
+        contact_email = f"carriers@{slug}.com"
+    phone = brand.get("phone") or "(763) 540-1200"
+    insurance_amount = int(doc.get("insurance_amount") or 0)
+
+    subject = f"{company} — Carrier Onboarding Requirements Packet · {carrier_name}"
     body = (
-        f"Hello {doc.get('contact_name') or doc['name']},\n\n"
-        f"Thank you for your interest in becoming a Tennant Companies approved carrier.\n"
+        f"Hello {contact_name},\n\n"
+        f"Thank you for your interest in becoming a {company} approved carrier.\n"
         f"To complete the onboarding process please return the following documents within 14 days:\n\n"
-        f"  1. Signed Carrier Master Agreement (Tennant standard, attached)\n"
-        f"  2. Certificate of Insurance · Auto Liability $1M / Cargo $250K min / WC statutory · naming Tennant Company as additional insured\n"
+        f"  1. Signed Carrier Master Agreement ({short} standard, attached)\n"
+        f"  2. Certificate of Insurance · Auto Liability $1M / Cargo $250K min / WC statutory · naming {company} as additional insured\n"
         f"  3. W-9 Tax Form (current year)\n"
         f"  4. SCAC verification & MC# / DOT# documentation\n"
         f"  5. Most recent CSA / SMS safety scorecard (≤6 months)\n"
         f"  6. EDI 204/214/210 capability confirmation (yes/no/in development)\n"
         f"  7. Lane & equipment matrix (capacity by lane, trailer types)\n\n"
-        f"Submit all documents to: carriers@tennantco.com\n\n"
+        f"Submit all documents to: {contact_email}\n\n"
         f"Once received, our team will review and notify you of approval status within 5 business days.\n\n"
         f"Carrier reference info we already have on file:\n"
-        f"  · MC#: {doc.get('mc_number','—')}    DOT#: {doc.get('dot_number','—')}    SCAC: {doc.get('scac','—')}\n"
-        f"  · Mode: {doc.get('mode','—')}    Insurance amt: ${doc.get('insurance_amount',0):,}\n\n"
-        f"— Tennant Transportation Team\n  carriers@tennantco.com · (763) 540-1200"
+        f"  · MC#: {doc.get('mc_number') or '—'}    DOT#: {doc.get('dot_number') or '—'}    SCAC: {doc.get('scac') or '—'}\n"
+        f"  · Mode: {doc.get('mode') or '—'}    Insurance amt: ${insurance_amount:,}\n\n"
+        f"— {short} Transportation Team\n  {contact_email} · {phone}"
     )
     await db.carrier_onboarding.update_one(
         {"onboarding_id": onboarding_id},
         {"$set": {"packet_sent_at": datetime.now(timezone.utc).isoformat(), "packet_sent_by": admin.user_id}},
     )
-    mailto = f"mailto:{doc.get('contact_email','')}?subject={subject}&body={body}"
-    return {"to": doc.get("contact_email", ""), "subject": subject, "body": body, "mailto": mailto}
+    to_email = doc.get("contact_email", "") or ""
+    # URL-encode subject & body so the mailto link is robust to spaces / newlines
+    from urllib.parse import quote
+    mailto = f"mailto:{to_email}?subject={quote(subject)}&body={quote(body)}"
+    return {"to": to_email, "subject": subject, "body": body, "mailto": mailto}
 
 # -------------------- SHIPMENTS: Email composers --------------------
 @api_router.post("/shipments/{shipment_id}/email-routing-guide")

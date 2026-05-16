@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useBrandRefresh } from "../lib/branding";
+import { useBrandRefresh, useBranding } from "../lib/branding";
 import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
 import { Card } from "../components/ui/card";
@@ -35,6 +35,8 @@ const blankForm = {
 };
 
 export default function CarrierOnboarding() {
+  const { brand } = useBranding();
+  const brandShort = brand?.short_name || "Tennant";
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blankForm);
