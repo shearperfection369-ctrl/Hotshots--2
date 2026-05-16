@@ -35,7 +35,9 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from routes.connections import get_connection_credentials
 from routes.loadboard_adapters import try_fetch_live
-from routes.orisei_docs import build_bol_pdf, build_form_pdf, build_pod_pdf
+from routes.orisei_docs import (
+    build_bol_pdf, build_branded_markdown_pdf, build_form_pdf, build_pod_pdf,
+)
 
 
 logger = logging.getLogger("tennant_tms.brokerage")
@@ -521,12 +523,15 @@ class PodEmailIn(BaseModel):
 
 # ---------- PDF helpers ----------
 def _markdown_to_pdf_bytes(md_text: str, title: str = "Business Plan") -> bytes:
-    """Render a freight-brokerage markdown document to a clean reportlab PDF.
-
-    Honors headings (#, ##, ###), bold/italic, bullet/numbered lists, and
-    pipe-tables. Output is intentionally minimal — designed to look professional
-    on an investor's iPad without battling email-client renderers.
+    """Render the brokerage business plan / cost analysis / home-office setup
+    documents using the Calafia heraldic template.
     """
+    return build_branded_markdown_pdf(md_text, title=title,
+                                      subtitle="Founder Business Plan · Confidential")
+
+
+def _legacy_markdown_to_pdf_unused(md_text: str, title: str = "Business Plan") -> bytes:
+    """Deprecated cyan markdown renderer — preserved for reference, no callers."""
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=letter, leftMargin=0.7*inch, rightMargin=0.7*inch, topMargin=0.7*inch, bottomMargin=0.7*inch, title=title)
     base = getSampleStyleSheet()
@@ -1975,6 +1980,50 @@ def build_brokerage_router(
     async def home_office_setup(_=Depends(get_current_user)):
         """Return the step-by-step home-office self-hosting plan markdown."""
         return _read_doc("HOME_OFFICE_SETUP.md", "Home office setup document not found")
+
+    # ---- Branded PDF downloads of the markdown documents ----
+    @router.get("/business-plan/pdf")
+    async def business_plan_pdf(_=Depends(get_current_user)):
+        """Direct download of the Calafia-branded business plan PDF."""
+        doc = _read_doc("BROKERAGE_BUSINESS_PLAN.md", "Business plan document not found")
+        brand = await _active_brand(db)
+        company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+        pdf_bytes = build_branded_markdown_pdf(
+            doc["markdown"], title=company,
+            subtitle="Founder Business Plan · Confidential",
+        )
+        filename = f"{company.replace(' ', '_')}_Business_Plan.pdf"
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @router.get("/cost-analysis/pdf")
+    async def cost_analysis_pdf(_=Depends(get_current_user)):
+        doc = _read_doc("COST_ANALYSIS.md", "Cost analysis document not found")
+        pdf_bytes = build_branded_markdown_pdf(
+            doc["markdown"], title="Cost Analysis",
+            subtitle="Live operating-cost forecast · Confidential",
+        )
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="Orisei_Cost_Analysis.pdf"'},
+        )
+
+    @router.get("/home-office-setup/pdf")
+    async def home_office_setup_pdf(_=Depends(get_current_user)):
+        doc = _read_doc("HOME_OFFICE_SETUP.md", "Home office setup document not found")
+        pdf_bytes = build_branded_markdown_pdf(
+            doc["markdown"], title="Home Office Setup",
+            subtitle="Operator playbook · Saint Paul, MN",
+        )
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="Orisei_Home_Office_Setup.pdf"'},
+        )
 
     # ============================ INVESTOR OUTREACH ============================
     @router.post("/investor-pitch/preview")

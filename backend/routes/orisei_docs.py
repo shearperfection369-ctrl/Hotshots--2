@@ -500,6 +500,89 @@ def build_form_pdf(*, form_meta: Dict[str, Any], schema_rows: List[List[str]],
     doc.build(story)
     return buf.getvalue()
 
+
+# ---------- PUBLIC: Branded Markdown / Business Plan ----------
+def build_branded_markdown_pdf(md_text: str, *, title: str = "Business Plan",
+                               subtitle: Optional[str] = None,
+                               doc_id: Optional[str] = None) -> bytes:
+    """Render a markdown document (business plan, cost analysis, home-office
+    setup, etc.) using the Calafia heraldic template — Orisei logo header,
+    gold corner diamonds, navy headings, gold rule.
+    """
+    import re as _re
+    base_styles = getSampleStyleSheet()
+    md_styles = {
+        "h1":  ParagraphStyle("h1",  parent=base_styles["Heading1"], fontSize=18, leading=22,
+                              textColor=ORISEI_AZURE, spaceBefore=10, spaceAfter=8),
+        "h2":  ParagraphStyle("h2",  parent=base_styles["Heading2"], fontSize=14, leading=18,
+                              textColor=ORISEI_GOLD, spaceBefore=12, spaceAfter=6),
+        "h3":  ParagraphStyle("h3",  parent=base_styles["Heading3"], fontSize=11, leading=15,
+                              textColor=ORISEI_AZURE, spaceBefore=8, spaceAfter=4),
+        "p":   ParagraphStyle("p",   parent=base_styles["BodyText"], fontSize=9.5, leading=13,
+                              textColor=ORISEI_INK, spaceAfter=4),
+        "li":  ParagraphStyle("li",  parent=base_styles["BodyText"], fontSize=9.5, leading=13,
+                              leftIndent=14, bulletIndent=2, textColor=ORISEI_INK, spaceAfter=2),
+        "quo": ParagraphStyle("quo", parent=base_styles["BodyText"], fontSize=9.5, leading=13,
+                              leftIndent=14, textColor=ORISEI_SLATE, italic=True, spaceAfter=4),
+    }
+    buf = io.BytesIO()
+    final_doc_id = doc_id or f"ORI-{__import__('uuid').uuid4().hex[:10].upper()}"
+    doc_pdf = _build_doc(buf, title)
+    story: List[Any] = []
+    story.append(_header(title.upper(), subtitle or "Founder Business Plan", final_doc_id))
+    story.append(Spacer(1, 12))
+
+    def _inline(text: str) -> str:
+        text = _re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+        text = _re.sub(r"(?<!\*)\*([^*]+?)\*(?!\*)", r"<i>\1</i>", text)
+        text = _re.sub(r"`([^`]+?)`", r'<font face="Courier">\1</font>', text)
+        text = (text.replace("&", "&amp;")
+                    .replace("<b>", "\x00b\x00").replace("</b>", "\x00B\x00")
+                    .replace("<i>", "\x00i\x00").replace("</i>", "\x00I\x00"))
+        text = text.replace("<", "&lt;").replace(">", "&gt;")
+        text = (text.replace("\x00b\x00", "<b>").replace("\x00B\x00", "</b>")
+                    .replace("\x00i\x00", "<i>").replace("\x00I\x00", "</i>"))
+        return text
+
+    lines = md_text.splitlines()
+    i = 0
+    skipped_first_h1 = False
+    while i < len(lines):
+        line = lines[i].rstrip()
+        stripped = line.strip()
+        if not stripped or _re.fullmatch(r"-{3,}|={3,}|\*{3,}", stripped):
+            story.append(Spacer(1, 4)); i += 1; continue
+        if "|" in stripped and i + 1 < len(lines) and _re.match(r"\|?\s*[:-]+\s*\|", lines[i + 1]):
+            j = i
+            while j < len(lines) and lines[j].strip().startswith("|"):
+                j += 1
+            story.append(Paragraph("<i>[Table omitted — see full plan online]</i>", md_styles["quo"]))
+            i = j; continue
+        if stripped.startswith("### "):
+            story.append(Paragraph(_inline(stripped[4:]), md_styles["h3"])); i += 1; continue
+        if stripped.startswith("## "):
+            story.append(Paragraph(_inline(stripped[3:]), md_styles["h2"])); i += 1; continue
+        if stripped.startswith("# "):
+            if not skipped_first_h1:
+                skipped_first_h1 = True; i += 1; continue
+            story.append(Paragraph(_inline(stripped[2:]), md_styles["h1"])); i += 1; continue
+        if stripped.startswith("> "):
+            story.append(Paragraph(_inline(stripped[2:]), md_styles["quo"])); i += 1; continue
+        m = _re.match(r"^[-*+]\s+(.+)$", stripped)
+        if m:
+            story.append(Paragraph(_inline(m.group(1)), md_styles["li"], bulletText="•"))
+            i += 1; continue
+        m = _re.match(r"^(\d+)\.\s+(.+)$", stripped)
+        if m:
+            story.append(Paragraph(_inline(m.group(2)), md_styles["li"], bulletText=f"{m.group(1)}."))
+            i += 1; continue
+        story.append(Paragraph(_inline(stripped), md_styles["p"]))
+        i += 1
+
+    doc_pdf.build(story)
+    return buf.getvalue()
+
+
 def build_pod_pdf(*, doc_id: str, booking: Dict[str, Any],
                   shipper: Dict[str, str], consignee: Dict[str, str],
                   delivery: Dict[str, Any],
