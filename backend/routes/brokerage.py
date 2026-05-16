@@ -1661,19 +1661,239 @@ def build_brokerage_router(
         await db.brokerage_qb_config.delete_one({"_id": "qb"})
         return {"ok": True}
 
+    async def _qb_refresh_token_if_needed(cfg: Dict[str, Any]) -> Dict[str, Any]:
+        """Refresh the QB access token if it's older than 50 min. Returns the
+        updated cfg (also persisted to db.brokerage_qb_config)."""
+        connected_at = cfg.get("connected_at")
+        if not (cfg.get("refresh_token") and connected_at):
+            return cfg
+        try:
+            connected_dt = datetime.fromisoformat(connected_at.replace("Z", "+00:00"))
+        except Exception:                                            # noqa: BLE001
+            return cfg
+        age = (datetime.now(timezone.utc) - connected_dt).total_seconds()
+        if age < 50 * 60:                                            # 50 min — token TTL is 60 min
+            return cfg
+        creds = await get_connection_credentials(db, "quickbooks") or {}
+        client_id = creds.get("client_id")
+        client_secret = creds.get("client_secret")
+        if not (client_id and client_secret):
+            return cfg
+        import httpx as _httpx
+        auth = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+        try:
+            async with _httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer",
+                    data={"grant_type": "refresh_token", "refresh_token": cfg["refresh_token"]},
+                    headers={
+                        "Authorization": f"Basic {auth}",
+                        "Accept": "application/json",
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                )
+            if r.status_code >= 400:
+                logger.warning("QB token refresh failed %s", r.status_code)
+                return cfg
+            tok = r.json()
+        except _httpx.RequestError as exc:
+            logger.warning("QB token refresh network err: %s", exc)
+            return cfg
+        cfg = {
+            **cfg,
+            "access_token": tok.get("access_token") or cfg.get("access_token"),
+            "refresh_token": tok.get("refresh_token") or cfg.get("refresh_token"),
+            "expires_in": tok.get("expires_in"),
+            "connected_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.brokerage_qb_config.update_one({"_id": "qb"}, {"$set": cfg})
+        return cfg
+
+    def _qb_api_base(cfg: Dict[str, Any]) -> str:
+        env = (cfg.get("environment") or "sandbox").lower()
+        if env == "production":
+            return "https://quickbooks.api.intuit.com"
+        return "https://sandbox-quickbooks.api.intuit.com"
+
+    async def _qb_push_invoice(cfg: Dict[str, Any], inv: Dict[str, Any]) -> Dict[str, Any]:
+        """POST a single invoice to QuickBooks Online. Returns push status dict."""
+        import httpx as _httpx
+        base = _qb_api_base(cfg)
+        realm = cfg.get("realm_id")
+        if not realm:
+            return {"status": "error", "error": "Missing realm_id"}
+        url = f"{base}/v3/company/{realm}/invoice?minorversion=70"
+        # Minimal QB invoice — relies on a default Income Account; works in
+        # sandbox out-of-the-box. Production may need an explicit ItemRef.
+        amount = float(inv.get("amount_usd") or 0)
+        body = {
+            "Line": [{
+                "Amount": amount,
+                "DetailType": "SalesItemLineDetail",
+                "Description": f"Orisei load {inv.get('load_id') or inv.get('invoice_id')}",
+                "SalesItemLineDetail": {"ItemRef": {"value": "1"}},   # default 'Services' item in sandbox
+            }],
+            "CustomerRef": {"value": "1"},                            # default sandbox customer
+            "DocNumber": (inv.get("invoice_id") or "")[:21],
+            "PrivateNote": f"Auto-pushed from Orisei TMS · {inv.get('invoice_id')}",
+        }
+        try:
+            async with _httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    url, json=body,
+                    headers={
+                        "Authorization": f"Bearer {cfg.get('access_token')}",
+                        "Accept": "application/json",
+                        "Content-Type": "application/json",
+                    },
+                )
+        except _httpx.RequestError as exc:
+            return {"status": "error", "error": f"network: {exc}"}
+        if r.status_code >= 400:
+            return {"status": "error", "code": r.status_code, "error": r.text[:300]}
+        payload = r.json() if r.text else {}
+        qb_id = (payload.get("Invoice") or {}).get("Id")
+        return {"status": "sent", "qb_id": qb_id}
+
+    async def _qb_push_expense(cfg: Dict[str, Any], exp: Dict[str, Any]) -> Dict[str, Any]:
+        """POST a single expense to QuickBooks Online as a Purchase entry."""
+        import httpx as _httpx
+        base = _qb_api_base(cfg)
+        realm = cfg.get("realm_id")
+        if not realm:
+            return {"status": "error", "error": "Missing realm_id"}
+        url = f"{base}/v3/company/{realm}/purchase?minorversion=70"
+        amount = float(exp.get("amount_usd") or 0)
+        body = {
+            "AccountRef": {"value": "35"},                            # sandbox: 'Checking'
+            "PaymentType": "Cash",
+            "Line": [{
+                "Amount": amount,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "Description": exp.get("description") or exp.get("category") or "Orisei expense",
+                "AccountBasedExpenseLineDetail": {"AccountRef": {"value": "7"}},  # sandbox: 'Job Expenses'
+            }],
+            "PrivateNote": f"Auto-pushed from Orisei TMS · {exp.get('expense_id')}",
+        }
+        try:
+            async with _httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    url, json=body,
+                    headers={
+                        "Authorization": f"Bearer {cfg.get('access_token')}",
+                        "Accept": "application/json",
+                        "Content-Type": "application/json",
+                    },
+                )
+        except _httpx.RequestError as exc:
+            return {"status": "error", "error": f"network: {exc}"}
+        if r.status_code >= 400:
+            return {"status": "error", "code": r.status_code, "error": r.text[:300]}
+        payload = r.json() if r.text else {}
+        qb_id = (payload.get("Purchase") or {}).get("Id")
+        return {"status": "sent", "qb_id": qb_id}
+
     @router.post("/quickbooks/sync")
     async def qb_sync(_=Depends(require_role("admin"))):
-        """Flush all pending invoices + expenses to QB (mocked)."""
+        """Push all pending invoices + expenses to QuickBooks Online live.
+
+        Falls back to mock-mode (just flips synced_to_qb) when the connected
+        config has no access_token (i.e. operator used the dev mock-connect).
+        """
         cfg = await db.brokerage_qb_config.find_one({"_id": "qb"})
         if not cfg:
             raise HTTPException(400, "QuickBooks not connected")
-        inv_res = await db.brokerage_invoices.update_many({"synced_to_qb": False}, {"$set": {"synced_to_qb": True}})
-        exp_res = await db.brokerage_expenses.update_many({"synced_to_qb": False}, {"$set": {"synced_to_qb": True}})
+        cfg = await _qb_refresh_token_if_needed(cfg)
+
+        live = bool(cfg.get("access_token") and cfg.get("realm_id"))
+        invoice_results: List[Dict[str, Any]] = []
+        expense_results: List[Dict[str, Any]] = []
+
+        if not live:
+            # Dev / mock connect — preserve old behavior so the dashboard demo works
+            inv_res = await db.brokerage_invoices.update_many(
+                {"synced_to_qb": False}, {"$set": {"synced_to_qb": True}})
+            exp_res = await db.brokerage_expenses.update_many(
+                {"synced_to_qb": False}, {"$set": {"synced_to_qb": True}})
+            await db.brokerage_qb_config.update_one(
+                {"_id": "qb"},
+                {"$set": {"last_sync_at": datetime.now(timezone.utc).isoformat()}},
+            )
+            return {
+                "ok": True,
+                "mode": "mock",
+                "synced_invoices": inv_res.modified_count,
+                "synced_expenses": exp_res.modified_count,
+            }
+
+        # Live push
+        pending_invoices = await db.brokerage_invoices.find(
+            {"synced_to_qb": {"$ne": True}}, {"_id": 0},
+        ).to_list(200)
+        pending_expenses = await db.brokerage_expenses.find(
+            {"synced_to_qb": {"$ne": True}}, {"_id": 0},
+        ).to_list(200)
+
+        for inv in pending_invoices:
+            res = await _qb_push_invoice(cfg, inv)
+            invoice_results.append({"invoice_id": inv.get("invoice_id"), **res})
+            update_doc: Dict[str, Any] = {"qb_push_attempted_at": datetime.now(timezone.utc).isoformat()}
+            if res.get("status") == "sent":
+                update_doc["synced_to_qb"] = True
+                update_doc["qb_id"] = res.get("qb_id")
+            else:
+                update_doc["qb_push_error"] = res.get("error", "")[:300]
+            await db.brokerage_invoices.update_one(
+                {"invoice_id": inv["invoice_id"]}, {"$set": update_doc},
+            )
+
+        for exp in pending_expenses:
+            res = await _qb_push_expense(cfg, exp)
+            expense_results.append({"expense_id": exp.get("expense_id"), **res})
+            update_doc = {"qb_push_attempted_at": datetime.now(timezone.utc).isoformat()}
+            if res.get("status") == "sent":
+                update_doc["synced_to_qb"] = True
+                update_doc["qb_id"] = res.get("qb_id")
+            else:
+                update_doc["qb_push_error"] = res.get("error", "")[:300]
+            await db.brokerage_expenses.update_one(
+                {"expense_id": exp["expense_id"]}, {"$set": update_doc},
+            )
+
+        sent_inv = sum(1 for r in invoice_results if r.get("status") == "sent")
+        sent_exp = sum(1 for r in expense_results if r.get("status") == "sent")
+        err_inv = sum(1 for r in invoice_results if r.get("status") == "error")
+        err_exp = sum(1 for r in expense_results if r.get("status") == "error")
+
         await db.brokerage_qb_config.update_one(
             {"_id": "qb"},
             {"$set": {"last_sync_at": datetime.now(timezone.utc).isoformat()}},
         )
-        return {"ok": True, "synced_invoices": inv_res.modified_count, "synced_expenses": exp_res.modified_count}
+        await db.brokerage_qb_sync_log.insert_one({
+            "id": f"QBSYNC-{uuid.uuid4().hex[:10].upper()}",
+            "synced_at": datetime.now(timezone.utc).isoformat(),
+            "mode": "live",
+            "invoices_sent": sent_inv, "invoices_failed": err_inv,
+            "expenses_sent": sent_exp, "expenses_failed": err_exp,
+            "invoice_results": invoice_results,
+            "expense_results": expense_results,
+        })
+        return {
+            "ok": True, "mode": "live",
+            "synced_invoices": sent_inv,
+            "failed_invoices": err_inv,
+            "synced_expenses": sent_exp,
+            "failed_expenses": err_exp,
+            "invoice_results": invoice_results[:50],
+            "expense_results": expense_results[:50],
+        }
+
+    @router.get("/quickbooks/sync-log")
+    async def qb_sync_log(_=Depends(get_current_user)):
+        rows = await db.brokerage_qb_sync_log.find(
+            {}, {"_id": 0, "invoice_results": 0, "expense_results": 0},
+        ).sort("synced_at", -1).to_list(50)
+        return {"items": rows, "count": len(rows)}
 
     # ============================ FORMS LIBRARY ============================
     @router.get("/forms")

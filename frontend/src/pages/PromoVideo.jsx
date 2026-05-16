@@ -15,24 +15,15 @@ const ORISEI_GOLD = "#C9A24A";
 const ORISEI_NAVY = "#0E3A6B";
 
 const FEATURES = [
-  { Icon: Truck,         title: "Five-Board Aggregator",        text: "DAT One · Truckstop · Convoy/Flexport · Uber Freight · 123Loadboard — one ranked queue with margin forecasts." },
-  { Icon: Stamp,         title: "Orisei BOLs · Beautiful PDFs", text: "Heraldic Calafia-stamped Bills of Lading rendered in seconds — every party, freight line, and charge structured cleanly." },
-  { Icon: PackageCheck,  title: "Proof of Delivery + Photos",   text: "Capture up to 3 dock photos, mark delivered in one tap, email the signed POD to the customer instantly." },
-  { Icon: Mail,          title: "Auto-Mail Automation",         text: "Toggle BOL-on-tender and POD-on-delivery — the customer rhythm runs without dispatcher clicks." },
-  { Icon: Banknote,      title: "Factoring Hub",                text: "Triumph · Apex · OTR · TBS · RTS — live advance rates, fuel-card balances, NOA letters, and verified factor health pings." },
-  { Icon: Calculator,    title: "Live Cost Analysis",           text: "30-day projected burn with tuners for headcount, factor fees, fuel, and tech. Sparkline trend in real time." },
-  { Icon: Wallet,        title: "Brokerage Accounting",         text: "AR aging · margin per load · 1099 contractor ledger · QuickBooks Online OAuth sync (real, not mocked)." },
-  { Icon: Building2,     title: "Investor Outreach",            text: "One-click LP pitch: business plan PDF, cap table, personalised note — delivered via Resend." },
-  { Icon: UserPlus,      title: "Driver & Carrier Roster",      text: "MC/DOT/CDL/SCAC tracking · COI, W-9, contracts · scoped portal invites in a single click." },
-  { Icon: BookOpen,      title: "Brokerage Business Plan",      text: "Live-rendered Orisei business plan tab, plus the Cost Analysis and Home-Office Setup playbooks built in." },
-  { Icon: ShieldCheck,   title: "Forms Library · DOT-Ready",    text: "FMCSA · BOI · ELD · IFTA — every legal form generates as a clean PDF with the Calafia mark stamped on top." },
-  { Icon: Plug,          title: "Connections Vault",            text: "Fernet-encrypted API key locker for DAT, Truckstop, Resend, QuickBooks, Stripe, and custom providers. One paste, everything wakes up." },
-  { Icon: Sparkles,      title: "HUDLINK AI Co-Pilot",          text: "Claude Sonnet 4.5 trained on Orisei context — load scoring, carrier strategy, MC vetting, lane economics." },
-  { Icon: Snowflake,     title: "Reefer · Temp Compliance",     text: "FSMA Sanitary Transport Rule guardrails, pre-cool checks, and continuous temperature logging baked in." },
-  { Icon: Smartphone,    title: "Mobile-First Driver View",     text: "No-login GPS check-in, fuel/odometer capture, and POD photo capture — works on any smartphone." },
-  { Icon: FileWarning,   title: "Claims & Damage Tracking",     text: "OS&D logging · 49 CFR §370 timers · concealed-damage 15-day rule alerts." },
-  { Icon: BarChart3,     title: "KPI Reports",                  text: "Margin per lane, factor advance velocity, broker time-to-pay, on-time delivery — PDF or XLSX in two clicks." },
-  { Icon: Palette,       title: "Multi-Tenant White-Label",     text: "Swap branding, logos, palette, and copy per tenant. Orisei is one of many — the platform speaks every brand." },
+  { Icon: PackageCheck,  title: "Named-Broker Accountability",   text: "One human owns your load from tender to POD. No call-center roulette. Direct cell, direct text." },
+  { Icon: Stamp,         title: "Calafia-Stamped BOLs",          text: "Every Bill of Lading carries our heraldic seal. Professional paperwork, every time, no exceptions." },
+  { Icon: Mail,          title: "POD in Your Inbox",             text: "Signed Proof of Delivery — with up to 3 dock photos — emailed the moment your freight is unloaded." },
+  { Icon: Truck,         title: "Five Major Load Boards",        text: "DAT One · Truckstop · Convoy/Flexport · Uber Freight · 123Loadboard. Aggregated, ranked, and bid the same hour." },
+  { Icon: Snowflake,     title: "Reefer · Cold Chain",           text: "FSMA-compliant pre-cool checks and continuous temperature logging on every reefer load." },
+  { Icon: ShieldCheck,   title: "Carrier Vetting · Done Twice",  text: "MC, DOT, CSA, insurance, and CSA scores re-verified before every booking. No shadow trucks, no surprises." },
+  { Icon: Sparkles,      title: "Margin-Aware Routing",          text: "Loads ranked by forecast margin and operator history before a quote ever leaves the desk." },
+  { Icon: Banknote,      title: "Same-Day Carrier Pay",          text: "Built-in factoring hub keeps trusted carriers happy and prioritizing your freight first." },
+  { Icon: BarChart3,     title: "Lane Economics",                text: "Margin per lane, RPM, dwell, and on-time history reported to you weekly. Numbers don't lie — and we don't hide them." },
 ];
 
 const TECH_STACK = [
@@ -47,12 +38,12 @@ const TECH_STACK = [
 ];
 
 const PIPELINE = [
-  { step: "1", title: "Connections Vault",     desc: "Operator pastes DAT, Truckstop, Convoy, Resend, QuickBooks keys into the encrypted vault. Nothing leaves the perimeter unencrypted." },
-  { step: "2", title: "Five-Board Pull",       desc: "Adapters fan out concurrently to each load board. The board badge flips LIVE API FEED when a real key resolves, otherwise SYNTHETIC FALLBACK keeps the desk warm." },
-  { step: "3", title: "Margin Scoring",        desc: "Each posting normalized into Orisei-shape: RPM, forecast margin $, carrier pay, age, and AI tags. Ranked queue surfaces highest-margin loads first." },
-  { step: "4", title: "Book + Carrier Onboard",desc: "One-click book pulls MC, DOT, SCAC, CSA. Carrier packet emails on send. NOA assigned to the factor in the same step." },
-  { step: "5", title: "BOL + Auto-Tender",     desc: "Calafia-stamped BOL renders on customer-attach. Auto-mail BOL toggle ships the PDF the moment customer email is captured." },
-  { step: "6", title: "POD + Settlement",      desc: "Driver marks delivered → POD with embedded dock photos auto-mails to the customer. Settlement writes back to QuickBooks Online via OAuth." },
+  { step: "1", title: "You Tender",       desc: "Send the load — email, phone, text, EDI. Within minutes a named broker has the lane, your rate floor, and the receiver's window in front of them." },
+  { step: "2", title: "We Vet",           desc: "Carriers screened against MC/DOT, CSA, insurance, and our internal blacklist before a single dispatcher hits 'book'. No shadow trucks." },
+  { step: "3", title: "We Cover",         desc: "Five aggregated load boards, ranked by margin and on-time history. Best truck for the job, not the cheapest one with a heartbeat." },
+  { step: "4", title: "BOL on Tender",    desc: "The moment we book, the Calafia-stamped Bill of Lading lands in your inbox. No phone tag. No PDF surprises at midnight." },
+  { step: "5", title: "We Watch",         desc: "Live GPS, dwell timers, weather alerts, dock photos. If something moves off-script, you hear from us — not the other way around." },
+  { step: "6", title: "POD in Inbox",     desc: "Driver marks delivered → POD with up to 3 dock photos → emailed to your team in seconds. Cash flow starts the same day." },
 ];
 
 export default function PromoVideo() {
@@ -94,8 +85,8 @@ export default function PromoVideo() {
   return (
     <>
       <Topbar
-        title={`${shortName} · v3.0 Launch`}
-        subtitle="A cinematic tour through the Orisei Freight Solutions command deck — five-board aggregator, Calafia BOLs, auto-mail POD, factoring hub, QuickBooks OAuth, and the encrypted Connections vault."
+        title={`${shortName} · Launch Reel`}
+        subtitle="Thirteen years of freight discipline, distilled into twelve seconds. Watch how a customer's load is handled from the moment it's tendered until the signed POD lands in their inbox."
       />
       <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
 
@@ -162,23 +153,29 @@ export default function PromoVideo() {
 
           <div className="p-6 md:p-8">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: ORISEI_GOLD }}>
-              {brandName} · Freight Brokerage Command Deck · v3.0 Launch
+              {brandName} · 13 Years · Operator-Grade Freight
             </div>
             <h1 className="font-display text-4xl md:text-5xl font-black tracking-tighter leading-none">
-              Five Boards.<br/>
-              <span style={{ color: ORISEI_GOLD }}>One ranked queue.</span> Total command.
+              Thirteen years on the desk.<br/>
+              <span style={{ color: ORISEI_GOLD }}>One mission:</span> move it right.
             </h1>
             <p className="mt-5 text-slate-300 text-lg max-w-3xl leading-relaxed">
-              {founder} — and every operator who works a board for a living — meet the
-              brokerage command deck we built from scratch. Five major load boards
-              aggregated into a margin-aware queue, Queen-Calafia-stamped BOLs and PODs,
-              automated customer mailing, a factoring hub for cash-flow visibility, real
-              QuickBooks OAuth, and an encrypted Connections vault that turns the whole
-              platform on the moment you paste a key.
+              I'm {founder}, founder of {brandName}. After more than a decade booking,
+              brokering, and babysitting freight for some of the toughest shippers in
+              the country, I built this brokerage on one principle: <em
+              style={{ color: ORISEI_GOLD }}>operator-grade discipline</em>.
+              Every load runs through a margin-aware queue, every BOL carries
+              the Calafia seal, every delivery is photographed and emailed before
+              the customer has to ask. No silence. No surprises. No "let me check on it."
+            </p>
+            <p className="mt-3 text-slate-400 text-sm max-w-3xl leading-relaxed">
+              When you tender a load to {brandName}, you get a named human accountable
+              from pickup to POD — backed by a command deck most brokerages can't even
+              afford to imagine. That's the deal.
             </p>
             <div className="mt-4 text-[10px] font-mono text-slate-500">
               {hasLocalMp4
-                ? `Cinematic · 20-slide branded tour of ${shortName} v3.0 · AI narration + ambient music · self-hosted, plays on any network.`
+                ? `Cinematic 12-second presentation · self-hosted · plays on any network.`
                 : <>Trailer · default freight footage. Drop a rendered <code style={{ color: ORISEI_GOLD }}>/promo.mp4</code> into <code style={{ color: ORISEI_GOLD }}>/app/frontend/public</code> to swap automatically.</>}
             </div>
           </div>
@@ -186,8 +183,8 @@ export default function PromoVideo() {
 
         {/* Features */}
         <Card className="hud-surface p-6 md:p-8">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: ORISEI_GOLD }}>What it delivers</div>
-          <h2 className="font-display text-3xl font-bold mb-6">Features & Benefits</h2>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: ORISEI_GOLD }}>What you get</div>
+          <h2 className="font-display text-3xl font-bold mb-6">Nine promises, kept on every load</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {FEATURES.map(({ Icon, title, text }) => (
               <div
@@ -208,13 +205,13 @@ export default function PromoVideo() {
         <Card className="hud-surface p-6 md:p-8">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: ORISEI_GOLD }}>Operational Architecture</div>
           <h2 className="font-display text-3xl font-bold mb-3 flex items-center gap-3">
-            <Server size={26} style={{ color: ORISEI_GOLD }} /> From key-paste to settled load
+            <Server size={26} style={{ color: ORISEI_GOLD }} /> What it looks like to ship with Orisei
           </h2>
           <p className="text-slate-400 mb-6 max-w-3xl">
-            The platform's day-one win: paste your DAT, Truckstop, Resend, and QuickBooks
-            keys into the Connections vault and every downstream surface lights up at
-            once — no rebuild, no redeploy. Here's the six-stage hand-off the platform runs
-            for every load.
+            Six steps. Six promises. Every load — whether it's a one-off rescue
+            cover at 11&nbsp;p.m. or a 200-load weekly program — runs through the
+            same disciplined sequence. This is how thirteen years of freight
+            instinct gets baked into every shipment we touch.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {PIPELINE.map((s) => (
@@ -232,27 +229,35 @@ export default function PromoVideo() {
           </div>
         </Card>
 
-        {/* Technical Stack */}
+        {/* Owner credentials + trust signals */}
         <Card className="hud-surface p-6 md:p-8">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: ORISEI_GOLD }}>Under the Hood</div>
-          <h2 className="font-display text-3xl font-bold mb-6">Technical Foundation</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {TECH_STACK.map((s) => (
-              <div
-                key={s.label}
-                className="p-4 rounded-md border bg-white/[0.02] flex items-start gap-4"
-                style={{ borderColor: "rgba(255,255,255,0.05)" }}
-              >
-                <div className="text-[10px] font-mono uppercase tracking-wider w-28 shrink-0 pt-0.5" style={{ color: ORISEI_GOLD }}>{s.label}</div>
-                <div className="text-sm text-slate-200 font-mono leading-relaxed">{s.value}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-            <Spec label="Deployment" value="Cloud-native · Kubernetes · zero-downtime rolling updates" />
-            <Spec label="Security" value="Fernet-encrypted vault · OAuth 2.0 · server-side RBAC" />
-            <Spec label="Mobile" value="PWA-ready · driver POD capture works on any modern smartphone" />
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: ORISEI_GOLD }}>Why us</div>
+          <h2 className="font-display text-3xl font-bold mb-6">Built by a 13-year freight veteran</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <p className="text-slate-300 leading-relaxed">
+                Before {brandName} existed, {founder} spent more than a decade
+                booking, brokering, and babysitting freight for some of the
+                toughest shippers in the country. He's covered hot loads at
+                2&nbsp;a.m., chased lumper checks across three states, and re-routed
+                a reefer around an interstate closure with a customer's CFO on
+                speakerphone. That experience is why every promise on this page
+                is a promise we actually keep.
+              </p>
+              <p className="text-slate-400 leading-relaxed mt-4">
+                {brandName} was founded in Saint Paul, MN to bring that
+                hard-won discipline to a brokerage that's small enough to care
+                about your load and equipped enough to execute on it.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Spec label="Tenure" value="13+ years on dispatch desks before founding Orisei" />
+              <Spec label="Coverage" value="48-state TL · LTL · Reefer · Flatbed · Step-Deck" />
+              <Spec label="Authority" value="MC pending · BMC-84 surety bond · Contingent Cargo · E&O" />
+              <Spec label="Carrier Pool" value="Vetted against MC/DOT/CSA before every booking" />
+              <Spec label="Communication" value="Named broker with direct cell — answer in minutes, not hours" />
+              <Spec label="Documentation" value="Calafia-stamped BOL + POD with photos in your inbox" />
+            </div>
           </div>
         </Card>
 
@@ -263,16 +268,16 @@ export default function PromoVideo() {
             <TennantLogo size="lg" />
           </div>
           <h2 className="font-display text-3xl md:text-4xl font-black mt-6 tracking-tighter">
-            Ready when you are, {founder}.
+            Tender us your hardest load.
           </h2>
           <p className="text-slate-300 mt-3 max-w-xl mx-auto">
-            Launch the dashboard, paste your API keys into Connections, and let the
-            five-board queue, auto-mail rhythm, and Calafia-stamped paperwork run while
-            you focus on the lanes that pay.
+            One named broker. One signed BOL. One POD with photos in your inbox before
+            the receiver hands the keys back. {brandName} runs freight the way
+            it should have always been run.
           </p>
           <div className="mt-6 inline-flex items-center gap-2 text-[10px] font-mono tracking-[0.2em] uppercase" style={{ color: ORISEI_GOLD }}>
             <span className="w-2 h-2 rounded-full blink-dot" style={{ background: ORISEI_GOLD }}></span>
-            v3.0 · Orisei Launch · 5 boards · 4 factors · QB OAuth · Auto-Mail · 200+ endpoints · AI narration
+            13 years on the desk · MN-based · operator-grade discipline · proof in every POD
           </div>
         </Card>
       </div>

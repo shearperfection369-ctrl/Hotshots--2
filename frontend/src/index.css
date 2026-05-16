@@ -163,6 +163,18 @@ body {
     --tt-text: #F8FAFC;
 }
 
+/* Calafia · Orisei brand palette — gold leaf on deep navy */
+body.theme-calafia {
+    --tt-bg-base: #0A1830;
+    --tt-bg-surface: #102542;
+    --tt-accent: #C9A24A;          /* gold leaf */
+    --tt-accent-300: #E6CB85;
+    --tt-accent-400: #D4B05A;
+    --tt-accent-500: #B58A30;
+    --tt-accent-glow: rgba(201, 162, 74, 0.32);
+    --tt-text: #F8F4E8;
+}
+
 /* FOREST · calm green */
 body.theme-forest {
     --tt-bg-base: #0B1410;

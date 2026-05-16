@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 export const THEMES = [
+  // ===== Orisei brand theme (default for Orisei tenants) =====
+  { id: "calafia",  label: "Calafia · Orisei", desc: "Gold leaf on deep navy — Queen Calafia heraldic", swatch: "#C9A24A", bg: "#0A1830", dark: true },
   // ===== Existing 7 =====
   { id: "cyan",     label: "HUD Cyan",     desc: "Tennant default — electric cyan on navy",  swatch: "#00E5FF", bg: "#0B0E14", dark: true },
   { id: "forest",   label: "Forest Calm",  desc: "Calming evergreen — easier on the eyes",   swatch: "#34D399", bg: "#0B1410", dark: true },
@@ -26,7 +28,7 @@ const ThemeCtx = createContext({ theme: "cyan", setTheme: () => {} });
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    try { return localStorage.getItem(STORAGE_KEY) || "cyan"; } catch { return "cyan"; }
+    try { return localStorage.getItem(STORAGE_KEY) || "calafia"; } catch { return "calafia"; }
   });
 
   useEffect(() => {
