@@ -13,7 +13,7 @@ import {
   Truck, DollarSign, FileText, Sparkles, TrendingUp, TrendingDown, BarChart3,
   Building2, Calculator, Plug, Send, CheckCircle2, AlertCircle, Loader2, Download,
   ArrowUpRight, ArrowDownRight, Zap, Receipt, FileSpreadsheet, Bot, Plus, BookOpen, Printer,
-  Wallet, Server, Mail, Linkedin, Eye,
+  Wallet, Server, Mail, Linkedin, Eye, Users, MapPin, Phone, Snowflake, ShieldAlert, Banknote, X,
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
@@ -28,6 +28,7 @@ import remarkGfm from "remark-gfm";
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
   { id: "boards",    label: "Load Boards", icon: Truck },
+  { id: "drivers",   label: "Drivers", icon: Users },
   { id: "accounting", label: "Accounting", icon: Calculator },
   { id: "forms",     label: "Forms Library", icon: FileText },
   { id: "plan",      label: "Business Plan", icon: BookOpen },
@@ -67,6 +68,7 @@ export default function Brokerage() {
 
         {tab === "dashboard" && <DashboardTab dash={dash} refresh={loadDash} />}
         {tab === "boards"    && <BoardsTab refresh={loadDash} />}
+        {tab === "drivers"   && <DriversTab />}
         {tab === "accounting" && <AccountingTab refresh={loadDash} />}
         {tab === "forms"     && <FormsTab />}
         {tab === "plan"      && <BusinessPlanTab />}
@@ -179,6 +181,8 @@ function DashboardTab({ dash, refresh }) {
           </table>
         </div>
       </Card>
+      {/* Factoring network */}
+      <FactoringPanel />
     </div>
   );
 }
@@ -246,6 +250,7 @@ function BoardsTab({ refresh }) {
   const [book, setBook] = useState(null);
   const [carrier, setCarrier] = useState("");
   const [carrierMc, setCarrierMc] = useState("");
+  const [detail, setDetail] = useState(null);
 
   useEffect(() => { api.get("/brokerage/boards").then(({ data }) => setBoards(data.boards)).catch(() => {}); }, []);
   useEffect(() => {
@@ -295,7 +300,12 @@ function BoardsTab({ refresh }) {
             </thead>
             <tbody className="font-mono">
               {loads.map((l) => (
-                <tr key={l.load_id} className="border-t border-white/5 hover:bg-white/[0.02]">
+                <tr
+                  key={l.load_id}
+                  onClick={() => setDetail(l)}
+                  data-testid={`load-row-${l.load_id}`}
+                  className="border-t border-white/5 hover:bg-cyan-500/[0.04] cursor-pointer transition-colors"
+                >
                   <td className="py-2.5 px-3">
                     <div className="text-slate-200">{l.load_id}</div>
                     <div className="text-[10px] text-slate-500">{l.equipment} · {l.weight_lbs.toLocaleString()}lbs</div>
@@ -305,7 +315,7 @@ function BoardsTab({ refresh }) {
                   <td className="py-2.5 px-3 text-right text-slate-300 tabular-nums">${l.rpm}</td>
                   <td className="py-2.5 px-3 text-right text-emerald-300 tabular-nums">${fmt(l.forecast_margin_usd)}<div className="text-[10px] text-slate-500">{l.margin_pct}%</div></td>
                   <td className="py-2.5 px-3 text-right"><ScoreBadge score={l.ai_score} compact /></td>
-                  <td className="py-2.5 px-3 text-right">
+                  <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <Button size="sm" data-testid={`book-${l.load_id}`} onClick={() => setBook(l)} className="h-7 bg-cyan-500/10 border-cyan-500/40 hover:bg-cyan-500 hover:text-black text-cyan-300 text-[10px] font-mono uppercase">
                       Book
                     </Button>
@@ -334,6 +344,12 @@ function BoardsTab({ refresh }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LoadDetailDrawer
+        load={detail}
+        onClose={() => setDetail(null)}
+        onBook={(l) => { setDetail(null); setBook(l); }}
+      />
     </div>
   );
 }
@@ -1196,4 +1212,372 @@ function Loader() { return <div className="flex items-center justify-center p-12
 function fmt(n) {
   if (n == null) return "0";
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
+
+// ============================================================
+//          FACTORING NETWORK PANEL (Dashboard tab)
+// ============================================================
+function FactoringPanel() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    api.get("/brokerage/factoring/status")
+      .then(({ data }) => { if (!cancelled) setData(data); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+  if (loading) return null;
+  if (!data || !data.providers?.length) {
+    return (
+      <Card className="hud-surface p-5" data-testid="factoring-panel-empty">
+        <div className="flex items-center gap-2 mb-1">
+          <Banknote size={16} className="text-cyan-400" />
+          <div className="font-display font-bold text-base">Factoring Network</div>
+        </div>
+        <div className="text-xs text-slate-500">
+          No factoring providers enabled yet. Open <span className="text-cyan-300">Connections · Keys</span> to wire up Apex, TriumphPay, OTR, or RTS Financial.
+        </div>
+      </Card>
+    );
+  }
+  const t = data.totals;
+  return (
+    <Card className="hud-surface p-5" data-testid="factoring-panel">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 flex items-center gap-1.5">
+            <Banknote size={11} /> Carrier Payment Network
+          </div>
+          <h3 className="font-display text-lg font-bold">Factoring · {t.providers} provider{t.providers === 1 ? "" : "s"} connected</h3>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] font-mono text-slate-500">Factor fees MTD</div>
+          <div className="text-2xl font-display font-black text-yellow-300 tabular-nums">${fmt(t.monthly_fee_mtd_usd)}</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <Kpi label="Factored carrier pay MTD" value={`$${fmt(t.factored_carrier_pay_mtd_usd)}`} sub="quick-pay throughput"   accent="text-emerald-300" icon={Wallet} />
+        <Kpi label="NOA letters · MTD"        value={t.noa_letters_mtd}                       sub="carriers verified"      accent="text-cyan-300"    icon={ShieldCheck} />
+        <Kpi label="Quick-pay advances · MTD" value={t.quick_pay_advances_mtd}                sub="driver-side advances"   accent="text-cyan-300"    icon={Banknote} />
+        <Kpi label="Avg next ACH"             value={`${Math.round(data.providers.reduce((a,p)=>a+p.next_ach_in_days,0) / Math.max(1, data.providers.length))} day(s)`}
+             sub="settlement cycle" accent="text-slate-300" icon={ArrowUpRight} />
+      </div>
+      <div className="space-y-2">
+        {data.providers.map((p) => (
+          <div key={p.provider_id} className="grid grid-cols-12 gap-2 items-center px-3 py-2.5 rounded border border-white/5 bg-white/[0.02]" data-testid={`factoring-row-${p.provider_id}`}>
+            <div className="col-span-4 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
+              <div>
+                <div className="text-sm text-slate-200 font-semibold">{p.name}</div>
+                <div className="text-[10px] font-mono text-slate-500">{p.tuner_label}</div>
+              </div>
+            </div>
+            <div className="col-span-2 text-right">
+              <div className="text-[10px] font-mono text-slate-500 uppercase">Fee MTD</div>
+              <div className="text-sm text-yellow-300 tabular-nums">${fmt(p.monthly_fee_mtd_usd)}</div>
+            </div>
+            <div className="col-span-2 text-right">
+              <div className="text-[10px] font-mono text-slate-500 uppercase">NOA</div>
+              <div className="text-sm text-slate-200 tabular-nums">{p.noa_letters_processed_mtd}</div>
+            </div>
+            <div className="col-span-2 text-right">
+              <div className="text-[10px] font-mono text-slate-500 uppercase">Quick-pay</div>
+              <div className="text-sm text-slate-200 tabular-nums">{p.quick_pay_advances_mtd}</div>
+            </div>
+            <div className="col-span-2 text-right">
+              <div className="text-[10px] font-mono text-slate-500 uppercase">Next ACH</div>
+              <div className="text-sm text-cyan-300 tabular-nums">{p.next_ach_in_days}d</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ============================================================
+//          LOAD DETAIL DRAWER (Load Boards row click)
+// ============================================================
+function LoadDetailDrawer({ load, onClose, onBook }) {
+  return (
+    <Dialog open={!!load} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl bg-slate-900 border-cyan-500/20 max-h-[90vh] overflow-y-auto" data-testid="load-detail-drawer">
+        {load && (
+          <>
+            <DialogHeader>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <DialogTitle className="font-display text-xl flex items-center gap-2">
+                    <Truck size={18} className="text-cyan-400" /> {load.load_id}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-400 mt-1">
+                    {load.origin} → {load.destination} · {load.miles}mi · {load.equipment} · {load.commodity}
+                  </DialogDescription>
+                </div>
+                <ScoreBadge score={load.ai_score} />
+              </div>
+            </DialogHeader>
+
+            {/* KPI row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 my-3">
+              <DetailKpi label="Rate"        value={`$${fmt(load.rate_usd)}`}            accent="text-slate-200" />
+              <DetailKpi label="Carrier Pay" value={`$${fmt(load.carrier_pay_usd)}`}     accent="text-slate-400" />
+              <DetailKpi label="Margin"      value={`$${fmt(load.forecast_margin_usd)}`} accent="text-emerald-300" sub={`${load.margin_pct}%`} />
+              <DetailKpi label="RPM"         value={`$${load.rpm}`}                      accent="text-cyan-300" sub={`${load.miles} mi`} />
+            </div>
+
+            {/* Pickup + Delivery */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <DetailBlock icon={MapPin} title="Pickup" accent="border-emerald-500/40">
+                <div className="text-slate-200 text-sm font-semibold">{load.pickup_full_address}</div>
+                <DetailRow label="Date">{load.pickup_date}</DetailRow>
+                <DetailRow label="Window">{load.pickup_window_start} – {load.pickup_window_end}</DetailRow>
+                <DetailRow label="Appt req">{load.appointment_required ? "Yes" : "Flexible"}</DetailRow>
+                <DetailRow label="Contact">{load.shipper_contact_name}</DetailRow>
+                <DetailRow label="Phone"><a href={`tel:${load.shipper_phone}`} className="text-cyan-300">{load.shipper_phone}</a></DetailRow>
+                <DetailRow label="Email"><a href={`mailto:${load.shipper_email}`} className="text-cyan-300 truncate inline-block max-w-[180px]" title={load.shipper_email}>{load.shipper_email}</a></DetailRow>
+              </DetailBlock>
+              <DetailBlock icon={MapPin} title="Delivery" accent="border-cyan-500/40">
+                <div className="text-slate-200 text-sm font-semibold">{load.delivery_full_address}</div>
+                <DetailRow label="Date">{load.delivery_date}</DetailRow>
+                <DetailRow label="Window">{load.delivery_window_start} – {load.delivery_window_end}</DetailRow>
+                <DetailRow label="Consignee">{load.consignee_name}</DetailRow>
+                <DetailRow label="Phone"><a href={`tel:${load.consignee_phone}`} className="text-cyan-300">{load.consignee_phone}</a></DetailRow>
+              </DetailBlock>
+            </div>
+
+            {/* Dimensions + flags */}
+            <DetailBlock title="Dimensions & Handling">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <DetailMini label="Length"  value={`${load.length_ft} ft`} />
+                <DetailMini label="Width"   value={`${load.width_ft} ft`} />
+                <DetailMini label="Height"  value={`${load.height_ft} ft`} />
+                <DetailMini label="Weight"  value={`${load.weight_lbs.toLocaleString()} lbs`} />
+                <DetailMini label="Pallets" value={load.pallet_count || "—"} />
+                <DetailMini label="Stops"   value={load.stop_count} />
+                {load.temperature_f != null && <DetailMini label="Temp" value={`${load.temperature_f}°F`} icon={Snowflake} />}
+                {load.hazmat        && <DetailMini label="Hazmat"   value="Yes" icon={ShieldAlert} accent="text-red-300" />}
+                {load.tarp_required && <DetailMini label="Tarp"     value="Required" />}
+                {load.team_required && <DetailMini label="Team"     value="Required" />}
+                {load.driver_assist_required && <DetailMini label="Driver Assist" value="Yes" />}
+              </div>
+            </DetailBlock>
+
+            {/* Special instructions */}
+            <DetailBlock title="Special Instructions">
+              <div className="text-sm text-slate-300 leading-relaxed">{load.special_instructions}</div>
+            </DetailBlock>
+
+            {/* AI tags */}
+            {!!load.ai_tags?.length && (
+              <div className="flex items-center gap-2 flex-wrap" data-testid="load-detail-tags">
+                {load.ai_tags.map((t, i) => (
+                  <span key={i} className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-200">{t}</span>
+                ))}
+              </div>
+            )}
+
+            <DialogFooter className="gap-2">
+              <Button onClick={onClose} className="bg-white/5 border border-white/10 text-slate-300 hover:border-white/20 font-mono text-[11px] uppercase">Close</Button>
+              <Button onClick={() => onBook(load)} data-testid="load-detail-book-btn" className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase">
+                Book this load
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DetailKpi({ label, value, sub, accent = "text-slate-200" }) {
+  return (
+    <div className="rounded border border-white/5 bg-white/[0.02] px-3 py-2">
+      <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500">{label}</div>
+      <div className={`text-lg font-display font-black tabular-nums ${accent}`}>{value}</div>
+      {sub && <div className="text-[10px] font-mono text-slate-500">{sub}</div>}
+    </div>
+  );
+}
+function DetailBlock({ icon: Icon, title, accent = "border-white/10", children }) {
+  return (
+    <div className={`rounded-md border ${accent} bg-white/[0.02] p-3 my-2`}>
+      <div className="flex items-center gap-1.5 mb-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">
+        {Icon && <Icon size={11} />} {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+function DetailRow({ label, children }) {
+  return (
+    <div className="grid grid-cols-3 gap-2 text-xs py-0.5">
+      <div className="col-span-1 text-slate-500 font-mono text-[10px] uppercase">{label}</div>
+      <div className="col-span-2 text-slate-300">{children}</div>
+    </div>
+  );
+}
+function DetailMini({ label, value, icon: Icon, accent = "text-slate-200" }) {
+  return (
+    <div className="rounded bg-white/[0.03] border border-white/5 px-2.5 py-1.5">
+      <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 uppercase">{Icon && <Icon size={9} />} {label}</div>
+      <div className={`text-sm font-semibold tabular-nums ${accent}`}>{value}</div>
+    </div>
+  );
+}
+
+// ============================================================
+//          DRIVER ROSTER TAB
+// ============================================================
+function DriversTab() {
+  const [data, setData] = useState({ drivers: [], kpi: {} });
+  const [loading, setLoading] = useState(true);
+  const [edit, setEdit] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const load = () => api.get("/brokerage/drivers").then(({ data }) => setData(data)).catch(() => {}).finally(() => setLoading(false));
+  useEffect(() => { load(); }, []);
+
+  const del = async (id, name) => {
+    if (!window.confirm(`Remove driver "${name}"?`)) return;
+    try { await api.delete(`/brokerage/drivers/${id}`); toast.success("Driver removed"); load(); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Delete failed"); }
+  };
+  if (loading) return <Loader />;
+
+  return (
+    <div className="space-y-4" data-testid="drivers-tab">
+      <Card className="hud-surface p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3" data-testid="drivers-header">
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 flex items-center gap-1.5"><Users size={11} /> Driver Roster</div>
+          <h3 className="font-display text-xl font-black">Carrier Driver Management</h3>
+          <div className="text-[10px] font-mono text-slate-500 mt-1">Track CDL, MedCard, HOS hours, and load assignments.</div>
+        </div>
+        <Button data-testid="add-driver-btn" onClick={() => setShowAdd(true)} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase">
+          <Plus size={13} className="mr-1.5" /> Add Driver
+        </Button>
+      </Card>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3" data-testid="drivers-kpi">
+        <Kpi label="Total"          value={data.kpi.total || 0}          accent="text-cyan-300"    icon={Users} />
+        <Kpi label="Available"      value={data.kpi.available || 0}      accent="text-emerald-300" icon={CheckCircle2} />
+        <Kpi label="Dispatched"     value={data.kpi.dispatched || 0}     accent="text-yellow-300"  icon={Truck} />
+        <Kpi label="Off-duty"       value={data.kpi.off_duty || 0}       accent="text-slate-400"   icon={Loader2} />
+        <Kpi label="Docs expiring"  value={data.kpi.expiring_soon || 0}  accent="text-red-300"     icon={AlertCircle} sub="within 45 days" />
+      </div>
+      <Card className="hud-surface overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-white/[0.02] text-[10px] font-mono uppercase tracking-wider text-slate-500">
+            <tr>
+              <th className="text-left px-3 py-2">Driver</th>
+              <th className="text-left px-3 py-2">Carrier</th>
+              <th className="text-left px-3 py-2">Equipment</th>
+              <th className="text-left px-3 py-2">Location</th>
+              <th className="text-left px-3 py-2">CDL exp</th>
+              <th className="text-left px-3 py-2">Med exp</th>
+              <th className="text-left px-3 py-2">Status</th>
+              <th className="text-right px-3 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.drivers.map((d) => (
+              <tr key={d.id} className="border-t border-white/5 hover:bg-white/[0.02]" data-testid={`driver-row-${d.id}`}>
+                <td className="px-3 py-2">
+                  <div className="text-slate-200 font-semibold">{d.name}</div>
+                  <div className="text-[10px] font-mono text-slate-500">{d.phone || "—"}</div>
+                </td>
+                <td className="px-3 py-2 text-slate-300">{d.carrier_name || "—"}<div className="text-[10px] text-slate-500">{d.carrier_mc}</div></td>
+                <td className="px-3 py-2 text-slate-300">{d.equipment_type || "—"}</td>
+                <td className="px-3 py-2 text-slate-300">{d.current_city ? `${d.current_city}, ${d.current_state || ""}` : "—"}</td>
+                <td className="px-3 py-2"><DocExp date={d.cdl_expires} /></td>
+                <td className="px-3 py-2"><DocExp date={d.medcard_expires} /></td>
+                <td className="px-3 py-2"><DriverStatusBadge status={d.status} /></td>
+                <td className="px-3 py-2 text-right">
+                  <button onClick={() => setEdit(d)} data-testid={`driver-edit-${d.id}`} className="text-[10px] font-mono uppercase text-cyan-300 hover:text-cyan-200 mr-2">Edit</button>
+                  <button onClick={() => del(d.id, d.name)} data-testid={`driver-delete-${d.id}`} className="text-[10px] font-mono uppercase text-red-300 hover:text-red-200">Remove</button>
+                </td>
+              </tr>
+            ))}
+            {!data.drivers.length && (
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-slate-500 text-xs">
+                No drivers yet. Click <span className="text-cyan-300">+ Add Driver</span> to onboard your first.
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
+      <DriverFormDialog open={showAdd} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
+      <DriverFormDialog open={!!edit} driver={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />
+    </div>
+  );
+}
+
+function DocExp({ date }) {
+  if (!date) return <span className="text-slate-500">—</span>;
+  const days = Math.floor((new Date(date) - new Date()) / 86_400_000);
+  const cls = days < 0 ? "text-red-300" : days < 45 ? "text-yellow-300" : "text-slate-300";
+  return <span className={`${cls} tabular-nums font-mono text-[11px]`}>{date}{days < 45 && <span className="ml-1 text-[9px]">({days < 0 ? "expired" : `${days}d`})</span>}</span>;
+}
+function DriverStatusBadge({ status }) {
+  const map = {
+    available:  "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    dispatched: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30",
+    off_duty:   "bg-slate-500/15 text-slate-300 border-slate-500/30",
+    terminated: "bg-red-500/15 text-red-300 border-red-500/30",
+  };
+  return <span className={`inline-block text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border ${map[status] || map.off_duty}`}>{status || "—"}</span>;
+}
+
+function DriverFormDialog({ open, driver, onClose, onSaved }) {
+  const [v, setV] = useState({});
+  useEffect(() => { if (open) setV(driver || { status: "available" }); }, [open, driver]);
+  const set = (k) => (e) => setV((s) => ({ ...s, [k]: e.target.value }));
+  const save = async () => {
+    if (!v.name) { toast.error("Name required"); return; }
+    try {
+      if (driver?.id) await api.put(`/brokerage/drivers/${driver.id}`, v);
+      else            await api.post("/brokerage/drivers", v);
+      toast.success(driver ? "Driver updated" : "Driver added");
+      onSaved();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Save failed"); }
+  };
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl bg-slate-900 border-cyan-500/20 max-h-[90vh] overflow-y-auto" data-testid="driver-form-dialog">
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl flex items-center gap-2"><Users size={18} className="text-cyan-400" /> {driver ? "Edit driver" : "Add driver"}</DialogTitle>
+          <DialogDescription className="text-xs text-slate-400">Roster entry feeds the load-board assignment workflow and the compliance calendar.</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="Name" required><Input value={v.name || ""} onChange={set("name")} data-testid="driver-field-name" className="bg-slate-950 border-white/10" /></Field>
+          <Field label="Phone"><Input value={v.phone || ""} onChange={set("phone")} data-testid="driver-field-phone" placeholder="(612) 555-0117" className="bg-slate-950 border-white/10" /></Field>
+          <Field label="Email"><Input value={v.email || ""} onChange={set("email")} className="bg-slate-950 border-white/10" /></Field>
+          <Field label="Carrier (motor carrier)"><Input value={v.carrier_name || ""} onChange={set("carrier_name")} className="bg-slate-950 border-white/10" /></Field>
+          <Field label="Carrier MC#"><Input value={v.carrier_mc || ""} onChange={set("carrier_mc")} placeholder="MC-123456" className="bg-slate-950 border-white/10" /></Field>
+          <Field label="Equipment type"><Input value={v.equipment_type || ""} onChange={set("equipment_type")} placeholder="Van · Reefer · Flatbed" className="bg-slate-950 border-white/10" /></Field>
+          <Field label="CDL number"><Input value={v.cdl_number || ""} onChange={set("cdl_number")} className="bg-slate-950 border-white/10" /></Field>
+          <Field label="CDL state (2-letter)"><Input value={v.cdl_state || ""} onChange={(e) => setV((s) => ({ ...s, cdl_state: e.target.value.toUpperCase().slice(0,2) }))} className="bg-slate-950 border-white/10 uppercase font-mono" /></Field>
+          <Field label="CDL expires (YYYY-MM-DD)"><Input value={v.cdl_expires || ""} onChange={set("cdl_expires")} placeholder="2027-08-12" className="bg-slate-950 border-white/10 font-mono" /></Field>
+          <Field label="Med card expires"><Input value={v.medcard_expires || ""} onChange={set("medcard_expires")} placeholder="2026-09-30" className="bg-slate-950 border-white/10 font-mono" /></Field>
+          <Field label="Current city"><Input value={v.current_city || ""} onChange={set("current_city")} className="bg-slate-950 border-white/10" /></Field>
+          <Field label="Current state"><Input value={v.current_state || ""} onChange={(e) => setV((s) => ({ ...s, current_state: e.target.value.toUpperCase().slice(0,2) }))} className="bg-slate-950 border-white/10 uppercase font-mono" /></Field>
+          <Field label="HOS drive remaining (hrs)"><Input value={v.hos_drive_remaining_hours || ""} onChange={(e) => setV((s) => ({ ...s, hos_drive_remaining_hours: e.target.value }))} type="number" className="bg-slate-950 border-white/10" /></Field>
+          <Field label="Status">
+            <select value={v.status || "available"} onChange={(e) => setV((s) => ({ ...s, status: e.target.value }))} data-testid="driver-field-status" className="w-full bg-slate-950 border border-white/10 rounded px-3 py-2 text-sm">
+              <option value="available">Available</option>
+              <option value="dispatched">Dispatched</option>
+              <option value="off_duty">Off-duty</option>
+              <option value="terminated">Terminated</option>
+            </select>
+          </Field>
+          <div className="md:col-span-2"><Field label="Notes"><Textarea value={v.notes || ""} onChange={set("notes")} rows={2} className="bg-slate-950 border-white/10 text-sm" /></Field></div>
+        </div>
+        <DialogFooter>
+          <Button onClick={onClose} className="bg-white/5 border border-white/10 text-slate-300">Cancel</Button>
+          <Button onClick={save} data-testid="driver-save-btn" className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase">Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }

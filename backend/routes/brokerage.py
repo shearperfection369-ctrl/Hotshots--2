@@ -208,6 +208,20 @@ async def _persist_snapshot(db, summary: Dict[str, Any], *, force: bool = False)
         )
 
 
+def _is_expiring_soon(iso_date: Optional[str], within_days: int = 45) -> bool:
+    """Return True if `iso_date` (YYYY-MM-DD) is within `within_days` of today."""
+    if not iso_date or not isinstance(iso_date, str):
+        return False
+    try:
+        d = datetime.strptime(iso_date[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return False
+    delta = (d - datetime.now(timezone.utc).date()).days
+    return -30 <= delta <= within_days
+
+
+
+
 async def _active_brand(db) -> Dict[str, Any]:
     """Return the currently-active company brand profile (without _id)."""
     doc = await db.company_brand.find_one({"is_active": True}, {"_id": 0})
@@ -280,6 +294,10 @@ def _gen_loads_for_board(board_id: str, count: int = 18) -> List[Dict[str, Any]]
         "123loadboard": {"rpm_base": 2.18, "margin_pct_base": 0.12, "post_age_h": (2, 24)},
     }.get(board_id, {"rpm_base": 2.20, "margin_pct_base": 0.14, "post_age_h": (1, 12)})
 
+    contact_first = ["Maria", "James", "Sara", "David", "Linda", "Carlos", "Priya", "Mike", "Janet", "Aiden"]
+    contact_last  = ["Lopez", "Chen", "Patel", "Johnson", "Schmidt", "Nguyen", "Olson", "Rivera", "Brooks", "Wong"]
+    street_words  = ["Industrial", "Commerce", "Logistics", "Distribution", "Gateway", "Freight", "Hub", "Service"]
+
     out: List[Dict[str, Any]] = []
     for i in range(count):
         origin, dest, miles = rnd.choice(LANES)
@@ -295,6 +313,23 @@ def _gen_loads_for_board(board_id: str, count: int = 18) -> List[Dict[str, Any]]
         post_age = rnd.randint(*profile["post_age_h"])
         ai_score = round(70 + (margin_pct - 0.10) * 200 + rnd.uniform(-12, 8), 1)
         ai_score = max(0, min(100, ai_score))
+
+        # Enriched detail fields
+        is_reefer = eq == "Reefer"
+        is_flat   = eq in ("Flatbed", "Step Deck")
+        length_ft = 53 if eq in ("Van", "Reefer") else (rnd.choice([48, 53]) if is_flat else 53)
+        pallet_count = rnd.randint(18, 26) if not is_flat else 0
+        temp_f       = rnd.choice([-10, 0, 34, 38, 50]) if is_reefer else None
+        hazmat       = rnd.random() < 0.08
+        team         = rnd.random() < 0.12 and miles > 900
+        tarp         = is_flat and rnd.random() < 0.55
+        driver_assist = rnd.random() < 0.3
+        appt_required = rnd.random() < 0.7
+        shipper_first = rnd.choice(contact_first); shipper_last = rnd.choice(contact_last)
+        consignee_first = rnd.choice(contact_first); consignee_last = rnd.choice(contact_last)
+        pickup_street = f"{rnd.randint(100, 9999)} {rnd.choice(street_words)} {rnd.choice(['Pkwy', 'Blvd', 'Way', 'Dr'])}"
+        delivery_street = f"{rnd.randint(100, 9999)} {rnd.choice(street_words)} {rnd.choice(['Pkwy', 'Blvd', 'Way', 'Dr'])}"
+
         out.append({
             "load_id": f"{board_id.upper()}-{rnd.randint(100000, 999999)}",
             "board_id": board_id,
@@ -315,9 +350,47 @@ def _gen_loads_for_board(board_id: str, count: int = 18) -> List[Dict[str, Any]]
             "posted_minutes_ago": post_age * 60,
             "ai_score": ai_score,
             "ai_tags": _ai_tags(margin_pct, rpm, post_age),
+            # ----- enriched detail -----
+            "pickup_full_address":    f"{shipper} · {pickup_street}, {origin}",
+            "delivery_full_address":  f"Consignee · {delivery_street}, {dest}",
+            "pickup_window_start":    f"{rnd.choice(['06:00', '07:00', '08:00', '09:00', '10:00'])}",
+            "pickup_window_end":      f"{rnd.choice(['11:00', '13:00', '15:00', '17:00'])}",
+            "delivery_window_start":  f"{rnd.choice(['07:00', '08:00', '10:00', '13:00'])}",
+            "delivery_window_end":    f"{rnd.choice(['12:00', '15:00', '17:00', '19:00'])}",
+            "appointment_required":   appt_required,
+            "length_ft":              length_ft,
+            "width_ft":               8 if not is_flat else rnd.choice([8.5, 10, 12]),
+            "height_ft":              13.5 if not is_flat else rnd.choice([8, 10, 13]),
+            "pallet_count":           pallet_count,
+            "temperature_f":          temp_f,
+            "hazmat":                 hazmat,
+            "team_required":          team,
+            "tarp_required":          tarp,
+            "driver_assist_required": driver_assist,
+            "shipper_contact_name":   f"{shipper_first} {shipper_last}",
+            "shipper_phone":          f"({rnd.randint(200, 989)}) {rnd.randint(200, 989)}-{rnd.randint(1000, 9999)}",
+            "shipper_email":          f"{shipper_first.lower()}.{shipper_last.lower()}@{shipper.lower().replace(' ', '').replace('.', '')}.com",
+            "consignee_name":         f"{consignee_first} {consignee_last}",
+            "consignee_phone":        f"({rnd.randint(200, 989)}) {rnd.randint(200, 989)}-{rnd.randint(1000, 9999)}",
+            "special_instructions":   _gen_special_instructions(rnd, hazmat, tarp, team, appt_required, is_reefer, temp_f),
+            "broker_reference":       f"ORI-{rnd.randint(10000, 99999)}",
+            "load_type":              "TL · partial" if rate < 1200 else "TL · full truckload",
+            "stop_count":              rnd.choice([1, 1, 1, 2]) if not is_flat else 1,
         })
     out.sort(key=lambda x: -x["ai_score"])
     return out
+
+
+def _gen_special_instructions(rnd: random.Random, hazmat: bool, tarp: bool, team: bool, appt: bool,
+                              is_reefer: bool, temp_f: Optional[int]) -> str:
+    parts: List[str] = []
+    if appt: parts.append("Appointment required at both ends; arrive 15 min early.")
+    if is_reefer and temp_f is not None: parts.append(f"Continuous reefer — maintain {temp_f}°F · download temp logs at delivery.")
+    if hazmat:                            parts.append("HAZMAT — placards required; current HM-181 endorsement mandatory.")
+    if tarp:                              parts.append("Tarping required (6-ft minimum) — provide proof-of-tarp photo.")
+    if team:                              parts.append("Team service required — no relay drops permitted.")
+    if rnd.random() < 0.4:                parts.append("No idling at facility · driver must remain with vehicle during loading.")
+    return " ".join(parts) or "Standard tender · no special handling."
 
 
 def _ai_tags(margin_pct: float, rpm: float, post_age_h: int) -> List[str]:
@@ -336,6 +409,32 @@ class BookLoadIn(BaseModel):
     board_id: str
     carrier_name: str = Field(..., min_length=1, max_length=80)
     carrier_mc: Optional[str] = None
+    driver_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class DriverIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    cdl_number: Optional[str] = Field(None, max_length=40)
+    cdl_state: Optional[str] = Field(None, max_length=2)
+    cdl_expires: Optional[str] = Field(None, max_length=10)         # YYYY-MM-DD
+    medcard_expires: Optional[str] = Field(None, max_length=10)
+    phone: Optional[str] = Field(None, max_length=30)
+    email: Optional[str] = Field(None, max_length=120)
+    carrier_name: Optional[str] = Field(None, max_length=80)
+    carrier_mc: Optional[str] = Field(None, max_length=20)
+    equipment_type: Optional[str] = Field(None, max_length=30)
+    current_city: Optional[str] = Field(None, max_length=60)
+    current_state: Optional[str] = Field(None, max_length=2)
+    status: Optional[str] = Field("available", max_length=20)        # available | dispatched | off_duty | terminated
+    hos_drive_remaining_hours: Optional[float] = Field(None, ge=0, le=11)
+    hire_date: Optional[str] = Field(None, max_length=10)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class DriverAssignIn(BaseModel):
+    load_id: str
+    board_id: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -555,6 +654,34 @@ def build_brokerage_router(
         if origin:    rows = [r for r in rows if origin.lower() in r["origin"].lower()]
         return {"board_id": board_id, "count": len(rows), "loads": rows}
 
+    @router.get("/boards/{board_id}/loads/{load_id}")
+    async def board_load_detail(board_id: str, load_id: str, _=Depends(get_current_user)):
+        """Return the FULL detail for a single load — dimensions, contacts, special instructions."""
+        rows = _gen_loads_for_board(board_id)
+        load = next((r for r in rows if r["load_id"] == load_id), None)
+        if not load:
+            # Also check across boards in case the user navigated via the AI match list.
+            for b in LOAD_BOARDS:
+                if b["id"] == board_id:
+                    continue
+                cand = next((r for r in _gen_loads_for_board(b["id"]) if r["load_id"] == load_id), None)
+                if cand:
+                    load = cand
+                    break
+        if not load:
+            raise HTTPException(404, "Load not found")
+
+        # Booking status (if a broker has already booked this load)
+        booking = await db.brokerage_bookings.find_one({"load_id": load_id}, {"_id": 0})
+        # Assigned driver (if any)
+        assigned_driver = None
+        if booking:
+            assigned_driver = await db.brokerage_drivers.find_one(
+                {"current_load_id": load_id},
+                {"_id": 0, "cdl_number": 0, "email": 0},   # don't ship the secret driver PII back unnecessarily
+            )
+        return {"load": load, "booking": booking, "assigned_driver": assigned_driver}
+
     @router.get("/loads/match")
     async def ai_match_loads(_=Depends(get_current_user), top: int = 12):
         """AI-ranked top loads across **all** boards."""
@@ -644,6 +771,141 @@ def build_brokerage_router(
             slot["forecast_margin_usd"] = round(slot["forecast_margin_usd"], 2)
             slot["settled_margin_usd"] = round(slot["settled_margin_usd"], 2)
         return {"by_board": list(by_board.values()), "bookings": rows[:50]}
+
+    # ============================ DRIVER ROSTER ============================
+    @router.get("/drivers")
+    async def list_drivers(status: Optional[str] = None, _=Depends(get_current_user)):
+        q: Dict[str, Any] = {}
+        if status: q["status"] = status
+        rows = await db.brokerage_drivers.find(q, {"_id": 0}).sort("name", 1).to_list(500)
+        kpi = {
+            "total":      len(rows),
+            "available":  sum(1 for r in rows if r.get("status") == "available"),
+            "dispatched": sum(1 for r in rows if r.get("status") == "dispatched"),
+            "off_duty":   sum(1 for r in rows if r.get("status") == "off_duty"),
+            "expiring_soon": sum(1 for r in rows if _is_expiring_soon(r.get("cdl_expires")) or _is_expiring_soon(r.get("medcard_expires"))),
+        }
+        return {"drivers": rows, "kpi": kpi}
+
+    @router.post("/drivers")
+    async def create_driver(payload: DriverIn, user=Depends(get_current_user)):
+        doc = {
+            "id": f"DRV-{uuid.uuid4().hex[:10].upper()}",
+            **payload.model_dump(exclude_none=False),
+            "current_load_id": None,
+            "performance_score": 95.0,
+            "on_time_pct": 98.0,
+            "loads_completed": 0,
+            "miles_ytd": 0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_by": getattr(user, "user_id", None),
+        }
+        await db.brokerage_drivers.insert_one(dict(doc))
+        doc.pop("_id", None)
+        return doc
+
+    @router.put("/drivers/{driver_id}")
+    async def update_driver(driver_id: str, payload: DriverIn, _=Depends(get_current_user)):
+        r = await db.brokerage_drivers.find_one_and_update(
+            {"id": driver_id},
+            {"$set": payload.model_dump(exclude_none=True)},
+            return_document=True, projection={"_id": 0},
+        )
+        if not r:
+            raise HTTPException(404, "Driver not found")
+        return r
+
+    @router.delete("/drivers/{driver_id}")
+    async def delete_driver(driver_id: str, _=Depends(get_current_user)):
+        res = await db.brokerage_drivers.delete_one({"id": driver_id})
+        if not res.deleted_count:
+            raise HTTPException(404, "Driver not found")
+        return {"deleted": True, "id": driver_id}
+
+    @router.post("/drivers/{driver_id}/assign")
+    async def assign_driver(driver_id: str, payload: DriverAssignIn, _=Depends(get_current_user)):
+        driver = await db.brokerage_drivers.find_one({"id": driver_id}, {"_id": 0})
+        if not driver:
+            raise HTTPException(404, "Driver not found")
+        r = await db.brokerage_drivers.find_one_and_update(
+            {"id": driver_id},
+            {"$set": {
+                "current_load_id": payload.load_id,
+                "status": "dispatched",
+                "last_assignment_at": datetime.now(timezone.utc).isoformat(),
+                "last_assignment_notes": payload.notes,
+            }},
+            return_document=True, projection={"_id": 0},
+        )
+        return {"ok": True, "driver": r}
+
+    @router.post("/drivers/{driver_id}/clear")
+    async def clear_driver(driver_id: str, _=Depends(get_current_user)):
+        r = await db.brokerage_drivers.find_one_and_update(
+            {"id": driver_id},
+            {"$set": {"current_load_id": None, "status": "available"}, "$inc": {"loads_completed": 1}},
+            return_document=True, projection={"_id": 0},
+        )
+        if not r:
+            raise HTTPException(404, "Driver not found")
+        return r
+
+    # ============================ FACTORING NETWORK STATUS ============================
+    @router.get("/factoring/status")
+    async def factoring_status(_=Depends(get_current_user)):
+        """Aggregate of enabled factoring connections + MTD spend + simulated activity."""
+        rows: List[Dict[str, Any]] = []
+        now = datetime.now(timezone.utc)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        settled = 0.0
+        async for b in db.brokerage_bookings.find(
+            {"status": "settled", "booked_at": {"$gte": month_start.isoformat()}},
+            {"_id": 0, "settled_carrier_pay_usd": 1},
+        ):
+            settled += float(b.get("settled_carrier_pay_usd") or 0)
+
+        async for c in db.connections.find({"enabled": True}, {"_id": 0}):
+            pid = c.get("provider_id")
+            meta = PROVIDER_COSTS.get(pid)
+            if not meta or meta.get("model") != "factoring":
+                continue
+            fields = c.get("fields") or {}
+            def _read(k):
+                cell = fields.get(k) or {}
+                return cell.get("value") if isinstance(cell, dict) else None
+            try:    rate_pct = float(_read("factor_rate") or meta.get("default_rate_pct", 2.5))
+            except (TypeError, ValueError): rate_pct = float(meta.get("default_rate_pct", 2.5))
+            try:    usage_pct = float(_read("quick_pay_usage_pct") or 25.0)
+            except (TypeError, ValueError): usage_pct = 25.0
+            mtd_spend = round(settled * (usage_pct / 100) * (rate_pct / 100), 2)
+            factored_carrier_pay = round(settled * (usage_pct / 100), 2)
+            rnd = random.Random(f"fact::{pid}::{now.date().isoformat()}")
+            rows.append({
+                "provider_id": pid,
+                "name": meta["name"],
+                "factor_rate_pct": rate_pct,
+                "quick_pay_usage_pct": usage_pct,
+                "monthly_carrier_pay_mtd_usd": factored_carrier_pay,
+                "monthly_fee_mtd_usd": mtd_spend,
+                "carriers_verified_30d": rnd.randint(8, 42),
+                "noa_letters_processed_mtd": rnd.randint(3, 22),
+                "quick_pay_advances_mtd": rnd.randint(2, 18),
+                "next_ach_in_days": rnd.choice([1, 1, 2, 3]),
+                "last_sync_at": (now - timedelta(minutes=rnd.randint(5, 90))).isoformat(),
+                "status": "connected",
+                "tuner_label": f"{usage_pct:.0f}% quick-pay × {rate_pct:.1f}% factor",
+            })
+        rows.sort(key=lambda x: x["name"])
+        totals = {
+            "providers": len(rows),
+            "monthly_fee_mtd_usd": round(sum(r["monthly_fee_mtd_usd"] for r in rows), 2),
+            "factored_carrier_pay_mtd_usd": round(sum(r["monthly_carrier_pay_mtd_usd"] for r in rows), 2),
+            "noa_letters_mtd": sum(r["noa_letters_processed_mtd"] for r in rows),
+            "quick_pay_advances_mtd": sum(r["quick_pay_advances_mtd"] for r in rows),
+        }
+        return {"providers": rows, "totals": totals}
+
+
 
     # ============================ ACCOUNTING ============================
     @router.post("/accounting/invoices")
