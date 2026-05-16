@@ -12,7 +12,7 @@ import {
 } from "../components/ui/dialog";
 import {
   Plug, KeyRound, ExternalLink, CheckCircle2, AlertCircle, Loader2,
-  RefreshCw, Trash2, Save, Activity, Lock, ShieldCheck,
+  RefreshCw, Trash2, Save, Activity, Lock, ShieldCheck, Plus, X, GripVertical,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { toast } from "sonner";
@@ -37,6 +37,7 @@ export default function Connections() {
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeProvider, setActiveProvider] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
 
   const load = async () => {
     try {
@@ -72,6 +73,18 @@ export default function Connections() {
 
   const configuredCount = connections.filter((c) => c.status !== "unconfigured").length;
   const enabledCount = connections.filter((c) => c.enabled).length;
+  const customCount = providers.filter((p) => p.builtin === false).length;
+
+  const deleteCustomProvider = async (id, name) => {
+    if (!window.confirm(`Remove custom provider "${name}"? This deletes its stored credentials too.`)) return;
+    try {
+      await api.delete(`/connections/providers/custom/${id}`);
+      toast.success(`Removed ${name}`);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Remove failed");
+    }
+  };
 
   return (
     <>
@@ -87,17 +100,26 @@ export default function Connections() {
               <Plug size={18} className="text-cyan-400" /> {providers.length} Available Connectors
             </h3>
             <div className="text-[10px] font-mono text-slate-500 mt-1">
-              {configuredCount} configured · {enabledCount} enabled · Secrets stored Fernet-encrypted, never returned in plaintext.
+              {configuredCount} configured · {enabledCount} enabled · {customCount} custom · Secrets stored Fernet-encrypted, never returned in plaintext.
             </div>
           </div>
-          <Button
-            onClick={() => { setLoading(true); load(); }}
-            disabled={loading}
-            className="bg-white/5 border border-white/10 hover:border-cyan-400/40 hover:text-cyan-200 text-slate-300 font-mono text-[11px] uppercase tracking-wider"
-            data-testid="connections-refresh-btn"
-          >
-            {loading ? <Loader2 size={13} className="animate-spin mr-1.5" /> : <RefreshCw size={13} className="mr-1.5" />} Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setShowAdd(true)}
+              data-testid="connections-add-custom-btn"
+              className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase tracking-wider"
+            >
+              <Plus size={13} className="mr-1.5" /> Add Integration
+            </Button>
+            <Button
+              onClick={() => { setLoading(true); load(); }}
+              disabled={loading}
+              className="bg-white/5 border border-white/10 hover:border-cyan-400/40 hover:text-cyan-200 text-slate-300 font-mono text-[11px] uppercase tracking-wider"
+              data-testid="connections-refresh-btn"
+            >
+              {loading ? <Loader2 size={13} className="animate-spin mr-1.5" /> : <RefreshCw size={13} className="mr-1.5" />} Refresh
+            </Button>
+          </div>
         </Card>
 
         {loading && !cards.length ? (
@@ -109,7 +131,12 @@ export default function Connections() {
               <h3 className="font-display text-lg font-bold mb-4">{category}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {list.map((card) => (
-                  <ProviderCard key={card.id} card={card} onConfigure={() => setActiveProvider(card)} />
+                  <ProviderCard
+                    key={card.id}
+                    card={card}
+                    onConfigure={() => setActiveProvider(card)}
+                    onDeleteCustom={card.builtin === false ? () => deleteCustomProvider(card.id, card.name) : null}
+                  />
                 ))}
               </div>
             </Card>
@@ -122,11 +149,16 @@ export default function Connections() {
         onClose={() => setActiveProvider(null)}
         onSaved={() => { setActiveProvider(null); load(); }}
       />
+      <AddCustomProviderDialog
+        open={showAdd}
+        onClose={() => setShowAdd(false)}
+        onSaved={() => { setShowAdd(false); load(); }}
+      />
     </>
   );
 }
 
-function ProviderCard({ card, onConfigure }) {
+function ProviderCard({ card, onConfigure, onDeleteCustom }) {
   const conn = card.conn;
   const styles = STATUS_STYLES[conn.status] || STATUS_STYLES.unconfigured;
   return (
@@ -140,7 +172,12 @@ function ProviderCard({ card, onConfigure }) {
             {card.logo}
           </div>
           <div className="min-w-0">
-            <div className="font-display font-semibold text-white truncate">{card.name}</div>
+            <div className="font-display font-semibold text-white truncate flex items-center gap-1.5">
+              {card.name}
+              {card.builtin === false && (
+                <span className="text-[8px] font-mono uppercase px-1 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30">custom</span>
+              )}
+            </div>
             <div className="text-[10px] font-mono text-slate-500 truncate">{card.fields.length} field{card.fields.length === 1 ? "" : "s"}</div>
           </div>
         </div>
@@ -153,13 +190,25 @@ function ProviderCard({ card, onConfigure }) {
         <div className="text-[10px] font-mono text-slate-500 truncate">
           {conn.updated_at ? `Updated ${new Date(conn.updated_at).toLocaleDateString()}` : "Not yet configured"}
         </div>
-        <Button
-          onClick={onConfigure}
-          data-testid={`connection-configure-${card.id}`}
-          className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 h-auto"
-        >
-          <KeyRound size={11} className="mr-1" /> Configure
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {onDeleteCustom && (
+            <button
+              onClick={onDeleteCustom}
+              data-testid={`connection-remove-custom-${card.id}`}
+              title="Remove this custom integration"
+              className="text-slate-500 hover:text-red-400 p-1"
+            >
+              <X size={12} />
+            </button>
+          )}
+          <Button
+            onClick={onConfigure}
+            data-testid={`connection-configure-${card.id}`}
+            className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 h-auto"
+          >
+            <KeyRound size={11} className="mr-1" /> Configure
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -336,6 +385,158 @@ function ConfigureDialog({ provider, onClose, onSaved }) {
             className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase"
           >
             {busy ? <Loader2 size={12} className="animate-spin mr-1.5" /> : <Save size={12} className="mr-1.5" />} Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+// ============================================================
+//                ADD CUSTOM PROVIDER DIALOG
+// ============================================================
+function AddCustomProviderDialog({ open, onClose, onSaved }) {
+  const blankField = () => ({ key: "", label: "", secret: false, required: true, placeholder: "" });
+  const [name, setName] = useState("");
+  const [pid, setPid] = useState("");
+  const [category, setCategory] = useState("Other");
+  const [description, setDescription] = useState("");
+  const [logo, setLogo] = useState("");
+  const [docsUrl, setDocsUrl] = useState("");
+  const [fields, setFields] = useState([blankField()]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setName(""); setPid(""); setCategory("Other"); setDescription("");
+    setLogo(""); setDocsUrl(""); setFields([blankField()]); setBusy(false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!name || pid) return;
+    setPid(name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40));
+  }, [name]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateField = (i, patch) => setFields((arr) => arr.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+  const addField = () => setFields((arr) => [...arr, blankField()]);
+  const removeField = (i) => setFields((arr) => arr.filter((_, j) => j !== i));
+
+  const save = async () => {
+    if (!name.trim() || !pid.trim() || !category.trim()) {
+      toast.error("Name, ID, and category are required");
+      return;
+    }
+    const cleaned = fields
+      .map((f) => ({ ...f, key: (f.key || "").trim(), label: (f.label || "").trim() }))
+      .filter((f) => f.key && f.label);
+    if (!cleaned.length) {
+      toast.error("Add at least one credential field");
+      return;
+    }
+    for (const f of cleaned) {
+      if (!/^[a-z0-9_]+$/.test(f.key)) {
+        toast.error(`Field key "${f.key}" must be lowercase letters, numbers, or underscores`);
+        return;
+      }
+    }
+    setBusy(true);
+    try {
+      await api.post("/connections/providers/custom", {
+        id: pid.trim(),
+        name: name.trim(),
+        category: category.trim(),
+        description: description.trim() || null,
+        logo: (logo || name.slice(0, 2)).toUpperCase().slice(0, 4),
+        docs_url: docsUrl.trim() || null,
+        fields: cleaned,
+      });
+      toast.success(`${name} added — configure it now`);
+      onSaved();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to add provider");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-2xl bg-slate-900 border-cyan-500/20 max-h-[90vh] overflow-y-auto" data-testid="connections-add-custom-dialog">
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl flex items-center gap-2">
+            <Plus size={18} className="text-cyan-400" /> Add Custom Integration
+          </DialogTitle>
+          <DialogDescription className="text-xs text-slate-400">
+            Define a brand-new provider and its credential fields. No code change required — the new card will appear immediately, and credentials will be encrypted at rest like every other connector.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Display Name <span className="text-red-400">*</span></Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Acme Cargo API" data-testid="custom-provider-name" className="bg-slate-950 border-white/10" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Provider ID <span className="text-red-400">*</span></Label>
+              <Input value={pid} onChange={(e) => setPid(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))} placeholder="acme-cargo" data-testid="custom-provider-id" className="bg-slate-950 border-white/10 font-mono text-xs" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Category <span className="text-red-400">*</span></Label>
+              <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Load Board · Payments · Email · …" data-testid="custom-provider-category" className="bg-slate-950 border-white/10" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Logo Letters (2–4)</Label>
+              <Input value={logo} onChange={(e) => setLogo(e.target.value.toUpperCase().slice(0, 4))} placeholder="AC" data-testid="custom-provider-logo" className="bg-slate-950 border-white/10 font-mono" />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Description (optional)</Label>
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="One-line summary of what this integration does" data-testid="custom-provider-description" className="bg-slate-950 border-white/10" />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Docs URL (optional)</Label>
+              <Input value={docsUrl} onChange={(e) => setDocsUrl(e.target.value)} placeholder="https://api.example.com/docs" data-testid="custom-provider-docs" className="bg-slate-950 border-white/10" />
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-white/5">
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-[10px] font-mono uppercase tracking-wider text-cyan-400">Credential Fields</Label>
+              <button onClick={addField} data-testid="custom-provider-add-field" className="text-[10px] font-mono uppercase tracking-wider text-cyan-300 hover:text-cyan-200 flex items-center gap-1">
+                <Plus size={11} /> Add field
+              </button>
+            </div>
+            <div className="space-y-2">
+              {fields.map((f, i) => (
+                <div key={i} data-testid={`custom-provider-field-row-${i}`} className="grid grid-cols-12 gap-2 items-center p-2 rounded bg-white/[0.02] border border-white/5">
+                  <GripVertical size={12} className="col-span-1 text-slate-600 mx-auto" />
+                  <Input value={f.label} onChange={(e) => updateField(i, { label: e.target.value })} placeholder="Label (e.g. API Key)" data-testid={`custom-provider-field-label-${i}`} className="col-span-4 bg-slate-950 border-white/10 text-xs h-8" />
+                  <Input value={f.key} onChange={(e) => updateField(i, { key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })} placeholder="key (snake_case)" data-testid={`custom-provider-field-key-${i}`} className="col-span-3 bg-slate-950 border-white/10 text-xs h-8 font-mono" />
+                  <label className="col-span-2 flex items-center gap-1.5 text-[10px] font-mono uppercase text-slate-400 cursor-pointer">
+                    <input type="checkbox" checked={f.secret} onChange={(e) => updateField(i, { secret: e.target.checked })} data-testid={`custom-provider-field-secret-${i}`} className="accent-cyan-500" />
+                    Secret
+                  </label>
+                  <label className="col-span-1 flex items-center gap-1.5 text-[10px] font-mono uppercase text-slate-400 cursor-pointer">
+                    <input type="checkbox" checked={f.required} onChange={(e) => updateField(i, { required: e.target.checked })} data-testid={`custom-provider-field-required-${i}`} className="accent-cyan-500" />
+                    Req
+                  </label>
+                  <button onClick={() => removeField(i)} disabled={fields.length === 1} data-testid={`custom-provider-field-remove-${i}`} className="col-span-1 text-slate-500 hover:text-red-400 disabled:opacity-30 mx-auto">
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="text-[10px] font-mono text-slate-500 mt-2 flex items-center gap-1.5">
+              <ShieldCheck size={11} className="text-emerald-400" /> Secret fields are Fernet-encrypted at rest and never returned in plaintext.
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button onClick={onClose} disabled={busy} className="bg-white/5 border border-white/10 text-slate-300 hover:border-white/20 font-mono text-[11px] uppercase">Cancel</Button>
+          <Button onClick={save} disabled={busy} data-testid="custom-provider-save-btn" className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase">
+            {busy ? <Loader2 size={12} className="animate-spin mr-1.5" /> : <Save size={12} className="mr-1.5" />} Add Integration
           </Button>
         </DialogFooter>
       </DialogContent>

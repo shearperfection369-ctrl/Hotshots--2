@@ -225,91 +225,183 @@ class ConnectionUpsertIn(BaseModel):
     notes: Optional[str] = None
 
 
+class CustomFieldDef(BaseModel):
+    key: str = Field(..., min_length=1, max_length=40, pattern=r"^[a-z0-9_]+$")
+    label: str = Field(..., min_length=1, max_length=60)
+    secret: bool = False
+    required: bool = True
+    placeholder: Optional[str] = None
+
+
+class CustomProviderIn(BaseModel):
+    id: str = Field(..., min_length=2, max_length=40, pattern=r"^[a-z0-9_-]+$")
+    name: str = Field(..., min_length=1, max_length=80)
+    category: str = Field(..., min_length=1, max_length=40)
+    description: Optional[str] = Field("", max_length=400)
+    logo: Optional[str] = Field("•", max_length=4)
+    docs_url: Optional[str] = Field(None, max_length=300)
+    fields: List[CustomFieldDef] = Field(..., min_length=1, max_length=20)
+
+
 # ---------------- Router factory ----------------
 def build_connections_router(*, db, require_role: Callable) -> APIRouter:
     router = APIRouter(prefix="/connections")
     admin_only = require_role("admin")
 
-    # ----- catalog (read for any admin) -----
+    # --- internal helpers bound to this DB handle ---
+    async def _all_providers() -> List[Dict[str, Any]]:
+        """Merge static catalog + admin-defined custom providers from Mongo."""
+        out = [dict(p, builtin=True) for p in PROVIDERS]
+        cursor = db.connection_providers_custom.find({}, {"_id": 0})
+        async for doc in cursor:
+            out.append({**doc, "builtin": False})
+        return out
+
+    async def _get_provider(provider_id: str) -> Optional[Dict[str, Any]]:
+        if provider_id in PROVIDERS_INDEX:
+            return {**PROVIDERS_INDEX[provider_id], "builtin": True}
+        custom = await db.connection_providers_custom.find_one({"id": provider_id}, {"_id": 0})
+        if custom:
+            return {**custom, "builtin": False}
+        return None
+
+    async def _serialize_async(doc: Dict[str, Any]) -> Dict[str, Any]:
+        prov = await _get_provider(doc["provider_id"]) or {}
+        field_defs = {f["key"]: f for f in prov.get("fields", [])}
+        clear = _decrypt_fields(doc.get("fields", {}))
+        safe: Dict[str, Any] = {}
+        for k, plain in clear.items():
+            fdef = field_defs.get(k, {})
+            if fdef.get("secret"):
+                safe[k] = {"set": bool(plain), "preview": _mask(plain) if plain else ""}
+            else:
+                safe[k] = {"set": bool(plain), "value": plain}
+        return {
+            "provider_id": doc["provider_id"],
+            "status": doc.get("status", "configured"),
+            "enabled": bool(doc.get("enabled", True)),
+            "fields": safe,
+            "updated_at": doc.get("updated_at"),
+            "updated_by": doc.get("updated_by"),
+            "updated_by_name": doc.get("updated_by_name"),
+            "notes": doc.get("notes"),
+        }
+
+    # ===================================================================
+    #                  PROVIDER CATALOG (built-in + custom)
+    # ===================================================================
     @router.get("/providers")
     async def list_providers(_=Depends(admin_only)):
-        """Return the static provider catalog (id, name, category, fields)."""
-        return {"providers": PROVIDERS}
+        """Return the merged provider catalog (built-in + admin-defined custom)."""
+        return {"providers": await _all_providers()}
 
-    # ----- list all configured connections -----
+    @router.post("/providers/custom")
+    async def add_custom_provider(payload: CustomProviderIn, user=Depends(admin_only)):
+        """Add a brand-new integration provider on the fly (no code change)."""
+        if payload.id in PROVIDERS_INDEX:
+            raise HTTPException(400, f"'{payload.id}' clashes with a built-in provider id")
+        if await db.connection_providers_custom.find_one({"id": payload.id}, {"_id": 0}):
+            raise HTTPException(400, f"Custom provider '{payload.id}' already exists")
+        keys = [f.key for f in payload.fields]
+        if len(set(keys)) != len(keys):
+            raise HTTPException(400, "Duplicate field keys")
+        now = datetime.now(timezone.utc).isoformat()
+        doc = {
+            "id": payload.id,
+            "name": payload.name,
+            "category": payload.category,
+            "description": payload.description or "",
+            "logo": (payload.logo or payload.name[:2]).upper(),
+            "docs_url": payload.docs_url,
+            "fields": [f.model_dump() for f in payload.fields],
+            "created_at": now,
+            "created_by": getattr(user, "user_id", None),
+            "created_by_name": getattr(user, "name", None),
+        }
+        await db.connection_providers_custom.insert_one(dict(doc))
+        return {**doc, "builtin": False}
+
+    @router.delete("/providers/custom/{provider_id}")
+    async def delete_custom_provider(provider_id: str, _=Depends(admin_only)):
+        if provider_id in PROVIDERS_INDEX:
+            raise HTTPException(400, "Built-in providers cannot be deleted")
+        if not await db.connection_providers_custom.find_one({"id": provider_id}, {"_id": 0}):
+            raise HTTPException(404, "Unknown custom provider")
+        # Also delete the saved credentials for it
+        await db.connections.delete_one({"provider_id": provider_id})
+        await db.connection_providers_custom.delete_one({"id": provider_id})
+        return {"deleted": True, "provider_id": provider_id}
+
+    # ===================================================================
+    #                  CONNECTION ROWS (credentials)
+    # ===================================================================
     @router.get("")
     async def list_connections(_=Depends(admin_only)):
+        providers = await _all_providers()
         out: List[Dict[str, Any]] = []
         cursor = db.connections.find({}, {"_id": 0})
         async for doc in cursor:
-            out.append(_serialize_connection(doc))
-        # Surface providers that have no doc yet as "unconfigured" rows.
+            out.append(await _serialize_async(doc))
         configured_ids = {c["provider_id"] for c in out}
-        for prov in PROVIDERS:
+        for prov in providers:
             if prov["id"] not in configured_ids:
                 out.append({
                     "provider_id": prov["id"],
                     "status": "unconfigured",
                     "enabled": False,
-                    "fields": {f["key"]: "" for f in prov["fields"]},
+                    "fields": {f["key"]: {"set": False, "value": ""} for f in prov["fields"]},
                     "updated_at": None,
                     "updated_by": None,
                     "notes": None,
                 })
         out.sort(key=lambda x: x["provider_id"])
-        return {"connections": out, "providers": PROVIDERS}
+        return {"connections": out, "providers": providers}
 
-    # ----- read one -----
     @router.get("/{provider_id}")
     async def get_connection(provider_id: str, _=Depends(admin_only)):
-        if provider_id not in PROVIDERS_INDEX:
+        prov = await _get_provider(provider_id)
+        if not prov:
             raise HTTPException(404, "Unknown provider")
         doc = await db.connections.find_one({"provider_id": provider_id}, {"_id": 0})
         if not doc:
-            prov = PROVIDERS_INDEX[provider_id]
             return {
                 "provider_id": provider_id,
                 "status": "unconfigured",
                 "enabled": False,
-                "fields": {f["key"]: "" for f in prov["fields"]},
+                "fields": {f["key"]: {"set": False, "value": ""} for f in prov["fields"]},
                 "updated_at": None,
                 "updated_by": None,
                 "notes": None,
             }
-        return _serialize_connection(doc)
+        return await _serialize_async(doc)
 
-    # ----- upsert credentials -----
     @router.put("/{provider_id}")
     async def upsert_connection(provider_id: str, payload: ConnectionUpsertIn, user=Depends(admin_only)):
-        if provider_id not in PROVIDERS_INDEX:
+        prov = await _get_provider(provider_id)
+        if not prov:
             raise HTTPException(404, "Unknown provider")
-        prov = PROVIDERS_INDEX[provider_id]
 
         existing = await db.connections.find_one({"provider_id": provider_id}, {"_id": 0}) or {}
-        existing_fields = existing.get("fields", {}) or {}
+        existing_stored: Dict[str, Any] = existing.get("fields", {}) or {}
 
-        # Validate + merge
-        merged: Dict[str, str] = {}
-        for fdef in prov["fields"]:
-            key = fdef["key"]
-            new_val = payload.fields.get(key, None)
-            # Empty-string for secret → keep existing (lets the UI re-save w/o re-typing secrets)
-            if fdef.get("secret") and (new_val is None or new_val == ""):
-                merged[key] = existing_fields.get(key, "")
-            else:
-                merged[key] = "" if new_val is None else str(new_val)
-            if fdef.get("required") and not merged[key]:
-                raise HTTPException(400, f"Field '{fdef['label']}' is required")
-
-        # Encrypt secrets; store non-secrets in clear (so the UI can echo them).
         stored_fields: Dict[str, Dict[str, Any]] = {}
         for fdef in prov["fields"]:
             key = fdef["key"]
-            val = merged[key]
+            new_val = payload.fields.get(key)
             if fdef.get("secret"):
-                stored_fields[key] = {"secret": True, "cipher": _encrypt(val) if val else ""}
+                if new_val is None or new_val == "":
+                    prev = existing_stored.get(key) or {}
+                    cipher = prev.get("cipher") if isinstance(prev, dict) else ""
+                    if fdef.get("required") and not cipher:
+                        raise HTTPException(400, f"Field '{fdef['label']}' is required")
+                    stored_fields[key] = {"secret": True, "cipher": cipher or ""}
+                else:
+                    stored_fields[key] = {"secret": True, "cipher": _encrypt(str(new_val))}
             else:
-                stored_fields[key] = {"secret": False, "value": val}
+                text = "" if new_val is None else str(new_val)
+                if fdef.get("required") and not text:
+                    raise HTTPException(400, f"Field '{fdef['label']}' is required")
+                stored_fields[key] = {"secret": False, "value": text}
 
         now = datetime.now(timezone.utc).isoformat()
         record = {
@@ -327,28 +419,41 @@ def build_connections_router(*, db, require_role: Callable) -> APIRouter:
             {"$set": record, "$setOnInsert": {"created_at": now}},
             upsert=True,
         )
+        await db.connection_audit_log.insert_one({
+            "provider_id": provider_id,
+            "action": "upsert",
+            "actor_id": getattr(user, "user_id", None),
+            "actor_name": getattr(user, "name", None),
+            "at": now,
+            "status": record["status"],
+            "field_keys": list(stored_fields.keys()),
+        })
         saved = await db.connections.find_one({"provider_id": provider_id}, {"_id": 0})
-        return _serialize_connection(saved)
+        return await _serialize_async(saved)
 
-    # ----- delete (disconnect) -----
     @router.delete("/{provider_id}")
-    async def delete_connection(provider_id: str, _=Depends(admin_only)):
-        if provider_id not in PROVIDERS_INDEX:
+    async def delete_connection(provider_id: str, user=Depends(admin_only)):
+        prov = await _get_provider(provider_id)
+        if not prov:
             raise HTTPException(404, "Unknown provider")
         await db.connections.delete_one({"provider_id": provider_id})
+        await db.connection_audit_log.insert_one({
+            "provider_id": provider_id,
+            "action": "delete",
+            "actor_id": getattr(user, "user_id", None),
+            "actor_name": getattr(user, "name", None),
+            "at": datetime.now(timezone.utc).isoformat(),
+        })
         return {"deleted": True, "provider_id": provider_id}
 
-    # ----- test (placeholder for future per-provider checks) -----
     @router.post("/{provider_id}/test")
     async def test_connection(provider_id: str, _=Depends(admin_only)):
-        if provider_id not in PROVIDERS_INDEX:
+        prov = await _get_provider(provider_id)
+        if not prov:
             raise HTTPException(404, "Unknown provider")
         doc = await db.connections.find_one({"provider_id": provider_id}, {"_id": 0})
         if not doc or not doc.get("enabled"):
             return {"ok": False, "message": "Not configured or disabled."}
-        # Real per-provider auth-ping logic will land here once the customer
-        # supplies keys. For now we just confirm the credentials decrypt cleanly.
-        prov = PROVIDERS_INDEX[provider_id]
         fields_clear = _decrypt_fields(doc.get("fields", {}))
         missing = [
             f["label"] for f in prov["fields"]

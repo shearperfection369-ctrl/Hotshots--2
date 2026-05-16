@@ -464,3 +464,39 @@ Subsequent user-requested additions (chronological, all delivered):
   underlines, GFM tables, blockquotes, light-theme overrides (solar/paper),
   and a print stylesheet that isolates the prose for clean PDF/paper export.
 - Added deps: `react-markdown`, `remark-gfm` (via `yarn add`).
+
+## 2026-02-14 (later) · Rename to Orisei + Connections Vault
+- Active brand renamed: `apex-freight` → `orisei-freight` · "Orisei Freight Solutions LLC"
+  · HQ Minneapolis, MN · facilities Minneapolis / Saint Paul / Duluth.
+  Business plan markdown rewritten (40 occurrences). Brokerage tab header updated.
+- New backend module **`/app/backend/routes/connections.py`** — admin-managed
+  credential vault for third-party integrations. Fernet-encrypted at rest
+  (auto-generates `CONNECTIONS_ENCRYPTION_KEY` into backend/.env on first
+  boot). Secrets never returned in plaintext — only masked previews. Endpoints:
+  - `GET /api/connections/providers` — merged catalog (built-in + custom)
+  - `POST /api/connections/providers/custom` — add a NEW integration at runtime
+  - `DELETE /api/connections/providers/custom/{id}` — remove custom (built-ins protected)
+  - `GET /api/connections` — full rollup with unconfigured stubs
+  - `GET /api/connections/{provider}` — single status
+  - `PUT /api/connections/{provider}` — upsert credentials (empty-secret preserves existing cipher)
+  - `DELETE /api/connections/{provider}` — disconnect
+  - `POST /api/connections/{provider}/test` — sanity-decrypt placeholder
+  - Audit log collection `connection_audit_log` for every PUT/DELETE.
+- 10 built-in providers shipped: QuickBooks, DAT One, Truckstop, Uber Freight,
+  123Loadboard, Stripe, Resend, Twilio SMS, Macropoint/Project44, RMIS.
+- New frontend page **`/app/frontend/src/pages/Connections.jsx`** at `/connections`
+  with admin-only sidebar entry `Connections · Keys`. Configure dialog per
+  provider, secret fields masked on reopen (`••• existing value kept (xxx•••yyy)`),
+  Test / Save / Disconnect / Enable-Disable switch.
+- New "**+ Add Integration**" flow lets an admin define a brand-new provider
+  at runtime — name, ID, category, logo letters, docs URL, and an arbitrary
+  list of credential fields (label, snake_case key, secret flag, required flag).
+  Custom cards get a purple `CUSTOM` badge and an inline remove button; built-in
+  providers are protected from deletion.
+- Encryption deps: `cryptography==48.0.0` (already in requirements.txt) + Fernet.
+- Tests: `/app/backend/tests/test_iter21_connections.py` — **14/14 passing**
+  (catalog, RBAC, masking, encrypted-at-rest in Mongo, empty-secret-preserves,
+  delete-roundtrip, business-plan rename, brokerage regression).
+- Custom-provider flow verified end-to-end via curl (add → list as 11 → configure
+  with masked preview → built-in protection 400 → delete → back to 10).
+
