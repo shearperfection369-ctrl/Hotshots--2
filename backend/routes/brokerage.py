@@ -614,28 +614,52 @@ def build_brokerage_router(
             conn = enabled_map.get(pid)
             is_enabled = conn is not None
             est_mtd = 0.0
-            if is_enabled and meta["model"] == "factoring":
-                # Pull factor_rate from connection (non-secret field)
+            tuner_value: Optional[float] = None
+            tuner_label: Optional[str] = None
+
+            if is_enabled:
                 fields = (conn or {}).get("fields") or {}
-                fr_cell = fields.get("factor_rate") or {}
-                try:
-                    rate_pct = float(fr_cell.get("value")) if isinstance(fr_cell, dict) else 0.0
-                except (TypeError, ValueError):
-                    rate_pct = 0.0
-                if rate_pct <= 0:
-                    rate_pct = meta.get("default_rate_pct", 2.5)
-                # Assume ~25% of settled book uses factoring quick-pay
-                est_mtd = round(settled_carrier_pay_mtd * 0.25 * (rate_pct / 100), 2)
-                variable_mtd_estimate += est_mtd
+
+                def _read_num(key: str) -> Optional[float]:
+                    cell = fields.get(key) or {}
+                    if not isinstance(cell, dict):
+                        return None
+                    raw = cell.get("value")
+                    if raw in (None, ""):
+                        return None
+                    try:
+                        return float(raw)
+                    except (TypeError, ValueError):
+                        return None
+
+                if meta["model"] == "factoring":
+                    rate_pct = _read_num("factor_rate") or meta.get("default_rate_pct", 2.5)
+                    usage_pct = _read_num("quick_pay_usage_pct")
+                    if usage_pct is None or usage_pct < 0 or usage_pct > 100:
+                        usage_pct = 25.0  # default if tuner not set
+                    tuner_value = usage_pct
+                    tuner_label = f"{usage_pct:.0f}% quick-pay usage × {rate_pct:.1f}% factor"
+                    est_mtd = round(settled_carrier_pay_mtd * (usage_pct / 100) * (rate_pct / 100), 2)
+                    variable_mtd_estimate += est_mtd
+
+                elif pid == "twilio":
+                    volume = _read_num("monthly_sms_volume") or 5000.0
+                    tuner_value = volume
+                    tuner_label = f"{int(volume):,} SMS/mo × $0.0083"
+                    est_mtd = round(volume * 0.0083, 2)
+                    variable_mtd_estimate += est_mtd
+
             items.append({
                 "provider_id": pid,
                 "name": meta["name"],
                 "category": meta["category"],
                 "plan": meta.get("plan", "—"),
-                "model": meta["model"],                  # fixed | variable | factoring
+                "model": meta["model"],
                 "monthly_cost_usd": meta.get("monthly_usd", 0),
                 "enabled": is_enabled,
                 "mtd_estimate_usd": est_mtd,
+                "tuner_value": tuner_value,
+                "tuner_label": tuner_label,
                 "note": meta.get("note"),
             })
             if is_enabled and meta["model"] == "fixed":

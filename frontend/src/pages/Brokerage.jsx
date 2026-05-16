@@ -762,6 +762,9 @@ function LiveCostSnapshot({ summary, showAll, onToggleAll, onRefresh }) {
                   </div>
                   <div className="col-span-2 text-right tabular-nums font-mono text-slate-400">
                     {it.mtd_estimate_usd ? `$${fmt(it.mtd_estimate_usd)}` : "—"}
+                    {it.tuner_label && (
+                      <div className="text-[9px] text-slate-600 truncate" title={it.tuner_label}>{it.tuner_label}</div>
+                    )}
                   </div>
                   <div className="col-span-1 text-right">
                     {it.enabled

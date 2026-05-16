@@ -12,7 +12,7 @@ import {
 } from "../components/ui/dialog";
 import {
   Plug, KeyRound, ExternalLink, CheckCircle2, AlertCircle, Loader2,
-  RefreshCw, Trash2, Save, Activity, Lock, ShieldCheck, Plus, X, GripVertical,
+  RefreshCw, Trash2, Save, Activity, Lock, ShieldCheck, Plus, X, GripVertical, SlidersHorizontal,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { toast } from "sonner";
@@ -305,7 +305,7 @@ function ConfigureDialog({ provider, onClose, onSaved }) {
             return (
               <div key={f.key} className="space-y-1">
                 <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  {f.secret && <Lock size={9} className="text-cyan-400" />}
+                  {f.tuner ? <SlidersHorizontal size={9} className="text-yellow-400" /> : f.secret && <Lock size={9} className="text-cyan-400" />}
                   {f.label}
                   {f.required && <span className="text-red-400">*</span>}
                 </Label>
@@ -325,8 +325,11 @@ function ConfigureDialog({ provider, onClose, onSaved }) {
                     onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
                     placeholder={f.secret && wasSet ? `••• existing value kept (${cellPreview || "set"})` : f.placeholder || ""}
                     data-testid={`connections-field-${provider.id}-${f.key}`}
-                    className="bg-slate-950 border-white/10"
+                    className={`bg-slate-950 border-white/10 ${f.tuner ? "border-yellow-500/30 focus:border-yellow-400/60" : ""}`}
                   />
+                )}
+                {f.hint && (
+                  <div className="text-[10px] font-mono text-slate-500 pl-3 border-l border-yellow-500/30">{f.hint}</div>
                 )}
               </div>
             );
