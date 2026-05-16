@@ -696,7 +696,7 @@ function BusinessPlanTab() {
         <div>
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Operating Document</div>
           <h3 className="font-display text-xl font-black flex items-center gap-2">
-            <BookOpen size={18} className="text-cyan-400" /> Apex Freight Solutions · Business Plan
+            <BookOpen size={18} className="text-cyan-400" /> Orisei Freight Solutions · Business Plan
           </h3>
           <div className="text-[10px] font-mono text-slate-500 mt-1">
             {doc?.filename} · {wordCount.toLocaleString()} words · Updated {doc?.updated_at ? new Date(doc.updated_at).toLocaleDateString() : "—"}
