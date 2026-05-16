@@ -159,6 +159,59 @@ PROVIDERS: List[Dict[str, Any]] = [
             {"key": "broker_id",  "label": "Broker ID",  "secret": False, "required": True},
         ],
     },
+    {
+        "id": "apex_capital",
+        "name": "Apex Capital",
+        "category": "Factoring",
+        "description": "Carrier-side factor. Verify factored carriers + send NOA-compliant payments.",
+        "logo": "APX",
+        "docs_url": "https://www.apexcapitalcorp.com/",
+        "fields": [
+            {"key": "api_key",       "label": "API Key",         "secret": True, "required": True},
+            {"key": "broker_id",     "label": "Broker MC#",      "secret": False, "required": True},
+            {"key": "ach_routing",   "label": "ACH Routing #",   "secret": True, "required": False},
+            {"key": "ach_account",   "label": "ACH Account #",   "secret": True, "required": False},
+        ],
+    },
+    {
+        "id": "triumph",
+        "name": "TriumphPay · Triumph Business Capital",
+        "category": "Factoring",
+        "description": "Carrier payments network + factoring. Quick-pay rails + carrier-of-record lookup.",
+        "logo": "TPY",
+        "docs_url": "https://triumphpay.com/developers",
+        "fields": [
+            {"key": "client_id",     "label": "Client ID",       "secret": False, "required": True},
+            {"key": "client_secret", "label": "Client Secret",   "secret": True,  "required": True},
+            {"key": "environment",   "label": "Environment",     "secret": False, "required": True, "options": ["sandbox", "production"], "default": "sandbox"},
+            {"key": "broker_mc",     "label": "Broker MC#",      "secret": False, "required": True},
+        ],
+    },
+    {
+        "id": "otr_capital",
+        "name": "OTR Capital",
+        "category": "Factoring",
+        "description": "Carrier factoring + broker quick-pay financing line.",
+        "logo": "OTR",
+        "docs_url": "https://otrcapital.com/",
+        "fields": [
+            {"key": "api_key",      "label": "API Key",          "secret": True,  "required": True},
+            {"key": "account_id",   "label": "Account ID",       "secret": False, "required": True},
+            {"key": "factor_rate",  "label": "Negotiated Rate %","secret": False, "required": False, "placeholder": "2.5"},
+        ],
+    },
+    {
+        "id": "rts_financial",
+        "name": "RTS Financial",
+        "category": "Factoring",
+        "description": "Carrier factoring + fuel-card program. NOA verification API.",
+        "logo": "RTS",
+        "docs_url": "https://www.rtsinc.com/",
+        "fields": [
+            {"key": "api_key",     "label": "API Key",      "secret": True, "required": True},
+            {"key": "broker_id",   "label": "Broker ID",    "secret": False, "required": True},
+        ],
+    },
 ]
 
 
