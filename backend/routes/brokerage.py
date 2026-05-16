@@ -75,6 +75,133 @@ def _read_doc(filename: str, missing_msg: str) -> Dict[str, Any]:
     }
 
 
+async def _build_cost_summary(db) -> Dict[str, Any]:
+    """Compute the live cost-summary payload from the current DB state."""
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    settled_cursor = db.brokerage_bookings.find(
+        {"status": "settled", "booked_at": {"$gte": month_start.isoformat()}},
+        {"_id": 0, "settled_carrier_pay_usd": 1},
+    )
+    settled_carrier_pay_mtd = 0.0
+    async for b in settled_cursor:
+        settled_carrier_pay_mtd += float(b.get("settled_carrier_pay_usd") or 0)
+
+    enabled_map: Dict[str, Dict[str, Any]] = {}
+    cursor = db.connections.find({"enabled": True}, {"_id": 0})
+    async for doc in cursor:
+        enabled_map[doc["provider_id"]] = doc
+
+    items: List[Dict[str, Any]] = []
+    fixed_total = 0.0
+    variable_mtd_estimate = 0.0
+    for pid, meta in PROVIDER_COSTS.items():
+        conn = enabled_map.get(pid)
+        is_enabled = conn is not None
+        est_mtd = 0.0
+        tuner_value: Optional[float] = None
+        tuner_label: Optional[str] = None
+
+        if is_enabled:
+            fields = (conn or {}).get("fields") or {}
+
+            def _read_num(key: str) -> Optional[float]:
+                cell = fields.get(key) or {}
+                if not isinstance(cell, dict):
+                    return None
+                raw = cell.get("value")
+                if raw in (None, ""):
+                    return None
+                try:
+                    return float(raw)
+                except (TypeError, ValueError):
+                    return None
+
+            if meta["model"] == "factoring":
+                rate_pct = _read_num("factor_rate") or meta.get("default_rate_pct", 2.5)
+                usage_pct = _read_num("quick_pay_usage_pct")
+                if usage_pct is None or usage_pct < 0 or usage_pct > 100:
+                    usage_pct = 25.0
+                tuner_value = usage_pct
+                tuner_label = f"{usage_pct:.0f}% quick-pay usage × {rate_pct:.1f}% factor"
+                est_mtd = round(settled_carrier_pay_mtd * (usage_pct / 100) * (rate_pct / 100), 2)
+                variable_mtd_estimate += est_mtd
+
+            elif pid == "twilio":
+                volume = _read_num("monthly_sms_volume") or 5000.0
+                tuner_value = volume
+                tuner_label = f"{int(volume):,} SMS/mo × $0.0083"
+                est_mtd = round(volume * 0.0083, 2)
+                variable_mtd_estimate += est_mtd
+
+        items.append({
+            "provider_id": pid,
+            "name": meta["name"],
+            "category": meta["category"],
+            "plan": meta.get("plan", "—"),
+            "model": meta["model"],
+            "monthly_cost_usd": meta.get("monthly_usd", 0),
+            "enabled": is_enabled,
+            "mtd_estimate_usd": est_mtd,
+            "tuner_value": tuner_value,
+            "tuner_label": tuner_label,
+            "note": meta.get("note"),
+        })
+        if is_enabled and meta["model"] == "fixed":
+            fixed_total += float(meta.get("monthly_usd") or 0)
+
+    items.sort(key=lambda x: (0 if x["enabled"] else 1, x["category"], x["name"]))
+
+    baseline = {
+        "app_hosting_usd": 25.0,
+        "mongodb_atlas_usd": 57.0,
+        "domain_dns_usd": 1.50,
+        "llm_universal_key_usd": 25.0,
+        "total_usd": 108.50,
+        "tier": "Solo (Tier A baseline)",
+    }
+
+    return {
+        "as_of": now.isoformat(),
+        "month_start": month_start.date().isoformat(),
+        "settled_carrier_pay_mtd_usd": round(settled_carrier_pay_mtd, 2),
+        "baseline": baseline,
+        "enabled_count": len(enabled_map),
+        "fixed_saas_monthly_usd": round(fixed_total, 2),
+        "variable_mtd_estimate_usd": round(variable_mtd_estimate, 2),
+        "projected_monthly_total_usd": round(baseline["total_usd"] + fixed_total + variable_mtd_estimate, 2),
+        "items": items,
+    }
+
+
+async def _persist_snapshot(db, summary: Dict[str, Any], *, force: bool = False) -> None:
+    """Upsert a daily cost snapshot keyed on UTC date.
+
+    If `force=False` (the default), we only persist if the row doesn't already
+    exist for today — this lets the endpoint be hit every minute on the UI
+    without spamming writes. `force=True` overwrites the row.
+    """
+    today = datetime.now(timezone.utc).date().isoformat()
+    payload = {
+        "date": today,
+        "taken_at": summary["as_of"],
+        "projected_monthly_total_usd": summary["projected_monthly_total_usd"],
+        "fixed_saas_monthly_usd": summary["fixed_saas_monthly_usd"],
+        "variable_mtd_estimate_usd": summary["variable_mtd_estimate_usd"],
+        "baseline_usd": summary["baseline"]["total_usd"],
+        "enabled_count": summary["enabled_count"],
+        "settled_carrier_pay_mtd_usd": summary["settled_carrier_pay_mtd_usd"],
+    }
+    if force:
+        await db.cost_snapshots.update_one({"date": today}, {"$set": payload}, upsert=True)
+    else:
+        await db.cost_snapshots.update_one(
+            {"date": today},
+            {"$setOnInsert": payload},
+            upsert=True,
+        )
+
+
 LOAD_BOARDS = [
     {"id": "dat", "name": "DAT One", "color": "#FF6B35", "subscription_tier": "Power"},
     {"id": "truckstop", "name": "Truckstop", "color": "#0066CC", "subscription_tier": "Premium"},
@@ -585,108 +712,38 @@ def build_brokerage_router(
     async def cost_summary(_=Depends(get_current_user)):
         """Live spend snapshot — per-provider monthly cost based on currently-enabled Connections.
 
-        Fixed providers (DAT, Truckstop, RMIS, QB, etc.) contribute their list-rate
-        monthly cost. Variable providers (Stripe, factoring, Twilio) show their
-        billing model + an MTD estimate derived from real bookings/invoices when
-        we have the data.
+        Every successful call also persists today's snapshot into the
+        `cost_snapshots` collection (one upsert per UTC date) so the Cost tab
+        can render a 30-day trend sparkline without us standing up a cron job.
         """
-        # Pull billed booking volume MTD for factoring estimates
-        now = datetime.now(timezone.utc)
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        settled_cursor = db.brokerage_bookings.find(
-            {"status": "settled", "booked_at": {"$gte": month_start.isoformat()}},
-            {"_id": 0, "settled_carrier_pay_usd": 1},
-        )
-        settled_carrier_pay_mtd = 0.0
-        async for b in settled_cursor:
-            settled_carrier_pay_mtd += float(b.get("settled_carrier_pay_usd") or 0)
+        summary = await _build_cost_summary(db)
+        # Best-effort daily persistence — never fail the endpoint on a DB write error.
+        try:
+            await _persist_snapshot(db, summary)
+        except Exception:                                          # pragma: no cover
+            logger.exception("cost_summary: snapshot persist failed")
+        return summary
 
-        # Pull enabled connection records (need .fields for factor_rate, etc.)
-        enabled_map: Dict[str, Dict[str, Any]] = {}
-        cursor = db.connections.find({"enabled": True}, {"_id": 0})
-        async for doc in cursor:
-            enabled_map[doc["provider_id"]] = doc
+    @router.post("/cost-summary/snapshot")
+    async def force_snapshot(_=Depends(get_current_user)):
+        """Manual snapshot trigger — overwrites today's record."""
+        summary = await _build_cost_summary(db)
+        await _persist_snapshot(db, summary, force=True)
+        return {"ok": True, "date": summary["month_start"], "projected_monthly_total_usd": summary["projected_monthly_total_usd"]}
 
-        items: List[Dict[str, Any]] = []
-        fixed_total = 0.0
-        variable_mtd_estimate = 0.0
-        for pid, meta in PROVIDER_COSTS.items():
-            conn = enabled_map.get(pid)
-            is_enabled = conn is not None
-            est_mtd = 0.0
-            tuner_value: Optional[float] = None
-            tuner_label: Optional[str] = None
-
-            if is_enabled:
-                fields = (conn or {}).get("fields") or {}
-
-                def _read_num(key: str) -> Optional[float]:
-                    cell = fields.get(key) or {}
-                    if not isinstance(cell, dict):
-                        return None
-                    raw = cell.get("value")
-                    if raw in (None, ""):
-                        return None
-                    try:
-                        return float(raw)
-                    except (TypeError, ValueError):
-                        return None
-
-                if meta["model"] == "factoring":
-                    rate_pct = _read_num("factor_rate") or meta.get("default_rate_pct", 2.5)
-                    usage_pct = _read_num("quick_pay_usage_pct")
-                    if usage_pct is None or usage_pct < 0 or usage_pct > 100:
-                        usage_pct = 25.0  # default if tuner not set
-                    tuner_value = usage_pct
-                    tuner_label = f"{usage_pct:.0f}% quick-pay usage × {rate_pct:.1f}% factor"
-                    est_mtd = round(settled_carrier_pay_mtd * (usage_pct / 100) * (rate_pct / 100), 2)
-                    variable_mtd_estimate += est_mtd
-
-                elif pid == "twilio":
-                    volume = _read_num("monthly_sms_volume") or 5000.0
-                    tuner_value = volume
-                    tuner_label = f"{int(volume):,} SMS/mo × $0.0083"
-                    est_mtd = round(volume * 0.0083, 2)
-                    variable_mtd_estimate += est_mtd
-
-            items.append({
-                "provider_id": pid,
-                "name": meta["name"],
-                "category": meta["category"],
-                "plan": meta.get("plan", "—"),
-                "model": meta["model"],
-                "monthly_cost_usd": meta.get("monthly_usd", 0),
-                "enabled": is_enabled,
-                "mtd_estimate_usd": est_mtd,
-                "tuner_value": tuner_value,
-                "tuner_label": tuner_label,
-                "note": meta.get("note"),
-            })
-            if is_enabled and meta["model"] == "fixed":
-                fixed_total += float(meta.get("monthly_usd") or 0)
-
-        items.sort(key=lambda x: (0 if x["enabled"] else 1, x["category"], x["name"]))
-
-        baseline = {
-            "app_hosting_usd": 25.0,
-            "mongodb_atlas_usd": 57.0,
-            "domain_dns_usd": 1.50,
-            "llm_universal_key_usd": 25.0,
-            "total_usd": 108.50,
-            "tier": "Solo (Tier A baseline)",
-        }
-
-        return {
-            "as_of": now.isoformat(),
-            "month_start": month_start.date().isoformat(),
-            "settled_carrier_pay_mtd_usd": round(settled_carrier_pay_mtd, 2),
-            "baseline": baseline,
-            "enabled_count": len(enabled_map),
-            "fixed_saas_monthly_usd": round(fixed_total, 2),
-            "variable_mtd_estimate_usd": round(variable_mtd_estimate, 2),
-            "projected_monthly_total_usd": round(baseline["total_usd"] + fixed_total + variable_mtd_estimate, 2),
-            "items": items,
-        }
+    @router.get("/cost-history")
+    async def cost_history(days: int = 30, _=Depends(get_current_user)):
+        """Return up to `days` of daily cost snapshots (oldest → newest)."""
+        days = max(1, min(int(days or 30), 365))
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
+        cursor = db.cost_snapshots.find(
+            {"date": {"$gte": cutoff}},
+            {"_id": 0},
+        ).sort("date", 1)
+        snapshots: List[Dict[str, Any]] = []
+        async for s in cursor:
+            snapshots.append(s)
+        return {"days": days, "count": len(snapshots), "snapshots": snapshots}
 
     @router.get("/dashboard")
     async def dashboard(_=Depends(get_current_user)):

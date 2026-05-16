@@ -671,13 +671,24 @@ function BusinessPlanTab() {
 // ============================================================
 function CostAnalysisTab() {
   const [summary, setSummary] = useState(null);
+  const [history, setHistory] = useState([]);
   const [showAll, setShowAll] = useState(false);
-  const loadSummary = () => api.get("/brokerage/cost-summary").then(({ data }) => setSummary(data)).catch(() => {});
-  useEffect(() => { loadSummary(); const t = setInterval(loadSummary, 60_000); return () => clearInterval(t); }, []);
+
+  const load = () => {
+    api.get("/brokerage/cost-summary").then(({ data }) => setSummary(data)).catch(() => {});
+    api.get("/brokerage/cost-history?days=30").then(({ data }) => setHistory(data.snapshots || [])).catch(() => {});
+  };
+  useEffect(() => { load(); const t = setInterval(load, 60_000); return () => clearInterval(t); }, []);
 
   return (
     <div className="space-y-4">
-      <LiveCostSnapshot summary={summary} showAll={showAll} onToggleAll={() => setShowAll((s) => !s)} onRefresh={loadSummary} />
+      <LiveCostSnapshot
+        summary={summary}
+        history={history}
+        showAll={showAll}
+        onToggleAll={() => setShowAll((s) => !s)}
+        onRefresh={load}
+      />
       <MarkdownDocTab
         endpoint="/brokerage/cost-analysis"
         eyebrow="Real-World Cost"
@@ -689,7 +700,7 @@ function CostAnalysisTab() {
   );
 }
 
-function LiveCostSnapshot({ summary, showAll, onToggleAll, onRefresh }) {
+function LiveCostSnapshot({ summary, history, showAll, onToggleAll, onRefresh }) {
   if (!summary) {
     return (
       <Card className="hud-surface p-4 flex items-center justify-center text-slate-500" data-testid="cost-snapshot-loading">
@@ -699,6 +710,14 @@ function LiveCostSnapshot({ summary, showAll, onToggleAll, onRefresh }) {
   }
   const itemsToShow = showAll ? summary.items : summary.items.filter((i) => i.enabled);
   const grouped = itemsToShow.reduce((acc, it) => { (acc[it.category] ||= []).push(it); return acc; }, {});
+
+  // Trend math
+  const series = (history || []).map((s) => s.projected_monthly_total_usd || 0);
+  const last = series.length ? series[series.length - 1] : summary.projected_monthly_total_usd;
+  const first = series.length ? series[0] : last;
+  const deltaUsd = last - first;
+  const deltaPct = first ? ((deltaUsd / first) * 100) : 0;
+  const deltaUp = deltaUsd >= 0;
 
   return (
     <Card className="hud-surface p-5" data-testid="cost-snapshot-card">
@@ -711,7 +730,7 @@ function LiveCostSnapshot({ summary, showAll, onToggleAll, onRefresh }) {
             <Wallet size={18} className="text-cyan-400" /> Real-time Operating Spend
           </h3>
           <div className="text-[10px] font-mono text-slate-500 mt-1">
-            From {summary.enabled_count} enabled connection{summary.enabled_count === 1 ? "" : "s"} · MTD settled carrier pay ${fmt(summary.settled_carrier_pay_mtd_usd)}
+            From {summary.enabled_count} enabled connection{summary.enabled_count === 1 ? "" : "s"} · MTD settled carrier pay ${fmt(summary.settled_carrier_pay_mtd_usd)} · {series.length} days persisted
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -729,6 +748,29 @@ function LiveCostSnapshot({ summary, showAll, onToggleAll, onRefresh }) {
           >
             Refresh
           </button>
+        </div>
+      </div>
+
+      {/* 30-day spend velocity sparkline */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4" data-testid="cost-snapshot-sparkline">
+        <div className="md:col-span-2 rounded border border-white/5 bg-white/[0.02] p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500">30-day projected-monthly trend</div>
+            <div className="text-[10px] font-mono text-slate-500">{series.length ? `${series.length} days` : "no history yet"}</div>
+          </div>
+          <Sparkline values={series} testid="cost-snapshot-sparkline-svg" />
+        </div>
+        <div className="rounded border border-white/5 bg-white/[0.02] p-3 flex flex-col justify-center" data-testid="cost-snapshot-velocity">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 flex items-center gap-1">
+            {deltaUp ? <ArrowUpRight size={11} className="text-emerald-400" /> : <ArrowDownRight size={11} className="text-red-400" />}
+            Spend velocity · 30d
+          </div>
+          <div className={`font-display text-2xl font-black mt-1 ${deltaUp ? "text-emerald-300" : "text-red-300"}`}>
+            {deltaUp ? "+" : ""}${fmt(Math.abs(deltaUsd))}
+          </div>
+          <div className="text-[11px] font-mono text-slate-500">
+            {deltaUp ? "+" : ""}{deltaPct.toFixed(1)}% vs 30d ago
+          </div>
         </div>
       </div>
 
@@ -783,6 +825,44 @@ function LiveCostSnapshot({ summary, showAll, onToggleAll, onRefresh }) {
         )}
       </div>
     </Card>
+  );
+}
+
+// Tiny SVG sparkline — zero deps, fits in 100% × 64px container.
+function Sparkline({ values, testid }) {
+  if (!values || values.length < 2) {
+    return (
+      <div className="h-16 flex items-center justify-center text-[10px] font-mono text-slate-600" data-testid={testid}>
+        Trend appears after 2+ daily snapshots.
+      </div>
+    );
+  }
+  const W = 600, H = 64, P = 4;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const step = (W - 2 * P) / (values.length - 1);
+  const points = values.map((v, i) => {
+    const x = P + i * step;
+    const y = H - P - ((v - min) / range) * (H - 2 * P);
+    return [x, y];
+  });
+  const line = points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const area = `${line} L${(W - P).toFixed(1)},${(H - P).toFixed(1)} L${P},${(H - P).toFixed(1)} Z`;
+  const lastX = points[points.length - 1][0];
+  const lastY = points[points.length - 1][1];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" data-testid={testid} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#22D3EE" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="#22D3EE" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#spark-fill)" />
+      <path d={line} fill="none" stroke="#22D3EE" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={lastX} cy={lastY} r="2.8" fill="#67E8F9" stroke="#0F172A" strokeWidth="1" />
+    </svg>
   );
 }
 
