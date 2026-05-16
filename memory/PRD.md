@@ -636,3 +636,41 @@ Subsequent user-requested additions (chronological, all delivered):
   templates render in Dashboard, board-source-badge appears, PodPhotoUploader sits inside
   the email dialog, mark-delivered button + endpoint round-trip works. Test file added at
   `/app/backend/tests/test_iter23_calafia_photos_automail.py` (preview-URL-based).
+
+
+## 2026-02-15 (later 2) · Documents-page BOL Calafia rebrand · Provider Outreach module
+- **`/api/documents/{id}/pdf` BOL fix** — server.py `download_document_pdf` now routes
+  BOL doc-types through `routes.orisei_docs.build_bol_pdf` so the Documents page renders
+  the Calafia + griffin Orisei BOL (no more Tennant header). For non-BOL types
+  (COMMERCIAL_INVOICE, PACKING_SLIP, WEIGHT_CERT, COO), `_header_block` and `_build_pdf`
+  now accept `brand` and use `short_name` + `primary_color` so the header text and rule
+  color follow the active brand.
+- **NEW `/api/provider-outreach/*`** (`routes/provider_outreach.py`) — automated
+  launch-day API/key request emails. PROVIDER_CATALOG ships 14 providers across
+  Load Boards (DAT, Truckstop, Convoy/Flexport, Uber Freight, 123Loadboard),
+  Factoring (Triumph, Apex, OTR), Email Delivery (Resend), Accounting (QuickBooks),
+  Carrier Vetting (RMIS, Carrier411), Regulatory (FMCSA), Insurance (Tivly).
+  Endpoints:
+   - `GET /catalog` — providers + has_credentials cross-ref against Connections vault
+   - `POST /send` — bulk-mail via Resend; supports `dry_run`, `to_email_overrides`,
+     `note_appendix`, `cc_email`. Persists every attempt to `db.provider_outreach`.
+   - `GET /history` — past outreach rows sorted desc
+   - `PUT /{id}/status` — manually mark replied / closed when the provider responds
+- **Frontend `/provider-outreach`** (`pages/ProviderOutreach.jsx`) — admin-only page:
+  - 4 stat cards (catalog total, contacted, with creds, launch-ready)
+  - Filter pills (All · Missing keys · Not contacted · per-category)
+  - Quick selection (all visible · missing keys · clear)
+  - Provider table with checkbox, signup URL, what-we-need, editable per-row email,
+    KEYS PRESENT / NEED KEYS badges, and last sent date
+  - Compose card with personal note appendix + Dry-Run/Send buttons
+  - Outreach history with mark-replied / mark-closed status pills
+  - Dry-run preview modal renders the actual rendered HTML in an iframe
+- **Sidebar** — added "Provider Outreach" admin-only nav link.
+
+### Tests
+- `/app/test_reports/iteration_24.json` — 19/19 backend tests pass; Playwright smoke
+  confirms 14 providers render, filter pills + quick-select + compose + history all
+  wired, BOL Documents PDF now Orisei-branded. `/app/backend/tests/test_iter24_outreach_bol.py`
+  added with full coverage for catalog shape, send dry-run, send-without-resend 400,
+  email override honoring, admin RBAC, history sort, status-update happy/sad paths,
+  and BOL/non-BOL Documents PDF regressions.
