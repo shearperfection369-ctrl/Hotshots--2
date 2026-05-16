@@ -13,6 +13,7 @@ import {
   Truck, DollarSign, FileText, Sparkles, TrendingUp, TrendingDown, BarChart3,
   Building2, Calculator, Plug, Send, CheckCircle2, AlertCircle, Loader2, Download,
   ArrowUpRight, ArrowDownRight, Zap, Receipt, FileSpreadsheet, Bot, Plus, BookOpen, Printer,
+  Wallet,
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
@@ -30,6 +31,7 @@ const TABS = [
   { id: "accounting", label: "Accounting", icon: Calculator },
   { id: "forms",     label: "Forms Library", icon: FileText },
   { id: "plan",      label: "Business Plan", icon: BookOpen },
+  { id: "costs",     label: "Cost Analysis", icon: Wallet },
   { id: "ai",        label: "AI Assistant", icon: Sparkles },
 ];
 
@@ -67,6 +69,7 @@ export default function Brokerage() {
         {tab === "accounting" && <AccountingTab refresh={loadDash} />}
         {tab === "forms"     && <FormsTab />}
         {tab === "plan"      && <BusinessPlanTab />}
+        {tab === "costs"     && <CostAnalysisTab />}
         {tab === "ai"        && <AITab />}
       </div>
     </>
@@ -652,6 +655,36 @@ function AITab() {
 //                     BUSINESS PLAN TAB
 // ============================================================
 function BusinessPlanTab() {
+  return (
+    <MarkdownDocTab
+      endpoint="/brokerage/business-plan"
+      eyebrow="Operating Document"
+      title="Orisei Freight Solutions · Business Plan"
+      icon={BookOpen}
+      testidScope="brokerage-plan"
+    />
+  );
+}
+
+// ============================================================
+//                     COST ANALYSIS TAB
+// ============================================================
+function CostAnalysisTab() {
+  return (
+    <MarkdownDocTab
+      endpoint="/brokerage/cost-analysis"
+      eyebrow="Real-World Cost"
+      title="Hardware · Services · Operating Spend"
+      icon={Wallet}
+      testidScope="brokerage-costs"
+    />
+  );
+}
+
+// ============================================================
+//        SHARED · Markdown document tab renderer
+// ============================================================
+function MarkdownDocTab({ endpoint, eyebrow, title, icon: Icon, testidScope }) {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
@@ -659,29 +692,27 @@ function BusinessPlanTab() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    api.get("/brokerage/business-plan")
+    api.get(endpoint)
       .then(({ data }) => { if (!cancelled) { setDoc(data); setErr(null); } })
-      .catch((e) => { if (!cancelled) setErr(e?.response?.data?.detail || "Failed to load business plan"); })
+      .catch((e) => { if (!cancelled) setErr(e?.response?.data?.detail || "Failed to load document"); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [endpoint]);
 
   const downloadMd = () => {
     if (!doc?.markdown) return;
     const blob = new Blob([doc.markdown], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = doc.filename || "BROKERAGE_BUSINESS_PLAN.md";
+    a.href = url; a.download = doc.filename || "document.md";
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
-  const printPlan = () => window.print();
-
   if (loading) return <Loader />;
   if (err) {
     return (
-      <Card className="hud-surface p-6 border-red-500/40" data-testid="brokerage-plan-error">
+      <Card className="hud-surface p-6 border-red-500/40" data-testid={`${testidScope}-error`}>
         <div className="flex items-center gap-2 text-red-300"><AlertCircle size={16} /> {err}</div>
       </Card>
     );
@@ -690,13 +721,12 @@ function BusinessPlanTab() {
   const wordCount = doc?.markdown ? doc.markdown.split(/\s+/).filter(Boolean).length : 0;
 
   return (
-    <div className="space-y-4" data-testid="brokerage-plan-tab">
-      {/* Header strip */}
-      <Card className="hud-surface p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3" data-testid="brokerage-plan-header">
+    <div className="space-y-4" data-testid={`${testidScope}-tab`}>
+      <Card className="hud-surface p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3" data-testid={`${testidScope}-header`}>
         <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Operating Document</div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">{eyebrow}</div>
           <h3 className="font-display text-xl font-black flex items-center gap-2">
-            <BookOpen size={18} className="text-cyan-400" /> Orisei Freight Solutions · Business Plan
+            <Icon size={18} className="text-cyan-400" /> {title}
           </h3>
           <div className="text-[10px] font-mono text-slate-500 mt-1">
             {doc?.filename} · {wordCount.toLocaleString()} words · Updated {doc?.updated_at ? new Date(doc.updated_at).toLocaleDateString() : "—"}
@@ -704,15 +734,15 @@ function BusinessPlanTab() {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            onClick={printPlan}
-            data-testid="brokerage-plan-print-btn"
+            onClick={() => window.print()}
+            data-testid={`${testidScope}-print-btn`}
             className="bg-white/5 border border-white/10 hover:border-cyan-400/40 hover:text-cyan-200 text-slate-300 font-mono text-[11px] uppercase tracking-wider"
           >
             <Printer size={13} className="mr-1.5" /> Print
           </Button>
           <Button
             onClick={downloadMd}
-            data-testid="brokerage-plan-download-btn"
+            data-testid={`${testidScope}-download-btn`}
             className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase tracking-wider"
           >
             <Download size={13} className="mr-1.5" /> Download .md
@@ -720,8 +750,7 @@ function BusinessPlanTab() {
         </div>
       </Card>
 
-      {/* Plan body */}
-      <Card className="hud-surface p-6 md:p-10" data-testid="brokerage-plan-body">
+      <Card className="hud-surface p-6 md:p-10" data-testid={`${testidScope}-body`}>
         <article className="brokerage-plan-prose mx-auto max-w-3xl text-slate-200">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc?.markdown || ""}</ReactMarkdown>
         </article>

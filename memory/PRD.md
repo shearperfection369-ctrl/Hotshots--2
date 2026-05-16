@@ -496,6 +496,17 @@ Subsequent user-requested additions (chronological, all delivered):
 - Encryption deps: `cryptography==48.0.0` (already in requirements.txt) + Fernet.
 - Tests: `/app/backend/tests/test_iter21_connections.py` — **14/14 passing**
   (catalog, RBAC, masking, encrypted-at-rest in Mongo, empty-secret-preserves,
+
+## 2026-02-14 (later 2) · Cost Analysis Tab
+- New `/app/COST_ANALYSIS.md` — 3,800-word operating cost analysis covering
+  three load tiers (Solo / Small Brokerage / 50-tenant white-label).
+- Backend endpoint `GET /api/brokerage/cost-analysis` (mirrors the
+  business-plan endpoint via shared `_read_doc` helper).
+- New **Cost Analysis** tab in Brokerage Command Deck
+  (`data-testid="brokerage-tab-costs"`).
+- Refactored the inline business-plan renderer into a reusable
+  `MarkdownDocTab` component so both tabs share one implementation.
+
   delete-roundtrip, business-plan rename, brokerage regression).
 - Custom-provider flow verified end-to-end via curl (add → list as 11 → configure
   with masked preview → built-in protection 400 → delete → back to 10).

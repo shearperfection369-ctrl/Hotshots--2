@@ -34,6 +34,26 @@ logger = logging.getLogger("tennant_tms.brokerage")
 
 
 # ---------- Static metadata used everywhere ----------
+def _read_doc(filename: str, missing_msg: str) -> Dict[str, Any]:
+    """Shared helper: load a top-level markdown asset and return its payload."""
+    path = Path(__file__).resolve().parents[2] / filename
+    if not path.exists():
+        raise HTTPException(404, missing_msg)
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.exception("Failed to read %s: %s", filename, exc)
+        raise HTTPException(500, f"Unable to read {filename}")
+    stat = path.stat()
+    return {
+        "path": str(path),
+        "filename": path.name,
+        "size_bytes": stat.st_size,
+        "updated_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+        "markdown": content,
+    }
+
+
 LOAD_BOARDS = [
     {"id": "dat", "name": "DAT One", "color": "#FF6B35", "subscription_tier": "Power"},
     {"id": "truckstop", "name": "Truckstop", "color": "#0066CC", "subscription_tier": "Premium"},
@@ -532,22 +552,12 @@ def build_brokerage_router(
     @router.get("/business-plan")
     async def business_plan(_=Depends(get_current_user)):
         """Return the freight-brokerage business plan markdown (rendered in the UI tab)."""
-        plan_path = Path(__file__).resolve().parents[2] / "BROKERAGE_BUSINESS_PLAN.md"
-        if not plan_path.exists():
-            raise HTTPException(404, "Business plan document not found")
-        try:
-            content = plan_path.read_text(encoding="utf-8")
-        except OSError as exc:
-            logger.exception("Failed to read business plan: %s", exc)
-            raise HTTPException(500, "Unable to read business plan")
-        stat = plan_path.stat()
-        return {
-            "path": str(plan_path),
-            "filename": plan_path.name,
-            "size_bytes": stat.st_size,
-            "updated_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
-            "markdown": content,
-        }
+        return _read_doc("BROKERAGE_BUSINESS_PLAN.md", "Business plan document not found")
+
+    @router.get("/cost-analysis")
+    async def cost_analysis(_=Depends(get_current_user)):
+        """Return the real-world operating cost analysis markdown."""
+        return _read_doc("COST_ANALYSIS.md", "Cost analysis document not found")
 
     @router.get("/dashboard")
     async def dashboard(_=Depends(get_current_user)):
