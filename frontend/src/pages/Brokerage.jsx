@@ -670,14 +670,116 @@ function BusinessPlanTab() {
 //                     COST ANALYSIS TAB
 // ============================================================
 function CostAnalysisTab() {
+  const [summary, setSummary] = useState(null);
+  const [showAll, setShowAll] = useState(false);
+  const loadSummary = () => api.get("/brokerage/cost-summary").then(({ data }) => setSummary(data)).catch(() => {});
+  useEffect(() => { loadSummary(); const t = setInterval(loadSummary, 60_000); return () => clearInterval(t); }, []);
+
   return (
-    <MarkdownDocTab
-      endpoint="/brokerage/cost-analysis"
-      eyebrow="Real-World Cost"
-      title="Hardware · Services · Operating Spend"
-      icon={Wallet}
-      testidScope="brokerage-costs"
-    />
+    <div className="space-y-4">
+      <LiveCostSnapshot summary={summary} showAll={showAll} onToggleAll={() => setShowAll((s) => !s)} onRefresh={loadSummary} />
+      <MarkdownDocTab
+        endpoint="/brokerage/cost-analysis"
+        eyebrow="Real-World Cost"
+        title="Hardware · Services · Operating Spend"
+        icon={Wallet}
+        testidScope="brokerage-costs"
+      />
+    </div>
+  );
+}
+
+function LiveCostSnapshot({ summary, showAll, onToggleAll, onRefresh }) {
+  if (!summary) {
+    return (
+      <Card className="hud-surface p-4 flex items-center justify-center text-slate-500" data-testid="cost-snapshot-loading">
+        <Loader2 className="animate-spin mr-2" size={14} /> Loading live spend snapshot…
+      </Card>
+    );
+  }
+  const itemsToShow = showAll ? summary.items : summary.items.filter((i) => i.enabled);
+  const grouped = itemsToShow.reduce((acc, it) => { (acc[it.category] ||= []).push(it); return acc; }, {});
+
+  return (
+    <Card className="hud-surface p-5" data-testid="cost-snapshot-card">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-4">
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 flex items-center gap-1.5">
+            <Zap size={11} /> Live Snapshot · Auto-refresh 60s
+          </div>
+          <h3 className="font-display text-xl font-black flex items-center gap-2">
+            <Wallet size={18} className="text-cyan-400" /> Real-time Operating Spend
+          </h3>
+          <div className="text-[10px] font-mono text-slate-500 mt-1">
+            From {summary.enabled_count} enabled connection{summary.enabled_count === 1 ? "" : "s"} · MTD settled carrier pay ${fmt(summary.settled_carrier_pay_mtd_usd)}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onToggleAll}
+            data-testid="cost-snapshot-toggle-all"
+            className="text-[10px] font-mono uppercase tracking-wider text-slate-400 hover:text-cyan-200 border border-white/10 hover:border-cyan-400/40 rounded px-2.5 py-1"
+          >
+            {showAll ? "Enabled only" : "Show all"}
+          </button>
+          <button
+            onClick={onRefresh}
+            data-testid="cost-snapshot-refresh"
+            className="text-[10px] font-mono uppercase tracking-wider text-slate-400 hover:text-cyan-200 border border-white/10 hover:border-cyan-400/40 rounded px-2.5 py-1"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4" data-testid="cost-snapshot-kpis">
+        <Kpi label="Projected · monthly" value={`$${fmt(summary.projected_monthly_total_usd)}`} sub="infra + LLM + enabled SaaS + variable est." accent="text-cyan-300" icon={DollarSign} />
+        <Kpi label="Fixed SaaS · enabled"  value={`$${fmt(summary.fixed_saas_monthly_usd)}`}    sub={`${summary.items.filter((i) => i.enabled && i.model === "fixed").length} subscriptions`} accent="text-emerald-300" icon={Receipt} />
+        <Kpi label="Variable · MTD est."    value={`$${fmt(summary.variable_mtd_estimate_usd)}`} sub="factoring · per-tx" accent="text-yellow-300" icon={TrendingUp} />
+        <Kpi label="Baseline infra + LLM"   value={`$${fmt(summary.baseline.total_usd)}`}      sub={summary.baseline.tier} accent="text-slate-300" icon={Plug} />
+      </div>
+
+      {/* Per-provider table grouped by category */}
+      <div className="space-y-4" data-testid="cost-snapshot-table">
+        {Object.entries(grouped).map(([category, list]) => (
+          <div key={category}>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-1.5">{category}</div>
+            <div className="rounded border border-white/5 overflow-hidden">
+              <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-white/[0.02] text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                <div className="col-span-4">Provider</div>
+                <div className="col-span-3">Plan</div>
+                <div className="col-span-2 text-right">Monthly</div>
+                <div className="col-span-2 text-right">MTD est.</div>
+                <div className="col-span-1 text-right">Status</div>
+              </div>
+              {list.map((it) => (
+                <div key={it.provider_id} className="grid grid-cols-12 gap-2 px-3 py-2 border-t border-white/5 text-xs items-center hover:bg-white/[0.02]" data-testid={`cost-row-${it.provider_id}`}>
+                  <div className="col-span-4 text-slate-200 truncate">{it.name}{it.note && <div className="text-[9px] font-mono text-slate-500 truncate">{it.note}</div>}</div>
+                  <div className="col-span-3 text-slate-400 font-mono text-[11px] truncate">{it.plan}</div>
+                  <div className="col-span-2 text-right tabular-nums font-mono">
+                    {it.model === "fixed" ? <span className={it.enabled ? "text-emerald-300" : "text-slate-500"}>${fmt(it.monthly_cost_usd)}</span> : <span className="text-yellow-300">variable</span>}
+                  </div>
+                  <div className="col-span-2 text-right tabular-nums font-mono text-slate-400">
+                    {it.mtd_estimate_usd ? `$${fmt(it.mtd_estimate_usd)}` : "—"}
+                  </div>
+                  <div className="col-span-1 text-right">
+                    {it.enabled
+                      ? <span className="inline-flex items-center text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">on</span>
+                      : <span className="inline-flex items-center text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-white/[0.04] text-slate-500 border border-white/10">off</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {!itemsToShow.length && (
+          <div className="text-center py-6 text-xs text-slate-500" data-testid="cost-snapshot-empty">
+            No connections enabled yet. Open <span className="text-cyan-300">Connections · Keys</span> to wire up Macropoint, Triumph, DAT, or any other provider.
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 

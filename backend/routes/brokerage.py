@@ -34,6 +34,27 @@ logger = logging.getLogger("tennant_tms.brokerage")
 
 
 # ---------- Static metadata used everywhere ----------
+# Tier-A list-rate operating cost per integrated provider. Used by
+# /api/brokerage/cost-summary to surface live spend on the Cost Analysis tab.
+# Keep in sync with /app/COST_ANALYSIS.md.
+PROVIDER_COSTS: Dict[str, Dict[str, Any]] = {
+    "quickbooks":    {"name": "QuickBooks Online",      "category": "Accounting",       "model": "fixed",     "monthly_usd": 90,  "plan": "Online Plus"},
+    "dat":           {"name": "DAT One",                "category": "Load Board",       "model": "fixed",     "monthly_usd": 279, "plan": "Power"},
+    "truckstop":     {"name": "Truckstop",              "category": "Load Board",       "model": "fixed",     "monthly_usd": 199, "plan": "Premium"},
+    "uber_freight":  {"name": "Uber Freight",           "category": "Load Board",       "model": "variable",  "monthly_usd": 0,   "plan": "Pay-as-you-go", "note": "Per-load fee on bookings"},
+    "loadboard_123": {"name": "123Loadboard",           "category": "Load Board",       "model": "fixed",     "monthly_usd": 40,  "plan": "Standard"},
+    "stripe":        {"name": "Stripe",                 "category": "Payments",         "model": "variable",  "monthly_usd": 0,   "plan": "Per-transaction", "note": "2.9% + $0.30 per card; 0.8% ACH"},
+    "resend":        {"name": "Resend",                 "category": "Email",            "model": "fixed",     "monthly_usd": 20,  "plan": "Pro"},
+    "twilio":        {"name": "Twilio SMS",             "category": "Messaging",        "model": "variable",  "monthly_usd": 0,   "plan": "Pay-as-you-go", "note": "~$0.0083 per SMS US/CA"},
+    "macropoint":    {"name": "Macropoint / Project44", "category": "Tracking",         "model": "fixed",     "monthly_usd": 150, "plan": "Starter"},
+    "rmis":          {"name": "RMIS",                   "category": "Carrier Vetting",  "model": "fixed",     "monthly_usd": 100, "plan": "Standard"},
+    "apex_capital":  {"name": "Apex Capital",           "category": "Factoring",        "model": "factoring", "monthly_usd": 0,   "plan": "Per-invoice %", "default_rate_pct": 2.5,  "note": "Carrier-side factor"},
+    "triumph":       {"name": "TriumphPay",             "category": "Factoring",        "model": "factoring", "monthly_usd": 0,   "plan": "Per-invoice %", "default_rate_pct": 2.0,  "note": "Quick-pay rails"},
+    "otr_capital":   {"name": "OTR Capital",            "category": "Factoring",        "model": "factoring", "monthly_usd": 0,   "plan": "Per-invoice %", "default_rate_pct": 3.0,  "note": "Broker quick-pay line"},
+    "rts_financial": {"name": "RTS Financial",          "category": "Factoring",        "model": "factoring", "monthly_usd": 0,   "plan": "Per-invoice %", "default_rate_pct": 2.5},
+}
+
+
 def _read_doc(filename: str, missing_msg: str) -> Dict[str, Any]:
     """Shared helper: load a top-level markdown asset and return its payload."""
     path = Path(__file__).resolve().parents[2] / filename
@@ -558,6 +579,90 @@ def build_brokerage_router(
     async def cost_analysis(_=Depends(get_current_user)):
         """Return the real-world operating cost analysis markdown."""
         return _read_doc("COST_ANALYSIS.md", "Cost analysis document not found")
+
+    # ============================ LIVE COST SUMMARY ============================
+    @router.get("/cost-summary")
+    async def cost_summary(_=Depends(get_current_user)):
+        """Live spend snapshot — per-provider monthly cost based on currently-enabled Connections.
+
+        Fixed providers (DAT, Truckstop, RMIS, QB, etc.) contribute their list-rate
+        monthly cost. Variable providers (Stripe, factoring, Twilio) show their
+        billing model + an MTD estimate derived from real bookings/invoices when
+        we have the data.
+        """
+        # Pull billed booking volume MTD for factoring estimates
+        now = datetime.now(timezone.utc)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        settled_cursor = db.brokerage_bookings.find(
+            {"status": "settled", "booked_at": {"$gte": month_start.isoformat()}},
+            {"_id": 0, "settled_carrier_pay_usd": 1},
+        )
+        settled_carrier_pay_mtd = 0.0
+        async for b in settled_cursor:
+            settled_carrier_pay_mtd += float(b.get("settled_carrier_pay_usd") or 0)
+
+        # Pull enabled connection records (need .fields for factor_rate, etc.)
+        enabled_map: Dict[str, Dict[str, Any]] = {}
+        cursor = db.connections.find({"enabled": True}, {"_id": 0})
+        async for doc in cursor:
+            enabled_map[doc["provider_id"]] = doc
+
+        items: List[Dict[str, Any]] = []
+        fixed_total = 0.0
+        variable_mtd_estimate = 0.0
+        for pid, meta in PROVIDER_COSTS.items():
+            conn = enabled_map.get(pid)
+            is_enabled = conn is not None
+            est_mtd = 0.0
+            if is_enabled and meta["model"] == "factoring":
+                # Pull factor_rate from connection (non-secret field)
+                fields = (conn or {}).get("fields") or {}
+                fr_cell = fields.get("factor_rate") or {}
+                try:
+                    rate_pct = float(fr_cell.get("value")) if isinstance(fr_cell, dict) else 0.0
+                except (TypeError, ValueError):
+                    rate_pct = 0.0
+                if rate_pct <= 0:
+                    rate_pct = meta.get("default_rate_pct", 2.5)
+                # Assume ~25% of settled book uses factoring quick-pay
+                est_mtd = round(settled_carrier_pay_mtd * 0.25 * (rate_pct / 100), 2)
+                variable_mtd_estimate += est_mtd
+            items.append({
+                "provider_id": pid,
+                "name": meta["name"],
+                "category": meta["category"],
+                "plan": meta.get("plan", "—"),
+                "model": meta["model"],                  # fixed | variable | factoring
+                "monthly_cost_usd": meta.get("monthly_usd", 0),
+                "enabled": is_enabled,
+                "mtd_estimate_usd": est_mtd,
+                "note": meta.get("note"),
+            })
+            if is_enabled and meta["model"] == "fixed":
+                fixed_total += float(meta.get("monthly_usd") or 0)
+
+        items.sort(key=lambda x: (0 if x["enabled"] else 1, x["category"], x["name"]))
+
+        baseline = {
+            "app_hosting_usd": 25.0,
+            "mongodb_atlas_usd": 57.0,
+            "domain_dns_usd": 1.50,
+            "llm_universal_key_usd": 25.0,
+            "total_usd": 108.50,
+            "tier": "Solo (Tier A baseline)",
+        }
+
+        return {
+            "as_of": now.isoformat(),
+            "month_start": month_start.date().isoformat(),
+            "settled_carrier_pay_mtd_usd": round(settled_carrier_pay_mtd, 2),
+            "baseline": baseline,
+            "enabled_count": len(enabled_map),
+            "fixed_saas_monthly_usd": round(fixed_total, 2),
+            "variable_mtd_estimate_usd": round(variable_mtd_estimate, 2),
+            "projected_monthly_total_usd": round(baseline["total_usd"] + fixed_total + variable_mtd_estimate, 2),
+            "items": items,
+        }
 
     @router.get("/dashboard")
     async def dashboard(_=Depends(get_current_user)):
