@@ -16,6 +16,7 @@ import Tracking from "@/pages/Tracking";
 import HSLookup from "@/pages/HSLookup";
 import Trailers from "@/pages/Trailers";
 import Integrations from "@/pages/Integrations";
+import Connections from "@/pages/Connections";
 import Reports from "@/pages/Reports";
 import Chat from "@/pages/Chat";
 import QuickLinks from "@/pages/QuickLinks";
@@ -85,6 +86,7 @@ function AppRouter() {
         <Route path="/hs-lookup" element={<HSLookup />} />
         <Route path="/trailers" element={<Trailers />} />
         <Route path="/integrations" element={<Integrations />} />
+        <Route path="/connections" element={<Connections />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/links" element={<QuickLinks />} />
