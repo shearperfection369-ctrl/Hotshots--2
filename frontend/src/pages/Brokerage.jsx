@@ -513,19 +513,32 @@ function FormsTab() {
     if (!active) return;
     setBusy(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/brokerage/forms/fill`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("session_token") || ""}` },
-        body: JSON.stringify({ form_id: active.id, fields }),
-      });
-      if (!res.ok) throw new Error("PDF generation failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const res = await api.post(
+        "/brokerage/forms/fill",
+        { form_id: active.id, fields },
+        { responseType: "blob" }
+      );
+      // Guard: if the backend somehow returned JSON (e.g. an error envelope), surface it
+      const ct = res.headers?.["content-type"] || "";
+      if (!ct.toLowerCase().includes("pdf")) {
+        const text = await res.data.text();
+        throw new Error(text || "Unexpected response from server");
+      }
+      const url = URL.createObjectURL(res.data);
       const a = document.createElement("a");
-      a.href = url; a.download = `${active.id}-${Date.now()}.pdf`; a.click();
+      a.href = url;
+      a.download = `${active.id}-${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success(`Saved ${active.name}.pdf`);
-    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+    } catch (e) {
+      const msg = e?.response?.data?.detail || e?.message || "PDF generation failed";
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
