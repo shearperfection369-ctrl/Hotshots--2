@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 24 — BOL doc-rendering fix + NEW Provider Outreach module. Created /app/backend/tests/test_iter24_outreach_bol.py (19 tests, ALL PASS) covering: (1) GET /api/documents/{id}/pdf for BOL DOC-FAA5C8A6 returns ~400KB Orisei PDF (header text = 'Orisei Freight Solutions LLC · Minneapolis · Saint Paul, MN' — Tennant header REMOVED; Calafia/griffin embedded as logo image in PNG, not text); (2) non-BOL doc types (COMMERCIAL_INVOICE, WEIGHT_CERT, PACKING_SLIP, COO) render with brand-aware header; (3) GET /api/provider-outreach/catalog returns 14 providers with required shape (id, name, category, what_we_need, default_email, signup_url, has_credentials bool, last_sent_at, last_status); (4) POST /send dry_run=true persists rows, returns html_preview starting <!doctype html> and PO-* ids, sent=0, dry_run_count=2; (5) POST /send real send w/o Resend creds returns 400 with hint mentioning 'Resend' and 'Connections'; (6) to_email_overrides={dat:'custom@example.com'} honored; (7) send admin-only (dispatcher 403); (8) invalid provider_ids 400; (9) /history sorted desc by sent_at; (10) PUT /{id}/status replied→200, closed→200, invalid status→400, missing id→404. Regression /api/brokerage/settings, /api/connections, /api/documents all 200. Frontend: /provider-outreach loaded with admin session cookie — 14 provider rows render, sidebar 'Provider Outreach' nav link present, quick-selection (all visible / missing keys / clear) wired, compose card + outreach-note textarea + dry-run + send buttons rendered, outreach-history card rendered, Dry-Run on DAT triggered preview-modal with proper Orisei navy+gold styled HTML email and 'Dry-run rendered 1 email(s)' toast appeared. No console/page errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter24_outreach_bol.py",
+    "/app/test_reports/pytest/iter24_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "/app/backend/routes/provider_outreach.py PROVIDER_CATALOG is hard-coded in code (14 entries). Fine for v1 launch but the file mixes data (long body_md strings) with logic (the router). At ~280 lines of catalog before any code, consider splitting catalog into /app/backend/routes/_provider_catalog.py so the router file stays slim and adding/editing copy doesn't risk touching endpoint logic.",
+    "POST /send writes records inside the loop — if Resend.send raises for provider #3, providers #1 and #2 already have 'sent' rows persisted but #3 has 'error' and #4..N never get attempted. Consider try/except around the entire batch with a per-provider continue (current code already does per-provider try/except — verified — but the dry-run path inserts BEFORE building results, which is fine; just noting batch-failure semantics are correct).",
+    "PUT /{id}/status uses Dict[str, Any] payload instead of a Pydantic model — works but bypasses request-shape validation; consider StatusUpdateIn(BaseModel) with Literal['replied','closed','sent','error','dry_run'].",
+    "ProviderOutreach.jsx imports `api` as named export — confirmed correct (lib/api.js exports named `api`). Good catch by main agent; many sibling pages still use default import.",
+    "BOL fallback path in server.py download_document_pdf: on build_bol_pdf exception, falls back to _build_pdf which is the OLD (now brand-aware) builder. That's correct, but no observability — add logger.warning with the failed document_id so silent fallbacks surface in logs.",
+    "Documents BOL data on DOC-FAA5C8A6 still has shipper='Tennant Company' (legacy seed data). The header is now Orisei but the body shipper field reflects original document data — NOT a bug, expected behavior since the doc.data is preserved. If desired, add a migration to rename Tennant shipper to Orisei on seed docs."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter24_outreach_bol.py"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19)",
+    "frontend": "100% — sidebar nav, 14 provider rows, quick-selection, compose, dry-run preview modal, history card, no errors"
+  },
+  "test_credentials": "Admin Bearer test_session_admin_1 + Dispatcher Bearer test_disp_session. Resend NOT configured (validated 400-with-hint path). Used existing seed docs: BOL=DOC-FAA5C8A6, CI=DOC-D945D6AA, WC=DOC-E0C4541B, PS=DOC-E243799E, COO=DOC-F1C26490.",
+  "seed_data_creation": "Each test run inserts ~4 new dry-run rows in db.provider_outreach (dat+truckstop batch, dat override, resend status-test, +1 invalid attempt). Suite is idempotent; rows accumulate but don't break subsequent runs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend suite at /app/backend/tests/test_iter24_outreach_bol.py uses _load_base() helper that falls back to /app/frontend/.env when REACT_APP_BACKEND_URL is missing from pytest env. BOL render verified to use Orisei build_bol_pdf via header text + PDF size (~400KB w/ embedded griffin PNG). When Resend creds get configured, the test_send_without_resend_returns_400_with_hint will fail — update it to dry_run=true or skip if creds present. /provider-outreach frontend route works; dry-run modal iframe srcDoc renders cleanly with no CSP violations.",
+  "rca of the issue": "Not a bug fix iteration — feature addition. The BOL routing fix was already implemented correctly by main agent: server.py download_document_pdf line 3293 routes type=='BOL' through routes.orisei_docs.build_bol_pdf with brand info; non-BOL types pass brand into _build_pdf which uses _header_block(doc_id, doc_type, brand=...) (line 3098) for brand.short_name + primary_color. Verified by extracting text from generated BOL PDF — header now reads 'Orisei Freight Solutions LLC · Minneapolis · Saint Paul, MN' (no Tennant). Calafia/griffin shows as embedded Image() in PDF (file size ~400KB confirms image embedding)."
+}

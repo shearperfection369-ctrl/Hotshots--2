@@ -17,6 +17,7 @@ import HSLookup from "@/pages/HSLookup";
 import Trailers from "@/pages/Trailers";
 import Integrations from "@/pages/Integrations";
 import Connections from "@/pages/Connections";
+import ProviderOutreach from "@/pages/ProviderOutreach";
 import Landing from "@/pages/Landing";
 import Reports from "@/pages/Reports";
 import Chat from "@/pages/Chat";
@@ -90,6 +91,7 @@ function AppRouter() {
         <Route path="/trailers" element={<Trailers />} />
         <Route path="/integrations" element={<Integrations />} />
         <Route path="/connections" element={<Connections />} />
+        <Route path="/provider-outreach" element={<ProviderOutreach />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/links" element={<QuickLinks />} />

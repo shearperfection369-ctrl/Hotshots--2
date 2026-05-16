@@ -3095,12 +3095,16 @@ DOC_TYPE_TITLES = {
     "COO": ("CERTIFICATE OF ORIGIN", "Statement of Country of Origin"),
 }
 
-def _header_block(doc_id: str, doc_type: str):
+def _header_block(doc_id: str, doc_type: str, brand: Optional[Dict[str, Any]] = None):
     styles = _doc_styles()
     title, subtitle = DOC_TYPE_TITLES.get(doc_type, (doc_type, ""))
+    company = (brand or {}).get("company_name") or "Tennant Company"
+    short = (brand or {}).get("short_name") or "TENNANT"
+    primary = (brand or {}).get("primary_color") or "#00A4E4"
+    rest = company.replace(short, "", 1).strip() or "COMPANY"
     header_data = [
         [
-            Paragraph("<b><font color='#00A4E4'>TENNANT</font></b> COMPANY", styles["TennantTitle"]),
+            Paragraph(f"<b><font color='{primary}'>{short.upper()}</font></b> {rest.upper()}", styles["TennantTitle"]),
             Paragraph(f"<b>{title}</b><br/><font size=8 color='#64748B'>{subtitle}</font><br/><font size=7 color='#94A3B8'>Document ID: {doc_id}</font>", styles["FieldValue"]),
         ]
     ]
@@ -3108,7 +3112,7 @@ def _header_block(doc_id: str, doc_type: str):
     t.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("ALIGN", (1, 0), (1, 0), "RIGHT"),
-        ("LINEBELOW", (0, 0), (-1, -1), 2, TENNANT_BLUE),
+        ("LINEBELOW", (0, 0), (-1, -1), 2, colors.HexColor(primary)),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
     ]))
     return t
@@ -3129,18 +3133,19 @@ def _kv_table(rows, col_widths=None):
     ]))
     return t
 
-def _build_pdf(doc: Dict[str, Any]) -> bytes:
+def _build_pdf(doc: Dict[str, Any], brand: Optional[Dict[str, Any]] = None) -> bytes:
     buf = io.BytesIO()
     pdf = SimpleDocTemplate(buf, pagesize=letter, leftMargin=0.6 * inch, rightMargin=0.6 * inch, topMargin=0.6 * inch, bottomMargin=0.6 * inch, title=doc["document_id"])
     styles = _doc_styles()
     data = doc.get("data", {}) or {}
     elements = []
-    elements.append(_header_block(doc["document_id"], doc["type"]))
+    elements.append(_header_block(doc["document_id"], doc["type"], brand=brand))
     elements.append(Spacer(1, 14))
 
+    company_name = (brand or {}).get("company_name") or "Tennant Company"
     # Shipper / Consignee block
     parties_rows = [
-        ["Shipper", data.get("shipper") or "Tennant Company"],
+        ["Shipper", data.get("shipper") or company_name],
         ["Consignee", data.get("consignee")],
         ["Origin", data.get("origin")],
         ["Destination", data.get("destination")],
@@ -3173,7 +3178,7 @@ def _build_pdf(doc: Dict[str, Any]) -> bytes:
     dtype = doc["type"]
     if dtype == "BOL":
         line_items = [["#", "Pieces", "Description", "Weight (lbs)", "Class"]]
-        line_items.append(["1", data.get("pieces") or "—", data.get("commodity") or "Tennant industrial cleaning equipment", data.get("weight") or "—", "85"])
+        line_items.append(["1", data.get("pieces") or "—", data.get("commodity") or f"{company_name} freight", data.get("weight") or "—", "85"])
         items = Table(line_items, colWidths=[0.4 * inch, 0.8 * inch, 3.6 * inch, 1.0 * inch, 0.7 * inch])
         items.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), TENNANT_BLUE),
@@ -3271,7 +3276,7 @@ def _build_pdf(doc: Dict[str, Any]) -> bytes:
     sig.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
     elements.append(sig)
     elements.append(Spacer(1, 8))
-    elements.append(Paragraph(f"Tennant Company · TMS Generated Document · {datetime.now(timezone.utc).isoformat(timespec='seconds')}Z", styles["DocFooter"]))
+    elements.append(Paragraph(f"{company_name} · TMS Generated Document · {datetime.now(timezone.utc).isoformat(timespec='seconds')}Z", styles["DocFooter"]))
 
     pdf.build(elements)
     buf.seek(0)
@@ -3282,11 +3287,58 @@ async def download_document_pdf(document_id: str, _: User = Depends(get_current_
     doc = await db.documents.find_one({"document_id": document_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    try:
-        pdf_bytes = _build_pdf(doc)
-    except Exception as e:
-        logger.exception("PDF render failed")
-        raise HTTPException(status_code=500, detail=f"PDF render failed: {e}")
+    brand = await _active_brand_doc() or {}
+    # For BOLs, use the beautiful Orisei (Calafia + griffin) generator from
+    # routes/orisei_docs so the document carries the active brand's identity.
+    if doc.get("type") == "BOL":
+        try:
+            from routes.orisei_docs import build_bol_pdf
+            data = doc.get("data") or {}
+            booking = {
+                "load_id": doc.get("shipment_ref") or doc.get("document_id"),
+                "carrier_name": data.get("carrier"),
+                "equipment": data.get("equipment") or "Van",
+                "miles": data.get("miles") or 0,
+                "pickup_date": data.get("pickup_date") or doc.get("created_at", "")[:10],
+                "delivery_date": data.get("delivery_date") or "",
+                "pieces": data.get("pieces"),
+                "weight_lbs": data.get("weight"),
+                "commodity": data.get("commodity"),
+                "rate_usd": data.get("value") or data.get("rate_usd"),
+                "notes": data.get("notes"),
+            }
+            company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+            shipper = {
+                "name": data.get("shipper") or company,
+                "address": data.get("shipper_address") or "Operations HQ",
+                "city_state_zip": data.get("origin") or "",
+                "contact": data.get("shipper_contact") or "",
+            }
+            consignee = {
+                "name": data.get("consignee") or "Consignee",
+                "address": data.get("consignee_address") or "",
+                "city_state_zip": data.get("destination") or "",
+                "contact": data.get("consignee_contact") or "",
+            }
+            pdf_bytes = build_bol_pdf(
+                doc_id=doc["document_id"],
+                booking=booking,
+                shipper=shipper,
+                consignee=consignee,
+                user_name=None,
+            )
+        except Exception as e:                                       # noqa: BLE001
+            logger.exception("Branded BOL render failed — falling back")
+            try:
+                pdf_bytes = _build_pdf(doc, brand=brand)
+            except Exception as e2:                                   # noqa: BLE001
+                raise HTTPException(status_code=500, detail=f"PDF render failed: {e2}")
+    else:
+        try:
+            pdf_bytes = _build_pdf(doc, brand=brand)
+        except Exception as e:
+            logger.exception("PDF render failed")
+            raise HTTPException(status_code=500, detail=f"PDF render failed: {e}")
     filename = f"{doc['type']}_{doc['document_id']}.pdf"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
@@ -7626,6 +7678,7 @@ from routes.server_registry import build_server_registry_router  # noqa: E402
 from routes.sap import build_sap_router  # noqa: E402
 from routes.brokerage import build_brokerage_router  # noqa: E402
 from routes.connections import build_connections_router  # noqa: E402
+from routes.provider_outreach import build_provider_outreach_router  # noqa: E402
 api_router.include_router(build_weather_router(
     db=db,
     get_current_user=get_current_user,
@@ -7665,6 +7718,12 @@ api_router.include_router(build_connections_router(
     db=db,
     require_role=require_role,
 ))
+build_provider_outreach_router(
+    api_router=api_router,
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+)
 
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
