@@ -4660,8 +4660,185 @@ class CarrierInviteCreate(BaseModel):
     invitee_name: Optional[str] = None
     expires_days: int = 14
 
+
+def _public_app_url(request: Optional["Request"] = None) -> str:
+    """Best-effort public URL used in email links/logos. Tries
+    PUBLIC_APP_URL → FRONTEND_PUBLIC_URL → REACT_APP_BACKEND_URL → request
+    forwarded headers → request.base_url so logo images always resolve to an
+    absolute https URL inside email clients."""
+    for env_key in ("PUBLIC_APP_URL", "FRONTEND_PUBLIC_URL", "REACT_APP_BACKEND_URL"):
+        v = (os.environ.get(env_key) or "").rstrip("/")
+        if v:
+            return v
+    if request is not None:
+        try:
+            # Behind a reverse proxy / k8s ingress, prefer the forwarded host
+            # so emails point at the user-facing URL, not the cluster-internal one.
+            fwd_host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+            fwd_proto = request.headers.get("x-forwarded-proto") or "https"
+            if fwd_host:
+                return f"{fwd_proto}://{fwd_host}".rstrip("/")
+            return str(request.base_url).rstrip("/")
+        except Exception:
+            pass
+    return ""
+
+
+def _build_carrier_invite_html(*, brand: dict, invitee_name: Optional[str], carrier_company: str,
+                                invite_url: str, expires_days: int, logo_url: Optional[str],
+                                founder_name: Optional[str] = None) -> str:
+    """Render a warm, full-color HTML carrier invite email body. Inline CSS,
+    table layout — safe for Gmail/Outlook/Apple Mail."""
+    company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+    short = brand.get("short_name") or "Orisei Freight"
+    tagline = brand.get("tagline") or "Operator-built freight brokerage · Minneapolis · Saint Paul"
+    primary = brand.get("primary_color") or "#0E3A6B"
+    accent = brand.get("accent_color") or "#C9A24A"
+    hq = brand.get("headquarters") or "Minneapolis, MN"
+    signer = founder_name or brand.get("owner_name") or "Oliver Cummins"
+    greeting = f"Hi {invitee_name}," if invitee_name else f"Hi {carrier_company} team,"
+    # Build the optional logo block; some email clients require <img> hosted on https.
+    logo_block = ""
+    if logo_url:
+        logo_block = (
+            f'<img src="{logo_url}" alt="{company}" width="84" height="84" '
+            f'style="display:block;border:0;outline:none;border-radius:14px;background:#ffffff;" />'
+        )
+    else:
+        # Fallback: monogram disc using the brand letter
+        letter = (brand.get("logo_letter") or short[:1] or "O").upper()
+        logo_block = (
+            f'<div style="width:84px;height:84px;border-radius:14px;background:{accent};'
+            f'color:{primary};font-family:Georgia,serif;font-size:42px;font-weight:700;'
+            f'line-height:84px;text-align:center;">{letter}</div>'
+        )
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8" /><title>{company} · Carrier Invitation</title></head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0F172A;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#F1F5F9;padding:32px 0;">
+    <tr><td align="center">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="640" style="background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 18px rgba(15,23,42,0.10);">
+
+        <!-- HERO -->
+        <tr><td style="background:linear-gradient(135deg,{primary} 0%,#102B4F 100%);padding:32px 36px;color:#ffffff;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+              <td valign="middle" width="100">{logo_block}</td>
+              <td valign="middle" style="padding-left:20px;">
+                <div style="font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:24px;letter-spacing:-0.01em;color:#ffffff;">{company}</div>
+                <div style="margin-top:4px;font-size:13px;color:{accent};letter-spacing:0.04em;text-transform:uppercase;font-weight:600;">{tagline}</div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <!-- TITLE -->
+        <tr><td style="padding:28px 36px 6px 36px;">
+          <div style="font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:700;color:{primary};line-height:1.25;">
+            You're invited to join the {short} carrier network.
+          </div>
+          <div style="margin-top:6px;font-size:13px;color:#64748B;">{greeting}</div>
+        </td></tr>
+
+        <!-- BODY -->
+        <tr><td style="padding:14px 36px 6px 36px;">
+          <p style="margin:0 0 14px 0;color:#334155;font-size:15px;line-height:1.6;">
+            We're {short} — a Twin Cities-based property freight brokerage built by a logistics
+            operator who got tired of slow tenders, half-broken portals, and rate confirmations
+            that never matched what hit the BOL. We run our own in-house TMS, our own load
+            board syndication, and we believe a great carrier relationship is the single biggest
+            competitive moat a brokerage can build.
+          </p>
+          <p style="margin:0 0 14px 0;color:#334155;font-size:15px;line-height:1.6;">
+            We'd love to add <strong style="color:{primary};">{carrier_company}</strong> to our
+            approved carrier network so we can start tendering loads to your dispatch desk.
+            Acceptance is quick — just click the button below to set up your free carrier portal
+            account. From there you'll be able to:
+          </p>
+          <ul style="margin:0 0 14px 18px;padding:0;color:#334155;font-size:14px;line-height:1.7;">
+            <li>View every load we tender to <strong>{carrier_company}</strong></li>
+            <li>Update pickup &amp; delivery status in real time</li>
+            <li>Upload BOLs &amp; PODs straight from a phone — no email chase</li>
+            <li>Track ETAs, exceptions, and quick-pay settlement</li>
+          </ul>
+        </td></tr>
+
+        <!-- CTA -->
+        <tr><td align="center" style="padding:18px 36px 24px 36px;">
+          <a href="{invite_url}" style="display:inline-block;padding:14px 28px;border-radius:10px;background:{accent};color:{primary};font-weight:700;font-size:15px;text-decoration:none;letter-spacing:0.02em;box-shadow:0 4px 12px rgba(201,162,74,0.35);">
+            Accept Invite &amp; Set Up Portal &rarr;
+          </a>
+          <div style="margin-top:10px;font-size:11px;color:#94A3B8;">Invite expires in {expires_days} days · No password to remember</div>
+        </td></tr>
+
+        <!-- WHO WE ARE / TRUST -->
+        <tr><td style="padding:0 36px 22px 36px;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;">
+            <tr><td style="padding:18px 22px;">
+              <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:{primary};font-weight:700;">Who we are</div>
+              <div style="margin-top:6px;color:#334155;font-size:13px;line-height:1.55;">
+                {short} is operator-built and operator-run. We hold our MC authority, BMC-84 surety
+                bond, and BOC-3 process agents on file. We pay via standard NET-30, with
+                <strong>quick-pay at 2%</strong> available the moment a clean POD lands.
+                Headquarters in {hq}, with lane desks across the upper Midwest.
+              </div>
+            </td></tr>
+          </table>
+        </td></tr>
+
+        <!-- SIGNATURE -->
+        <tr><td style="padding:0 36px 22px 36px;">
+          <div style="color:#334155;font-size:14px;line-height:1.55;">Looking forward to running good lanes with your team,</div>
+          <div style="margin-top:10px;color:{primary};font-family:Georgia,'Times New Roman',serif;font-size:18px;font-weight:700;">{signer}</div>
+          <div style="color:#64748B;font-size:12px;">Founder &amp; Principal Broker · {company}</div>
+        </td></tr>
+
+        <!-- FOOTER -->
+        <tr><td style="padding:16px 36px;background:{primary};color:#CBD5E1;font-size:11px;line-height:1.6;">
+          You received this invitation because {short} identified <strong style="color:#ffffff;">{carrier_company}</strong> as
+          a great-fit partner. Reply directly to opt out or to request a different point of contact.
+          Need a hand? Reply to this email and a real human will write back — usually within a
+          couple of hours.
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+
+
+def _build_carrier_invite_text(*, brand: dict, invitee_name: Optional[str], carrier_company: str,
+                                invite_url: str, expires_days: int, founder_name: Optional[str] = None) -> str:
+    """Plain-text fallback / mailto-body version of the invite."""
+    company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+    short = brand.get("short_name") or "Orisei Freight"
+    signer = founder_name or brand.get("owner_name") or "Oliver Cummins"
+    greeting = f"Hi {invitee_name}," if invitee_name else f"Hi {carrier_company} team,"
+    return (
+        f"{greeting}\n\n"
+        f"We're {short} — a Twin Cities-based property freight brokerage built by a logistics operator who got "
+        f"tired of slow tenders, half-broken portals, and rate confirmations that never matched what hit the BOL. "
+        f"We run our own in-house TMS, our own load board syndication, and we believe a great carrier relationship "
+        f"is the single biggest competitive moat a brokerage can build.\n\n"
+        f"We'd love to add {carrier_company} to our approved carrier network so we can start tendering loads to "
+        f"your dispatch desk. Acceptance is quick — set up your free carrier portal account in under a minute "
+        f"and you'll be able to:\n"
+        f"  • View every load we tender to {carrier_company}\n"
+        f"  • Update pickup & delivery status in real time\n"
+        f"  • Upload BOLs & PODs straight from a phone\n"
+        f"  • Track ETAs, exceptions, and quick-pay settlement\n\n"
+        f"Accept your invite here (expires in {expires_days} days):\n{invite_url}\n\n"
+        f"A little about us: {short} is operator-built and operator-run. We hold MC authority, BMC-84 surety bond, "
+        f"and BOC-3 process agents on file. We pay via standard NET-30, with quick-pay at 2% available the moment "
+        f"a clean POD lands.\n\n"
+        f"Looking forward to running good lanes with your team,\n"
+        f"{signer}\n"
+        f"Founder & Principal Broker · {company}"
+    )
+
+
 @api_router.post("/carrier-invites")
-async def create_carrier_invite(payload: CarrierInviteCreate, admin: User = Depends(require_role("admin"))):
+async def create_carrier_invite(payload: CarrierInviteCreate, request: Request, admin: User = Depends(require_role("admin"))):
     token = uuid.uuid4().hex
     expires_at = (datetime.now(timezone.utc) + timedelta(days=payload.expires_days)).isoformat()
     invite = {
@@ -4677,18 +4854,42 @@ async def create_carrier_invite(payload: CarrierInviteCreate, admin: User = Depe
         "accepted_user_id": None,
     }
     await db.carrier_invites.insert_one(dict(invite))
-    base = os.environ.get("PUBLIC_APP_URL", "")
+    base = _public_app_url(request)
     invite_link = f"/accept-invite?token={token}" if not base else f"{base}/accept-invite?token={token}"
-    email_body = (
-        f"Hello {payload.invitee_name or payload.invitee_email},\n\n"
-        f"You've been invited by Tennant Companies to access the Tennant TMS Carrier Portal as a representative of "
-        f"{payload.carrier_company}.\n\n"
-        f"This portal lets you view loads tendered to {payload.carrier_company}, check pickup/delivery status, "
-        f"download BOLs, and submit shipment updates.\n\n"
-        f"Accept your invite here (expires in {payload.expires_days} days):\n{invite_link}\n\n"
-        f"— Tennant Transportation Team"
+    logo_url: Optional[str] = None
+    brand = await _active_brand_doc() or {}
+    if base:
+        # public-served logo (frontend public/brand/orisei_logo.png is the canonical asset)
+        logo_url = f"{base}/brand/orisei_logo.png"
+    elif brand.get("logo_url"):
+        # purely best-effort; some hosts may serve relative paths
+        logo_url = brand["logo_url"]
+    email_html = _build_carrier_invite_html(
+        brand=brand,
+        invitee_name=payload.invitee_name,
+        carrier_company=payload.carrier_company,
+        invite_url=invite_link,
+        expires_days=payload.expires_days,
+        logo_url=logo_url,
     )
-    return {"invite": {k: v for k, v in invite.items() if k != "token"}, "invite_link": invite_link, "token": token, "email_body": email_body}
+    email_text = _build_carrier_invite_text(
+        brand=brand,
+        invitee_name=payload.invitee_name,
+        carrier_company=payload.carrier_company,
+        invite_url=invite_link,
+        expires_days=payload.expires_days,
+    )
+    short = brand.get("short_name") or "Orisei Freight"
+    subject = f"{short} · Join our carrier network · loads tendered to {payload.carrier_company}"
+    return {
+        "invite": {k: v for k, v in invite.items() if k != "token"},
+        "invite_link": invite_link,
+        "token": token,
+        "subject": subject,
+        "email_body": email_text,   # legacy field — used by mailto button
+        "email_html": email_html,
+        "logo_url": logo_url,
+    }
 
 @api_router.get("/carrier-invites")
 async def list_carrier_invites(_: User = Depends(require_role("admin"))):
@@ -4701,6 +4902,119 @@ async def revoke_carrier_invite(invite_id: str, _: User = Depends(require_role("
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Invite not found")
     return {"ok": True}
+
+
+@api_router.post("/carrier-invites/{invite_id}/send-email")
+async def send_carrier_invite_email(invite_id: str, request: Request, admin: User = Depends(require_role("admin"))):
+    """Send the carrier invite as a full-color HTML email via Resend
+    (credentials pulled from the Connections vault). Falls back to a
+    descriptive 400 if Resend is not configured so the UI can prompt the
+    admin to add a key."""
+    invite = await db.carrier_invites.find_one({"invite_id": invite_id}, {"_id": 0})
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    if invite["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Invite already {invite['status']}")
+    to_email = (invite.get("invitee_email") or "").strip()
+    if not to_email or "@" not in to_email:
+        raise HTTPException(status_code=400, detail="Invite has no valid invitee email on file")
+
+    # Re-derive everything from the latest brand & invite state so a stale
+    # email body never goes out.
+    brand = await _active_brand_doc() or {}
+    base = _public_app_url(request)
+    invite_link = (
+        f"/accept-invite?token={invite['token']}" if not base
+        else f"{base}/accept-invite?token={invite['token']}"
+    )
+    expires_at = invite.get("expires_at")
+    try:
+        expires_dt = datetime.fromisoformat(expires_at) if isinstance(expires_at, str) else expires_at
+        days_left = max(1, (expires_dt - datetime.now(timezone.utc)).days)
+    except Exception:
+        days_left = 14
+    logo_url = f"{base}/brand/orisei_logo.png" if base else (brand.get("logo_url") or None)
+    invitee_name = invite.get("invitee_name") or None
+    carrier_company = invite.get("carrier_company") or "your team"
+    html = _build_carrier_invite_html(
+        brand=brand, invitee_name=invitee_name, carrier_company=carrier_company,
+        invite_url=invite_link, expires_days=days_left, logo_url=logo_url,
+    )
+    text = _build_carrier_invite_text(
+        brand=brand, invitee_name=invitee_name, carrier_company=carrier_company,
+        invite_url=invite_link, expires_days=days_left,
+    )
+    short = brand.get("short_name") or "Orisei Freight"
+    company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+    subject = f"{short} · Join our carrier network · loads tendered to {carrier_company}"
+
+    # Pull Resend creds from the Connections vault
+    try:
+        from routes.connections import get_connection_credentials  # local import to avoid cycle
+        creds = await get_connection_credentials(db, "resend")
+    except Exception:
+        creds = None
+
+    record = {
+        "id": str(uuid.uuid4()),
+        "invite_id": invite_id,
+        "sent_at": datetime.now(timezone.utc).isoformat(),
+        "sent_by": admin.user_id,
+        "to_email": to_email,
+        "to_name": invitee_name,
+        "carrier_company": carrier_company,
+        "subject": subject,
+        "company_name": company,
+        "provider": "resend" if creds and creds.get("api_key") else "not_configured",
+        "status": "queued",
+    }
+
+    if not creds or not creds.get("api_key"):
+        record["status"] = "blocked"
+        record["error"] = (
+            "Resend connection not configured. Open Connections → Resend and paste a "
+            "Resend API key (plus a verified sender address) to enable direct emailing."
+        )
+        await db.carrier_invite_emails.insert_one(dict(record))
+        raise HTTPException(400, record["error"])
+
+    from_email = creds.get("from_email") or "onboarding@resend.dev"
+    from_name = creds.get("from_name") or short
+    params = {
+        "from": f"{from_name} <{from_email}>",
+        "to": [to_email],
+        "subject": subject,
+        "html": html,
+        "text": text,
+    }
+    reply_to = creds.get("reply_to")
+    if reply_to:
+        params["reply_to"] = [reply_to]
+
+    try:
+        import resend as _resend  # noqa: WPS433
+        _resend.api_key = creds["api_key"]
+        result = await asyncio.to_thread(_resend.Emails.send, params)
+        record["status"] = "sent"
+        record["provider_message_id"] = result.get("id") if isinstance(result, dict) else None
+    except Exception as exc:  # pragma: no cover — Resend SDK failures
+        record["status"] = "failed"
+        record["error"] = str(exc)[:400]
+        await db.carrier_invite_emails.insert_one(dict(record))
+        raise HTTPException(502, f"Resend send failed: {exc}")
+
+    # Stamp the invite so the table can show a "sent" badge
+    await db.carrier_invites.update_one(
+        {"invite_id": invite_id},
+        {"$set": {
+            "email_sent_at": record["sent_at"],
+            "email_sent_by": admin.user_id,
+            "email_provider_message_id": record.get("provider_message_id"),
+        }},
+    )
+    await db.carrier_invite_emails.insert_one(dict(record))
+    record.pop("_id", None)
+    return {"ok": True, **record}
 
 class CarrierInviteAccept(BaseModel):
     token: str

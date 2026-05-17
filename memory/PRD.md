@@ -693,3 +693,32 @@ Subsequent user-requested additions (chronological, all delivered):
   "{brand_short} Onboarding Packet" via `useBranding()`.
 - **Verified**: `curl POST /api/carrier-onboarding/OB-A90459A0/send-packet` → 200
   with full Orisei-branded body.
+
+
+## 2026-02-15 (later 4) · Warm, full-color carrier invite emails (logo embedded)
+- **`POST /api/carrier-invites`** rewritten to be fully brand-aware:
+  - Builds a warm, narrative invite (who we are · what carriers gain · trust block ·
+    operator-signed signature) that swaps in `company_name`, `short_name`,
+    `tagline`, `primary_color`, `accent_color`, and `owner_name` from the active
+    brand. No more "Hello ," / "Tennant" leakage.
+  - Returns three new response fields: `subject`, `email_html`
+    (rich, table-layout HTML — Gmail / Outlook / Apple Mail safe with the
+    Calafia + griffin logo embedded via `<img src=".../brand/orisei_logo.png">`),
+    and `logo_url`.
+  - Smart `_public_app_url(request)` helper resolves absolute URLs by trying
+    PUBLIC_APP_URL → FRONTEND_PUBLIC_URL → REACT_APP_BACKEND_URL → forwarded
+    headers, so logo images always render on https.
+- **NEW `POST /api/carrier-invites/{invite_id}/send-email`** — directly emails
+  the rich HTML invite via Resend (credentials pulled from the Connections
+  vault). Soft-fails with HTTP 400 + actionable copy when Resend isn't
+  configured. Persists every attempt to `db.carrier_invite_emails`, stamps
+  `email_sent_at` on the invite, and returns the Resend message ID.
+- **Frontend (`CarrierInvites.jsx`)** — full rewrite of the invite modal:
+  - Live HTML preview rendered inside a sandboxed `<iframe>` so admins see
+    *exactly* what the carrier will receive (logo, header, CTA, signature).
+  - Tab toggle between **Full Color** and **Plain Text** previews.
+  - **"Send via Email · {brand}"** primary CTA wired to the Resend endpoint.
+  - Table gains an **Emailed** column with a checkmark + date, plus an inline
+    **Email / Resend** row action so admins can fire from the list view.
+  - All accents derived from the active brand (`primary_color` /
+    `accent_color`) via `useBranding()`.
