@@ -765,3 +765,51 @@ Subsequent user-requested additions (chronological, all delivered):
   used heraldic gold/navy palette, Calafia seal close-up, Minneapolis
   golden-hour establishing shot, dispatch desk macro, dock POD photo cut,
   and a final wordmark card.
+
+
+## 2026-02-15 (later 6) · Investor Boardroom + VC Data-Room ZIP
+- **NEW**: `routes/investor.py` (~800 LOC) — fully brand-aware investor toolkit
+  with 6 endpoints (all `require_role("admin")`):
+  - `GET  /api/investor/boardroom` — TAM/SAM/SOM, monthly_model (36 rows),
+    annual_summary (3 yrs), unit_economics, industry_benchmarks (sourced:
+    TIA 2024, SBA 2023, FreightWaves 2024, Armstrong & Assoc 2024),
+    default_probability scorecard.
+  - `POST /api/investor/probability` — Interactive scoring on ProbabilityInputs
+    {starting_capital_usd, operator_experience_years,
+    monthly_marketing_budget_usd, carrier_pool_size, has_tms,
+    has_factoring_partner, has_authority, target_lanes_count} → 0..99 % score,
+    band (STRONG / FAVORABLE / WORKABLE / FRAGILE), 9 weighted drivers with
+    +/- pts and footnotes. Default Orisei-favorable inputs = 99 STRONG;
+    fragile inputs (10K capital, 1 yr exp, no TMS, no authority) = 52 FRAGILE.
+  - `GET  /api/investor/deck.pdf` — 15-section brand-aware VC pitch deck.
+  - `GET  /api/investor/one-pager.pdf` — at-a-glance teaser PDF.
+  - `GET  /api/investor/financial-model.xlsx` — 4 sheets via openpyxl:
+    Summary (Year 1–3), Monthly Model (36 rows), Unit Economics, Market
+    Sizing — brand-colored headers.
+  - `GET  /api/investor/data-room.zip` — bundles all 6 deliverables
+    (Pitch Deck PDF · One-Pager PDF · Industry Probability Report PDF ·
+    Business Plan PDF · Financial Model XLSX · Cap Table CSV) + README.txt,
+    every filename prefixed with the active brand's `short_name`.
+- **NEW**: `frontend/src/pages/InvestorBoardroom.jsx` — interactive VC
+  analytics page mounted at `/investor-boardroom` (admin sidebar link via
+  `Briefcase` icon):
+  - VC Data Room banner with one-click ZIP download + 4 individual document
+    download pills (Deck, One-Pager, Financial Model, Business Plan).
+  - 4 headline metric tiles: TAM $210B · SAM $95B · Year-3 SOM $8.5M ·
+    Year-3 EBITDA.
+  - **Interactive success-probability scorecard**: 5 sliders + 3 toggles
+    debounce-fire `POST /api/investor/probability` on every change, live
+    band/colour swap (STRONG green · FAVORABLE cyan · WORKABLE amber ·
+    FRAGILE red), score drivers table.
+  - 36-month financial waterfall chart (Recharts AreaChart, brand-themed
+    gradient fills for Revenue + EBITDA + Gross Profit).
+  - TAM/SAM/SOM progress bars + Unit Economics 9-tile grid + Industry
+    Reality Check stat blocks (Y1 / Y3 / Y5 failure rates + TMS lift).
+- **Tested**: testing agent passed 11/11 backend tests + 100% frontend
+  verification (iter25). Brand-swap to FedEx changes ZIP filenames and PDF
+  doc-IDs as expected; probability ripple confirmed; admin-gating verified
+  on every endpoint.
+- **Security tweak post-test**: removed the hard-coded
+  `test_session_admin_1` fallback from `InvestorBoardroom.jsx`'s
+  `triggerDownload` (the testing agent flagged it as a dev-token leak risk
+  for production bundles).

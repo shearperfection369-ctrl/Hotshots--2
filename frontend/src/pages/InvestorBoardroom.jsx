@@ -80,9 +80,9 @@ export default function InvestorBoardroom() {
   const triggerDownload = async (path, label, filename) => {
     setDownloading(label);
     try {
-      const token = localStorage.getItem("session_token") || "test_session_admin_1";
+      const token = localStorage.getItem("session_token");
       const r = await fetch(`${REACT_APP_BACKEND_URL}/api${path}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: "include",
       });
       if (!r.ok) throw new Error((await r.text()) || "Download failed");
