@@ -26,6 +26,38 @@ from pydantic import BaseModel
 logger = logging.getLogger("tennant_tms.branding")
 
 
+def _generate_brand_logo(brand: Dict[str, Any]) -> Dict[str, str]:
+    """Generate a brand-themed monogram logo for a newly-created brand.
+    Returns {logo_url, logo_pdf_path} that callers can merge into the doc.
+    Safe to call sync — defers to PIL via the script module."""
+    from pathlib import Path as _Path
+    brand_id = brand.get("brand_id")
+    if not brand_id or brand_id in ("orisei", "orisei-freight", "tennant"):
+        return {}     # hand-designed logos already exist for these
+    try:
+        # Import lazily so module load doesn't depend on PIL being installed
+        import sys as _sys
+        _sys.path.insert(0, "/app/backend/scripts")
+        from generate_brand_logos import _build_logo  # type: ignore
+        public_dir = _Path("/app/frontend/public/brand/logos")
+        pdf_dir = _Path(__file__).resolve().parent / "_brand_logos"
+        public_dir.mkdir(parents=True, exist_ok=True)
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        big = _build_logo(brand, size=512)
+        small = _build_logo(brand, size=200)
+        big_path = public_dir / f"{brand_id}.png"
+        small_path = pdf_dir / f"{brand_id}.png"
+        big.save(big_path, "PNG", optimize=True)
+        small.save(small_path, "PNG", optimize=True)
+        return {
+            "logo_url": f"/brand/logos/{brand_id}.png",
+            "logo_pdf_path": str(small_path),
+        }
+    except Exception as exc:                                          # noqa: BLE001
+        logger.warning("Brand logo generation failed for %s: %s", brand_id, exc)
+        return {}
+
+
 DEFAULT_BRAND = {
     "brand_id": "tennant",
     "company_name": "Tennant Companies",
@@ -218,6 +250,8 @@ def build_branding_router(
             "created_by": user.user_id,
             "created_by_name": user.name,
         }
+        # Generate a brand-themed monogram logo before we persist
+        doc.update(_generate_brand_logo(doc))
         await db.company_brand.update_one({"brand_id": brand_id}, {"$set": doc}, upsert=True)
 
         if payload.activate:

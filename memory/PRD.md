@@ -885,3 +885,41 @@ Subsequent user-requested additions (chronological, all delivered):
   zero outstanding bugs. Honeypot drops bot submissions silently; both PDFs
   render valid `%PDF` with inline disposition; investor-intro persists +
   emails the founder via Resend.
+
+
+## 2026-02-15 (later 9) · Real per-brand logos in every printable document
+- **Bug**: After theme switch, BOL/POD/forms still showed the Orisei
+  Calafia griffin (and Orisei brand kept rendering inside a visible gray
+  bitmap "box" because the source PNG was RGB with no alpha channel).
+- **Fix 1 — generate brand-themed monogram logos** for every non-Orisei
+  brand in `backend/scripts/generate_brand_logos.py`:
+  - 512×512 public-served + 200×200 PDF-optimized PNGs per brand.
+  - Disc gradient using `primary_color → lighten/darken`, accent-color
+    outer ring + thin inner ring, serif-bold monogram (1-2 chars) in the
+    accent color, twin diamond flourishes.
+  - Saved to `/app/frontend/public/brand/logos/{brand_id}.png` (public) and
+    `/app/backend/routes/_brand_logos/{brand_id}.png` (PDF). DB
+    `company_brand` doc updated with `logo_url` + `logo_pdf_path`.
+  - Already generated for: fedex (purple/green), walmart (blue/yellow),
+    acme (slate test).
+- **Fix 2 — auto-generate on new brand creation**: `routes/branding.py`
+  `_generate_brand_logo()` helper invoked from both
+  `POST /api/branding/generate` and `POST /api/branding/manual` so any new
+  brand created in-app immediately gets a proper logo without manual
+  intervention.
+- **Fix 3 — `_brand_logo_path()` fallback chain**: explicit
+  `brand.logo_pdf_path` → auto-generated `/_brand_logos/{brand_id}.png` →
+  inline text monogram (last resort).
+- **Fix 4 — Orisei gray-box repair**: new
+  `backend/scripts/repair_orisei_logo.py` strips both gray (~205,207,206)
+  and white (~255) background pixels from `orisei_logo.png` /
+  `orisei_wordmark.png` using HSV-based "bright + low-saturation" detection,
+  preserves the navy-and-gold griffin pixels, soft-feathers the edges, and
+  saves true RGBA transparency. The wordmark PNG had a navy background; the
+  script auto-detects dark vs. bright backgrounds and switches matching
+  strategies. Original PNGs are backed up to `*.png.bak` for safety.
+- **Verified**: FedEx BOL now embeds the purple/green FedEx-monogrammed
+  logo (1 image on page); Orisei BOL embeds both the griffin disc + the
+  navy wordmark (2 images) with clean transparent edges. Homepage hero
+  shows the griffin floating cleanly inside its blue card with no gray
+  bitmap box.

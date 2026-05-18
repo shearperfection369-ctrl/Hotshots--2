@@ -126,18 +126,33 @@ def _derive_contact_email(brand: Dict[str, Any]) -> str:
     return f"ops@{slug}.com"
 
 
+# Generated brand-monogram logos (per brand_id) — produced by
+# backend/scripts/generate_brand_logos.py. Whenever a new brand is created
+# via /api/branding, we regenerate this folder so PDFs immediately pick up
+# the new brand's color-correct monogram.
+GENERATED_LOGO_DIR = Path(__file__).resolve().parent / "_brand_logos"
+
+
 def _brand_logo_path(brand: Optional[Dict[str, Any]]) -> Optional[Path]:
     """Returns the PDF logo path for the active brand. Orisei → Calafia
-    griffin asset. Other brands → custom logo if `brand.logo_pdf_path` exists,
-    else None so we fall back to a text monogram."""
+    griffin asset. Other brands → custom logo if `brand.logo_pdf_path` is
+    set, else the generated monogram under `_brand_logos/{brand_id}.png`,
+    else None so we fall back to an inline text monogram."""
     if not brand or brand.get("brand_id") in (None, "orisei", "orisei-freight"):
         return LOGO_PATH if LOGO_PATH.exists() else None
+    # Explicit override on the brand doc takes precedence
     p = brand.get("logo_pdf_path") or brand.get("logo_local_path")
     if p:
         path = Path(p)
         if path.exists():
             return path
-    return None  # fall back to text monogram
+    # Fall back to the auto-generated monogram for this brand_id
+    bid = brand.get("brand_id")
+    if bid:
+        gen = GENERATED_LOGO_DIR / f"{bid}.png"
+        if gen.exists():
+            return gen
+    return None  # ultimately falls back to the in-PDF text monogram
 
 
 def _brand_wordmark_path(brand: Optional[Dict[str, Any]]) -> Optional[Path]:
