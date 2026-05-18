@@ -19,6 +19,7 @@ import Integrations from "@/pages/Integrations";
 import Connections from "@/pages/Connections";
 import ProviderOutreach from "@/pages/ProviderOutreach";
 import InvestorBoardroom from "@/pages/InvestorBoardroom";
+import MarketingPack from "@/pages/MarketingPack";
 import Landing from "@/pages/Landing";
 import Services from "@/pages/Services";
 import Lanes from "@/pages/Lanes";
@@ -107,6 +108,7 @@ function AppRouter() {
         <Route path="/connections" element={<Connections />} />
         <Route path="/provider-outreach" element={<ProviderOutreach />} />
         <Route path="/investor-boardroom" element={<InvestorBoardroom />} />
+        <Route path="/marketing-pack" element={<MarketingPack />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/links" element={<QuickLinks />} />

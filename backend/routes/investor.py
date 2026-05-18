@@ -779,7 +779,35 @@ def build_investor_router(*, db, get_current_user: Callable, require_role: Calla
                         _build_financial_model_xlsx(brand, rows, annual))
             # 06 - Cap Table CSV
             zf.writestr(f"06_{short}_Cap_Table.csv", _build_cap_table_csv(brand))
-            # 07 - README index
+            # 07-09 - Marketing collateral (carrier + shipper sell sheets + press release)
+            try:
+                from .marketing import (
+                    _carrier_sell_sheet_md, _shipper_sell_sheet_md, _press_release_md,
+                )
+                zf.writestr(f"07_{short}_Carrier_Sell_Sheet.pdf",
+                            build_branded_markdown_pdf(
+                                _carrier_sell_sheet_md(brand),
+                                title=f"{company} · Carrier Sell Sheet",
+                                subtitle="For carriers we'd like in our network",
+                                brand=brand,
+                            ))
+                zf.writestr(f"08_{short}_Shipper_Sell_Sheet.pdf",
+                            build_branded_markdown_pdf(
+                                _shipper_sell_sheet_md(brand),
+                                title=f"{company} · Shipper Sell Sheet",
+                                subtitle="Operator-built freight brokerage",
+                                brand=brand,
+                            ))
+                zf.writestr(f"09_{short}_Press_Release.pdf",
+                            build_branded_markdown_pdf(
+                                _press_release_md(brand),
+                                title=f"{company} · MC-Launch Press Release",
+                                subtitle="For immediate release",
+                                brand=brand,
+                            ))
+            except Exception as exc:                                  # noqa: BLE001
+                logger.warning("Skipped marketing collateral in data-room: %s", exc)
+            # 10 - README index
             zf.writestr("README.txt",
                         f"{company} · VC Data Room\n"
                         f"Generated {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}\n"
@@ -790,6 +818,9 @@ def build_investor_router(*, db, get_current_user: Callable, require_role: Calla
                         f"  04_{short}_Business_Plan.pdf (if available)\n"
                         f"  05_{short}_Financial_Model.xlsx\n"
                         f"  06_{short}_Cap_Table.csv\n"
+                        f"  07_{short}_Carrier_Sell_Sheet.pdf\n"
+                        f"  08_{short}_Shipper_Sell_Sheet.pdf\n"
+                        f"  09_{short}_Press_Release.pdf\n"
                         f"\nContact: oliver@oriseifreight.com\n")
 
         buf.seek(0)

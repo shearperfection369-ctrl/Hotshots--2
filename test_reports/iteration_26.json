@@ -1,0 +1,30 @@
+{
+  "summary": "Marketing Pack (iter 26) — backend + frontend tests all pass. 12/12 backend pytest cases green, including admin gating, brand-aware PDFs, ZIP bundling, updated investor data-room.zip with 3 marketing PDFs, and FedEx brand swap. Frontend /marketing-pack page renders fully with admin cookie auth: hub, 3 download cards, ZIP button, tabs, 3 LinkedIn posts (incl. hashtag pills + copy), 3 cold-email templates (incl. merge tokens + follow-up + copy buttons + toast). Sidebar nav link present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter26_marketing.py",
+    "/app/test_reports/pytest/iter26_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/marketing.py keeps all editorial copy hard-coded — fine for launch, but consider extracting to a JSON/YAML asset under /app/backend/data/marketing/ so non-engineers can edit posts without a deploy.",
+    "MarketingPack.jsx triggerDownload() reads session_token from localStorage but axios api lib uses withCredentials cookies — duplicated auth strategies; either align both on the cookie or persist token on login to both. Currently works because cookies are set by login flow, but the localStorage fallback may be stale.",
+    "pack.zip rebuilds PDFs synchronously inside the request (5 PDFs ~ 1.5 MB) — fine for admin-only endpoint but consider memoizing by brand_id if traffic grows.",
+    "Hashtag pills/CTA text use accent color on dark navy — contrast is acceptable but borderline for WCAG AA on the smallest font size (10-11px). Consider boosting weight or increasing alpha."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter26_marketing.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin Bearer test_session_admin_1 via Authorization header (backend) and `session_token` cookie + localStorage (frontend).",
+  "seed_data_creation": "None — all marketing content is statically defined in routes/marketing.py.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter26 covers marketing pack. Use /app/backend/tests/test_iter26_marketing.py as regression. Brand-swap test transiently activates FedEx then restores orisei-freight; if a prior test leaves a non-Orisei brand active, run POST /api/branding/activate {brand_id:'orisei-freight'} first. Frontend tests need a session_token cookie set on the preview domain BEFORE navigating — localStorage alone is insufficient because api.js uses withCredentials cookie auth.",
+  "rca of the issue": "N/A — no bugs identified."
+}

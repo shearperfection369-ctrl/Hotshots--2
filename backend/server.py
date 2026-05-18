@@ -8072,6 +8072,14 @@ api_router.include_router(build_investor_router(
     active_brand_doc=_active_brand_doc,
 ))
 
+from routes.marketing import build_marketing_router  # noqa: E402
+api_router.include_router(build_marketing_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+    active_brand_doc=_active_brand_doc,
+))
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 
