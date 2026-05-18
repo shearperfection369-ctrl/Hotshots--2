@@ -8064,6 +8064,14 @@ build_provider_outreach_router(
 build_public_router(api_router=api_router, db=db)
 build_freight_news_router(api_router=api_router, get_current_user=get_current_user)
 
+from routes.investor import build_investor_router  # noqa: E402
+api_router.include_router(build_investor_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+    active_brand_doc=_active_brand_doc,
+))
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 

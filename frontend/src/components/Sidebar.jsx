@@ -5,7 +5,7 @@ import {
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
   DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon,
-  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send
+  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -40,6 +40,7 @@ const NAV = [
   { to: "/integrations", label: "Integrations", icon: Plug, tid: "nav-integrations", roles: ["admin"] },
   { to: "/connections", label: "Connections · Keys", icon: KeyRound, tid: "nav-connections", roles: ["admin"] },
   { to: "/provider-outreach", label: "Provider Outreach", icon: Send, tid: "nav-provider-outreach", roles: ["admin"] },
+  { to: "/investor-boardroom", label: "Investor Boardroom", icon: Briefcase, tid: "nav-investor-boardroom", roles: ["admin"] },
   { to: "/sap-sync", label: "SAP S/4HANA", icon: Database, tid: "nav-sap-sync", roles: ["admin", "dispatcher"] },
   { to: "/powerbi", label: "Power BI", icon: PieChart, tid: "nav-powerbi", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/sharepoint", label: "SharePoint", icon: FolderOpen, tid: "nav-sharepoint", roles: ["admin", "auditor", "dispatcher"] },
