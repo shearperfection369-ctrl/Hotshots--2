@@ -433,15 +433,17 @@ def _build_financial_model_xlsx(brand: Dict[str, Any], rows: List[Dict[str, Any]
     u["A1"].font = Font(name="Calibri", size=14, bold=True, color=primary_hex)
     metrics = [
         ("Avg Revenue per Load (USD)", UNIT_ECONOMICS["avg_revenue_per_load_usd"], '"$"#,##0'),
-        ("Avg Gross Margin %", UNIT_ECONOMICS["avg_gross_margin_pct"], '0.0"%"'),
+        ("Year-1 Gross Margin % (target)", UNIT_ECONOMICS["avg_gross_margin_pct_y1"], '0.0"%"'),
+        ("Mature Gross Margin % (Y3 target)", UNIT_ECONOMICS["avg_gross_margin_pct_mature"], '0.0"%"'),
         ("Avg Gross Profit per Load (USD)", UNIT_ECONOMICS["avg_gross_profit_per_load_usd"], '"$"#,##0'),
         ("Broker Loaded Cost per Load (USD)", UNIT_ECONOMICS["broker_loaded_cost_per_load_usd"], '"$"#,##0'),
         ("Contribution Margin per Load (USD)", UNIT_ECONOMICS["contribution_per_load_usd"], '"$"#,##0'),
         ("Customer Acquisition Cost (USD)", UNIT_ECONOMICS["customer_acquisition_cost_usd"], '"$"#,##0'),
         ("Customer Payback (Loads)", UNIT_ECONOMICS["customer_payback_loads"], '0'),
-        ("Year-3 LTV per Customer (USD)", UNIT_ECONOMICS["ltv_per_customer_year3_usd"], '"$"#,##0'),
+        ("3-Yr LTV per Customer (USD)", UNIT_ECONOMICS["ltv_per_customer_3yr_usd"], '"$"#,##0'),
         ("LTV / CAC Ratio", UNIT_ECONOMICS["ltv_cac_ratio"], '0.0"x"'),
         ("Rule-of-40 (Year 3) %", UNIT_ECONOMICS["rule_of_40_year3_pct"], '0"%"'),
+        ("EBITDA Break-even Month", UNIT_ECONOMICS["monthly_ebitda_breakeven_month"], '0" mo"'),
     ]
     for i, (label, val, fmt) in enumerate(metrics, start=3):
         u.cell(row=i, column=1, value=label).font = Font(bold=True)
@@ -519,6 +521,7 @@ def _deck_markdown(brand: Dict[str, Any], probability: Dict[str, Any]) -> str:
     tagline = brand.get("tagline") or "Operator-built freight brokerage · Minneapolis · Saint Paul"
     founder = brand.get("owner_name") or "Oliver Cummins"
     annual = _annual_summary(_financial_model_rows())
+    ue_breakeven = UNIT_ECONOMICS["monthly_ebitda_breakeven_month"]
     return f"""# {company} · VC Pitch Deck
 
 ## 1. Cover · The 30-Second Pitch
@@ -617,22 +620,24 @@ Full monthly model in the data-room XLSX.
 > These are the **target** unit economics built into our financial model,
 > not realized values — we're pre-revenue today.
 - Avg revenue per load: **${UNIT_ECONOMICS['avg_revenue_per_load_usd']:,}** (DAT 2024 spot-blend reference)
-- Gross margin target: **{UNIT_ECONOMICS['avg_gross_margin_pct']}%** (TIA broker median: 15.5%)
+- Year-1 gross margin target: **{UNIT_ECONOMICS['avg_gross_margin_pct_y1']}%** (new-broker reality; TIA mature median: 15.5%)
+- Year-3 gross margin target: **{UNIT_ECONOMICS['avg_gross_margin_pct_mature']}%** (industry median)
 - Contribution per load: **${UNIT_ECONOMICS['contribution_per_load_usd']}** (target)
-- CAC: **${UNIT_ECONOMICS['customer_acquisition_cost_usd']}** (target)
-- LTV / CAC: **{UNIT_ECONOMICS['ltv_cac_ratio']}x** (target)
+- CAC: **${UNIT_ECONOMICS['customer_acquisition_cost_usd']:,}** (cold-start target)
+- LTV / CAC: **{UNIT_ECONOMICS['ltv_cac_ratio']}x** (3-yr target)
 - Customer payback: **{UNIT_ECONOMICS['customer_payback_loads']} loads** (target)
+- EBITDA break-even: **Month {UNIT_ECONOMICS['monthly_ebitda_breakeven_month']}** (target)
 
 ## 11. Projected Probability of Success
 > Forward-looking projection — not historical performance.
 - **{probability['score_pct']}%** — projected Year-1 survival probability for
   {short} given current capital, operator experience, and tooling. Computed
-  via a research-validated weighted scorecard (industry base survival +
-  capital + experience + tooling + authority + factoring + carrier pool +
-  lane focus).
+  via a weighted scorecard (industry base survival + capital + experience +
+  tooling + authority + factoring + carrier pool + lane focus). Capped at
+  90% — the freight market has irreducible volatility no setup can erase.
 - **Band: {probability['band']}** — {probability['band_note']}
-- Operator-grade TMS alone adds an estimated **+9 percentage points** of
-  Year-1 survival lift over paper-broker baselines (FreightWaves 2024).
+- Operator-grade TMS contributes an estimated **+5 pts** of Year-1 survival
+  lift over paper-broker baselines (operator estimate, not peer-reviewed).
 
 ## 12. Competition
 - **Mega 3PLs (CHR, XPO, Echo, Coyote)**: scale + balance sheet, but no
@@ -648,9 +653,9 @@ Full monthly model in the data-room XLSX.
   load-board subscriptions, founder runway, marketing, and quick-pay
   working capital.
 - **Post-raise milestone targets**:
-  - First paying shipper within **30 days** of close.
+  - First paying shipper within **30–60 days** of close.
   - **Carrier network of 300+** by Day 90.
-  - **Break-even targeted by Month 9** of operations.
+  - **EBITDA break-even targeted by Month {ue_breakeven}** (honest baseline).
 
 ## 14. What's De-Risked (vs. typical pre-revenue brokerages)
 - TMS Command Deck **shipped and operating** (this very platform). No
@@ -705,9 +710,9 @@ documentation discipline that big 3PLs still can't deliver.
 - **Year 3 (Target)**: ${annual[2]['revenue_usd']:,.0f} revenue · {annual[2]['ebitda_margin_pct']}% EBITDA
 
 ## Target Unit Economics
-- ${UNIT_ECONOMICS['avg_gross_profit_per_load_usd']} gross profit per load (target) · LTV/CAC **{UNIT_ECONOMICS['ltv_cac_ratio']}x** (target)
-- **2-load payback** on customer acquisition cost (target)
-- Operator-grade TMS adds **+9 pt projected survival lift** over paper-broker baseline
+- ${UNIT_ECONOMICS['avg_gross_profit_per_load_usd']} gross profit per load (Y1 target) · LTV/CAC **{UNIT_ECONOMICS['ltv_cac_ratio']}x** (3-yr target)
+- **{UNIT_ECONOMICS['customer_payback_loads']}-load payback** on customer acquisition cost (target)
+- Operator-grade TMS adds an estimated **+5 pt** Year-1 survival lift over paper-broker baseline *(operator estimate)*
 
 ## What's Already De-Risked
 - TMS Command Deck shipped and operating in production
@@ -717,7 +722,7 @@ documentation discipline that big 3PLs still can't deliver.
 
 ## The Ask
 **$500,000 SAFE @ $4.0M cap, 20% discount.** Targeting first paying shipper
-within 30 days of close, break-even by Month 9.
+within 30–60 days of close, EBITDA break-even by Month {UNIT_ECONOMICS['monthly_ebitda_breakeven_month']}.
 
 ## Contact
 **{founder}** · Founder & Principal Broker

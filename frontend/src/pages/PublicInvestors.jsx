@@ -70,6 +70,8 @@ export default function PublicInvestors() {
     month: m.month, Revenue: m.revenue_usd,
   })), [data]);
 
+  const status = data?.current_status;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0B1320] text-white">
@@ -106,6 +108,16 @@ export default function PublicInvestors() {
               load queue, auto-stamped BOLs, dock-photo PODs, and same-day quick-pay —
               built to take share from the mega-3PLs that have forgotten what shippers want.
             </p>
+            {status?.stage_short && (
+              <div className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border-2"
+                   style={{ borderColor: "#FBBF24", background: "rgba(251,191,36,0.12)" }}
+                   data-testid="public-stage-pill">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-amber-300">
+                  {status.stage} · all figures forward-looking
+                </span>
+              </div>
+            )}
             <div className="mt-7 flex flex-wrap gap-3">
               <a href={deckUrl} target="_blank" rel="noopener noreferrer"
                  data-testid="public-investors-download-deck"
@@ -197,9 +209,9 @@ export default function PublicInvestors() {
       {/* FINANCIAL TRAJECTORY */}
       <section className="border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6 py-14">
-          <div className="text-[10px] font-mono uppercase tracking-[0.25em] mb-2" style={{ color: accent }}>3-year trajectory</div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.25em] mb-2" style={{ color: accent }}>3-year forecast · forward-looking targets</div>
           <h2 className="font-display text-3xl md:text-4xl font-black mb-8">
-            From bootstrap to <span style={{ color: accent }}>${(data.trajectory[2].revenue_usd / 1_000_000).toFixed(1)}M</span> revenue and <span style={{ color: accent }}>{data.trajectory[2].ebitda_margin_pct}%</span> EBITDA by Year 3.
+            From <span style={{ color: accent }}>pre-revenue today</span> to <span style={{ color: accent }}>${(data.trajectory[2].revenue_usd / 1_000_000).toFixed(1)}M</span> revenue and <span style={{ color: accent }}>{data.trajectory[2].ebitda_margin_pct}%</span> EBITDA by Year 3.
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             {data.trajectory.map((y) => (
@@ -254,8 +266,9 @@ export default function PublicInvestors() {
               <span style={{ color: accent }}>${(data.ask.amount_usd / 1000).toFixed(0)}K</span> SAFE at a <span style={{ color: accent }}>${(data.ask.valuation_cap_usd / 1_000_000).toFixed(1)}M cap</span> with a {data.ask.discount_pct}% discount.
             </h2>
             <p className="mt-5 text-slate-300 leading-relaxed max-w-md">
-              First paying shipper within 30 days of close. Carrier network of 300+ by Day 90.
-              Break-even by Month 9. Operating control retained.
+              First paying shipper within 30–60 days of close. Carrier network of
+              300+ by Day 90. EBITDA break-even by Month 22 on the honest
+              bootstrap baseline. Operating control retained.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <a href={deckUrl} target="_blank" rel="noopener noreferrer"
@@ -309,6 +322,33 @@ export default function PublicInvestors() {
           </div>
         </div>
       </section>
+
+      {/* KEY RISKS — RADICAL TRANSPARENCY */}
+      {status?.key_risks?.length > 0 && (
+        <section className="border-b border-white/5" data-testid="public-key-risks">
+          <div className="max-w-6xl mx-auto px-6 py-14">
+            <div className="text-[10px] font-mono uppercase tracking-[0.25em] mb-2" style={{ color: "#FBBF24" }}>Key risks · radical transparency</div>
+            <h2 className="font-display text-3xl md:text-4xl font-black mb-3">
+              What can go wrong — and what we're <span style={{ color: accent }}>actively modeling</span>.
+            </h2>
+            <p className="text-slate-400 mb-7 max-w-2xl">
+              No spin. These are the dominant risks baked into the financial
+              model. Every investor will ask; we'd rather you see our answers
+              up front.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {status.key_risks.map((r, i) => (
+                <div key={i} className="flex items-start gap-3 px-4 py-4 rounded-md border bg-white/[0.02]"
+                     style={{ borderColor: "rgba(251,191,36,0.25)" }}
+                     data-testid={`public-risk-${i}`}>
+                  <span className="text-amber-400 font-mono font-bold flex-shrink-0">▶</span>
+                  <div className="text-sm text-slate-200 leading-relaxed">{r}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* INVESTOR INTRO FORM */}
       <section id="intro" className="border-b border-white/5" data-testid="public-intro-form-section">

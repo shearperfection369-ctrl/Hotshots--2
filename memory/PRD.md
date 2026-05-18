@@ -887,6 +887,69 @@ Subsequent user-requested additions (chronological, all delivered):
   emails the founder via Resend.
 
 
+## 2026-02-18 · Brutally Honest VC Package · Pre-Revenue Framing
+- **Rewrote investor financials to reflect actual pre-revenue / pre-launch
+  reality** so the VC package is due-diligence-ready and won't blow up the
+  moment a real GP starts pulling threads.
+- `routes/investor.py` changes:
+  - NEW `CURRENT_STATUS` dict surfaces `stage="Pre-revenue · Pre-launch"`,
+    `live_loads_booked=0`, `live_revenue_usd=0`, `built_to_date` (6 items
+    already in production), `filed_in_progress` (3 items pending raise),
+    and `key_risks` (6 honest risks).
+  - `_financial_model_rows()` reset to honest cold-start ramp: Y1 M1–M3 = 0
+    loads (authority filing period), Y1 total = ~144 loads ($310K revenue);
+    Y2 = ~579 loads; Y3 = ~1,189 loads at industry-median 15% gross margin.
+    Y3 EBITDA modeled at +$157K / 6% margin (was prior $441K / 23%).
+  - Gross-margin keys renamed to be explicit: `avg_gross_margin_pct_y1`
+    (10%, new-broker reality), `avg_gross_margin_pct_mature` (15%, industry
+    median by Y3). LTV renamed to `ltv_per_customer_3yr_usd` ($6,500).
+    Break-even moved from Month 9 → Month 22 (honest).
+  - Probability cap lowered 99% → **90%** to reflect irreducible freight-
+    market volatility (recessions, fuel shocks, key-customer bankruptcies).
+    TMS contribution dropped from +9pts → +5pts (operator estimate, not
+    peer-reviewed). Industry-benchmark key renamed
+    `ai_powered_broker_success_lift_pct` → `ai_tooling_estimated_lift_pct`
+    + new `honesty_note` field.
+  - Deck markdown + one-pager rewritten to explicitly tag every Y1/Y2/Y3
+    number as "Forecast" / "Target" — never as realized revenue. Added
+    section 5 "Current Status (the honest read)" listing built vs. filed
+    work + carrier/shipper counts at zero.
+  - **Bug fix**: XLSX builder + deck markdown were crashing on stale keys
+    `UNIT_ECONOMICS['avg_gross_margin_pct']` / `ltv_per_customer_year3_usd`
+    after the rename. Both repaired; downloads now succeed.
+- `InvestorBoardroom.jsx`:
+  - NEW `pre-revenue-banner` (amber-bordered) at top of page with stage
+    pill, 4 live-zero stats (loads/revenue/carriers/shippers), built-to-
+    date + filed-in-progress lists.
+  - Unit-economics card extended to 12 metrics including Y1 + Y3 gross
+    margin, break-even month, Y3 EBITDA-margin target, honesty note.
+  - Industry benchmark card now shows `ai_tooling_estimated_lift_pct`
+    (+5pt, marked operator estimate) and surfaces the
+    benchmarks `honesty_note` italicized below sources.
+  - NEW red-bordered `key-risks-card` listing all 6 honest risks (customer
+    acquisition slippage, gross-margin compression, carrier liquidity,
+    freight-market cycle, customer concentration, authority timing).
+- `PublicInvestors.jsx`:
+  - Animated `public-stage-pill` ("PRE-REVENUE · PRE-LAUNCH · ALL FIGURES
+    FORWARD-LOOKING") prominently rendered under the hero subhead.
+  - NEW `public-key-risks` section with 6 risk cards above the intro form.
+  - Y3 trajectory headline reframed: "From pre-revenue today to $2.6M
+    revenue and 6.1% EBITDA by Year 3" (was: bootstrap-to-$3.8M @ 23%).
+  - Probability badge now caps at **90% STRONG** instead of 99%.
+
+### Tests
+- `/app/test_reports/iteration_28.json` — 16/16 backend pytest pass.
+- `/app/backend/tests/test_iter28_investor_honesty.py` — 5 test classes
+  covering current_status block, renamed unit-economics keys, renamed
+  industry-benchmark keys, probability cap at 90, fragile-band scoring,
+  XLSX/PDF/ZIP regression, public investor summary, marketing-pack
+  regression.
+- Frontend `/investors` public: visually verified — stage pill, 6 risk
+  cards, 90% STRONG badge (no 99% anywhere), Y3 ~$2.6M trajectory.
+- Frontend `/investor-boardroom` admin: 13/13 data-testids present in
+  DOM, 0 console errors.
+
+
 ## 2026-02-15 (later 9) · Real per-brand logos in every printable document
 - **Bug**: After theme switch, BOL/POD/forms still showed the Orisei
   Calafia griffin (and Orisei brand kept rendering inside a visible gray

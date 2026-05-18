@@ -131,6 +131,10 @@ export default function InvestorBoardroom() {
 
   const band = scoreResult?.band || "WORKABLE";
   const bandColor = BAND_COLORS[band];
+  const status = data.current_status || {};
+  const risks = status.key_risks || [];
+  const ue = data.unit_economics || {};
+  const ib = data.industry_benchmarks || {};
 
   return (
     <>
@@ -139,6 +143,54 @@ export default function InvestorBoardroom() {
         subtitle="VC-grade analytics · TAM/SAM/SOM · Financial Projections · Success Probability"
       />
       <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+
+        {/* PRE-REVENUE HONESTY BANNER */}
+        {status.stage_short && (
+          <Card className="hud-surface p-5 border-2"
+                style={{ borderColor: "#FBBF24", background: "rgba(251,191,36,0.06)" }}
+                data-testid="pre-revenue-banner">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={22} className="text-amber-400 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400" data-testid="stage-pill">
+                  Stage · {status.stage_short}
+                </div>
+                <div className="font-display text-xl font-bold mt-1 text-white">{status.stage}</div>
+                <p className="text-sm text-slate-300 mt-2 leading-relaxed">{status.tagline}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
+                  <LiveStat label="Live loads booked" value={status.live_loads_booked ?? 0} />
+                  <LiveStat label="Live revenue" value={`$${(status.live_revenue_usd ?? 0).toLocaleString()}`} />
+                  <LiveStat label="Carrier network" value={status.live_carrier_network_size ?? 0} />
+                  <LiveStat label="Shipper accounts" value={status.live_shipper_count ?? 0} />
+                </div>
+                {(status.built_to_date?.length || status.filed_in_progress?.length) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    {status.built_to_date?.length > 0 && (
+                      <div data-testid="built-to-date">
+                        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-400 mb-2">Built · in production today</div>
+                        <ul className="space-y-1 text-xs text-slate-300">
+                          {status.built_to_date.map((b, i) => (
+                            <li key={i} className="flex items-start gap-1.5"><span className="text-emerald-400">✓</span>{b}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {status.filed_in_progress?.length > 0 && (
+                      <div data-testid="filed-in-progress">
+                        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-400 mb-2">Filed · in progress · post-raise</div>
+                        <ul className="space-y-1 text-xs text-slate-300">
+                          {status.filed_in_progress.map((b, i) => (
+                            <li key={i} className="flex items-start gap-1.5"><span className="text-amber-400">→</span>{b}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* DATA-ROOM DOWNLOAD ACTIONS */}
         <Card className="hud-surface p-5" style={{ borderColor: `${accent}33` }} data-testid="dataroom-card">
@@ -312,16 +364,24 @@ export default function InvestorBoardroom() {
             <div className="text-[10px] font-mono uppercase tracking-[0.2em]" style={{ color: accent }}>Unit Economics</div>
             <h3 className="font-display text-xl font-bold mt-1 mb-4 text-white flex items-center gap-2"><TrendingUp size={18} style={{ color: accent }} /> Per-load + per-customer</h3>
             <div className="grid grid-cols-2 gap-3">
-              <UeMetric label="Rev / load" value={`$${data.unit_economics.avg_revenue_per_load_usd.toLocaleString()}`} />
-              <UeMetric label="Gross margin" value={`${data.unit_economics.avg_gross_margin_pct}%`} />
-              <UeMetric label="Gross profit / load" value={`$${data.unit_economics.avg_gross_profit_per_load_usd}`} />
-              <UeMetric label="Contribution / load" value={`$${data.unit_economics.contribution_per_load_usd}`} />
-              <UeMetric label="CAC" value={`$${data.unit_economics.customer_acquisition_cost_usd}`} />
-              <UeMetric label="Payback" value={`${data.unit_economics.customer_payback_loads} loads`} />
-              <UeMetric label="LTV (Y3)" value={`$${data.unit_economics.ltv_per_customer_year3_usd.toLocaleString()}`} />
-              <UeMetric label="LTV / CAC" value={`${data.unit_economics.ltv_cac_ratio}x`} highlight={accent} />
-              <UeMetric label="Rule-of-40 (Y3)" value={`${data.unit_economics.rule_of_40_year3_pct}%`} highlight={accent} />
+              <UeMetric label="Rev / load" value={`$${ue.avg_revenue_per_load_usd?.toLocaleString() || "—"}`} />
+              <UeMetric label="Y1 gross margin" value={`${ue.avg_gross_margin_pct_y1 ?? "—"}%`} />
+              <UeMetric label="Y3 gross margin" value={`${ue.avg_gross_margin_pct_mature ?? "—"}%`} highlight={accent} />
+              <UeMetric label="Gross profit / load" value={`$${ue.avg_gross_profit_per_load_usd ?? "—"}`} />
+              <UeMetric label="Contribution / load" value={`$${ue.contribution_per_load_usd ?? "—"}`} />
+              <UeMetric label="CAC (cold-start)" value={`$${ue.customer_acquisition_cost_usd?.toLocaleString() || "—"}`} />
+              <UeMetric label="Payback" value={`${ue.customer_payback_loads ?? "—"} loads`} />
+              <UeMetric label="3-yr LTV" value={`$${ue.ltv_per_customer_3yr_usd?.toLocaleString() || "—"}`} />
+              <UeMetric label="LTV / CAC" value={`${ue.ltv_cac_ratio ?? "—"}x`} highlight={accent} />
+              <UeMetric label="Break-even mo." value={`Month ${ue.monthly_ebitda_breakeven_month ?? "—"}`} />
+              <UeMetric label="Rule-of-40 (Y3)" value={`${ue.rule_of_40_year3_pct ?? "—"}%`} />
+              <UeMetric label="Y3 EBITDA margin" value={`${ue.year3_ebitda_margin_target_pct ?? "—"}%`} />
             </div>
+            {ue.honesty_note && (
+              <div className="text-[10px] text-slate-500 mt-3 italic leading-relaxed" data-testid="ue-honesty-note">
+                {ue.honesty_note}
+              </div>
+            )}
           </Card>
         </div>
 
@@ -330,15 +390,40 @@ export default function InvestorBoardroom() {
           <div className="text-[10px] font-mono uppercase tracking-[0.2em]" style={{ color: accent }}>Industry Reality Check</div>
           <h3 className="font-display text-xl font-bold mt-1 mb-3 text-white flex items-center gap-2"><AlertTriangle size={18} className="text-amber-400" /> Why most freight brokerages fail</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatBlock big={`${data.industry_benchmarks.broker_failure_year1_pct}%`} label="Y1 broker failure" sub="SBA + TIA 2023" />
-            <StatBlock big={`${data.industry_benchmarks.broker_failure_year3_pct}%`} label="By-Y3 broker failure" sub="SBA 2023" />
-            <StatBlock big={`${data.industry_benchmarks.broker_success_year5_pct}%`} label="Y5 surviving + CFP" sub="SBA 2023" />
-            <StatBlock big={`+${data.industry_benchmarks.ai_powered_broker_success_lift_pct}pt`} label="TMS survival lift" sub="FreightWaves 2024" highlight={accent} />
+            <StatBlock big={`${ib.broker_failure_year1_pct ?? "—"}%`} label="Y1 broker failure" sub="SBA + TIA 2023" />
+            <StatBlock big={`${ib.broker_failure_year3_pct ?? "—"}%`} label="By-Y3 broker failure" sub="SBA 2023" />
+            <StatBlock big={`${ib.broker_success_year5_pct ?? "—"}%`} label="Y5 surviving + CFP" sub="SBA 2023" />
+            <StatBlock big={`+${ib.ai_tooling_estimated_lift_pct ?? "—"}pt`} label="TMS survival lift (est.)" sub="Operator estimate · not peer-reviewed" highlight={accent} />
           </div>
           <div className="mt-4 text-xs text-slate-500">
-            Sources: {data.industry_benchmarks.sources.join(" · ")}
+            Sources: {(ib.sources || []).join(" · ")}
           </div>
+          {ib.honesty_note && (
+            <div className="mt-3 text-[10px] text-slate-500 italic leading-relaxed" data-testid="benchmarks-honesty-note">
+              {ib.honesty_note}
+            </div>
+          )}
         </Card>
+
+        {/* KEY RISKS — TRANSPARENCY */}
+        {risks.length > 0 && (
+          <Card className="hud-surface p-6 border-2"
+                style={{ borderColor: "rgba(239,68,68,0.5)", background: "rgba(239,68,68,0.04)" }}
+                data-testid="key-risks-card">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-red-400">Key Risks · Transparency</div>
+            <h3 className="font-display text-xl font-bold mt-1 mb-3 text-white flex items-center gap-2">
+              <AlertTriangle size={18} className="text-red-400" /> What can go wrong (and what we're modeling)
+            </h3>
+            <ul className="space-y-2">
+              {risks.map((r, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-slate-200" data-testid={`risk-${i}`}>
+                  <span className="text-red-400 font-mono font-bold flex-shrink-0">▶</span>
+                  <span className="leading-relaxed">{r}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
       </div>
     </>
@@ -440,6 +525,15 @@ function StatBlock({ big, label, sub, highlight }) {
       <div className="font-display text-3xl font-black tabular-nums" style={highlight ? { color: highlight } : { color: "#fff" }}>{big}</div>
       <div className="text-xs text-slate-300 mt-1">{label}</div>
       <div className="text-[9px] text-slate-500 mt-0.5">{sub}</div>
+    </div>
+  );
+}
+
+function LiveStat({ label, value }) {
+  return (
+    <div className="p-3 rounded-md border border-amber-400/20 bg-amber-400/5">
+      <div className="text-[9px] font-mono uppercase tracking-wider text-amber-400/80">{label}</div>
+      <div className="font-display font-black text-xl mt-1 text-white tabular-nums">{value}</div>
     </div>
   );
 }
