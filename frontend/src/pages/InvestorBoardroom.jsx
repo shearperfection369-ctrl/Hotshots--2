@@ -14,8 +14,9 @@ import {
 } from "recharts";
 import {
   Download, FileSpreadsheet, FileText, Archive, Briefcase, TrendingUp,
-  Target, Sparkles, AlertTriangle,
+  Target, Sparkles, AlertTriangle, Stamp,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 
 const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -49,6 +50,12 @@ export default function InvestorBoardroom() {
   const [inputs, setInputs] = useState(DEFAULT_INPUTS);
   const [scoreResult, setScoreResult] = useState(null);
   const [downloading, setDownloading] = useState(null);
+  const [personalizeOpen, setPersonalizeOpen] = useState(false);
+  const [personalize, setPersonalize] = useState({
+    firm_name: "", contact_name: "", prepared_date: "", doc_type: "deck",
+  });
+  const [generating, setGenerating] = useState(false);
+  const [personalizedHistory, setPersonalizedHistory] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -100,6 +107,72 @@ export default function InvestorBoardroom() {
       toast.error(`${label} failed: ${e.message || e}`);
     } finally {
       setDownloading(null);
+    }
+  };
+
+  const fetchPersonalizedHistory = async () => {
+    try {
+      const { data: h } = await api.get("/investor/personalized-outreach");
+      setPersonalizedHistory(h.items || []);
+    } catch (e) { /* noop */ }
+  };
+
+  const openPersonalize = () => {
+    setPersonalizeOpen(true);
+    fetchPersonalizedHistory();
+  };
+
+  const submitPersonalize = async () => {
+    if (!personalize.firm_name.trim()) {
+      toast.error("Firm name is required");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const token = localStorage.getItem("session_token");
+      const endpointMap = {
+        "deck": "/investor/personalized-deck.pdf",
+        "one-pager": "/investor/personalized-one-pager.pdf",
+        "zip": "/investor/personalized-data-room.zip",
+      };
+      const labelMap = {
+        "deck": "Pitch Deck", "one-pager": "One-Pager", "zip": "Full data room",
+      };
+      const extMap = { "deck": "pdf", "one-pager": "pdf", "zip": "zip" };
+      const path = endpointMap[personalize.doc_type] || endpointMap.deck;
+      const r = await fetch(`${REACT_APP_BACKEND_URL}/api${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          firm_name: personalize.firm_name.trim(),
+          contact_name: personalize.contact_name.trim() || null,
+          prepared_date: personalize.prepared_date.trim() || null,
+          doc_type: personalize.doc_type,
+        }),
+      });
+      if (!r.ok) {
+        const txt = await r.text();
+        throw new Error(txt || `HTTP ${r.status}`);
+      }
+      const blob = await r.blob();
+      const firmSlug = personalize.firm_name.replace(/[^A-Za-z0-9_-]+/g, "_");
+      const filename = `${company.replace(/ /g, "_")}_${labelMap[personalize.doc_type].replace(/ /g, "_")}_for_${firmSlug}.${extMap[personalize.doc_type]}`;
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`Personalized ${labelMap[personalize.doc_type]} downloaded for ${personalize.firm_name}`);
+      fetchPersonalizedHistory();
+    } catch (e) {
+      toast.error(`Generation failed: ${e.message || e}`);
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -213,6 +286,26 @@ export default function InvestorBoardroom() {
             >
               <Archive size={14} className="mr-2" />
               {downloading === "Full data-room ZIP" ? "Bundling…" : "Download Full Data Room (ZIP)"}
+            </Button>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between flex-wrap gap-3 px-3 py-3 rounded-lg border-2 border-dashed"
+               style={{ borderColor: `${accent}55`, background: `${accent}08` }}>
+            <div className="flex items-start gap-3">
+              <Stamp size={20} style={{ color: accent, flexShrink: 0 }} className="mt-0.5" />
+              <div>
+                <div className="text-sm font-bold text-white">Personalize for a specific VC firm</div>
+                <div className="text-xs text-slate-400 mt-0.5">Stamps "Confidential · Prepared for [Firm]" on every page + a diagonal CONFIDENTIAL watermark. The kind of small touch GPs notice.</div>
+              </div>
+            </div>
+            <Button
+              onClick={openPersonalize}
+              variant="outline"
+              className="border-2 font-bold"
+              style={{ borderColor: accent, color: accent, background: "transparent" }}
+              data-testid="personalize-for-vc-button"
+            >
+              <Stamp size={14} className="mr-2" /> Personalize for VC
             </Button>
           </div>
 
@@ -426,6 +519,131 @@ export default function InvestorBoardroom() {
         )}
 
       </div>
+
+      {/* PERSONALIZE FOR VC DIALOG */}
+      <Dialog open={personalizeOpen} onOpenChange={setPersonalizeOpen}>
+        <DialogContent className="max-w-2xl bg-[#0B1320] border-2 text-white"
+                       style={{ borderColor: accent }} data-testid="personalize-dialog">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl" style={{ color: accent }}>
+              <Stamp size={20} className="inline mr-2" /> Personalize for a VC firm
+            </DialogTitle>
+            <p className="text-sm text-slate-400 mt-1">
+              Every page gets a "<b>Confidential · Prepared for [Firm]</b>" banner plus
+              a faint diagonal CONFIDENTIAL watermark. Audit-logged. The XLSX + CSV stay
+              clean for analyst-side modeling.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-400">
+                VC firm name <span style={{ color: accent }}>*</span>
+              </Label>
+              <Input
+                value={personalize.firm_name}
+                onChange={(e) => setPersonalize({ ...personalize, firm_name: e.target.value })}
+                placeholder="e.g. Greylock Partners"
+                data-testid="personalize-firm-name"
+                className="mt-1 bg-[#0F1A2E] border-white/10"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-400">
+                  Partner / GP (optional)
+                </Label>
+                <Input
+                  value={personalize.contact_name}
+                  onChange={(e) => setPersonalize({ ...personalize, contact_name: e.target.value })}
+                  placeholder="e.g. Reid Hoffman"
+                  data-testid="personalize-contact"
+                  className="mt-1 bg-[#0F1A2E] border-white/10"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-400">
+                  Prepared date (optional)
+                </Label>
+                <Input
+                  value={personalize.prepared_date}
+                  onChange={(e) => setPersonalize({ ...personalize, prepared_date: e.target.value })}
+                  placeholder={`defaults to ${new Date().toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`}
+                  data-testid="personalize-date"
+                  className="mt-1 bg-[#0F1A2E] border-white/10"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-400 mb-2 block">
+                What to generate
+              </Label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: "deck", label: "Pitch Deck", sub: "15 sections · PDF" },
+                  { key: "one-pager", label: "One-Pager", sub: "At-a-glance · PDF" },
+                  { key: "zip", label: "Full Data Room", sub: "All 6 docs · ZIP" },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setPersonalize({ ...personalize, doc_type: opt.key })}
+                    data-testid={`personalize-doctype-${opt.key}`}
+                    className="text-left p-3 rounded-lg border-2 transition"
+                    style={{
+                      borderColor: personalize.doc_type === opt.key ? accent : "rgba(255,255,255,0.08)",
+                      background: personalize.doc_type === opt.key ? `${accent}1a` : "rgba(255,255,255,0.02)",
+                    }}
+                  >
+                    <div className="font-bold text-sm" style={{ color: personalize.doc_type === opt.key ? accent : "#fff" }}>
+                      {opt.label}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">{opt.sub}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {personalizedHistory.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-400 mb-2">
+                  Recent personalized sends · {personalizedHistory.length}
+                </div>
+                <div className="max-h-32 overflow-y-auto space-y-1" data-testid="personalize-history">
+                  {personalizedHistory.slice(0, 8).map((h, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-white/[0.02]">
+                      <div>
+                        <span className="font-bold text-slate-200">{h.firm_name}</span>
+                        {h.contact_name && <span className="text-slate-500"> · {h.contact_name}</span>}
+                        <span className="ml-2 text-[9px] font-mono uppercase text-slate-500">{h.doc_type}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-mono">
+                        {h.generated_at?.slice(0, 10)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPersonalizeOpen(false)} className="text-slate-300"
+                    data-testid="personalize-cancel">
+              Cancel
+            </Button>
+            <Button
+              onClick={submitPersonalize}
+              disabled={generating || !personalize.firm_name.trim()}
+              className="font-bold text-black"
+              style={{ background: accent }}
+              data-testid="personalize-generate"
+            >
+              {generating ? "Generating…" : <><Download size={14} className="mr-2" /> Generate & Download</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

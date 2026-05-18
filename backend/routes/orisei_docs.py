@@ -206,13 +206,20 @@ def _theme(brand: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
 
 
 # ---------- Page decoration ----------
-def _draw_heraldic_border(theme: Dict[str, Any]):
-    """Returns a `onPage` callback that draws the brand-themed border + footer."""
+def _draw_heraldic_border(theme: Dict[str, Any], personalization: Optional[Dict[str, Any]] = None):
+    """Returns a `onPage` callback that draws the brand-themed border + footer.
+
+    When `personalization` is supplied (e.g. {"firm_name": "Greylock Partners",
+    "contact_name": "Reid Hoffman", "prepared_date": "18 Feb 2026"}), a discreet
+    "Confidential · Prepared for {firm} · {date}" banner is drawn at the top of
+    every page and a faint diagonal watermark is laid behind the content.
+    """
     azure = theme["azure"]
     gold = theme["gold"]
     gold_light = theme["gold_light"]
     slate = theme["slate"]
     footer_text = theme["footer"]
+    p = personalization or None
 
     def _on_page(canvas: Canvas, doc: BaseDocTemplate) -> None:
         canvas.saveState()
@@ -263,6 +270,34 @@ def _draw_heraldic_border(theme: Dict[str, Any]):
         canvas.setFillColor(azure)
         canvas.circle(width / 2 - 4.0 * inch, 0.235 * inch, 1.2, stroke=0, fill=1)
         canvas.circle(width / 2 + 4.0 * inch, 0.235 * inch, 1.2, stroke=0, fill=1)
+
+        # ---- Personalization overlay (only when supplied) ----
+        if p:
+            firm = (p.get("firm_name") or "").strip()
+            contact = (p.get("contact_name") or "").strip()
+            prepared = (p.get("prepared_date") or "").strip()
+            if firm or contact or prepared:
+                # Diagonal CONFIDENTIAL watermark behind content
+                if firm:
+                    canvas.saveState()
+                    canvas.setFillColor(colors.Color(gold.red, gold.green, gold.blue, alpha=0.07))
+                    canvas.translate(width / 2, height / 2)
+                    canvas.rotate(35)
+                    canvas.setFont("Helvetica-Bold", 72)
+                    canvas.drawCentredString(0, 0, f"CONFIDENTIAL · {firm.upper()}")
+                    canvas.restoreState()
+                # Top "Prepared for" banner (above outer border)
+                bits: List[str] = ["CONFIDENTIAL"]
+                if firm:
+                    bits.append(f"Prepared for {firm}")
+                if contact:
+                    bits.append(f"Attn: {contact}")
+                if prepared:
+                    bits.append(prepared)
+                banner_text = "  ·  ".join(bits)
+                canvas.setFillColor(azure)
+                canvas.setFont("Helvetica-Bold", 7.5)
+                canvas.drawCentredString(width / 2, height - 0.22 * inch, banner_text)
         canvas.restoreState()
     return _on_page
 
@@ -448,7 +483,8 @@ def _signature_block(theme: Dict[str, Any], *, signed_label: str = "Authorized S
     return t
 
 
-def _build_doc(buf: io.BytesIO, title: str, theme: Dict[str, Any]) -> BaseDocTemplate:
+def _build_doc(buf: io.BytesIO, title: str, theme: Dict[str, Any],
+               personalization: Optional[Dict[str, Any]] = None) -> BaseDocTemplate:
     doc = BaseDocTemplate(
         buf, pagesize=letter,
         leftMargin=0.6 * inch, rightMargin=0.6 * inch,
@@ -459,7 +495,7 @@ def _build_doc(buf: io.BytesIO, title: str, theme: Dict[str, Any]) -> BaseDocTem
                   letter[0] - 1.2 * inch, letter[1] - 1.1 * inch,
                   showBoundary=0)
     doc.addPageTemplates([PageTemplate(id="branded", frames=[frame],
-                                       onPage=_draw_heraldic_border(theme))])
+                                       onPage=_draw_heraldic_border(theme, personalization))])
     return doc
 
 
@@ -689,9 +725,14 @@ def build_form_pdf(*, form_meta: Dict[str, Any], schema_rows: List[List[str]],
 def build_branded_markdown_pdf(md_text: str, *, title: str = "Business Plan",
                                subtitle: Optional[str] = None,
                                doc_id: Optional[str] = None,
-                               brand: Optional[Dict[str, Any]] = None) -> bytes:
+                               brand: Optional[Dict[str, Any]] = None,
+                               personalization: Optional[Dict[str, Any]] = None) -> bytes:
     """Render a markdown document (business plan, cost analysis, home-office
     setup, VC pitch, etc.) using the active brand's heraldic template.
+
+    Pass `personalization={"firm_name": "...", "contact_name": "...",
+    "prepared_date": "..."}` to stamp every page with a top
+    "Confidential · Prepared for {firm}" banner + diagonal watermark.
     """
     theme = _theme(brand)
     base_styles = getSampleStyleSheet()
@@ -711,7 +752,7 @@ def build_branded_markdown_pdf(md_text: str, *, title: str = "Business Plan",
     }
     buf = io.BytesIO()
     final_doc_id = doc_id or f"{theme['doc_prefix']}-{__import__('uuid').uuid4().hex[:10].upper()}"
-    doc_pdf = _build_doc(buf, title, theme)
+    doc_pdf = _build_doc(buf, title, theme, personalization)
     story: List[Any] = []
     story.append(_header(theme, title.upper(), subtitle or "Founder Business Plan", final_doc_id))
     story.append(Spacer(1, 12))

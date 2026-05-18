@@ -1,0 +1,35 @@
+{
+  "summary": "Iter29 — 'Generate personalized investor PDF' feature tested end-to-end. All 9 backend pytest cases PASS (100%): personalized deck/one-pager/zip return valid 200 + %PDF magic bytes, Content-Disposition includes the firm slug (e.g. for_Greylock_Partners), ZIP contains 4 personalized PDFs (deck + one-pager + probability + business plan all with firm slug) + 1 clean XLSX + 1 clean CSV + README.txt containing 'Prepared for: Andreessen Horowitz' (7 entries total). Empty firm_name returns 422 (Pydantic min_length). No auth returns 401. GET /api/investor/personalized-outreach is admin-gated, returns {items,count} sorted most-recent-first with no _id leakage and contains all 3 test firms with proper doc_type fields. Regression: non-personalized /api/investor/deck.pdf and /api/investor/data-room.zip still work with no 'for_' personalization slug anywhere. Frontend Playwright: /investor-boardroom renders the gold-bordered 'Personalize for VC' button inside the Data Room card, clicking opens [data-testid=personalize-dialog] with all 6 inputs (firm-name, contact, date, doctype-deck/one-pager/zip tiles), Generate disabled when firm_name empty, enabled after typing 'TestVC', click triggers a download named 'Orisei_Freight_Solutions_LLC_Pitch_Deck_for_TestVC.pdf', no error toast, success toast appears, and personalize-history list updates to show 8 recent sends with DECK/ONE-PAGER/ZIP pills and 2026-05-18 dates.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter29_personalized_investor.py",
+    "/app/test_reports/pytest/iter29_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/investor.py has grown to 1175 lines and houses markdown content + Pydantic models + XLSX/CSV builders + 9 endpoint handlers. Consider splitting into routes/investor/ package (models.py, builders.py, markdown.py, router.py) when next iteration touches it — file-size guideline is 700 lines.",
+    "Three personalized endpoints duplicate the same audit-insert + brand-fetch + PDF-build pattern (~25 lines each). Could be refactored into a helper `_record_and_build(doc_type, payload, builder_fn)` to keep them DRY.",
+    "The personalized-outreach collection has no index on `generated_at`; query is small (50 items) so it's fine today, but worth a `db.investor_personalized_outreach.create_index([('generated_at', -1)])` at module init if this list grows.",
+    "Backend imports `uuid` inline via `__import__('uuid').uuid4()` three times in the personalized endpoints — small nit, but a top-of-file `import uuid` would be cleaner.",
+    "The personalize dialog Date field is a free-text input ('defaults to May 18, 2026') with no date picker / no format validation on the frontend. Backend accepts any string up to 40 chars, so this is fine, but a calendar component would prevent typos that show up in the watermark.",
+    "Frontend personalize-history shows the most recent 8 entries (slice(0,8)) without pagination — fine for an admin sidebar but won't scale past a few dozen sends."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter29_personalized_investor.py (new — 9 tests, all passing)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin: Authorization: Bearer test_session_admin_1 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "4 entries inserted into db.investor_personalized_outreach during testing: TestVC (deck), Greylock Partners · Reid Hoffman (deck), Sequoia Capital (one-pager), Andreessen Horowitz (zip). Tests are idempotent — re-running just appends more entries; history endpoint correctly returns most-recent 50 sorted DESC. No cleanup performed since these audit entries are not 'TEST_' prefixed and represent legitimate audit history.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The full personalized investor flow is working end-to-end (backend + frontend). Regression suite is at /app/backend/tests/test_iter29_personalized_investor.py — runs in ~3.5s and covers PDF magic bytes, filename slugging, ZIP content checks, history ordering, auth gating, and non-personalized regression. The dialog flow is also stable via Playwright with data-testids personalize-for-vc-button, personalize-dialog, personalize-firm-name, personalize-contact, personalize-date, personalize-doctype-{deck|one-pager|zip}, personalize-generate, personalize-cancel, personalize-history. Note that openPersonalize() calls fetchPersonalizedHistory async on dialog open — when testing, wait ~2s after opening the dialog for the history list to populate. PDF content (watermark + banner) is not directly testable from the test suite but was visually confirmed via the toast/download flow. The watermark and banner are drawn in orisei_docs.py::_draw_heraldic_border when personalization kwarg is non-None.",
+  "rca of the issue": "No bug found in this iteration. All 9 backend tests passed first run and all frontend assertions passed first run."
+}

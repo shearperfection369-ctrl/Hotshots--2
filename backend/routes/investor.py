@@ -22,6 +22,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+import re as _re
 import zipfile
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
@@ -798,6 +799,31 @@ For founders aiming to push the score higher:
 """
 
 
+class PersonalizationIn(BaseModel):
+    firm_name: str = Field(..., min_length=1, max_length=120,
+                           description="VC firm name to stamp on every page")
+    contact_name: Optional[str] = Field(None, max_length=120,
+                                        description="Optional GP / partner name")
+    prepared_date: Optional[str] = Field(None, max_length=40,
+                                         description="Override prepared date (defaults to today)")
+    doc_type: str = Field("deck", description="deck · one-pager · zip")
+
+
+def _safe_slug(s: str) -> str:
+    """Filesystem-safe slug for filenames."""
+    return _re.sub(r"[^A-Za-z0-9_-]+", "_", s).strip("_") or "VC"
+
+
+def _normalize_personalization(payload: PersonalizationIn) -> Dict[str, Any]:
+    return {
+        "firm_name": payload.firm_name.strip(),
+        "contact_name": (payload.contact_name or "").strip() or None,
+        "prepared_date": (payload.prepared_date.strip()
+                          if payload.prepared_date
+                          else datetime.now(timezone.utc).strftime("%d %b %Y")),
+    }
+
+
 # -------------------- ROUTER --------------------
 def build_investor_router(*, db, get_current_user: Callable, require_role: Callable,
                           active_brand_doc: Callable) -> APIRouter:
@@ -986,5 +1012,163 @@ def build_investor_router(*, db, get_current_user: Callable, require_role: Calla
             media_type="application/zip",
             headers={"Content-Disposition": f'attachment; filename="{company.replace(" ", "_")}_VC_Data_Room.zip"'},
         )
+
+    # -------------------- PERSONALIZED FOR-VC DOCS --------------------
+    @router.post("/personalized-deck.pdf")
+    async def personalized_deck_pdf(payload: PersonalizationIn,
+                                    _: Any = Depends(_admin_dep)):
+        """Generate a pitch deck PDF stamped with a specific VC firm name on
+        every page (top banner + diagonal CONFIDENTIAL watermark)."""
+        brand = await active_brand_doc() or {}
+        prob = _compute_probability(ProbabilityInputs())
+        company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+        personalization = _normalize_personalization(payload)
+        firm_slug = _safe_slug(personalization["firm_name"])
+        # Audit
+        await db.investor_personalized_outreach.insert_one({
+            "id": f"VCP-{__import__('uuid').uuid4().hex[:10].upper()}",
+            "doc_type": "deck",
+            "firm_name": personalization["firm_name"],
+            "contact_name": personalization.get("contact_name"),
+            "prepared_date": personalization["prepared_date"],
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "brand_short": brand.get("short_name") or "Orisei",
+        })
+        pdf_bytes = build_branded_markdown_pdf(
+            _deck_markdown(brand, prob),
+            title=f"{company} · VC Pitch Deck",
+            subtitle=f"Prepared for {personalization['firm_name']} · Confidential",
+            brand=brand,
+            personalization=personalization,
+        )
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition":
+                     f'attachment; filename="{company.replace(" ", "_")}_Pitch_Deck_for_{firm_slug}.pdf"'},
+        )
+
+    @router.post("/personalized-one-pager.pdf")
+    async def personalized_one_pager_pdf(payload: PersonalizationIn,
+                                         _: Any = Depends(_admin_dep)):
+        """Generate a one-pager PDF stamped with a specific VC firm name."""
+        brand = await active_brand_doc() or {}
+        company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+        personalization = _normalize_personalization(payload)
+        firm_slug = _safe_slug(personalization["firm_name"])
+        await db.investor_personalized_outreach.insert_one({
+            "id": f"VCP-{__import__('uuid').uuid4().hex[:10].upper()}",
+            "doc_type": "one-pager",
+            "firm_name": personalization["firm_name"],
+            "contact_name": personalization.get("contact_name"),
+            "prepared_date": personalization["prepared_date"],
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "brand_short": brand.get("short_name") or "Orisei",
+        })
+        pdf_bytes = build_branded_markdown_pdf(
+            _one_pager_markdown(brand),
+            title=f"{company} · Investor One-Pager",
+            subtitle=f"Prepared for {personalization['firm_name']} · Confidential",
+            brand=brand,
+            personalization=personalization,
+        )
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition":
+                     f'attachment; filename="{company.replace(" ", "_")}_One_Pager_for_{firm_slug}.pdf"'},
+        )
+
+    @router.post("/personalized-data-room.zip")
+    async def personalized_data_room_zip(payload: PersonalizationIn,
+                                         _: Any = Depends(_admin_dep)):
+        """Generate the full VC data-room ZIP with every PDF personalized for
+        the named firm (banner + watermark on every page of every deliverable).
+        Non-PDF artifacts (XLSX, CSV) are not personalized."""
+        brand = await active_brand_doc() or {}
+        company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+        short = brand.get("short_name") or "Orisei"
+        rows = _financial_model_rows()
+        annual = _annual_summary(rows)
+        prob = _compute_probability(ProbabilityInputs())
+        personalization = _normalize_personalization(payload)
+        firm_slug = _safe_slug(personalization["firm_name"])
+
+        await db.investor_personalized_outreach.insert_one({
+            "id": f"VCP-{__import__('uuid').uuid4().hex[:10].upper()}",
+            "doc_type": "zip",
+            "firm_name": personalization["firm_name"],
+            "contact_name": personalization.get("contact_name"),
+            "prepared_date": personalization["prepared_date"],
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "brand_short": short,
+        })
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(f"01_{short}_Pitch_Deck_for_{firm_slug}.pdf",
+                        build_branded_markdown_pdf(
+                            _deck_markdown(brand, prob),
+                            title=f"{company} · VC Pitch Deck",
+                            subtitle=f"Prepared for {personalization['firm_name']} · Confidential",
+                            brand=brand, personalization=personalization))
+            zf.writestr(f"02_{short}_One_Pager_for_{firm_slug}.pdf",
+                        build_branded_markdown_pdf(
+                            _one_pager_markdown(brand),
+                            title=f"{company} · Investor One-Pager",
+                            subtitle=f"Prepared for {personalization['firm_name']} · Confidential",
+                            brand=brand, personalization=personalization))
+            zf.writestr(f"03_{short}_Industry_Probability_Report_for_{firm_slug}.pdf",
+                        build_branded_markdown_pdf(
+                            _industry_probability_markdown(brand, prob),
+                            title=f"{company} · Industry Probability of Success",
+                            subtitle=f"Prepared for {personalization['firm_name']} · Confidential",
+                            brand=brand, personalization=personalization))
+            try:
+                from pathlib import Path
+                candidates = [
+                    Path("/app/BROKERAGE_BUSINESS_PLAN.md"),
+                    Path("/app/BUSINESS_PLAN.md"),
+                ]
+                plan_path = next((p for p in candidates if p.exists()), None)
+                if plan_path:
+                    plan_md = plan_path.read_text(encoding="utf-8")
+                    zf.writestr(f"04_{short}_Business_Plan_for_{firm_slug}.pdf",
+                                build_branded_markdown_pdf(
+                                    plan_md, title=f"{company} · Business Plan",
+                                    subtitle=f"Prepared for {personalization['firm_name']} · Confidential",
+                                    brand=brand, personalization=personalization))
+            except Exception as exc:                                  # noqa: BLE001
+                logger.warning("Skipped Business_Plan in personalized zip: %s", exc)
+            zf.writestr(f"05_{short}_Financial_Model.xlsx",
+                        _build_financial_model_xlsx(brand, rows, annual))
+            zf.writestr(f"06_{short}_Cap_Table.csv", _build_cap_table_csv(brand))
+            zf.writestr("README.txt",
+                        f"{company} · VC Data Room\n"
+                        f"Prepared for: {personalization['firm_name']}\n"
+                        + (f"Attn: {personalization['contact_name']}\n"
+                           if personalization.get('contact_name') else "")
+                        + f"Date: {personalization['prepared_date']}\n"
+                        f"Generated {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}\n"
+                        f"\nThis package is confidential and intended solely\n"
+                        f"for {personalization['firm_name']}. Please do not\n"
+                        f"forward without prior written consent.\n"
+                        f"\nContact: oliver@oriseifreight.com\n")
+        buf.seek(0)
+        return StreamingResponse(
+            buf,
+            media_type="application/zip",
+            headers={"Content-Disposition":
+                     f'attachment; filename="{company.replace(" ", "_")}_VC_Data_Room_for_{firm_slug}.zip"'},
+        )
+
+    @router.get("/personalized-outreach")
+    async def personalized_outreach_history(_: Any = Depends(_admin_dep)) -> Dict[str, Any]:
+        """Recent personalized PDF generation history (most recent first)."""
+        cursor = db.investor_personalized_outreach.find(
+            {}, {"_id": 0}
+        ).sort("generated_at", -1).limit(50)
+        items = await cursor.to_list(length=50)
+        return {"items": items, "count": len(items)}
 
     return router
