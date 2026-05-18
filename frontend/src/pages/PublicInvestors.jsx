@@ -456,10 +456,13 @@ function setMetaTags(d) {
     }
     el.setAttribute("content", attrs.content);
   };
+  const ogImage = d?.brand?.logo_url
+    ? (d.brand.logo_url.startsWith("http") ? d.brand.logo_url : `${window.location.origin}${d.brand.logo_url}`)
+    : `${window.location.origin}/brand/orisei_wordmark.png`;
   setMeta('meta[property="og:title"]',       { property: "og:title", content: title });
   setMeta('meta[property="og:description"]', { property: "og:description", content: description });
   setMeta('meta[property="og:type"]',        { property: "og:type", content: "website" });
-  setMeta('meta[property="og:image"]',       { property: "og:image", content: `${window.location.origin}/brand/orisei_wordmark.png` });
+  setMeta('meta[property="og:image"]',       { property: "og:image", content: ogImage });
   setMeta('meta[name="twitter:card"]',       { name: "twitter:card", content: "summary_large_image" });
   setMeta('meta[name="twitter:title"]',      { name: "twitter:title", content: title });
   setMeta('meta[name="twitter:description"]', { name: "twitter:description", content: description });

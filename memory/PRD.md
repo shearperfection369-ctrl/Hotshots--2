@@ -845,3 +845,43 @@ Subsequent user-requested additions (chronological, all delivered):
 - **Tested**: iter26 → 12/12 backend tests + 100% frontend verification.
   Zero bugs. Brand-swap to FedEx renames every PDF and content swaps
   correctly. Investor data-room ZIP now confirmed at 9 docs + README.
+
+
+## 2026-02-15 (later 8) · Public Investor Executive Summary (`/investors`)
+- **NEW** public endpoints (no auth) in `routes/public_site.py`:
+  - `GET /api/public/investor-summary` — brand + market sizing + 3-yr
+    trajectory + 36-month revenue + probability + ask + use-of-funds +
+    proof points (sensitive unit-economics omitted vs. the in-app boardroom).
+  - `GET /api/public/deck.pdf` — brand-stamped pitch deck PDF (inline
+    disposition so it previews in the browser).
+  - `GET /api/public/one-pager.pdf` — brand-stamped one-pager PDF.
+  - `POST /api/public/investor-intro` — captures investor intros from the
+    public form (honeypot-protected, persists to `db.investor_intros`,
+    best-effort Resend email to founder).
+  - Bug-fix during iter27: `InvestorIntro` Pydantic model was closure-scoped
+    → FastAPI body-detection misfired and returned 422 on every POST. Hoisted
+    to module scope alongside `QuoteRequestIn`/`ContactIn`.
+- **NEW** `frontend/src/pages/PublicInvestors.jsx` at `/investors`,
+  `/press`, and `/exec-summary` (all aliases, all public):
+  - Bold hero: "We're rebuilding the freight brokerage for operators who
+    actually answer the phone." 99% STRONG probability badge in gold.
+  - Download CTAs (Pitch Deck + One-Pager) opening in new tabs.
+  - At-a-glance metrics (TAM/SAM/SOM/Y1-failure), three reason cards, 3-year
+    trajectory cards + 36-month revenue area chart.
+  - "The Ask" section with $500K SAFE @ $4M cap + full use-of-funds breakdown.
+  - 5 proof-point checks ("things that already exist in production").
+  - Investor-intro form (#intro) with honeypot, green-check thank-you state.
+  - Open Graph + Twitter Card meta tags injected on mount so LinkedIn /
+    Twitter shares render with the brand logo and a punchy description.
+- **PublicNav** updated: `Investors` link added between `Preferred Lanes`
+  and `About`.
+- **AuthProvider polish**: `/auth/me` is now skipped on public routes
+  (`/`, `/home`, `/services`, `/lanes`, `/contact`, `/about`,
+  `/investors`, `/press`, `/exec-summary`, `/login`, etc.) so visiting
+  VCs / journalists don't see 401 console noise when they open DevTools.
+- **OG image** now derived from `brand.logo_url` (falls back to the Orisei
+  wordmark) so non-Orisei brands get a correct social-share preview.
+- **Tested**: iter27 — 7/7 backend tests pass, full frontend verification,
+  zero outstanding bugs. Honeypot drops bot submissions silently; both PDFs
+  render valid `%PDF` with inline disposition; investor-intro persists +
+  emails the founder via Resend.
