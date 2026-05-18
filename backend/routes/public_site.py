@@ -50,6 +50,16 @@ class ContactIn(BaseModel):
     website: Optional[str] = None    # honeypot
 
 
+class InvestorIntro(BaseModel):
+    name: str = Field(..., min_length=1, max_length=160)
+    email: EmailStr
+    firm: Optional[str] = Field(None, max_length=160)
+    check_size_usd: Optional[str] = Field(None, max_length=40)
+    linkedin: Optional[str] = Field(None, max_length=300)
+    message: Optional[str] = Field(None, max_length=2000)
+    website: Optional[str] = None     # honeypot
+
+
 def _quote_email_html(q: Dict[str, Any]) -> str:
     rows = [
         ("Company", q.get("company_name")),
@@ -124,6 +134,14 @@ PREFERRED_LANES = [
 
 def build_public_router(api_router: APIRouter, db) -> None:
     router = APIRouter(prefix="/public", tags=["public"])
+
+    async def _active_brand() -> Dict[str, Any]:
+        """Same helper the rest of the app uses; pulled inline so this router
+        doesn't depend on server.py state."""
+        doc = await db.company_brand.find_one({"is_active": True}, {"_id": 0})
+        if not doc:
+            doc = await db.company_brand.find_one({}, {"_id": 0})
+        return doc or {}
 
     @router.post("/quote")
     async def submit_quote(payload: QuoteRequestIn, request: Request):
@@ -220,5 +238,173 @@ def build_public_router(api_router: APIRouter, db) -> None:
     @router.get("/lanes")
     async def list_lanes() -> Dict[str, Any]:
         return {"lanes": PREFERRED_LANES, "count": len(PREFERRED_LANES)}
+
+    @router.get("/investor-summary")
+    async def public_investor_summary() -> Dict[str, Any]:
+        """Public-safe investor executive summary — TAM/SAM/SOM, headline
+        financial trajectory, the ask, and a few proof points. Sensitive
+        unit-economics details (CAC, exact OPEX) are intentionally omitted.
+        Brand-aware: returns active brand identity for theming."""
+        from .investor import (
+            MARKET_SIZING, INDUSTRY_BENCHMARKS,
+            _annual_summary, _financial_model_rows, _compute_probability,
+            ProbabilityInputs, UNIT_ECONOMICS,
+        )
+        brand = await _active_brand()
+        rows = _financial_model_rows()
+        annual = _annual_summary(rows)
+        prob = _compute_probability(ProbabilityInputs())
+        return {
+            "brand": {
+                "company_name": brand.get("company_name") or "Orisei Freight Solutions LLC",
+                "short_name": brand.get("short_name") or "Orisei",
+                "tagline": brand.get("tagline") or "Operator-built freight brokerage · Minneapolis · Saint Paul",
+                "primary_color": brand.get("primary_color") or "#0E3A6B",
+                "accent_color": brand.get("accent_color") or "#C9A24A",
+                "owner_name": brand.get("owner_name") or "Oliver Cummins",
+                "headquarters": brand.get("headquarters") or "Minneapolis · Saint Paul, MN",
+                "contact_email": "oliver@oriseifreight.com",
+            },
+            "market_sizing": MARKET_SIZING,
+            "headline_benchmarks": {
+                "broker_failure_year1_pct": INDUSTRY_BENCHMARKS["broker_failure_year1_pct"],
+                "broker_failure_year3_pct": INDUSTRY_BENCHMARKS["broker_failure_year3_pct"],
+                "industry_growth_cagr_pct": INDUSTRY_BENCHMARKS["industry_growth_cagr_pct"],
+                "ai_powered_broker_success_lift_pct": INDUSTRY_BENCHMARKS["ai_powered_broker_success_lift_pct"],
+                "sources": INDUSTRY_BENCHMARKS["sources"],
+            },
+            "trajectory": [
+                {"year": r["year"], "revenue_usd": r["revenue_usd"],
+                 "ebitda_usd": r["ebitda_usd"], "loads": r["loads"],
+                 "ebitda_margin_pct": r["ebitda_margin_pct"]}
+                for r in annual
+            ],
+            "monthly_revenue": [
+                {"month": r["month_label"], "revenue_usd": r["revenue_usd"]}
+                for r in rows
+            ],
+            "probability": {
+                "score_pct": prob["score_pct"],
+                "band": prob["band"],
+                "band_note": prob["band_note"],
+            },
+            "unit_economics_public": {
+                "ltv_cac_ratio": UNIT_ECONOMICS["ltv_cac_ratio"],
+                "payback_loads": UNIT_ECONOMICS["customer_payback_loads"],
+                "rule_of_40_year3_pct": UNIT_ECONOMICS["rule_of_40_year3_pct"],
+                "avg_gross_margin_pct": UNIT_ECONOMICS["avg_gross_margin_pct"],
+            },
+            "ask": {
+                "instrument": "SAFE",
+                "amount_usd": 500_000,
+                "valuation_cap_usd": 4_000_000,
+                "discount_pct": 20,
+                "use_of_funds": [
+                    {"label": "Authority + bond + insurance", "amount_usd": 50_000},
+                    {"label": "Carrier-vetting + monitoring tooling", "amount_usd": 45_000},
+                    {"label": "Load board subscriptions", "amount_usd": 36_000},
+                    {"label": "Founder runway (12 mo)", "amount_usd": 120_000},
+                    {"label": "Marketing + outbound (6 mo)", "amount_usd": 60_000},
+                    {"label": "Working capital / quick-pay float", "amount_usd": 110_000},
+                    {"label": "Contingency reserve", "amount_usd": 79_000},
+                ],
+            },
+            "proof_points": [
+                "TMS Command Deck shipped and operating in production today.",
+                "Brand-aware document engine: BOLs, PODs, and compliance forms render in < 800ms.",
+                "Connections vault wired for DAT, Truckstop, Convoy, Resend, RMIS, Carrier411, QuickBooks (Fernet-encrypted).",
+                "Marketing pack live: carrier + shipper sell sheets, 3 LinkedIn posts, 3 cold-email sequences with follow-ups.",
+                "13-year operator-founder edge — references available on request.",
+            ],
+        }
+
+    @router.get("/deck.pdf")
+    async def public_deck_pdf():
+        """Public download of the brand-stamped pitch deck PDF — no auth
+        required so VCs / journalists / partners can grab it directly from a
+        social-post link."""
+        from fastapi.responses import StreamingResponse
+        import io as _io
+        from .investor import _deck_markdown, _compute_probability, ProbabilityInputs
+        from .orisei_docs import build_branded_markdown_pdf
+        brand = await _active_brand()
+        company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+        prob = _compute_probability(ProbabilityInputs())
+        pdf = build_branded_markdown_pdf(
+            _deck_markdown(brand, prob),
+            title=f"{company} · VC Pitch Deck",
+            subtitle="Series Seed · Confidential",
+            brand=brand,
+        )
+        return StreamingResponse(
+            _io.BytesIO(pdf),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="{company.replace(" ", "_")}_Pitch_Deck.pdf"'},
+        )
+
+    @router.get("/one-pager.pdf")
+    async def public_one_pager_pdf():
+        """Public download of the brand-stamped one-pager PDF."""
+        from fastapi.responses import StreamingResponse
+        import io as _io
+        from .investor import _one_pager_markdown
+        from .orisei_docs import build_branded_markdown_pdf
+        brand = await _active_brand()
+        company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+        pdf = build_branded_markdown_pdf(
+            _one_pager_markdown(brand),
+            title=f"{company} · Investor One-Pager",
+            subtitle="At-a-glance · Confidential",
+            brand=brand,
+        )
+        return StreamingResponse(
+            _io.BytesIO(pdf),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="{company.replace(" ", "_")}_One_Pager.pdf"'},
+        )
+
+    @router.post("/investor-intro")
+    async def submit_investor_intro(payload: InvestorIntro, request: Request) -> Dict[str, Any]:
+        """Capture investor intros from the public /investors page."""
+        if payload.website:
+            return {"ok": True, "id": "ignored"}
+        rec = {
+            "id": str(uuid.uuid4()),
+            "kind": "investor_intro",
+            "name": payload.name,
+            "email": payload.email,
+            "firm": payload.firm,
+            "check_size_usd": payload.check_size_usd,
+            "linkedin": payload.linkedin,
+            "message": payload.message,
+            "client_ip": request.client.host if request.client else None,
+            "received_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.investor_intros.insert_one(dict(rec))
+        # Best-effort email notification to the founder via Resend
+        try:
+            creds = await get_connection_credentials(db, "resend")
+            if creds and creds.get("api_key"):
+                resend.api_key = creds["api_key"]
+                from_email = creds.get("from_email") or "onboarding@resend.dev"
+                from_name = creds.get("from_name") or "Orisei"
+                lines = [
+                    f"<b>New investor intro from the public /investors page</b>",
+                    f"<b>Name</b>: {payload.name}",
+                    f"<b>Email</b>: {payload.email}",
+                    f"<b>Firm</b>: {payload.firm or '—'}",
+                    f"<b>Check size</b>: {payload.check_size_usd or '—'}",
+                    f"<b>LinkedIn</b>: {payload.linkedin or '—'}",
+                    f"<b>Message</b>: {payload.message or '—'}",
+                ]
+                resend.Emails.send({
+                    "from": f"{from_name} <{from_email}>",
+                    "to": ["oliver@oriseifreight.com"],
+                    "subject": f"Investor intro · {payload.name} ({payload.firm or 'no firm'})",
+                    "html": "<br/>".join(lines),
+                })
+        except Exception:                                            # noqa: BLE001
+            logger.exception("Failed to email founder about investor_intro")
+        return {"ok": True, "id": rec["id"]}
 
     api_router.include_router(router)

@@ -13,6 +13,7 @@ export default function PublicNav({ brand }) {
     { to: "/home",     label: "Home" },
     { to: "/services", label: "Services" },
     { to: "/lanes",    label: "Preferred Lanes" },
+    { to: "/investors", label: "Investors" },
     { to: "/about",    label: "About" },
     { to: "/contact",  label: "Contact" },
   ];

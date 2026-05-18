@@ -1,0 +1,36 @@
+{
+  "summary": "Iter27 — Public-facing /investors executive summary tested end-to-end. All 4 public endpoints work without auth, both PDFs render >150KB with content-type application/pdf + inline disposition, investor-intro form persists to db.investor_intros, honeypot silently drops bot submissions (no DB entry), brand-aware swap to FedEx works and restored to Orisei. Frontend /investors, /press, /exec-summary all render the page with PublicNav, hero, 99% probability badge, all download CTAs (target=_blank rel=noopener), TAM/SAM/SOM cards, trajectory cards, ASK + use-of-funds, intro form with green-check thank-you state, footer. OG + Twitter Card meta tags injected dynamically on page load. Fixed one backend bug (Pydantic v2 + FastAPI didn't detect closure-scoped InvestorIntro as a body model — moved to module scope).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/investors", "issues": ["Recharts warning: 'width(-1) and height(-1) of chart should be > 0' fires twice on initial mount before the chart container has its layout. Cosmetic only — the area chart renders correctly after layout settles. Could be silenced by giving the container a defined min-height."]},
+      {"screen": "/investors background", "issues": ["AuthProvider fires /api/auth/me on every public page load and the response is 401 (expected for anonymous), generating ~6 console errors per route change. Page works fine, but the noise pollutes the console for visiting VCs who open DevTools. Consider short-circuiting auth fetches when the route is in the public-route allowlist."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter27_public_investors.py", "/app/test_reports/pytest/iter27_results.xml"],
+  "action_items": [
+    "(Optional) Silence Recharts width/height warning by ensuring the ResponsiveContainer parent has a deterministic height before mount.",
+    "(Optional) Skip /api/auth/me fetch on public routes (/home, /services, /lanes, /contact, /investors, /press, /exec-summary, /about) to keep the DevTools console clean for visiting investors."
+  ],
+  "critical_code_review_comments": [
+    "FIXED: `InvestorIntro(BaseModel)` was defined inside build_public_router closure. FastAPI's body-detection failed and treated `payload` as a query param → all POSTs returned 422. Moved to module scope alongside QuoteRequestIn/ContactIn. Verified by re-running tests after the edit.",
+    "/app/frontend/src/pages/PublicInvestors.jsx is 468 lines and getting close to the 700-line guideline — fine for now but consider extracting GlanceCard / ReasonCard / FormField / setMetaTags into separate files when the next iteration adds more sections.",
+    "The Open Graph image URL hard-codes /brand/orisei_wordmark.png even when the active brand is FedEx — when the brand-swap goes live publicly, og:image should be derived from brand.logo_url to keep social previews consistent."
+  ],
+  "updated_files": [
+    "/app/backend/routes/public_site.py — moved InvestorIntro Pydantic model to module scope (FastAPI body-detection fix)",
+    "/app/backend/tests/test_iter27_public_investors.py — new pytest module (7 passed, 1 skipped due to brand admin REST API not exposed)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Public endpoints need none. test_session_admin_1 used for brand-list lookup (admin REST endpoints didn't expose activation, so brand-swap was verified directly against db.company_brand).",
+  "seed_data_creation": "None retained. All TEST_* investor_intros were inserted during tests and deleted post-run (verified via Mongo).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Public investor surface is solid. Backend test file at /app/backend/tests/test_iter27_public_investors.py is the regression suite — it covers payload shape (TAM/SAM/SOM, 3-yr trajectory, 36 monthly revenue rows, 99% probability/STRONG band, $500K use-of-funds summing exactly to 500K), both PDFs (>150KB + inline disposition + %PDF magic bytes), investor-intro persistence + honeypot drop, and email validation. Brand-awareness was verified directly via MongoDB toggle since /api/admin/brand/* doesn't expose an activate endpoint — if a future iteration adds one, un-skip TestBrandAwareness.test_fedex_brand_swap. Frontend page is currently NOT covered by a stored Playwright suite — interactive checks were one-shot during this run.",
+  "rca of the issue": "Symptom: POST /api/public/investor-intro returned 422 with detail [{'type':'missing','loc':['query','payload'],'msg':'Field required'}]. Root cause: the InvestorIntro Pydantic model was declared inside the build_public_router(api_router, db) function as a closure-local class. FastAPI's parameter-resolution scans the function signature at registration time; with Pydantic v2, the detection path that recognizes BaseModel subclasses as body models depends on the model being importable / having a stable __module__. The closure-scoped class confused this detection, so FastAPI fell back to treating the typed parameter as a query parameter, and the absence of a `payload` query string yielded a 422. Fix: hoisted InvestorIntro to module scope (alongside the already-correct QuoteRequestIn and ContactIn). Reproduction: revert that one block and rerun the test suite — all three TestPublicInvestorIntro cases will flip back to 422. Mitigation/standard: keep all Pydantic request/response models at module top-level, never inside router-builder closures."
+}

@@ -24,6 +24,7 @@ import Landing from "@/pages/Landing";
 import Services from "@/pages/Services";
 import Lanes from "@/pages/Lanes";
 import Contact from "@/pages/Contact";
+import PublicInvestors from "@/pages/PublicInvestors";
 import Reports from "@/pages/Reports";
 import Chat from "@/pages/Chat";
 import QuickLinks from "@/pages/QuickLinks";
@@ -86,6 +87,9 @@ function AppRouter() {
       <Route path="/services" element={<Services />} />
       <Route path="/lanes" element={<Lanes />} />
       <Route path="/contact" element={<Contact />} />
+      <Route path="/investors" element={<PublicInvestors />} />
+      <Route path="/press" element={<PublicInvestors />} />
+      <Route path="/exec-summary" element={<PublicInvestors />} />
       <Route path="/about" element={<About />} />
       <Route path="/marketing" element={<About />} />
       <Route path="/landing" element={<About />} />
