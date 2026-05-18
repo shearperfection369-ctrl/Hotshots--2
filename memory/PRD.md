@@ -813,3 +813,35 @@ Subsequent user-requested additions (chronological, all delivered):
   `test_session_admin_1` fallback from `InvestorBoardroom.jsx`'s
   `triggerDownload` (the testing agent flagged it as a dev-token leak risk
   for production bundles).
+
+
+## 2026-02-15 (later 7) · Marketing Pack
+- **NEW** `routes/marketing.py` (admin-gated, brand-aware):
+  - `GET /api/marketing/carrier-sell-sheet.pdf` — operator-pitched carrier
+    recruitment one-pager (quick-pay, named broker, photo PODs, lane focus).
+  - `GET /api/marketing/shipper-sell-sheet.pdf` — shipper sell sheet
+    positioning {short} as "mega-3PL discipline at small-broker service".
+  - `GET /api/marketing/press-release.pdf` — MC-launch press release ready
+    for newswire (Cummins quote, market thesis, lane focus, raise mention).
+  - `GET /api/marketing/linkedin-posts` — JSON: 3 launch posts (Founder
+    Story, Operator Insight on the 32% failure rate, Direct GTM Ask for 5
+    anchor shippers). Each post has body, hashtags, audience, CTA.
+  - `GET /api/marketing/cold-emails` — JSON: 3 cold-email templates
+    (shipper outreach, carrier outreach, investor follow-up) with merge
+    tokens and Day-+N follow-up bodies.
+  - `GET /api/marketing/pack.zip` — bundles 3 sell-sheet/press PDFs +
+    LinkedIn posts PDF + Cold-email templates PDF + .md copies of both for
+    paste-into-sequencer use + README. ~1.6 MB.
+- **Investor data-room ZIP** extended (`routes/investor.py`) to also include
+  the 3 marketing PDFs (Carrier Sell Sheet, Shipper Sell Sheet, Press
+  Release) so the VC gets a single download with **9 deliverables**.
+- **NEW** `frontend/src/pages/MarketingPack.jsx` mounted at `/marketing-pack`
+  with admin sidebar link (Megaphone icon):
+  - Hero hub with one-click ZIP + 3 individual download cards.
+  - Tabs: **LinkedIn Launch Posts** (live preview of all 3 posts, hashtag
+    pills, CTA notes, Copy button per post) and **Cold-Email Templates**
+    (subject, body, merge-token pills, Day-+N follow-up box, Copy buttons
+    for both main body and follow-up).
+- **Tested**: iter26 → 12/12 backend tests + 100% frontend verification.
+  Zero bugs. Brand-swap to FedEx renames every PDF and content swaps
+  correctly. Investor data-room ZIP now confirmed at 9 docs + README.
