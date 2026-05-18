@@ -722,3 +722,46 @@ Subsequent user-requested additions (chronological, all delivered):
     **Email / Resend** row action so admins can fire from the list view.
   - All accents derived from the active brand (`primary_color` /
     `accent_color`) via `useBranding()`.
+
+
+## 2026-02-15 (later 5) · Brand-aware printable documents · brand-new Sora 2 promo
+- **Bug**: After switching the active company theme, every printed document
+  (BOL / POD / compliance form / business plan / cost analysis / home-office)
+  still read "Orisei" because `routes/orisei_docs.py` had the company name,
+  palette, logo, monogram, footer, and doc-id prefix hardcoded.
+- **Fix**: refactored `routes/orisei_docs.py` to a fully brand-aware engine:
+  - New `_theme(brand)` helper resolves every visual + textual attribute from
+    `company_brand`: company name, short name, azure (=`primary_color`),
+    gold (=`accent_color`), light gold (derived), paper tint (derived),
+    monogram letter, doc-id prefix (first 3 alpha chars of `short_name`),
+    logo path (Orisei → Calafia griffin asset · other brands → `logo_pdf_path`
+    when present, else a filled monogram disc), wordmark path, and a footer
+    "{company}  ·  {hq}  ·  {ops_email}" line.
+  - Every helper (`_draw_heraldic_border`, `_styles`, `_header`,
+    `_parties_block`, `_shipment_meta`, `_section_header`, `_signature_block`,
+    `_build_doc`) now takes a `theme` and renders all colors/text from it.
+  - Public builders (`build_bol_pdf`, `build_pod_pdf`, `build_form_pdf`,
+    `build_branded_markdown_pdf`) each accept a new `brand: Optional[Dict]`
+    kwarg; defaults stay Orisei-themed when omitted so legacy callers don't
+    break.
+  - Every caller in `routes/brokerage.py` (`generate_booking_bol`,
+    `generate_booking_pod`, `email_booking_pod`, `_send_bol_email`,
+    `business_plan_pdf`, `cost_analysis_pdf`, `home_office_setup_pdf`,
+    `fill_form` → `_render_form_pdf`, both investor-pitch attachment
+    paths) and the `download_document_pdf` BOL renderer in `server.py`
+    now resolve `brand = await _active_brand(db)` and pass it through.
+  - Doc-id prefixes also follow the active brand: `ORI-BOL-...` for Orisei,
+    `FED-BOL-...` for FedEx, `TEN-BOL-...` for Tennant, etc.
+  - Orisei keeps its founder contact (`oliver@oriseifreight.com`) in the
+    footer; other brands derive `ops@{slug}.com` unless they store a
+    custom `contact_emails.ops` or `contact_email`.
+- **Verified**: activating FedEx renders BOL with "Federal Express Corporation"
+  header / footer / "FED-BOL-…" doc id / `F` monogram / FedEx color palette.
+  Restoring Orisei renders with the Calafia griffin logo, navy/gold palette,
+  and `oliver@oriseifreight.com` footer.
+- **Promo**: regenerated a brand-new 12-second Sora 2 cinematic spot
+  (`/app/frontend/public/promo.mp4`, 5.7 MB, 1280×720). The `/promo` page
+  auto-detects the file and swaps it in over the YouTube fallback. Prompt
+  used heraldic gold/navy palette, Calafia seal close-up, Minneapolis
+  golden-hour establishing shot, dispatch desk macro, dock POD photo cut,
+  and a final wordmark card.

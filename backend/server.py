@@ -3326,6 +3326,7 @@ async def download_document_pdf(document_id: str, _: User = Depends(get_current_
                 shipper=shipper,
                 consignee=consignee,
                 user_name=None,
+                brand=brand,
             )
         except Exception as e:                                       # noqa: BLE001
             logger.exception("Branded BOL render failed — falling back")

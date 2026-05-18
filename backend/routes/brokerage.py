@@ -522,12 +522,13 @@ class PodEmailIn(BaseModel):
 
 
 # ---------- PDF helpers ----------
-def _markdown_to_pdf_bytes(md_text: str, title: str = "Business Plan") -> bytes:
-    """Render the brokerage business plan / cost analysis / home-office setup
-    documents using the Calafia heraldic template.
-    """
+def _markdown_to_pdf_bytes(md_text: str, title: str = "Business Plan",
+                            brand: Optional[Dict[str, Any]] = None) -> bytes:
+    """Render brokerage markdown docs (business plan, cost analysis, home-office,
+    VC pitch) using the active brand's heraldic template."""
     return build_branded_markdown_pdf(md_text, title=title,
-                                      subtitle="Founder Business Plan · Confidential")
+                                      subtitle="Founder Business Plan · Confidential",
+                                      brand=brand)
 
 
 def _legacy_markdown_to_pdf_unused(md_text: str, title: str = "Business Plan") -> bytes:
@@ -875,11 +876,13 @@ def build_brokerage_router(
         """Render BOL PDF + send to booking.customer_email via Resend. Mirrors POD flow."""
         brand = await _active_brand(db)
         shipper, consignee = _brand_addresses(booking, brand)
-        doc_id = f"ORI-BOL-{booking['booked_id'].replace('BK-', '')}"
+        doc_prefix = (brand.get("short_name") or "ORI")[:3].upper()
+        doc_id = f"{doc_prefix}-BOL-{booking['booked_id'].replace('BK-', '')}"
         pdf_bytes = build_bol_pdf(
             doc_id=doc_id, booking=booking,
             shipper=shipper, consignee=consignee,
             user_name=getattr(user, "name", None),
+            brand=brand,
         )
         await db.brokerage_bookings.update_one(
             {"booked_id": booking["booked_id"]},
@@ -973,11 +976,13 @@ def build_brokerage_router(
         booking = await _booking_or_404(booked_id)
         brand = await _active_brand(db)
         shipper, consignee = _brand_addresses(booking, brand)
-        doc_id = f"ORI-BOL-{booked_id.replace('BK-', '')}"
+        doc_prefix = (brand.get("short_name") or "ORI")[:3].upper()
+        doc_id = f"{doc_prefix}-BOL-{booked_id.replace('BK-', '')}"
         pdf = build_bol_pdf(
             doc_id=doc_id, booking=booking,
             shipper=shipper, consignee=consignee,
             user_name=getattr(user, "name", None),
+            brand=brand,
         )
         # Stamp the BOL # on the booking for later POD reference
         await db.brokerage_bookings.update_one(
@@ -998,12 +1003,14 @@ def build_brokerage_router(
         shipper, consignee = _brand_addresses(booking, brand)
         delivery = dict(booking.get("delivery") or {})
         delivery["photos"] = await _load_pod_photos(booked_id)
-        doc_id = f"ORI-POD-{booked_id.replace('BK-', '')}"
+        doc_prefix = (brand.get("short_name") or "ORI")[:3].upper()
+        doc_id = f"{doc_prefix}-POD-{booked_id.replace('BK-', '')}"
         pdf = build_pod_pdf(
             doc_id=doc_id, booking=booking,
             shipper=shipper, consignee=consignee,
             delivery=delivery,
             user_name=getattr(user, "name", None),
+            brand=brand,
         )
         return StreamingResponse(
             io.BytesIO(pdf),
@@ -1036,12 +1043,14 @@ def build_brokerage_router(
             )
 
         delivery_render = {**(booking.get("delivery") or {}), **delivery_payload}
-        doc_id = f"ORI-POD-{booked_id.replace('BK-', '')}"
+        doc_prefix = (brand.get("short_name") or "ORI")[:3].upper()
+        doc_id = f"{doc_prefix}-POD-{booked_id.replace('BK-', '')}"
         pdf_bytes = build_pod_pdf(
             doc_id=doc_id, booking={**booking, **delivery_payload},
             shipper=shipper, consignee=consignee,
             delivery=delivery_render,
             user_name=getattr(user, "name", None),
+            brand=brand,
         )
 
         subject = payload.subject or (
@@ -1911,7 +1920,8 @@ def build_brokerage_router(
         form_meta = next((f for f in COMPLIANCE_FORMS if f["id"] == payload.form_id), None)
         if not form_meta:
             raise HTTPException(404, "Unknown form_id")
-        pdf_bytes = _render_form_pdf(form_meta, payload.fields, user)
+        brand = await _active_brand(db)
+        pdf_bytes = _render_form_pdf(form_meta, payload.fields, user, brand)
         return StreamingResponse(
             io.BytesIO(pdf_bytes),
             media_type="application/pdf",
@@ -1984,13 +1994,14 @@ def build_brokerage_router(
     # ---- Branded PDF downloads of the markdown documents ----
     @router.get("/business-plan/pdf")
     async def business_plan_pdf(_=Depends(get_current_user)):
-        """Direct download of the Calafia-branded business plan PDF."""
+        """Direct download of the brand-themed business plan PDF."""
         doc = _read_doc("BROKERAGE_BUSINESS_PLAN.md", "Business plan document not found")
         brand = await _active_brand(db)
         company = brand.get("company_name") or "Orisei Freight Solutions LLC"
         pdf_bytes = build_branded_markdown_pdf(
             doc["markdown"], title=company,
             subtitle="Founder Business Plan · Confidential",
+            brand=brand,
         )
         filename = f"{company.replace(' ', '_')}_Business_Plan.pdf"
         return StreamingResponse(
@@ -2002,27 +2013,34 @@ def build_brokerage_router(
     @router.get("/cost-analysis/pdf")
     async def cost_analysis_pdf(_=Depends(get_current_user)):
         doc = _read_doc("COST_ANALYSIS.md", "Cost analysis document not found")
+        brand = await _active_brand(db)
+        company = brand.get("company_name") or "Orisei Freight Solutions LLC"
         pdf_bytes = build_branded_markdown_pdf(
             doc["markdown"], title="Cost Analysis",
             subtitle="Live operating-cost forecast · Confidential",
+            brand=brand,
         )
         return StreamingResponse(
             io.BytesIO(pdf_bytes),
             media_type="application/pdf",
-            headers={"Content-Disposition": 'attachment; filename="Orisei_Cost_Analysis.pdf"'},
+            headers={"Content-Disposition": f'attachment; filename="{company.replace(" ", "_")}_Cost_Analysis.pdf"'},
         )
 
     @router.get("/home-office-setup/pdf")
     async def home_office_setup_pdf(_=Depends(get_current_user)):
         doc = _read_doc("HOME_OFFICE_SETUP.md", "Home office setup document not found")
+        brand = await _active_brand(db)
+        company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+        hq = brand.get("headquarters") or "Saint Paul, MN"
         pdf_bytes = build_branded_markdown_pdf(
             doc["markdown"], title="Home Office Setup",
-            subtitle="Operator playbook · Saint Paul, MN",
+            subtitle=f"Operator playbook · {hq}",
+            brand=brand,
         )
         return StreamingResponse(
             io.BytesIO(pdf_bytes),
             media_type="application/pdf",
-            headers={"Content-Disposition": 'attachment; filename="Orisei_Home_Office_Setup.pdf"'},
+            headers={"Content-Disposition": f'attachment; filename="{company.replace(" ", "_")}_Home_Office_Setup.pdf"'},
         )
 
     # ============================ INVESTOR OUTREACH ============================
@@ -2043,7 +2061,7 @@ def build_brokerage_router(
         }
         if payload.attach_pdf:
             doc = _read_doc("BROKERAGE_BUSINESS_PLAN.md", "Business plan document not found")
-            pdf_bytes = _markdown_to_pdf_bytes(doc["markdown"], title=brand.get("company_name", "Business Plan"))
+            pdf_bytes = _markdown_to_pdf_bytes(doc["markdown"], title=brand.get("company_name", "Business Plan"), brand=brand)
             out["pdf_size_kb"] = round(len(pdf_bytes) / 1024, 1)
         return out
 
@@ -2064,7 +2082,7 @@ def build_brokerage_router(
         pdf_size_kb = 0.0
         if payload.attach_pdf:
             doc = _read_doc("BROKERAGE_BUSINESS_PLAN.md", "Business plan document not found")
-            pdf_bytes = _markdown_to_pdf_bytes(doc["markdown"], title=company)
+            pdf_bytes = _markdown_to_pdf_bytes(doc["markdown"], title=company, brand=brand)
             pdf_size_kb = round(len(pdf_bytes) / 1024, 1)
             attachments.append({
                 "filename": f"{company.replace(' ', '_')}_Business_Plan.pdf",
@@ -2199,8 +2217,9 @@ def build_brokerage_router(
 
 
 # ---------- PDF rendering ----------
-def _render_form_pdf(form_meta: Dict[str, Any], fields: Dict[str, Any], user: Any) -> bytes:
-    """Render a brokerage compliance form to PDF using the Calafia template."""
+def _render_form_pdf(form_meta: Dict[str, Any], fields: Dict[str, Any], user: Any,
+                      brand: Optional[Dict[str, Any]] = None) -> bytes:
+    """Render a brokerage compliance form to PDF using the active-brand template."""
     schema = _form_schema(form_meta["id"])
     legal = _form_legal_text(form_meta["id"])
     return build_form_pdf(
@@ -2209,6 +2228,7 @@ def _render_form_pdf(form_meta: Dict[str, Any], fields: Dict[str, Any], user: An
         fields=fields or {},
         legal_text=legal,
         user_name=getattr(user, "name", None),
+        brand=brand,
     )
 
 
