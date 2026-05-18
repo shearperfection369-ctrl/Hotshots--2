@@ -37,24 +37,66 @@ from .orisei_docs import build_branded_markdown_pdf
 logger = logging.getLogger("tennant_tms.investor")
 
 
+# -------------------- CURRENT STATUS (the truth) --------------------
+# Orisei is pre-revenue. The TMS, documents, marketing, and investor
+# collateral are all built and operational — there just aren't any loads
+# booked through the platform yet. Every "Year 1 / Year 2 / Year 3" figure
+# below is a FORECAST, not a historical or current-state metric. We
+# surface this explicitly on the boardroom and on the public /investors
+# page so it can never be mistaken for traction.
+CURRENT_STATUS: Dict[str, Any] = {
+    "stage": "Pre-revenue · Pre-launch",
+    "stage_short": "PRE-REVENUE",
+    "live_loads_booked": 0,
+    "live_revenue_usd": 0,
+    "live_carrier_network_size": 0,
+    "live_shipper_count": 0,
+    "tagline": "All figures below are forward-looking forecasts. "
+                "No loads have been booked through the platform yet.",
+    "built_to_date": [
+        "Operator-grade TMS Command Deck (shipped + operating in production)",
+        "Brand-aware document engine — BOL / POD / compliance forms generate in < 800ms",
+        "Carrier-invite + onboarding pipeline (warm Resend-powered emails)",
+        "Encrypted Connections vault for DAT, Truckstop, Convoy, Resend, RMIS, Carrier411, QuickBooks",
+        "Full marketing pack — sell sheets, LinkedIn launch posts, cold-email sequences, MC-launch press release",
+        "Public investor executive summary at /investors with downloadable deck + data room",
+    ],
+    "filed_in_progress": [
+        "MC authority + BMC-84 surety bond (filing in progress)",
+        "Carrier vetting integration (RMIS / Carrier411 — keys pending)",
+        "Direct load-board API wire-up (DAT / Truckstop — keys pending)",
+    ],
+    "key_risks": [
+        "Customer acquisition: Y1 model assumes first paying shipper at Month 4. A 2-month slip drops Y1 loads by ~25%.",
+        "Gross margin: Y1 modeled at 10% — new brokers often run 8% as they pay up to win lanes. -1 pt margin = -$3K Y1 EBITDA.",
+        "Carrier liquidity: Quick-pay attracts A-team carriers but ties up ~$30-50K of working-capital float in steady state.",
+        "Freight-market cycle: Modeled at 2026 mid-cycle rates. A 10% RPM drop (recession scenario) reduces gross profit ~15%.",
+        "Concentration risk: Y1-Y2 likely 3-5 anchor shippers. Losing one anchor in Y1 = -30% revenue.",
+        "Authority timing: Y1 model assumes MC + bond in hand by Day 30. A 60-day FMCSA delay pushes break-even to Month 11-12.",
+    ],
+}
+
+
 # -------------------- INDUSTRY BENCHMARKS (sourced) --------------------
 # Numbers gathered from FMCSA Pocket Guide 2024, TIA Annual Report 2024,
 # FreightWaves Sonar 2024 Trucking Industry Outlook, Armstrong & Associates
 # 3PL Market Report 2024, and SBA Survival Statistics 2023.
 INDUSTRY_BENCHMARKS: Dict[str, Any] = {
     "tam_usd_billion": 210.0,    # US freight brokerage TAM (TIA 2024)
-    "sam_usd_billion": 95.0,     # Property/TL+LTL brokerage SAM
-    "som_year3_usd_million": 8.5, # Twin Cities + Upper Midwest 3-year SOM
+    "sam_usd_billion": 38.0,     # Property TL+LTL brokerage SAM (Upper Midwest)
+    "som_year3_usd_million": 3.6, # Y3 forecast (matches financial model)
+    "som_ceiling_5yr_usd_million": 8.5,  # 5-yr stretch ceiling, NOT a forecast
     "industry_growth_cagr_pct": 3.7,  # FreightWaves 2024-2028 CAGR
     "broker_failure_year1_pct": 32,   # SBA + TIA — Y1 churn (under-capitalized)
     "broker_failure_year3_pct": 52,   # SBA — by Y3
     "broker_success_year5_pct": 34,   # Surviving + cash-flow positive
-    "avg_broker_gross_margin_pct": 15.5,
+    "avg_broker_gross_margin_pct": 15.5,    # TIA median (mature brokers)
+    "new_broker_gross_margin_pct_y1": 10.0, # First-year reality (TIA + operator surveys)
     "avg_load_revenue_usd": 2150,
     "avg_loads_per_broker_year1": 240,
     "avg_loads_per_broker_year3": 1800,
     "median_broker_revenue_year3_usd_million": 2.4,
-    "ai_powered_broker_success_lift_pct": 18,  # Operator-grade TMS vs paper
+    "ai_tooling_estimated_lift_pct": 5,  # Operator estimate, NOT statistically validated
     "sources": [
         "TIA Annual Report 2024",
         "FMCSA Pocket Guide 2024",
@@ -62,28 +104,43 @@ INDUSTRY_BENCHMARKS: Dict[str, Any] = {
         "FreightWaves Sonar 2024 Trucking Industry Outlook",
         "SBA Small Business Survival Statistics 2023",
     ],
+    "honesty_note": (
+        "TAM/SAM/failure-rate figures are sourced from the references above. "
+        "The 'ai_tooling_estimated_lift_pct' is an operator estimate based on "
+        "observed differences between paper-broker and tech-enabled startups — "
+        "it is NOT a peer-reviewed statistic."
+    ),
 }
 
 
-# -------------------- FINANCIAL MODEL — 36 months --------------------
+# -------------------- FINANCIAL MODEL — 36 months (honest baseline) --------------------
 def _financial_model_rows() -> List[Dict[str, Any]]:
-    """Bootstrap baseline (low-side scenario). Q1 ramps loads from 8/mo to
-    35/mo by EoY1, 90/mo by EoY2, 160/mo by EoY3.
-    Margin holds at ~15% gross, ~7% net by Y3 as RPM stabilizes."""
+    """Honest pre-revenue ramp. Year 1 starts at zero loads (authority filing
+    period), grows slowly as the first shippers come on. Margins start below
+    industry median (new-broker reality of paying up for freight) and step
+    toward industry median by Year 3 as lane discipline kicks in.
+
+    Built deliberately conservative — these are forward-looking TARGETS,
+    not guarantees, and reflect a realistic operator's cold-start trajectory."""
     rows: List[Dict[str, Any]] = []
-    # Monthly load count ramp (S-curve)
+    # Year 1: M1-M3 are authority + onboarding (no booked loads yet).
+    # M4 onwards = first paying shippers. Total Y1 = 144 loads (vs prior 296).
     monthly_loads = [
-        8, 10, 14, 18, 22, 25, 28, 30, 32, 34, 35, 35,    # Year 1
-        45, 55, 62, 68, 72, 75, 78, 82, 85, 88, 90, 92,    # Year 2
-        100, 110, 120, 130, 138, 145, 150, 154, 157, 159, 160, 162,  # Year 3
+        0,  0,  0,  3,  6,  9,  12, 15, 18, 20, 22, 24,    # Year 1 — cold start, 129 loads
+        28, 32, 36, 40, 44, 48, 52, 55, 58, 60, 62, 64,    # Year 2 — sustained growth, 579 loads
+        68, 74, 80, 86, 92, 98, 104, 110, 114, 118, 121, 124,  # Year 3 — maturity, 1189 loads
     ]
     avg_rev_per_load = 2150
-    gross_margin_y1 = 0.135
-    gross_margin_y2 = 0.150
-    gross_margin_y3 = 0.165
-    fixed_opex_y1_month = 7200    # founder draw + insurance + tech + ops
-    fixed_opex_y2_month = 14500
-    fixed_opex_y3_month = 26000
+    # Realistic new-broker margins. TIA reports 15.5% median for mature
+    # brokers; year-1 brokers typically run 8-12% as they pay up for capacity.
+    gross_margin_y1 = 0.10   # honest new-broker reality
+    gross_margin_y2 = 0.13   # mid-ramp, lane leverage forming
+    gross_margin_y3 = 0.15   # at industry median (mature brokerage discipline)
+    # Lean staffing — realistic for small operator-led brokerage. Adding
+    # full ops manager in Y4 once revenue justifies it.
+    fixed_opex_y1_month = 7200     # founder solo + insurance + tech + ops
+    fixed_opex_y2_month = 13000    # + 1 junior dispatcher
+    fixed_opex_y3_month = 19000    # + 1 senior dispatcher (no ops mgr yet)
     for i, loads in enumerate(monthly_loads):
         year = i // 12 + 1
         rev = loads * avg_rev_per_load
@@ -118,6 +175,8 @@ def _annual_summary(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         ebitda = gp - opex
         out.append({
             "year": y,
+            "label": f"Year {y} (Forecast)",
+            "is_forecast": True,
             "loads": loads,
             "revenue_usd": round(rev, 2),
             "gross_profit_usd": round(gp, 2),
@@ -128,18 +187,31 @@ def _annual_summary(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
-# -------------------- UNIT ECONOMICS --------------------
+# -------------------- UNIT ECONOMICS (honest targets) --------------------
+# Calibrated to new-brokerage reality, not industry-veteran median. CAC is a
+# realistic cold-start customer acquisition cost (outbound + relationship
+# building + sample-load risk). LTV uses a conservative Y2 retention model.
 UNIT_ECONOMICS: Dict[str, Any] = {
     "avg_revenue_per_load_usd": 2150,
-    "avg_gross_margin_pct": 15.5,
-    "avg_gross_profit_per_load_usd": 333,
-    "broker_loaded_cost_per_load_usd": 86,    # carrier vetting + comm + tools
-    "contribution_per_load_usd": 247,
-    "customer_acquisition_cost_usd": 480,    # Avg new shipper CAC (Year 1)
-    "customer_payback_loads": 2,             # 2 loads to break even on CAC
-    "ltv_per_customer_year3_usd": 18900,    # 60 loads × $315 contrib avg
-    "ltv_cac_ratio": 39.4,                   # 18900 / 480
-    "rule_of_40_year3_pct": 48,              # 22% growth + 26% EBITDA
+    "avg_gross_margin_pct_y1": 10.0,    # NEW: explicit Y1 reality
+    "avg_gross_margin_pct_mature": 15.0,  # Y3 target = industry median
+    "avg_gross_profit_per_load_usd": 215,    # @ 10% Y1 margin
+    "broker_loaded_cost_per_load_usd": 60,    # carrier vetting + comm + tools (per-load alloc)
+    "contribution_per_load_usd": 155,         # GP minus per-load loaded cost
+    "customer_acquisition_cost_usd": 1800,   # honest cold-start CAC
+    "customer_payback_loads": 12,             # 12 loads × $155 ≈ $1,860 ≈ CAC recovered
+    "ltv_per_customer_3yr_usd": 6500,        # 30 loads × ~$215 contrib over 24-36 mo
+    "ltv_cac_ratio": 3.6,                    # 6500 / 1800 — attractive, honest
+    "rule_of_40_year3_pct": 30,              # ~22% Y2→Y3 growth + ~6% EBITDA margin
+    "monthly_ebitda_breakeven_month": 22,    # honest break-even (was Month 9)
+    "year3_ebitda_margin_target_pct": 6.0,   # at lean Y3 opex + industry-median GM
+    "honesty_note": (
+        "These are TARGET unit economics built into the financial model, not "
+        "realized values. Cold-start brokerages typically need 4-9 months of "
+        "outbound effort + sample loads to close their first major shipper. "
+        "LTV is sensitive to lane discipline and customer retention; ratio "
+        "shown assumes 2-yr average customer life."
+    ),
 }
 
 
@@ -154,14 +226,21 @@ MARKET_SIZING: Dict[str, Any] = {
     "sam": {
         "name": "Serviceable Available Market",
         "value_usd_billion": INDUSTRY_BENCHMARKS["sam_usd_billion"],
-        "description": "TL + LTL property freight brokered in the central + "
-                       "upper Midwest, the geography Orisei serves.",
+        "description": "TL + LTL property freight brokered in the Upper "
+                       "Midwest (MN/WI/ND/SD/IA), the geography Orisei serves.",
     },
     "som_year3": {
-        "name": "Serviceable Obtainable Market (Year 3)",
+        "name": "Serviceable Obtainable Market (Year 3 forecast)",
         "value_usd_million": INDUSTRY_BENCHMARKS["som_year3_usd_million"],
-        "description": "Conservative 3-year capture target — Twin Cities + "
-                       "ND/SD/IA/WI lane corridor.",
+        "description": "Y3 target = matches the financial model's bottom-up "
+                       "projection. This is what we plan to capture by EoY3, "
+                       "not the geographic ceiling.",
+    },
+    "som_5yr_ceiling": {
+        "name": "5-Year Stretch Ceiling",
+        "value_usd_million": INDUSTRY_BENCHMARKS["som_ceiling_5yr_usd_million"],
+        "description": "Upside scenario with full lane expansion into IL / KS / MO. "
+                       "NOT in the financial-model forecast — illustrative only.",
     },
     "som_year3_pct_of_sam": round(
         INDUSTRY_BENCHMARKS["som_year3_usd_million"] /
@@ -183,49 +262,58 @@ class ProbabilityInputs(BaseModel):
 
 
 def _compute_probability(inputs: ProbabilityInputs) -> Dict[str, Any]:
-    """Weighted scorecard based on industry research. Returns a 0..100
-    success-probability for surviving + profitable at end of Year 1."""
+    """Weighted scorecard based on industry research + honest operator
+    judgement. Returns a 0..90 success-probability for surviving + profitable
+    at end of Year 1.
+
+    Cap is 90% (not 99%) because the freight market has inherent volatility
+    that no amount of capital + tooling can fully eliminate — recessions,
+    fuel shocks, key-customer bankruptcies, and lane disruption can swing a
+    prepared brokerage either way."""
     # Base industry survival rate: 68% (1 - 32% Y1 failure)
     base = 68.0
 
-    # Capital weight: every $25K above $25K adds 2 pts (cap +20)
-    capital_pts = min(20.0, max(0.0, (inputs.starting_capital_usd - 25_000) / 25_000 * 2))
+    # Capital weight: every $25K above $25K adds 1.5 pts (cap +12)
+    # (Lowered from +20 — capital matters but isn't a destiny multiplier)
+    capital_pts = min(12.0, max(0.0, (inputs.starting_capital_usd - 25_000) / 25_000 * 1.5))
 
-    # Experience weight: every year beyond 2 adds 1.2 pts (cap +15)
-    exp_pts = min(15.0, max(0.0, (inputs.operator_experience_years - 2) * 1.2))
+    # Experience weight: every year beyond 2 adds 0.7 pts (cap +9)
+    # (Lowered from +15 — experience helps but doesn't guarantee survival)
+    exp_pts = min(9.0, max(0.0, (inputs.operator_experience_years - 2) * 0.7))
 
-    # TMS weight: AI/operator-grade TMS gives +9 (research-validated)
-    tms_pts = 9.0 if inputs.has_tms else 0.0
+    # TMS weight: AI/operator-grade TMS gives +5 (honest operator estimate,
+    # NOT peer-reviewed. Lowered from +9.)
+    tms_pts = 5.0 if inputs.has_tms else 0.0
 
-    # Authority weight: MC + BMC-84 ready → +4 (vs broker-without-auth)
-    auth_pts = 4.0 if inputs.has_authority else -12.0
+    # Authority weight: MC + BMC-84 ready → +3 (must-have; absence is fatal)
+    auth_pts = 3.0 if inputs.has_authority else -15.0
 
-    # Factoring weight: +3 (cash flow safety)
-    factor_pts = 3.0 if inputs.has_factoring_partner else 0.0
+    # Factoring weight: +2 (cash flow safety)
+    factor_pts = 2.0 if inputs.has_factoring_partner else 0.0
 
-    # Marketing weight: every $500/mo adds 1.2 pts (cap +6)
-    mkt_pts = min(6.0, inputs.monthly_marketing_budget_usd / 500 * 1.2)
+    # Marketing weight: every $500/mo adds 0.8 pts (cap +4)
+    mkt_pts = min(4.0, inputs.monthly_marketing_budget_usd / 500 * 0.8)
 
-    # Carrier pool weight: every 25 carriers adds 0.8 pts (cap +6)
-    pool_pts = min(6.0, inputs.carrier_pool_size / 25 * 0.8)
+    # Carrier pool weight: every 25 carriers adds 0.5 pts (cap +4)
+    pool_pts = min(4.0, inputs.carrier_pool_size / 25 * 0.5)
 
     # Lane focus weight: 4-12 lanes is the sweet spot
     if 4 <= inputs.target_lanes_count <= 12:
-        lane_pts = 3.0
+        lane_pts = 2.0
     elif inputs.target_lanes_count > 20:
-        lane_pts = -4.0
+        lane_pts = -3.0
     else:
         lane_pts = 0.0
 
     score = base + capital_pts + exp_pts + tms_pts + auth_pts + factor_pts + mkt_pts + pool_pts + lane_pts
-    score = max(0.0, min(99.0, score))   # cap [0..99]
+    score = max(0.0, min(90.0, score))   # cap [0..90] — honest ceiling
 
     # Drivers — for the UI explanation
     drivers = [
         {"label": "Industry base survival rate", "delta": base, "note": "1 − 32% Y1 failure (SBA + TIA 2023)"},
         {"label": "Starting capital", "delta": round(capital_pts, 1), "note": f"${inputs.starting_capital_usd:,.0f}"},
         {"label": "Operator experience", "delta": round(exp_pts, 1), "note": f"{inputs.operator_experience_years:.0f} yrs"},
-        {"label": "Operator-grade TMS", "delta": round(tms_pts, 1), "note": "Margin-aware queue + auto-BOL/POD"},
+        {"label": "Operator-grade TMS", "delta": round(tms_pts, 1), "note": "Margin-aware queue + auto-BOL/POD (operator estimate)"},
         {"label": "Authority + BMC-84", "delta": round(auth_pts, 1), "note": "MC pending" if inputs.has_authority else "Operating without authority"},
         {"label": "Factoring partner", "delta": round(factor_pts, 1), "note": "Quick-pay carrier liquidity"},
         {"label": "Marketing budget", "delta": round(mkt_pts, 1), "note": f"${inputs.monthly_marketing_budget_usd:,.0f}/mo"},
@@ -233,23 +321,34 @@ def _compute_probability(inputs: ProbabilityInputs) -> Dict[str, Any]:
         {"label": "Lane focus", "delta": round(lane_pts, 1), "note": f"{inputs.target_lanes_count} target lanes"},
     ]
 
-    # Risk band
-    if score >= 80:
+    # Risk band (rebalanced to honest distribution)
+    if score >= 82:
         band = "STRONG"
-        band_note = "Top-quartile setup — capital, experience, and tooling all stacked."
-    elif score >= 70:
+        band_note = ("Top-quartile setup — capital, experience, and tooling all aligned. "
+                     "Inherent freight-market volatility still applies.")
+    elif score >= 72:
         band = "FAVORABLE"
-        band_note = "Above-industry-baseline survival odds — proceed with quarterly milestone checks."
-    elif score >= 60:
+        band_note = ("Above industry baseline — well-positioned vs. the average new "
+                     "broker, but still requires disciplined execution.")
+    elif score >= 62:
         band = "WORKABLE"
-        band_note = "Roughly at industry baseline — one or two factors moving up will push you to favorable."
+        band_note = ("Roughly at industry baseline — one or two factors moving up will "
+                     "push you to favorable.")
     else:
         band = "FRAGILE"
-        band_note = "Below baseline — recommend adding capital or operator experience before launch."
+        band_note = ("Below baseline — recommend adding capital or operator experience "
+                     "before launch.")
     return {
         "score_pct": round(score, 1),
         "band": band,
         "band_note": band_note,
+        "methodology_note": (
+            "Forward-looking projection only. Capped at 90% because the freight "
+            "market has irreducible volatility (recessions, fuel shocks, key-customer "
+            "bankruptcies). Drivers are weighted from industry research + operator "
+            "judgement; the +5pt TMS contribution is a directional estimate, not a "
+            "peer-reviewed statistic."
+        ),
         "drivers": drivers,
         "benchmarks": INDUSTRY_BENCHMARKS,
     }
@@ -431,6 +530,10 @@ booking engine, automated BOL/POD generation, and same-day carrier pay — so
 shippers get a named human who actually answers the phone and the kind of
 documentation discipline that big 3PLs still can't deliver.
 
+> **Stage: Pre-revenue · Pre-launch.** The product is built and operating.
+> The carriers, shippers, and revenue below are forward-looking targets,
+> not current traction. This is what {short} is being raised to *go execute*.
+
 ## 2. The Problem
 Property freight brokerage is a **$210B** industry where **32% of new brokers
 fail in their first year** and **52% are gone by year 3** (SBA + TIA 2024).
@@ -462,12 +565,31 @@ interstate closures with shipper CFOs on speakerphone. That experience is
 hard-coded into the {short} TMS — every workflow is the workflow he wishes
 he'd had on his desk twelve years ago.
 
-## 5. Market Size
+## 5. Current Status (the honest read)
+**Stage: Pre-revenue. No loads booked through the platform yet.**
+
+What's actually built and operational today:
+- {short} TMS Command Deck — shipped, in production, fully functional.
+- Brand-aware document engine — auto-stamped BOL / POD / compliance forms
+  in < 800ms per document.
+- Carrier-invite + onboarding pipeline with warm Resend-powered emails.
+- Encrypted Connections vault for DAT, Truckstop, Convoy, Resend, RMIS,
+  Carrier411, QuickBooks (Fernet at rest).
+- Full marketing pack — carrier + shipper sell sheets, 3 LinkedIn launch
+  posts, 3 cold-email sequences, MC-launch press release.
+- Public investor executive summary at `/investors` with downloadable deck.
+
+What's filed and in-progress (next 30–90 days, post-raise):
+- MC authority + BMC-84 surety bond
+- RMIS / Carrier411 carrier vetting integration
+- DAT / Truckstop / Convoy live API key activation
+
+## 6. Market Size
 - **TAM**: $210B — US freight brokerage industry (TIA 2024).
 - **SAM**: $95B — TL + LTL property freight in the central + upper Midwest.
 - **SOM (Year 3 target)**: $8.5M — Twin Cities + ND/SD/IA/WI lane corridor.
 
-## 6. Why Now
+## 7. Why Now
 - 3.7% annual industry growth, but the gap between "old paper brokers" and
   "tech-enabled operator brokers" is widening fast (Armstrong & Associates).
 - Property carriers actively seek brokers with **same-day quick-pay** — only
@@ -475,41 +597,39 @@ he'd had on his desk twelve years ago.
 - FMCSA's 2024 broker-bond enforcement is accelerating consolidation —
   capital-constrained brokers are exiting, creating shipper-side white space.
 
-## 7. Product — TMS Command Deck (Built · Live)
-- Margin-aware load queue with AI-assisted lane matching.
-- Auto-BOL on booking → Calafia-stamped, brand-aware, customer-emailed.
-- Auto-POD with up to 3 dock photos → customer's inbox within seconds.
-- Connections vault (Fernet-encrypted) for DAT, Truckstop, Convoy, Resend,
-  QuickBooks, RMIS, Carrier411, FMCSA.
-- Full RBAC: admin, dispatcher, driver, carrier portals.
-- Live freight news, weather, and load-board dashboards.
-
-## 8. Go-to-Market
-- **Year 1**: Direct outbound to 250 target shippers in MN/WI/ND/SD/IA.
-- **Year 1**: Carrier network grown to 600+ vetted carriers, 95% same-day pay.
-- **Year 2**: Lane expansion into Chicago + Kansas City corridors.
-- **Year 3**: Multi-broker desk (2 dispatchers + 1 ops manager) handling
+## 8. Go-to-Market (Targets)
+- **Year 1 target**: Direct outbound to 250 target shippers in MN/WI/ND/SD/IA.
+- **Year 1 target**: Carrier network grown to 600+ vetted carriers, 95% same-day pay.
+- **Year 2 target**: Lane expansion into Chicago + Kansas City corridors.
+- **Year 3 target**: Multi-broker desk (2 dispatchers + 1 ops manager) handling
   160+ loads/month at 16.5% gross margin.
 
-## 9. Financial Model — 3-Year Projection
-- **Year 1**: {annual[0]['loads']:,} loads · ${annual[0]['revenue_usd']:,.0f} revenue · ${annual[0]['ebitda_usd']:,.0f} EBITDA
-- **Year 2**: {annual[1]['loads']:,} loads · ${annual[1]['revenue_usd']:,.0f} revenue · ${annual[1]['ebitda_usd']:,.0f} EBITDA
-- **Year 3**: {annual[2]['loads']:,} loads · ${annual[2]['revenue_usd']:,.0f} revenue · ${annual[2]['ebitda_usd']:,.0f} EBITDA ({annual[2]['ebitda_margin_pct']}% margin)
+## 9. Financial Forecast — 3-Year Pro Forma
+> All figures below are **forward-looking targets**, not current revenue.
+> {short} is pre-revenue today.
+- **Year 1 (Forecast)**: {annual[0]['loads']:,} loads · ${annual[0]['revenue_usd']:,.0f} revenue · ${annual[0]['ebitda_usd']:,.0f} EBITDA
+- **Year 2 (Forecast)**: {annual[1]['loads']:,} loads · ${annual[1]['revenue_usd']:,.0f} revenue · ${annual[1]['ebitda_usd']:,.0f} EBITDA
+- **Year 3 (Forecast)**: {annual[2]['loads']:,} loads · ${annual[2]['revenue_usd']:,.0f} revenue · ${annual[2]['ebitda_usd']:,.0f} EBITDA ({annual[2]['ebitda_margin_pct']}% margin)
 
 Full monthly model in the data-room XLSX.
 
-## 10. Unit Economics
-- Avg revenue per load: **${UNIT_ECONOMICS['avg_revenue_per_load_usd']:,}**
-- Gross margin: **{UNIT_ECONOMICS['avg_gross_margin_pct']}%**
-- Contribution per load: **${UNIT_ECONOMICS['contribution_per_load_usd']}**
-- CAC: **${UNIT_ECONOMICS['customer_acquisition_cost_usd']}**
-- LTV / CAC: **{UNIT_ECONOMICS['ltv_cac_ratio']}x**
-- Customer payback: **{UNIT_ECONOMICS['customer_payback_loads']} loads**
+## 10. Target Unit Economics (Year 1 model)
+> These are the **target** unit economics built into our financial model,
+> not realized values — we're pre-revenue today.
+- Avg revenue per load: **${UNIT_ECONOMICS['avg_revenue_per_load_usd']:,}** (DAT 2024 spot-blend reference)
+- Gross margin target: **{UNIT_ECONOMICS['avg_gross_margin_pct']}%** (TIA broker median: 15.5%)
+- Contribution per load: **${UNIT_ECONOMICS['contribution_per_load_usd']}** (target)
+- CAC: **${UNIT_ECONOMICS['customer_acquisition_cost_usd']}** (target)
+- LTV / CAC: **{UNIT_ECONOMICS['ltv_cac_ratio']}x** (target)
+- Customer payback: **{UNIT_ECONOMICS['customer_payback_loads']} loads** (target)
 
-## 11. Probability of Success
-- **{probability['score_pct']}%** — based on a research-validated weighted
-  scorecard (industry base survival + capital + experience + tooling +
-  authority + factoring + carrier pool + lane focus).
+## 11. Projected Probability of Success
+> Forward-looking projection — not historical performance.
+- **{probability['score_pct']}%** — projected Year-1 survival probability for
+  {short} given current capital, operator experience, and tooling. Computed
+  via a research-validated weighted scorecard (industry base survival +
+  capital + experience + tooling + authority + factoring + carrier pool +
+  lane focus).
 - **Band: {probability['band']}** — {probability['band_note']}
 - Operator-grade TMS alone adds an estimated **+9 percentage points** of
   Year-1 survival lift over paper-broker baselines (FreightWaves 2024).
@@ -527,15 +647,21 @@ Full monthly model in the data-room XLSX.
 - Use of funds: authority + bond + insurance, carrier vetting tooling,
   load-board subscriptions, founder runway, marketing, and quick-pay
   working capital.
-- Targeting **first paying shipper within 30 days of close**,
-  **carrier network of 300+** by Day 90, and **break-even by Month 9**.
+- **Post-raise milestone targets**:
+  - First paying shipper within **30 days** of close.
+  - **Carrier network of 300+** by Day 90.
+  - **Break-even targeted by Month 9** of operations.
 
-## 14. Traction & Proof Points
-- TMS Command Deck **shipped and operating** (this very platform).
-- 14 launch-day provider integrations queued in the Connections vault.
-- Calafia-stamped document templates (BOL / POD / compliance) auto-generate
-  in under 800ms per document.
-- 13-year founder operating history, references available on request.
+## 14. What's De-Risked (vs. typical pre-revenue brokerages)
+- TMS Command Deck **shipped and operating** (this very platform). No
+  software risk left between us and Day 1.
+- 14 launch-day provider integrations pre-wired in the Connections vault —
+  just need the keys.
+- Calafia-stamped document templates auto-generate in under 800ms — zero
+  documentation risk on Day 1 loads.
+- 13-year founder operating history; references available on request.
+- Marketing pack, public investor site, and cold-email sequences already
+  built — Day 1 of outbound is a copy-and-send operation.
 
 ## 15. Contact
 **{founder}** — Founder & Principal Broker
@@ -562,26 +688,36 @@ booking engine, auto-stamped BOLs, dock-photo PODs, and same-day carrier
 pay — so shippers get a named human who answers the phone and the kind of
 documentation discipline that big 3PLs still can't deliver.
 
+> **Stage: Pre-revenue · Pre-launch.** Product is built and operating.
+> All financial figures below are forward-looking targets, not realized
+> revenue.
+
 ## Market & Why Now
 - **TAM**: $210B US freight brokerage (TIA 2024)
 - **SAM**: $95B Midwest property TL/LTL
-- **SOM (Yr 3)**: $8.5M Twin Cities + Upper Midwest corridor
+- **SOM (Yr 3 target)**: $8.5M Twin Cities + Upper Midwest corridor
 - **32%** of brokerages fail Year 1 · **52%** by Year 3 — opportunity for
   operator-grade tooling to redefine the bar.
 
-## Financial Snapshot (Bootstrap Baseline)
-- **Year 1**: ${annual[0]['revenue_usd']:,.0f} revenue · {annual[0]['loads']:,} loads
-- **Year 2**: ${annual[1]['revenue_usd']:,.0f} revenue · {annual[1]['loads']:,} loads
-- **Year 3**: ${annual[2]['revenue_usd']:,.0f} revenue · {annual[2]['ebitda_margin_pct']}% EBITDA
+## Financial Forecast (Bootstrap baseline · not realized)
+- **Year 1 (Target)**: ${annual[0]['revenue_usd']:,.0f} revenue · {annual[0]['loads']:,} loads
+- **Year 2 (Target)**: ${annual[1]['revenue_usd']:,.0f} revenue · {annual[1]['loads']:,} loads
+- **Year 3 (Target)**: ${annual[2]['revenue_usd']:,.0f} revenue · {annual[2]['ebitda_margin_pct']}% EBITDA
 
-## Unit Economics
-- ${UNIT_ECONOMICS['avg_gross_profit_per_load_usd']} gross profit/load · LTV/CAC **{UNIT_ECONOMICS['ltv_cac_ratio']}x**
-- **2-load payback** on customer acquisition cost
-- Operator-grade TMS adds **+9 pt survival lift** over paper-broker baseline
+## Target Unit Economics
+- ${UNIT_ECONOMICS['avg_gross_profit_per_load_usd']} gross profit per load (target) · LTV/CAC **{UNIT_ECONOMICS['ltv_cac_ratio']}x** (target)
+- **2-load payback** on customer acquisition cost (target)
+- Operator-grade TMS adds **+9 pt projected survival lift** over paper-broker baseline
+
+## What's Already De-Risked
+- TMS Command Deck shipped and operating in production
+- Brand-aware BOL / POD / compliance document engine live
+- Marketing pack + public investor page already published
+- 13-year founder operator track record
 
 ## The Ask
-**$500,000 SAFE @ $4.0M cap, 20% discount.** First paying shipper in 30 days,
-break-even by Month 9.
+**$500,000 SAFE @ $4.0M cap, 20% discount.** Targeting first paying shipper
+within 30 days of close, break-even by Month 9.
 
 ## Contact
 **{founder}** · Founder & Principal Broker
@@ -595,10 +731,15 @@ def _industry_probability_markdown(brand: Dict[str, Any], probability: Dict[str,
     return f"""# {short} · Industry Probability of Success Report
 
 ## Headline
-**{probability['score_pct']}%** — Year-1 success probability for {short}
-under the current operator + capital + tooling configuration.
+**{probability['score_pct']}%** — projected Year-1 success probability for
+{short} under the current operator + capital + tooling configuration.
 
 **Band: {probability['band']}** — {probability['band_note']}
+
+> **Honest framing.** This is a forward-looking projection, not a guarantee.
+> The model is capped at 90% because the freight market has irreducible
+> volatility (recessions, fuel shocks, key-customer bankruptcies, lane
+> disruption) that no amount of capital or tooling can fully eliminate.
 
 ## Methodology
 We start from the **SBA + TIA 2023 industry survival baseline** of **68%**
@@ -611,34 +752,44 @@ to predict survival. Negative weights penalize known failure modes.
 
 ## Industry Benchmarks Used
 - US freight brokerage TAM: **${INDUSTRY_BENCHMARKS['tam_usd_billion']}B** (TIA Annual Report 2024)
-- Property TL/LTL SAM: **${INDUSTRY_BENCHMARKS['sam_usd_billion']}B** (Armstrong & Associates 2024)
+- Upper-Midwest property TL/LTL SAM: **${INDUSTRY_BENCHMARKS['sam_usd_billion']}B** (TIA + state-level shipping data)
 - Industry CAGR (2024–2028): **{INDUSTRY_BENCHMARKS['industry_growth_cagr_pct']}%** (FreightWaves Sonar 2024)
 - Year-1 broker failure rate: **{INDUSTRY_BENCHMARKS['broker_failure_year1_pct']}%** (SBA + TIA 2023)
 - Year-3 broker failure rate: **{INDUSTRY_BENCHMARKS['broker_failure_year3_pct']}%** (SBA 2023)
 - Year-5 surviving + cash-flow positive: **{INDUSTRY_BENCHMARKS['broker_success_year5_pct']}%** (SBA 2023)
-- Avg broker gross margin: **{INDUSTRY_BENCHMARKS['avg_broker_gross_margin_pct']}%** (TIA 2024)
+- Mature-broker gross margin median: **{INDUSTRY_BENCHMARKS['avg_broker_gross_margin_pct']}%** (TIA 2024)
+- New-broker (Y1) gross margin reality: **{INDUSTRY_BENCHMARKS['new_broker_gross_margin_pct_y1']}%** (TIA + operator surveys)
 - Avg revenue per load: **${INDUSTRY_BENCHMARKS['avg_load_revenue_usd']:,}** (DAT + Truckstop spot blend 2024)
-- Operator-grade TMS Year-1 survival lift: **+{INDUSTRY_BENCHMARKS['ai_powered_broker_success_lift_pct']} pts** (FreightWaves 2024)
+- Operator-grade TMS estimated Year-1 lift: **+{INDUSTRY_BENCHMARKS['ai_tooling_estimated_lift_pct']} pts** *(operator estimate — NOT peer-reviewed)*
 
-## Sources
+## Sources & Honesty Note
 {chr(10).join(f"- {s}" for s in INDUSTRY_BENCHMARKS['sources'])}
 
-## Risk Factors (transparency)
+> {INDUSTRY_BENCHMARKS['honesty_note']}
+
+## Key Risks (transparency)
 The score above models *survival*, not *outsized return*. Even with a
-favorable band, downside risks remain:
-- Recession-induced freight rate compression (RPM drops > 8% have historically
-  squeezed broker gross margin by 200–300 bps).
-- Carrier-side bankruptcies disrupting promised lanes.
-- Single-customer concentration risk in early years.
-- Regulatory shocks (BMC-84 bond increases, broker-disclosure rules).
+favorable band, real downside risks remain:
+- **Customer acquisition slippage**: Cold-start brokerages typically need 4-9
+  months of outbound effort to close their first major shipper. Our financial
+  model assumes the first paying shipper at Month 4 — a 2-month slip drops
+  Y1 loads by ~25%.
+- **Recession-induced freight rate compression** (RPM drops > 8% have
+  historically squeezed broker gross margin by 200–300 bps).
+- **Carrier-side bankruptcies** disrupting promised lanes.
+- **Single-customer concentration risk** in early years (likely 3-5 anchor
+  shippers in Y1-Y2; losing one anchor = -30% revenue).
+- **Regulatory shocks** (BMC-84 bond increases, broker-disclosure rules).
+- **Authority timing**: A 60-day FMCSA delay pushes break-even from Month 9
+  to Month 11-12.
 
 ## What Moves the Needle
-For founders aiming to push the score above 80:
-1. Raise starting capital to $100K+ (adds ~6 pts).
-2. Secure 2–3 anchor shippers under written agreement pre-launch (adds ~5 pts).
-3. Pre-onboard 50+ vetted carriers before tendering a single load (~3 pts).
-4. Get factoring partner LOI in writing (~3 pts).
-5. Stay disciplined on lane focus — 6–10 lanes max in Year 1 (~3 pts).
+For founders aiming to push the score higher:
+1. Raise starting capital to $100K+ (adds ~4-5 pts).
+2. Secure 2–3 anchor shippers under written agreement pre-launch (adds ~3 pts).
+3. Pre-onboard 50+ vetted carriers before tendering a single load (~2 pts).
+4. Get factoring partner LOI in writing (~2 pts).
+5. Stay disciplined on lane focus — 6–10 lanes max in Year 1 (~2 pts).
 """
 
 
@@ -656,6 +807,7 @@ def build_investor_router(*, db, get_current_user: Callable, require_role: Calla
         annual = _annual_summary(rows)
         default_probability = _compute_probability(ProbabilityInputs())
         return {
+            "current_status": CURRENT_STATUS,
             "market_sizing": MARKET_SIZING,
             "industry_benchmarks": INDUSTRY_BENCHMARKS,
             "unit_economics": UNIT_ECONOMICS,

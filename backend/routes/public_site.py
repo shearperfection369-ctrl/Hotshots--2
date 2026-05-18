@@ -248,13 +248,14 @@ def build_public_router(api_router: APIRouter, db) -> None:
         from .investor import (
             MARKET_SIZING, INDUSTRY_BENCHMARKS,
             _annual_summary, _financial_model_rows, _compute_probability,
-            ProbabilityInputs, UNIT_ECONOMICS,
+            ProbabilityInputs, UNIT_ECONOMICS, CURRENT_STATUS,
         )
         brand = await _active_brand()
         rows = _financial_model_rows()
         annual = _annual_summary(rows)
         prob = _compute_probability(ProbabilityInputs())
         return {
+            "current_status": CURRENT_STATUS,
             "brand": {
                 "company_name": brand.get("company_name") or "Orisei Freight Solutions LLC",
                 "short_name": brand.get("short_name") or "Orisei",
@@ -270,8 +271,9 @@ def build_public_router(api_router: APIRouter, db) -> None:
                 "broker_failure_year1_pct": INDUSTRY_BENCHMARKS["broker_failure_year1_pct"],
                 "broker_failure_year3_pct": INDUSTRY_BENCHMARKS["broker_failure_year3_pct"],
                 "industry_growth_cagr_pct": INDUSTRY_BENCHMARKS["industry_growth_cagr_pct"],
-                "ai_powered_broker_success_lift_pct": INDUSTRY_BENCHMARKS["ai_powered_broker_success_lift_pct"],
+                "ai_tooling_estimated_lift_pct": INDUSTRY_BENCHMARKS["ai_tooling_estimated_lift_pct"],
                 "sources": INDUSTRY_BENCHMARKS["sources"],
+                "honesty_note": INDUSTRY_BENCHMARKS["honesty_note"],
             },
             "trajectory": [
                 {"year": r["year"], "revenue_usd": r["revenue_usd"],
@@ -292,7 +294,9 @@ def build_public_router(api_router: APIRouter, db) -> None:
                 "ltv_cac_ratio": UNIT_ECONOMICS["ltv_cac_ratio"],
                 "payback_loads": UNIT_ECONOMICS["customer_payback_loads"],
                 "rule_of_40_year3_pct": UNIT_ECONOMICS["rule_of_40_year3_pct"],
-                "avg_gross_margin_pct": UNIT_ECONOMICS["avg_gross_margin_pct"],
+                "avg_gross_margin_pct_y1": UNIT_ECONOMICS["avg_gross_margin_pct_y1"],
+                "avg_gross_margin_pct_mature": UNIT_ECONOMICS["avg_gross_margin_pct_mature"],
+                "honesty_note": UNIT_ECONOMICS["honesty_note"],
             },
             "ask": {
                 "instrument": "SAFE",
@@ -312,9 +316,10 @@ def build_public_router(api_router: APIRouter, db) -> None:
             "proof_points": [
                 "TMS Command Deck shipped and operating in production today.",
                 "Brand-aware document engine: BOLs, PODs, and compliance forms render in < 800ms.",
-                "Connections vault wired for DAT, Truckstop, Convoy, Resend, RMIS, Carrier411, QuickBooks (Fernet-encrypted).",
+                "Connections vault wired for DAT, Truckstop, Convoy, Resend, RMIS, Carrier411, QuickBooks (Fernet-encrypted) — credentials pending activation.",
                 "Marketing pack live: carrier + shipper sell sheets, 3 LinkedIn posts, 3 cold-email sequences with follow-ups.",
                 "13-year operator-founder edge — references available on request.",
+                "Zero loads booked yet · pre-launch · the raise is what turns the platform into a brokerage.",
             ],
         }
 
