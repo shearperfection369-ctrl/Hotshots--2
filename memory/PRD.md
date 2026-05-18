@@ -887,6 +887,55 @@ Subsequent user-requested additions (chronological, all delivered):
   emails the founder via Resend.
 
 
+## 2026-02-18 (later) · Personalized Investor PDF · "Prepared for [VC]" stamps
+- **Feature**: Admin can now generate VC-firm-personalized versions of the
+  pitch deck, one-pager, or full data-room ZIP in a single click. Every
+  page of every personalized PDF gets:
+    1. A top center banner: "CONFIDENTIAL · Prepared for [Firm] · Attn: [GP] · [Date]"
+    2. A faint diagonal "CONFIDENTIAL · [FIRM]" watermark (gold, 7% alpha)
+  The kind of small touch GPs notice and remember.
+- **Backend** (`routes/investor.py`):
+  - `PersonalizationIn` Pydantic model: firm_name (required, 1-120 chars),
+    contact_name (optional), prepared_date (optional, defaults to today),
+    doc_type ("deck" | "one-pager" | "zip").
+  - 4 new admin-gated endpoints:
+    `POST /api/investor/personalized-deck.pdf`
+    `POST /api/investor/personalized-one-pager.pdf`
+    `POST /api/investor/personalized-data-room.zip`
+    `GET  /api/investor/personalized-outreach` (audit history)
+  - The personalized ZIP contains 4 personalized PDFs (deck + one-pager +
+    industry probability + business plan, all with "for_{firm_slug}" in
+    filename) + clean XLSX + clean CSV (analysts can still copy/modify
+    the model without watermarks) + README.txt with "Prepared for: [Firm]".
+  - Every generation is audit-logged into `db.investor_personalized_outreach`
+    with id, doc_type, firm_name, contact_name, prepared_date, generated_at.
+- **Backend** (`routes/orisei_docs.py`): `_draw_heraldic_border()`,
+  `_build_doc()`, and `build_branded_markdown_pdf()` now accept an optional
+  `personalization` kwarg that flows through to the page decoration callback.
+  Diagonal watermark + top banner are drawn only when personalization is
+  supplied — every existing caller (BOL/POD/forms/non-personalized investor
+  PDFs) is unchanged.
+- **Frontend** (`InvestorBoardroom.jsx`):
+  - "Personalize for VC" CTA (gold-bordered, dashed) inside the Data Room card.
+  - Polished dialog with firm-name input (required), GP/contact input
+    (optional), prepared-date input (optional, shows today as placeholder),
+    and 3 doc-type tiles (Pitch Deck · One-Pager · Full Data Room).
+  - Live audit history shows recent personalized sends (firm + contact +
+    doc-type pill + date) inside the dialog.
+  - data-testids: personalize-for-vc-button, personalize-dialog,
+    personalize-firm-name, personalize-contact, personalize-date,
+    personalize-doctype-{deck|one-pager|zip}, personalize-generate,
+    personalize-cancel, personalize-history.
+
+### Tests
+- `/app/test_reports/iteration_29.json` — 9/9 backend tests pass (100%),
+  full frontend Playwright pass (100%), zero bugs found on first run.
+- `/app/backend/tests/test_iter29_personalized_investor.py` — covers
+  PDF magic bytes, Content-Disposition firm-slug filenames, ZIP entries
+  (4 personalized PDFs + clean XLSX/CSV + README with firm name),
+  empty-firm validation 422, no-auth 401, history sort + admin gating,
+  and non-personalized-endpoint regression.
+
 ## 2026-02-18 · Brutally Honest VC Package · Pre-Revenue Framing
 - **Rewrote investor financials to reflect actual pre-revenue / pre-launch
   reality** so the VC package is due-diligence-ready and won't blow up the
