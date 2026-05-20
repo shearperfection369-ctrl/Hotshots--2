@@ -887,6 +887,50 @@ Subsequent user-requested additions (chronological, all delivered):
   emails the founder via Resend.
 
 
+## 2026-02-20 · Hot Shot TMS Rebrand + Public VC Pitch Page
+- **Renamed TMS platform** from "LiveCleans · TMS" → **"Hot Shot TMS"**.
+  Logo letter L → H. Cyan accent retained.
+- **Fixed broken "Launch the Demo" CTA**: previously routed VC visitors to
+  `/login` (the protected app gate). Now reads "Watch the Live Demo" and
+  routes to the dedicated public pitch page at `/tms-investors`.
+- **NEW** public Hot Shot TMS investor page at `/tms-investors` (aliases:
+  `/tms-pitch`, `/demo`) — completely separate from the Orisei brokerage
+  investor page at `/investors`. Sections:
+  - Hero with auto-rotating brand reel (Tennant, Walmart, FedEx, Caterpillar,
+    Apple, Amazon, Tesla, Coca-Cola, Boeing, Nike) — demonstrates the
+    re-theming wedge visually.
+  - Embedded promo.mp4 (autoplay, muted, loop) with tap-for-sound overlay.
+  - 7-column stats bar (50+ modules · 200+ APIs · 9 ERPs · 14 integrations
+    · 16 themes · 77-brand directory · 45-metric scorecard).
+  - **Plug-and-play** section: 9 ERP connector cards (SAP, Oracle, D365,
+    NetSuite, Infor, Sage, Epicor, IFS, Custom REST) + 14 launch-day
+    provider cards (DAT, Truckstop, Convoy, Uber Freight, 123Loadboard,
+    Triumph, Apex, OTR, Resend, QuickBooks, RMIS, Carrier411, FMCSA, Tivly)
+    + Fernet-encryption security callout.
+  - **Changeability** section: dual list of what re-themes instantly (6
+    items) vs. what stays put (4 security/audit items).
+  - 10-feature grid with brand-cyan iconography.
+  - Founder section with 13-year tenure, Plymouth MN, international
+    specialist, all 6 modes.
+  - The Ask: $1.5M seed SAFE @ $8M cap, 20% discount. 3 milestone cards.
+    TAM/SAM/SOM ($15.3B / $4.2B / $12M).
+  - Investor intro form reusing existing `/api/public/investor-intro`.
+- **NEW** backend `routes/tms_investor.py`:
+  - `GET /api/public/tms-pitch-summary` — JSON payload for the page.
+  - `GET /api/public/tms-deck.pdf` — Hot Shot TMS pitch deck PDF (15 sections).
+  - `GET /api/public/tms-one-pager.pdf` — at-a-glance PDF.
+  - `GET /api/public/tms-data-room.zip` — bundled deck + one-pager + README.
+- Updated `lib/auth.jsx` PUBLIC_ROUTE_PREFIXES with `/tms-investors`,
+  `/tms-pitch`, `/demo` so /auth/me doesn't fire on those public routes.
+- Fixed Plymouth MN (was "Minneapolis · MN") in About.jsx founder pill +
+  footer.
+
+### Tests
+- `/app/test_reports/iteration_30.json` — 9/9 backend tests pass (100%),
+  full frontend Playwright pass (100%), zero bugs found on first run.
+- `/app/backend/tests/test_iter30_tms_investor.py` — covers all 4 new
+  public endpoints + Orisei regression (3 endpoints) + shared intro form.
+
 ## 2026-02-18 (later) · Personalized Investor PDF · "Prepared for [VC]" stamps
 - **Feature**: Admin can now generate VC-firm-personalized versions of the
   pitch deck, one-pager, or full data-room ZIP in a single click. Every
