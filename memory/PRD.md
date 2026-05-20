@@ -887,6 +887,57 @@ Subsequent user-requested additions (chronological, all delivered):
   emails the founder via Resend.
 
 
+## 2026-02-20 (later) · Hot Shot TMS · One-Time-Link Gate
+- **Per-VC personalized URLs**: founder generates `/tms-investors?token=abc`
+  links from a new admin page at `/investor-invite-links`. Each token
+  carries firm_name + optional contact_name + optional max_visits + optional
+  days_valid expiry. Tokens are 22-char `secrets.token_urlsafe(16)`.
+- **What the token does on the public page**:
+  - Welcome banner: "Welcome, [Firm] · [Contact]" at top of hero.
+  - Pre-fills the investor-intro form firm + name fields.
+  - Swaps all 3 download CTAs to personalized endpoints which stamp
+    "Confidential · Prepared for [Firm]" banner + diagonal CONFIDENTIAL
+    watermark on every PDF page (ZIP also gets per-firm filenames).
+  - Logs every visit + download event with IP, user-agent, scroll depth,
+    referrer to `tms_investor_invite_links.visits[]`.
+  - First page-view / first download triggers a real-time Resend alert to
+    `oliver@livecleans.com` (skipped silently if Resend not configured).
+- **Failure modes** (HTTP-correct):
+  - Unknown token → 404.
+  - Disabled token → 410 ("disabled").
+  - Expired (past `expires_at`) → 410 ("expired").
+  - Visit cap reached → 423 ("locked").
+  - Bad token gracefully falls back to non-personalized downloads on the page.
+- **NEW backend** (`routes/tms_invite_links.py`, ~400 lines):
+  - Admin endpoints: `POST/GET /api/investor/invite-links`,
+    `POST /api/investor/invite-links/{token}/disable`,
+    `DELETE /api/investor/invite-links/{token}`.
+  - Public endpoints: `GET /api/public/tms-link/{token}` (validate),
+    `POST /api/public/tms-link/{token}/visit` (log event),
+    `GET /api/public/tms-link/{token}/deck.pdf` (personalized),
+    `GET /api/public/tms-link/{token}/one-pager.pdf` (personalized),
+    `GET /api/public/tms-link/{token}/data-room.zip` (personalized).
+  - `_resolve_origin()` derives share URLs from browser `Origin`/`Referer`
+    headers so admins always get a public preview URL (not the in-cluster
+    Kubernetes hostname).
+  - Whitespace-only firm names rejected via custom validator.
+- **NEW frontend** `TmsInviteLinks.jsx` (~250 lines, admin-only at
+  `/investor-invite-links`): full CRUD with stats grid (visits, unique
+  IPs, per-doc download counts, last-visit timestamp), share-URL copy
+  buttons, disable + delete with confirm prompts. Sidebar nav entry
+  added under Investor Boardroom.
+- **TmsInvestors.jsx** updated with `useSearchParams` + token handshake +
+  download-event tracking + welcome banner + graceful fallback when token
+  is invalid.
+
+### Tests
+- `/app/test_reports/iteration_31.json` — 15/15 backend tests pass (100%),
+  full frontend Playwright pass (100%), zero bugs found.
+- `/app/backend/tests/test_iter31_invite_links.py` — covers admin CRUD,
+  auth gating, validation, visit/download logging, all 4 HTTP failure
+  modes (404/410/410/423), personalized PDF/ZIP filenames + watermark,
+  full Orisei + non-personalized regression.
+
 ## 2026-02-20 · Hot Shot TMS Rebrand + Public VC Pitch Page
 - **Renamed TMS platform** from "LiveCleans · TMS" → **"Hot Shot TMS"**.
   Logo letter L → H. Cyan accent retained.

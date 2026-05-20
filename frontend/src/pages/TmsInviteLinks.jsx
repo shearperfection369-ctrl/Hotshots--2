@@ -66,6 +66,7 @@ export default function TmsInviteLinks() {
   };
 
   const disableLink = async (token) => {
+    if (!window.confirm("Disable this invite link? The VC will see an 'expired' message next time they open it.")) return;
     try {
       await api.post(`/investor/invite-links/${token}/disable`);
       toast.success("Link disabled");

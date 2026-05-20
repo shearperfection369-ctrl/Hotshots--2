@@ -56,6 +56,19 @@ class InviteLinkCreate(BaseModel):
     days_valid: Optional[int] = Field(None, ge=1, le=365,
                                        description="Auto-expire after N days")
 
+    # Whitespace-only firm names sneak past min_length=1 — reject them.
+    @classmethod
+    def _validate_firm(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("firm_name cannot be blank")
+        return v
+
+    def __init__(self, **data):  # noqa: D401
+        if "firm_name" in data:
+            data["firm_name"] = self._validate_firm(data["firm_name"])
+        super().__init__(**data)
+
 
 class VisitIn(BaseModel):
     event: str = Field("page_view", description="page_view · deck · one-pager · zip · scroll")
