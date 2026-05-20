@@ -73,14 +73,17 @@ export default function About() {
       <header className="relative z-10 border-b border-white/5 bg-[#0B0E14]/80 backdrop-blur">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center font-black text-black">L</div>
-            <span className="font-display text-lg font-bold tracking-tight">LiveCleans · TMS</span>
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center font-black text-black">H</div>
+            <span className="font-display text-lg font-bold tracking-tight">Hot Shot TMS</span>
           </div>
           <nav className="flex items-center gap-6 text-sm font-mono uppercase tracking-wider text-slate-400">
             <a href="#features" className="hover:text-cyan-300">Features</a>
             <a href="#integrations" className="hover:text-cyan-300">Integrations</a>
             <a href="#founder" className="hover:text-cyan-300">Founder</a>
             <a href="#plan" className="hover:text-cyan-300">Plan</a>
+            <Link to="/tms-investors" data-testid="about-cta-investors" className="px-3 py-1.5 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 font-bold rounded text-xs">
+              Investor Pitch
+            </Link>
             <Link to="/login" data-testid="about-cta-login" className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded text-xs">
               Open the App →
             </Link>
@@ -108,8 +111,8 @@ export default function About() {
               sample data, ERP context, suppliers, lanes — reshape around them.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/login" data-testid="about-cta-primary" className="px-5 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded inline-flex items-center gap-2">
-                Launch the Demo <ArrowRight size={14} />
+              <Link to="/tms-investors" data-testid="about-cta-primary" className="px-5 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded inline-flex items-center gap-2">
+                Watch the Live Demo <ArrowRight size={14} />
               </Link>
               <a href="#features" className="px-5 py-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded inline-flex items-center gap-2">
                 See What's Inside <ChevronRight size={14} />
@@ -237,7 +240,7 @@ export default function About() {
             </h2>
             <p className="text-slate-300 text-lg leading-relaxed">
               Most TMS platforms are designed by engineers who&rsquo;ve never tendered a load, never chased a
-              short-shipped pallet at midnight, never fought a customs broker over an HS code. <strong className="text-cyan-300">LiveCleans is different.</strong>
+              short-shipped pallet at midnight, never fought a customs broker over an HS code. <strong className="text-cyan-300">Hot Shot TMS is different.</strong>
             </p>
             <p className="text-slate-300 mt-4 leading-relaxed">
               <strong>Oliver Cummins</strong> has spent <strong>13 years</strong> in supply chain &amp; logistics across all modes —
@@ -248,7 +251,7 @@ export default function About() {
             </p>
             <p className="text-slate-300 mt-4 leading-relaxed">
               Who better to design a Transportation Management System than a tenured logistics professional
-              who has personally lived every workflow it surfaces? Every screen in LiveCleans was prototyped
+              who has personally lived every workflow it surfaces? Every screen in Hot Shot TMS was prototyped
               on real loads, real BOLs, real customer escalations.
             </p>
 
@@ -260,7 +263,7 @@ export default function About() {
             </div>
 
             <div className="mt-6 flex flex-wrap gap-2">
-              <Pill Icon={MapPin}    label="Minneapolis · MN" />
+              <Pill Icon={MapPin}    label="Plymouth · MN" />
               <Pill Icon={Briefcase} label="Tennant Companies" />
               <Pill Icon={Globe2}    label="International Specialist" />
               <Pill Icon={Award}     label="13+ Years Operator" />
@@ -277,7 +280,7 @@ export default function About() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <PlanCard title="Market" body="$15.3B global TMS market by 2030 (Gartner). Mid-market shippers ($100M–$2B revenue) are systematically underserved by SAP TM, Oracle OTM, and Manhattan." />
-          <PlanCard title="The Wedge" body="60-second brand activation. Most TMS implementations take 6-18 months. LiveCleans skins itself for the prospect's company DURING the sales call." />
+          <PlanCard title="The Wedge" body="60-second brand activation. Most TMS implementations take 6-18 months. Hot Shot TMS skins itself for the prospect's company DURING the sales call." />
           <PlanCard title="ARR Model" body="$24K/year base + $2K/integration + $0.10/shipment. 70% gross margin at scale, sub-$5K CAC via founder-led sales." />
           <PlanCard title="The Moat" body="Operator-built. Every feature shipped solves a real headache Oliver has lived. Software houses can't fake 13 years of muscle memory." />
           <PlanCard title="GTM" body="Founder-led for the first 25 logos. Convert Tennant + 4 other MN-based industrials by EOY 2026. Productize playbook in 2027." />
@@ -294,8 +297,9 @@ export default function About() {
 
       <footer className="relative z-10 border-t border-white/5 max-w-7xl mx-auto px-6 py-10 text-xs font-mono text-slate-500">
         <div className="flex justify-between flex-wrap gap-3">
-          <div>© 2026 LiveCleans · TMS · Built by Oliver Cummins · Minneapolis, MN</div>
+          <div>© 2026 Hot Shot TMS · Built by Oliver Cummins · Plymouth, MN</div>
           <div className="flex items-center gap-4">
+            <Link to="/tms-investors" className="hover:text-cyan-300">Investor Pitch</Link>
             <Link to="/login" className="hover:text-cyan-300">Sign In</Link>
             <a href="mailto:oliver@livecleans.com" className="hover:text-cyan-300">Contact</a>
           </div>

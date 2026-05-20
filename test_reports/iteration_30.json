@@ -1,0 +1,35 @@
+{
+  "summary": "Iter30 — Hot Shot TMS public VC pitch endpoints + /tms-investors page tested end-to-end. All 9 backend pytest cases PASS (100%): GET /api/public/tms-pitch-summary returns correct brand=Hot Shot TMS / founder=Oliver Cummins · Plymouth, Minnesota · 13yr / platform_stats (50/200/9/14/16/77/45) / 9 ERP connectors + 14 launch-day providers / 10-brand reel / ask=$1.5M @ $8M cap; GET /api/public/tms-deck.pdf returns valid 200 + %PDF magic + inline disposition + >100KB; GET /api/public/tms-one-pager.pdf returns valid PDF; GET /api/public/tms-data-room.zip returns valid ZIP with the 3 required entries (01_Hot_Shot_TMS_Pitch_Deck.pdf, 02_Hot_Shot_TMS_One_Pager.pdf, README.txt containing Plymouth, Minnesota + Oliver Cummins); Orisei regression intact (/api/public/investor-summary, /api/public/deck.pdf, /api/public/one-pager.pdf still Orisei-branded — no Hot_Shot_TMS leakage in Content-Disposition); shared /api/public/investor-intro accepts the '[Hot Shot TMS pitch]' message prefix. Frontend Playwright: /about now reads 'Hot Shot TMS' (LiveCleans · TMS removed), Plymouth · MN pill present, Minneapolis · MN removed, footer says 'Oliver Cummins · Plymouth, MN', [data-testid=about-cta-primary] reads 'Watch the Live Demo' and now routes to /tms-investors (NOT /login), [data-testid=about-cta-investors] present in nav. /tms-investors renders all 15 required testids + 9 ERP cards (erp-sap-s/4hana … erp-custom-rest) + 14 launch-day cards + Fernet-encrypted security note. Hero shows 'One TMS. {brand}. Any Company.' auto-rotating through the 10 brands (Walmart→Caterpillar observed in 2.2s); clicking brand-tile-3 correctly switches active brand to 'Caterpillar.'. hstms-unmute button visible and clickable. Ask section shows '$1.5M seed SAFE at a $8M cap' + 3 milestone cards + TAM/SAM/SOM ($15.3B/$4.2B/$12M). Intro form: filling hstms-name='Test VC' + hstms-email='test@vc.com' and clicking hstms-intro-submit successfully POSTs to /api/public/investor-intro and reveals the hstms-thanks success card. Alias routes /demo and /tms-pitch both render the same page (hstms-hero present). PUBLIC_ROUTE_PREFIXES correctly skips /auth/me on all three public routes — 0 /auth/me 401s observed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "/tms-investors page load", "issue": "Two background calls fire from globally-mounted components on this public route and return 401: /api/wellness/nudges and /api/branding. These are NOT /auth/me (so the review-request acceptance criterion is met), but they still pollute the browser console with 4 'Failed to load resource: 401' lines per page load. Consider also adding these endpoints to a 'skip-on-public-route' guard, or making them public/anonymous-tolerant.", "affected_selectors": []}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter30_tms_investor.py",
+    "/app/test_reports/pytest/iter30_results.xml"
+  ],
+  "action_items": [
+    "[OPTIONAL · LOW] Silence /api/wellness/nudges and /api/branding 401s on public routes by guarding those fetchers with the same isPublicRoute() check used for /auth/me. The required acceptance criterion (/auth/me not firing on public routes) is met; this is a polish item to get a fully clean console on the VC-facing pages."
+  ],
+  "critical_code_review_comments": [
+    "routes/tms_investor.py is well-scoped at ~450 lines — clean separation from routes/investor.py. Markdown content lives inline; if the deck text grows much further, consider moving _hot_shot_deck_md / _hot_shot_one_pager_md into a routes/tms_content.py module to keep the route handlers thin.",
+    "tms_data_room_zip rebuilds both PDFs in-process on every request via build_branded_markdown_pdf — fine for a low-traffic VC endpoint, but if hit often, an LRU cache on the (markdown_hash, brand_key) tuple would cut response time.",
+    "TmsInvestors.jsx is 727 lines — borderline over the 700-line guideline. The Field/Stat/Pill subcomponents at the bottom could be extracted to /components/tms/* for readability.",
+    "The promo video player tries /promo.mp4 first then falls back to a YouTube iframe — there's no explicit error handler if both fail (would show an empty black box). Adding an onError -> setVideoFailed and rendering a static fallback poster would be more graceful for a VC-facing page.",
+    "Honeypot hidden input on the intro form is good. Consider adding rate-limiting on /api/public/investor-intro at the backend if not already present, since it's a public POST."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter30_tms_investor.py (new — 9 tests, all passing)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "No auth required for any of the new /api/public/tms-* endpoints. Orisei regression endpoints were also tested without auth (they are public too).",
+  "seed_data_creation": "One row inserted into the investor_intro collection from the Playwright form submission (Test VC / test@vc.com / [Hot Shot TMS pitch] message). Not 'TEST_' prefixed but represents legitimate audit history.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Hot Shot TMS public investor flow is fully working end-to-end. Backend regression suite: /app/backend/tests/test_iter30_tms_investor.py (9 tests, ~2.5s, covers all 4 new endpoints + 3 Orisei-regression endpoints + shared intro form). Frontend testids on /tms-investors are stable: hstms-{hero,video-container,video,unmute,video-iframe,stats,changeability,plug-and-play,features,founder,ask,intro-form-section,intro-form,name,email,firm,check,linkedin,message,intro-submit,thanks,download-deck,download-one-pager,download-zip,footer}, brand-tile-{0..9}, erp-{slug}, feature-{0..9}, hero-active-brand. Public route allow-list lives at /app/frontend/src/lib/auth.jsx PUBLIC_ROUTE_PREFIXES. Field component requires querySelector to use `[data-testid=hstms-name] input` (testId is on the wrapper, not the input) — the previous form fill failed because of the honeypot input being inputs[0]; use the explicit testid + ' input' selector. Alias routes /demo and /tms-pitch are simple App.js route aliases pointing to the same TmsInvestors component — both verified rendering.",
+  "rca of the issue": "No production bugs found. The console-401 noise from /api/wellness/nudges + /api/branding on /tms-investors is the only soft observation; root cause is that those two global fetchers don't gate themselves on isPublicRoute(), so they still fire on public routes even though /auth/me does."
+}

@@ -6,6 +6,7 @@ const AuthContext = createContext(null);
 const PUBLIC_ROUTE_PREFIXES = [
   "/home", "/services", "/lanes", "/contact", "/about",
   "/investors", "/press", "/exec-summary",
+  "/tms-investors", "/tms-pitch", "/demo",
   "/marketing", "/landing", "/accept-invite",
   "/driver", "/login",
 ];
