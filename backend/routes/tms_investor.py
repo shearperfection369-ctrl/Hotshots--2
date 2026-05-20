@@ -266,7 +266,7 @@ Use of funds:
 ## 15. Contact
 **{founder}** — Founder
 Hot Shot TMS · Plymouth, Minnesota
-oliver@livecleans.com
+shearperfection369@gmail.com
 """
 
 
@@ -310,7 +310,7 @@ context, document headers — reshapes around the prospect during the sales call
 
 ## Contact
 **{founder}** · Founder · Hot Shot TMS · Plymouth, Minnesota
-oliver@livecleans.com
+shearperfection369@gmail.com
 """
 
 
@@ -434,7 +434,7 @@ def build_tms_investor_router(api_router: APIRouter) -> None:
                         "\nContents:\n"
                         "  01_Hot_Shot_TMS_Pitch_Deck.pdf\n"
                         "  02_Hot_Shot_TMS_One_Pager.pdf\n"
-                        "\nFounder: Oliver Cummins · oliver@livecleans.com\n"
+                        "\nFounder: Oliver Cummins · shearperfection369@gmail.com\n"
                         "HQ: Plymouth, Minnesota\n")
         buf.seek(0)
         return StreamingResponse(

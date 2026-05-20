@@ -289,8 +289,8 @@ export default function About() {
         <div className="mt-10 p-6 rounded-xl border border-cyan-500/30 bg-cyan-500/[0.05] text-center">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300 mb-2">CONTACT THE FOUNDER</div>
           <div className="font-display text-2xl font-bold mb-3">Want a demo skinned for your company?</div>
-          <a href="mailto:oliver@livecleans.com" data-testid="about-contact-email" className="inline-flex items-center gap-2 px-5 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded">
-            <Mail size={14} /> oliver@livecleans.com
+          <a href="mailto:shearperfection369@gmail.com" data-testid="about-contact-email" className="inline-flex items-center gap-2 px-5 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded">
+            <Mail size={14} /> shearperfection369@gmail.com
           </a>
         </div>
       </section>
@@ -301,7 +301,7 @@ export default function About() {
           <div className="flex items-center gap-4">
             <Link to="/tms-investors" className="hover:text-cyan-300">Investor Pitch</Link>
             <Link to="/login" className="hover:text-cyan-300">Sign In</Link>
-            <a href="mailto:oliver@livecleans.com" className="hover:text-cyan-300">Contact</a>
+            <a href="mailto:shearperfection369@gmail.com" className="hover:text-cyan-300">Contact</a>
           </div>
         </div>
       </footer>

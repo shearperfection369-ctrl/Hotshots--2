@@ -105,7 +105,7 @@ export default function TmsInviteLinks() {
               <p className="text-sm text-slate-400 mt-2 max-w-2xl leading-relaxed">
                 Generate a unique, watermarked URL per VC firm. Every visit and download is
                 logged with IP, user-agent, and timestamp. First-visit / first-download triggers
-                a real-time Resend alert to oliver@livecleans.com.
+                a real-time Resend alert to shearperfection369@gmail.com.
               </p>
             </div>
             <div className="flex gap-3">
