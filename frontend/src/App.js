@@ -26,6 +26,7 @@ import Lanes from "@/pages/Lanes";
 import Contact from "@/pages/Contact";
 import PublicInvestors from "@/pages/PublicInvestors";
 import TmsInvestors from "@/pages/TmsInvestors";
+import TmsInviteLinks from "@/pages/TmsInviteLinks";
 import Reports from "@/pages/Reports";
 import Chat from "@/pages/Chat";
 import QuickLinks from "@/pages/QuickLinks";
@@ -116,6 +117,7 @@ function AppRouter() {
         <Route path="/connections" element={<Connections />} />
         <Route path="/provider-outreach" element={<ProviderOutreach />} />
         <Route path="/investor-boardroom" element={<InvestorBoardroom />} />
+        <Route path="/investor-invite-links" element={<TmsInviteLinks />} />
         <Route path="/marketing-pack" element={<MarketingPack />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/chat" element={<Chat />} />

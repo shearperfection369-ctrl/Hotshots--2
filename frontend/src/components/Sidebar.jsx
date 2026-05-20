@@ -41,6 +41,7 @@ const NAV = [
   { to: "/connections", label: "Connections · Keys", icon: KeyRound, tid: "nav-connections", roles: ["admin"] },
   { to: "/provider-outreach", label: "Provider Outreach", icon: Send, tid: "nav-provider-outreach", roles: ["admin"] },
   { to: "/investor-boardroom", label: "Investor Boardroom", icon: Briefcase, tid: "nav-investor-boardroom", roles: ["admin"] },
+  { to: "/investor-invite-links", label: "Investor Invite Links", icon: Briefcase, tid: "nav-investor-invite-links", roles: ["admin"] },
   { to: "/marketing-pack", label: "Marketing Pack", icon: Megaphone, tid: "nav-marketing-pack", roles: ["admin"] },
   { to: "/sap-sync", label: "SAP S/4HANA", icon: Database, tid: "nav-sap-sync", roles: ["admin", "dispatcher"] },
   { to: "/powerbi", label: "Power BI", icon: PieChart, tid: "nav-powerbi", roles: ["admin", "auditor", "dispatcher"] },

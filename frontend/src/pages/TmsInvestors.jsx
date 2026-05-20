@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import {
   Play, Volume2, VolumeX, Download, ArrowRight, Plug, Palette, Sparkles,
   ShieldCheck, BarChart3, Truck, Cpu, Globe2, Zap, MapPin, Briefcase,
   Award, CheckCircle2, Mail, Send, Building2, Layers, FileText, Archive,
+  Stamp,
 } from "lucide-react";
 
 const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -27,6 +28,10 @@ export default function TmsInvestors() {
   const [form, setForm] = useState({
     name: "", email: "", firm: "", check_size_usd: "", linkedin: "", message: "", website: "",
   });
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("token");
+  const [inviteInfo, setInviteInfo] = useState(null);
+  const [inviteError, setInviteError] = useState(null);
   const videoRef = React.useRef(null);
 
   useEffect(() => {
@@ -49,6 +54,42 @@ export default function TmsInvestors() {
       })
       .catch(() => setHasLocalMp4(false));
   }, []);
+
+  // Token-gated visit handshake: validate token + log the first page view +
+  // pre-fill the intro form. Runs once per token.
+  useEffect(() => {
+    if (!inviteToken) return;
+    (async () => {
+      try {
+        const { data: info } = await axios.get(
+          `${REACT_APP_BACKEND_URL}/api/public/tms-link/${inviteToken}`
+        );
+        setInviteInfo(info);
+        setForm((f) => ({
+          ...f,
+          firm: info.firm_name || f.firm,
+          name: info.contact_name || f.name,
+        }));
+        // Fire-and-forget visit log
+        axios.post(
+          `${REACT_APP_BACKEND_URL}/api/public/tms-link/${inviteToken}/visit`,
+          { event: "page_view", referrer: document.referrer || null }
+        ).catch(() => {});
+      } catch (err) {
+        const detail = err?.response?.data?.detail || "Invite link not found or expired.";
+        setInviteError(detail);
+      }
+    })();
+  }, [inviteToken]);
+
+  // Track download events when the user clicks any download link
+  const logDownload = (eventName) => {
+    if (!inviteToken) return;
+    axios.post(
+      `${REACT_APP_BACKEND_URL}/api/public/tms-link/${inviteToken}/visit`,
+      { event: eventName }
+    ).catch(() => {});
+  };
 
   // Brand reel auto-rotation
   useEffect(() => {
@@ -100,6 +141,18 @@ export default function TmsInvestors() {
   }
 
   const activeBrand = data.rebranding.brand_reel[brandIdx];
+  // Token-aware download URLs: when an invite token is present and valid, use
+  // the personalized endpoints so every PDF gets a "Prepared for [Firm]"
+  // stamp + diagonal watermark.
+  const downloadUrls = inviteToken && inviteInfo && !inviteError ? {
+    deck:     `${REACT_APP_BACKEND_URL}/api/public/tms-link/${inviteToken}/deck.pdf`,
+    onePager: `${REACT_APP_BACKEND_URL}/api/public/tms-link/${inviteToken}/one-pager.pdf`,
+    zip:      `${REACT_APP_BACKEND_URL}/api/public/tms-link/${inviteToken}/data-room.zip`,
+  } : {
+    deck:     `${REACT_APP_BACKEND_URL}/api/public/tms-deck.pdf`,
+    onePager: `${REACT_APP_BACKEND_URL}/api/public/tms-one-pager.pdf`,
+    zip:      `${REACT_APP_BACKEND_URL}/api/public/tms-data-room.zip`,
+  };
 
   return (
     <div className="min-h-screen bg-[#050A14] text-white overflow-x-hidden">
@@ -144,6 +197,43 @@ export default function TmsInvestors() {
       {/* HERO + VIDEO */}
       <section id="video" className="relative z-10 max-w-7xl mx-auto px-6 pt-16 pb-20"
                data-testid="hstms-hero">
+
+        {/* PERSONALIZED INVITE BANNER */}
+        {(inviteInfo || inviteError) && (
+          <div className="mb-8" data-testid="hstms-invite-banner">
+            {inviteInfo && (
+              <div className="rounded-xl border-2 p-5 flex items-start gap-4"
+                   style={{ borderColor: HSTMS_CYAN, background: `${HSTMS_CYAN}11` }}>
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center font-black text-black text-2xl shrink-0"
+                     style={{ background: HSTMS_CYAN }}>
+                  {(inviteInfo.firm_name || "?")[0]}
+                </div>
+                <div className="flex-1">
+                  <div className="text-[10px] font-mono uppercase tracking-[0.25em]" style={{ color: HSTMS_CYAN }}>
+                    Personalized for · Confidential
+                  </div>
+                  <div className="font-display text-2xl md:text-3xl font-black mt-1" data-testid="invite-firm-name">
+                    Welcome, <span style={{ color: HSTMS_CYAN }}>{inviteInfo.firm_name}</span>
+                    {inviteInfo.contact_name && <span className="text-slate-400 text-lg"> · {inviteInfo.contact_name}</span>}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                    <Stamp size={12} style={{ color: HSTMS_CYAN }} />
+                    Every PDF you download is stamped "Prepared for {inviteInfo.firm_name}" on every page.
+                  </div>
+                </div>
+              </div>
+            )}
+            {inviteError && (
+              <div className="rounded-xl border-2 p-5 flex items-center gap-4"
+                   style={{ borderColor: "#FB923C", background: "rgba(251,146,60,0.10)" }}
+                   data-testid="hstms-invite-error">
+                <div className="text-amber-300 font-mono text-xs uppercase tracking-wider">Invite link issue</div>
+                <div className="text-sm text-slate-200">{inviteError}</div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           <div className="lg:col-span-5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-[10px] font-mono uppercase tracking-[0.25em] mb-6">
@@ -167,19 +257,22 @@ export default function TmsInvestors() {
               app — colors, sample data, ERP context, suppliers, lanes, documents — reshape around them.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href={`${REACT_APP_BACKEND_URL}/api/public/tms-deck.pdf`} target="_blank" rel="noopener noreferrer"
+              <a href={downloadUrls.deck} target="_blank" rel="noopener noreferrer"
+                 onClick={() => logDownload("deck")}
                  data-testid="hstms-download-deck"
                  className="inline-flex items-center gap-2 px-5 py-3 rounded-md font-bold text-black"
                  style={{ background: HSTMS_CYAN }}>
                 <Download size={16} /> Pitch Deck (PDF)
               </a>
-              <a href={`${REACT_APP_BACKEND_URL}/api/public/tms-one-pager.pdf`} target="_blank" rel="noopener noreferrer"
+              <a href={downloadUrls.onePager} target="_blank" rel="noopener noreferrer"
+                 onClick={() => logDownload("one-pager")}
                  data-testid="hstms-download-one-pager"
                  className="inline-flex items-center gap-2 px-5 py-3 rounded-md font-bold border-2 transition-colors"
                  style={{ borderColor: HSTMS_CYAN, color: HSTMS_CYAN }}>
                 <FileText size={16} /> One-Pager
               </a>
-              <a href={`${REACT_APP_BACKEND_URL}/api/public/tms-data-room.zip`}
+              <a href={downloadUrls.zip}
+                 onClick={() => logDownload("zip")}
                  data-testid="hstms-download-zip"
                  className="inline-flex items-center gap-2 px-5 py-3 rounded-md text-sm text-slate-300 hover:text-white border border-white/10 transition">
                 <Archive size={14} /> Full Data Room (ZIP)
@@ -514,7 +607,8 @@ export default function TmsInvestors() {
               for the lead investor. Operating control retained.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <a href={`${REACT_APP_BACKEND_URL}/api/public/tms-deck.pdf`} target="_blank" rel="noopener noreferrer"
+              <a href={downloadUrls.deck} target="_blank" rel="noopener noreferrer"
+                 onClick={() => logDownload("deck")}
                  className="inline-flex items-center gap-2 px-5 py-3 rounded-md font-bold text-black"
                  style={{ background: HSTMS_CYAN }}>
                 Full Deck <ArrowRight size={14} />

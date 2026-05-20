@@ -1,0 +1,35 @@
+{
+  "summary": "Iter31 — Hot Shot TMS one-time-link gate tested end-to-end. All 15 backend pytest cases PASS (100%): admin CRUD (create with firm_name=Greylock Partners returns token + share_url + expires_at + visit_count=0 + download_counts{deck:0,one-pager:0,zip:0}); auth-gating (no-auth → 401, empty firm_name → 422 Pydantic); list returns items[] with most-recent-first + per-link share_url/visit_count/unique_ip_count/last_visit_at/download_counts; disable + delete work and reflect in subsequent GET (disabled token → 410, deleted token excluded from list); public /api/public/tms-link/{token} returns the validation payload (200) and correctly emits 404 for unknown token, 410 for disabled, 423 for cap-hit (verified via max_visits=1 link); /visit endpoint logs visits[] with ip + ua + timestamp and increments visit_count visible from admin list; /deck.pdf and /one-pager.pdf return valid %PDF with Content-Disposition containing 'for_Greylock_Partners' and increment download_counts.deck / download_counts.one-pager; /data-room.zip returns valid ZIP with exactly 3 entries (01_Hot_Shot_TMS_Pitch_Deck_for_Greylock_Partners.pdf, 02_Hot_Shot_TMS_One_Pager_for_Greylock_Partners.pdf, README.txt) whose README contains 'Prepared for: Greylock Partners' + 'Token: {token}' + 'Plymouth, Minnesota'. Regression intact: /api/public/tms-pitch-summary still returns brand.company_name='Hot Shot TMS'; non-personalized /tms-deck.pdf, /tms-one-pager.pdf, /tms-data-room.zip still valid PDFs/ZIP; Orisei /api/public/investor-summary still Orisei-branded and /api/public/deck.pdf valid. Frontend Playwright: /tms-investors?token={valid} renders [data-testid=hstms-invite-banner] with 'Welcome, Acme Test Ventures · Jane Doe', POSTs /tms-link/{token}/visit with {event:'page_view',referrer:null} on mount (2 POSTs observed — token validate + visit log), pre-fills hstms-firm input with 'Acme Test Ventures' and hstms-name with 'Jane Doe', and all 3 download buttons point to /api/public/tms-link/{token}/{deck.pdf|one-pager.pdf|data-room.zip}. /tms-investors?token=INVALID renders [data-testid=hstms-invite-error] with text 'Invite link issue · Invite link not found' and download URLs gracefully fall back to non-personalized /api/public/tms-deck.pdf et al. /tms-investors (no token) shows no banner/error and uses non-personalized download URLs. Admin /investor-invite-links (with session_token cookie + localStorage) renders [data-testid=invite-links-header] with title 'Investor Invite Links' + stats row (Active links / Total visits / PDFs delivered), [data-testid=invite-links-form-card] with all 6 form fields (form-firm-name, form-contact-name, form-contact-email, form-note, form-max-visits, form-days-valid) + [data-testid=form-create-button], and [data-testid=invite-links-table-card]/[data-testid=invite-links-list]. Empty firm_name submit is blocked client-side (0 POSTs) due to HTML5 required attribute. Submitting with firm_name='Acme Ventures' POSTs exactly once, shows toast 'Generated invite link for Acme Ventures', and the new card appears in the list with copy-{token} + disable-{token} + delete-{token} buttons.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "/tms-investors public route", "issue": "Same iter30 console-401 noise persists from globally-mounted fetchers (/api/wellness/nudges, /api/branding) since they don't gate on isPublicRoute(). Functionally harmless; cosmetic.", "affected_selectors": []}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter31_invite_links.py",
+    "/app/test_reports/pytest/iter31_results.xml"
+  ],
+  "action_items": [
+    "[OPTIONAL · LOW] Silence /api/wellness/nudges + /api/branding 401s on public /tms-investors route by adding them to PUBLIC_ROUTE_PREFIXES guard (carry-over from iter30)."
+  ],
+  "critical_code_review_comments": [
+    "routes/tms_invite_links.py is well-scoped at ~400 lines, cleanly separated from tms_investor.py. The 3 PDF/ZIP handlers duplicate ~10 lines of visit-logging boilerplate each — could be refactored into a `_log_download(token, event, request)` helper to honour DRY.",
+    "_check_active() silently ignores ValueError on malformed expires_at — fine because dates are written by the server, but worth a logger.warning if it ever fires.",
+    "Personalized ZIP rebuilds two full PDFs in-process every request (same observation as iter30); fine for VC-scale traffic but cache-able by (token, firm_name) tuple for hot links.",
+    "The 422 contract for empty firm_name comes from Pydantic min_length=1 — good. Note that whitespace-only firm names would still pass min_length=1 then strip to empty in the handler; consider Field(...,strip_whitespace=True) or a validator.",
+    "TmsInviteLinks.jsx UI looks clean; consider adding a small confirm() prompt on Delete (currently deletes on first click) and on Disable (currently disables on first click) to prevent accidental clicks on a live VC link."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter31_invite_links.py (new — 15 tests, all passing, 4.89s)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin: Authorization: Bearer test_session_admin_1 (also as session_token cookie/localStorage). Public endpoints + /tms-investors?token=... need no auth.",
+  "seed_data_creation": "During testing, 3 invite-link rows were created in `tms_investor_invite_links` (Greylock Partners, Acme Test Ventures, Acme Ventures). All 3 cleaned up at the end of testing (DELETE called).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "One-time-link gate is fully working end-to-end. Backend regression: /app/backend/tests/test_iter31_invite_links.py (15 tests, ~5s, covers admin CRUD + public validate/visit/PDF/ZIP + cap-hit 423 + non-personalized & Orisei regression). Key testids on /tms-investors: hstms-invite-banner, invite-firm-name, hstms-invite-error, hstms-thanks, hstms-download-deck/-one-pager/-zip; intro form Field component places data-testid DIRECTLY on the <input>, so use selector `[data-testid=\"hstms-firm\"]` NOT `[data-testid=\"hstms-firm\"] input` (this contradicts iter30's note — Field was updated to attach testid to the input element). Key testids on /investor-invite-links: invite-links-header, invite-links-form-card, invite-links-table-card, invite-links-list, form-firm-name, form-contact-name, form-contact-email, form-note, form-max-visits, form-days-valid, form-create-button; per-link buttons are copy-{token}, disable-{token}, delete-{token}. To access admin page in Playwright: set BOTH (1) cookie `session_token=test_session_admin_1` on the preview domain AND (2) localStorage.session_token, THEN page.goto() — protected routes redirect to /login otherwise.",
+  "rca of the issue": "No production bugs found. All 23 testable scenarios in the review request pass."
+}
