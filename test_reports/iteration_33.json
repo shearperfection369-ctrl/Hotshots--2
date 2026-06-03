@@ -1,0 +1,40 @@
+{
+  "summary": "Tested Orisei Operations module end-to-end: 16 backend pytest cases all PASS (customers CRUD, quotes create + total math + PDF + send-drafts-without-creds, rate-confirmations 404-on-missing-booking + list, portal-link generation + multiple unique tokens, public customer-portal unauthenticated GET + 404 on bad token + visit logging, deactivate + active_only filter). Frontend /orisei-operations loads, sidebar nav present, header + 3 tabs render. Public /customer-portal renders WITHOUT any auth — header+token-verified badge, 4 stat tiles, 3 sections (bookings/invoices/quotes); invalid and missing tokens correctly show portal-error card. ONE FRONTEND BUG: customer create form blanks the page when any of the Optional[EmailStr] fields (ap_email, primary_contact_email) is left empty — the form sends empty string '', backend rejects with 422 'value is not a valid email address', and the React tree crashes (rendering only the 'Made with Emergent' badge afterwards) instead of showing an error toast.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/orisei/customers/{id}/portal-link", "issue": "share_url is built from request.headers.get('origin'). When the browser request originates from the cluster-internal preview host (e.g. clean-logistics-dash.cluster-5.preview.emergentcf.cloud), the returned share_url uses that host rather than the public REACT_APP_BACKEND_URL host (clean-logistics-dash.preview.emergentagent.com). Both hosts currently resolve to the same backend so the link works, but the URL the admin copies to the customer is inconsistent. Consider deriving from a configured PUBLIC_APP_URL env var instead."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "OriseiOperations · CustomersTab", "issue": "Submitting the New Customer form with empty optional email fields (ap_email and/or primary_contact_email left blank) produces a 422 from /api/orisei/customers and then the entire page goes blank (React error: 'An error occurred in the <div> component'). Root cause: the form spreads {...form} into the payload which sends '' for those fields; Pydantic's Optional[EmailStr] does not accept empty strings, only null/missing. Fix: in CustomersTab.create(), strip empty strings out of the payload (or convert '' -> null) for ap_email and primary_contact_email before POST. Same defensive cleanup belongs on every Optional[EmailStr] field across QuotesTab (none today) and RateConsTab (carrier_contact_email).", "selector": "[data-testid=cust-create]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter33_orisei_operations.py",
+    "/app/test_reports/pytest/iter33_results.xml"
+  ],
+  "action_items": [
+    "Fix CustomersTab create() in /app/frontend/src/pages/OriseiOperations.jsx to drop or null-out empty string email fields before POST (ap_email, primary_contact_email). Same for RateConsTab carrier_contact_email. After that, verify the page no longer goes blank when the 422 error toast fires.",
+    "(optional/minor) Derive portal share_url from a configured public app URL rather than the Origin header in /app/backend/routes/orisei_operations.py generate_portal_link, so the link host is stable across cluster-internal vs public domain."
+  ],
+  "critical_code_review_comments": [
+    "OriseiOperations.jsx CustomersTab.create spreads form state directly — Optional[EmailStr] backend fields blow up on empty strings. Sanitize payload (drop empty strings for *_email keys) before submit. Same anti-pattern in RateConsTab.create for carrier_contact_email.",
+    "OriseiOperations.jsx (397 lines) — borderline OK for now but tabs are big; consider splitting CustomersTab/QuotesTab/RateConsTab into their own files if it grows further.",
+    "build_orisei_operations_router uses request.headers.get('origin') for share_url — fragile; better to read from a PUBLIC_APP_URL env var (matches the file-pattern used elsewhere with REACT_APP_BACKEND_URL on FE)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter33_orisei_operations.py (created)",
+    "/app/test_reports/pytest/iter33_results.xml (created)"
+  ],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "85% (portal page 100%, ops page renders + sidebar nav + tabs work, but customer-create form crashes on empty optional emails)"},
+  "test_credentials": "Admin Bearer test_session_admin_1 (test.admin@tennantco.com); set via Authorization header for API tests, and via localStorage.setItem('session_token','test_session_admin_1') + cookie for UI tests.",
+  "seed_data_creation": "Tests create TEST_Acme_<rnd> + TEST_Dispose_<rnd> customers + 1 quote + 4 portal tokens per run. Customers are deactivated in module teardown; tokens/quotes remain in DB (no public delete endpoint).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file is /app/backend/tests/test_iter33_orisei_operations.py — run with `pytest backend/tests/test_iter33_orisei_operations.py -v`. The customer-create blank-page bug is reproducible by going to /orisei-operations as admin (localStorage session_token=test_session_admin_1), entering only a name in 'New customer', and clicking 'Add customer'. Watch the browser blank-out after the 422. Once main agent strips empty-string emails, re-run the Playwright UI flow to confirm customer-card appears in list and downstream quote/rate-con flows work end-to-end. Resend creds are intentionally NOT configured — send endpoints must always return 200 with status='drafted'.",
+  "rca of the issue": "Frontend CustomersTab.create at /app/frontend/src/pages/OriseiOperations.jsx line ~74 spreads form state into payload. Empty inputs default to '' in React state. Pydantic's Optional[EmailStr] (orisei_operations.py CustomerIn.ap_email/primary_contact_email) only accepts a real email or null/missing; '' triggers 422 'value is not a valid email address'. The Axios error is caught and `toast.error(detail)` is called — but the `detail` returned by FastAPI is an ARRAY of validation errors, not a string, so passing it to sonner's toast.error causes a render-time crash that takes down the entire CustomersTab subtree, resulting in a blank screen. Mitigation: (a) before POST, build a cleaned payload that omits keys with '' values (or maps '' -> null) for *_email; (b) make the error toast resilient (`typeof detail === 'string' ? detail : 'Create failed'`)."
+}

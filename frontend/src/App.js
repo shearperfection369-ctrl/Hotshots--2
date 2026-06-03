@@ -29,6 +29,8 @@ import TmsInvestors from "@/pages/TmsInvestors";
 import TmsInviteLinks from "@/pages/TmsInviteLinks";
 import MarginShield from "@/pages/MarginShield";
 import BrokerageOpsKpis from "@/pages/BrokerageOpsKpis";
+import OriseiOperations from "@/pages/OriseiOperations";
+import CustomerPortal from "@/pages/CustomerPortal";
 import Reports from "@/pages/Reports";
 import Chat from "@/pages/Chat";
 import QuickLinks from "@/pages/QuickLinks";
@@ -101,6 +103,7 @@ function AppRouter() {
       <Route path="/marketing" element={<About />} />
       <Route path="/landing" element={<About />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
+      <Route path="/customer-portal" element={<CustomerPortal />} />
       {/* Driver mobile is auth-free */}
       <Route path="/driver" element={<DriverMobile />} />
       <Route path="/driver/:shipmentId" element={<DriverMobile />} />
@@ -122,6 +125,7 @@ function AppRouter() {
         <Route path="/investor-invite-links" element={<TmsInviteLinks />} />
         <Route path="/margin-shield" element={<MarginShield />} />
         <Route path="/brokerage-ops-kpis" element={<BrokerageOpsKpis />} />
+        <Route path="/orisei-operations" element={<OriseiOperations />} />
         <Route path="/marketing-pack" element={<MarketingPack />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/chat" element={<Chat />} />

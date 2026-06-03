@@ -5,7 +5,7 @@ import {
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
   DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon,
-  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone
+  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -20,6 +20,7 @@ const NAV = [
   { to: "/brokerage", label: "Brokerage · Accounting", icon: Calculator, tid: "nav-brokerage", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/margin-shield", label: "Margin Shield", icon: Calculator, tid: "nav-margin-shield", roles: ["admin", "dispatcher"] },
   { to: "/brokerage-ops-kpis", label: "Ops KPIs", icon: Calculator, tid: "nav-brokerage-ops-kpis", roles: ["admin", "dispatcher"] },
+  { to: "/orisei-operations", label: "Orisei Operations", icon: Building2, tid: "nav-orisei-operations", roles: ["admin", "dispatcher"] },
   { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console", roles: ["admin", "dispatcher"] },
   { to: "/driver-registry", label: "Drivers & Trailers", icon: IdCard, tid: "nav-driver-registry", roles: ["admin", "auditor", "dispatcher"] },
