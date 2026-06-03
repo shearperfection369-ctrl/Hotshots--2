@@ -137,14 +137,18 @@ def _compliance_check(carrier: Dict[str, Any]) -> Dict[str, Any]:
                   else "MC authority revoked or inactive — BLOCKER",
     })
 
-    # 2. CSA / Safety
-    csa_score = float(carrier.get("csa_safety_score", 50))
-    csa_status = "pass" if csa_score < 65 else ("warn" if csa_score < 80 else "fail")
-    checks.append({
-        "name": "CSA Safety Score",
-        "status": csa_status,
-        "detail": f"{csa_score:.0f}/100 ({'green band' if csa_score < 65 else 'caution' if csa_score < 80 else 'high-risk'})",
-    })
+    # 2. CSA / Safety — warn-by-default when no score on file so admins
+    # notice un-vetted carriers (rather than silently passing).
+    csa_raw = carrier.get("csa_safety_score")
+    if csa_raw is None or csa_raw == "":
+        csa_status = "warn"
+        csa_detail = "No CSA score on file — vet manually before tender"
+        csa_score = 0.0
+    else:
+        csa_score = float(csa_raw)
+        csa_status = "pass" if csa_score < 65 else ("warn" if csa_score < 80 else "fail")
+        csa_detail = f"{csa_score:.0f}/100 ({'green band' if csa_score < 65 else 'caution' if csa_score < 80 else 'high-risk'})"
+    checks.append({"name": "CSA Safety Score", "status": csa_status, "detail": csa_detail})
 
     # 3. Insurance expiry
     ins_exp = carrier.get("insurance_expires_at")

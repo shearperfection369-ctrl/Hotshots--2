@@ -887,6 +887,57 @@ Subsequent user-requested additions (chronological, all delivered):
   emails the founder via Resend.
 
 
+## 2026-06-03 · Brokerage Margin Shield · 5-Feature Margin Protection Module
+- **Strategic theme**: User pitched margin stability via two tactics —
+  TMS automation absorbs labor cost ("when shipper rates drop 3%, my cost
+  drops 5%") + carrier loyalty bonus locks predictable capacity. Built
+  both in one cohesive module.
+- **NEW backend** `routes/margin_shield.py` (~400 lines, 12 endpoints):
+  - **Auto-Match engine** (`GET /api/margin-shield/auto-match/{load_id}`):
+    weighted scoring (scorecard 35% + lane history 25% + equipment fit 20%
+    + loyalty tier 15% + freshness 5%). Returns top-3 carriers with
+    component breakdown + compliance flag per match.
+  - **One-click tender** (`POST .../tender`): atomically updates load
+    status + audit-logs to `db.load_tenders`.
+  - **Rate Snapshot** (`GET .../rates/{load_id}`): blends DAT One +
+    Truckstop + historical lane average into one view with confidence
+    score (40-100). Honest `synthetic_warning` flag when DAT/Truckstop
+    creds aren't in Connections Vault.
+  - **Compliance Traffic-Lights** (`GET .../compliance/{mc}`): 5-check
+    vetting (MC active, CSA, insurance, blocklist, drug clearinghouse)
+    with green/amber/red flag. Warn-by-default when CSA data missing.
+  - **Auto-Invoice on POD** (`POST .../invoice/auto/{booking_id}`):
+    atomically generates invoice + QBO AR queue entry + customer email
+    draft. Idempotent — re-call returns `already_invoiced:true`.
+  - **Carrier Loyalty Programs** (full CRUD): flat-$ or %-of-line-haul
+    bonuses, platinum/gold/silver tiers, configurable first-look window
+    (default 30 min).
+  - **Carrier tier assignment** (`POST .../loyalty/carriers/{mc}/tier`).
+  - **Dashboard** (`GET .../dashboard`): unified KPI snapshot.
+- **NEW frontend** `MarginShield.jsx` (~550 lines, admin/dispatcher):
+  - 5-tab layout (Auto-Match · Rates · Compliance · Auto-Invoice · Loyalty).
+  - KPI row populates from /dashboard endpoint.
+  - Tier pills (Trophy/Award/Star icons) + compliance traffic-light pills.
+  - Inline match-card with component score bars + one-click tender button
+    (disabled when compliance is red).
+  - Loyalty program create form + delete with confirm.
+- **Test seeds**: 5 carriers inserted (MC-100001 Northland=platinum/clean,
+  MC-100002 Prairie=gold, MC-100003 Heartland=silver, MC-100004 Apex=red
+  test case w/revoked MC + expired insurance + unknown clearinghouse,
+  MC-100005 Lone Star=gold). Auth sessions refreshed for 365 days.
+- **Sidebar**: nav-margin-shield entry added under Brokerage · Accounting.
+
+### Tests
+- `/app/test_reports/iteration_32.json` — 31/31 backend tests + 100%
+  frontend Playwright pass on first run. Zero bugs.
+- `/app/backend/tests/test_iter32_margin_shield.py` (31 tests, ~2.1s)
+  covers: auth gate, dashboard payload, auto-match scoring (Northland #1
+  at score 93), one-click tender + audit log insert, missing-mc 400,
+  dispatcher-can-tender, rate snapshot 3 sources + confidence + synthetic
+  warning, compliance green/red/404, auto-invoice success/already-invoiced
+  /no-pod/404, loyalty CRUD + tier assignment + 404s, brokerage/investor/
+  public regression.
+
 ## 2026-02-20 (later) · Hot Shot TMS · One-Time-Link Gate
 - **Per-VC personalized URLs**: founder generates `/tms-investors?token=abc`
   links from a new admin page at `/investor-invite-links`. Each token

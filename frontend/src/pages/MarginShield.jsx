@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Shield, Zap, DollarSign, AlertTriangle, CheckCircle2, XCircle,
-  TrendingUp, Award, Trophy, Star, Users, FileText, Plus, Trash2,
+  TrendingUp, Award, Trophy, Star, FileText, Plus, Trash2,
   Activity, Sparkles, Gauge, ChevronRight,
 } from "lucide-react";
 
