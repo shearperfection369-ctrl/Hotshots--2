@@ -19,6 +19,7 @@ const NAV = [
   { to: "/book-load", label: "Book Load", icon: PlusSquare, tid: "nav-book-load", roles: ["admin", "dispatcher"] },
   { to: "/brokerage", label: "Brokerage · Accounting", icon: Calculator, tid: "nav-brokerage", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/margin-shield", label: "Margin Shield", icon: Calculator, tid: "nav-margin-shield", roles: ["admin", "dispatcher"] },
+  { to: "/brokerage-ops-kpis", label: "Ops KPIs", icon: Calculator, tid: "nav-brokerage-ops-kpis", roles: ["admin", "dispatcher"] },
   { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console", roles: ["admin", "dispatcher"] },
   { to: "/driver-registry", label: "Drivers & Trailers", icon: IdCard, tid: "nav-driver-registry", roles: ["admin", "auditor", "dispatcher"] },

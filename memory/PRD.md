@@ -887,6 +887,49 @@ Subsequent user-requested additions (chronological, all delivered):
   emails the founder via Resend.
 
 
+## 2026-06-03 (later) · Brokerage Ops KPI Dashboard + Industry Gap Analysis
+- **Audit first**: User asked for load tracking, invoice automation,
+  carrier portal, shipper reporting, and the 4-KPI dashboard. Audit found
+  ~75% already built in `routes/brokerage.py` (bookings/POD/invoices/
+  drivers/onboarding/factoring/QBO/margins). Resisted rebuild; surfaced
+  the real gap.
+- **NEW backend** `routes/orisei_ops_kpis.py` (~170 lines, 2 endpoints):
+  - `GET /api/brokerage/ops-kpis?window_days=N` — single payload with
+    the 4 headline KPIs (cost-per-mile, gross margin %, fill rate %,
+    on-time %), lane breakdown (sorted by volume) with CPM/RPM/margin/
+    OTP per lane, and carrier performance table.
+  - `GET /api/brokerage/ops-kpis/shipper-report/{shipper}` — same KPIs
+    scoped to a single customer for weekly digest emails.
+  - Honest defaults: 1-hour grace window on OTP; null instead of 100%
+    when no OTP data exists; lane volume sort prevents tiny lanes from
+    dominating headlines.
+- **NEW frontend** `BrokerageOpsKpis.jsx` (~210 lines, admin/dispatcher):
+  - 4 BigKpi cards across the top (CPM, Margin %, Fill Rate, OTP).
+  - Window picker (7/30/90/365 days) with refresh button.
+  - Lane Performance table — color-codes margin >=15% green, 8-15%
+    amber, <8% red; same for OTP >=95/85/<85.
+  - Carrier Performance table with cost/mi and OTP per MC#.
+- **Sidebar nav** added: `nav-brokerage-ops-kpis`.
+- **Seed**: 3 sample bookings inserted (Tennant MN→TX 2x, 3M MN→GA 1x)
+  to demonstrate Plymouth→Dallas lane at $2.05/mi cost, 13.6% margin,
+  100% OTP.
+
+### Strategic Deliverable
+- **NEW** `/app/memory/ORISEI_INDUSTRY_GAP_ANALYSIS.md` (~360 lines):
+  - Capability matrix vs. SAP TM, Oracle OTM, MercuryGate, McLeod —
+    matches or beats them on 12 of 14 lines.
+  - 11 honest gaps prioritized P0/P1/P2/P3 with industry baseline,
+    your current state, fix-effort, and cost estimates.
+    P0: GPS tracking (project44), EDI 204/210/214/990 (SPS Commerce),
+        spot vs. contract rate logic, SSO via WorkOS, SOC 2 Type I.
+    P1: Accessorial library, EDI 856 ASN, customer self-service portal.
+    P2: Multi-currency/tax, carrier PWA.
+    P3: Dock scheduling.
+  - Production-readiness checklist (must-have / should-have / nice-to-
+    have) with vendor recommendations + price tags.
+  - Efficiency + ease-of-use comparison.
+  - Strategic recommendation: **stop building, start signing logos.**
+
 ## 2026-06-03 · Brokerage Margin Shield · 5-Feature Margin Protection Module
 - **Strategic theme**: User pitched margin stability via two tactics —
   TMS automation absorbs labor cost ("when shipper rates drop 3%, my cost

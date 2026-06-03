@@ -28,6 +28,7 @@ import PublicInvestors from "@/pages/PublicInvestors";
 import TmsInvestors from "@/pages/TmsInvestors";
 import TmsInviteLinks from "@/pages/TmsInviteLinks";
 import MarginShield from "@/pages/MarginShield";
+import BrokerageOpsKpis from "@/pages/BrokerageOpsKpis";
 import Reports from "@/pages/Reports";
 import Chat from "@/pages/Chat";
 import QuickLinks from "@/pages/QuickLinks";
@@ -120,6 +121,7 @@ function AppRouter() {
         <Route path="/investor-boardroom" element={<InvestorBoardroom />} />
         <Route path="/investor-invite-links" element={<TmsInviteLinks />} />
         <Route path="/margin-shield" element={<MarginShield />} />
+        <Route path="/brokerage-ops-kpis" element={<BrokerageOpsKpis />} />
         <Route path="/marketing-pack" element={<MarketingPack />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/chat" element={<Chat />} />
