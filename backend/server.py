@@ -8072,6 +8072,11 @@ build_tms_invite_links_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,
                               require_role=require_role)
 
+from routes.margin_shield import build_margin_shield_router  # noqa: E402
+build_margin_shield_router(api_router=api_router, db=db,
+                           get_current_user=get_current_user,
+                           require_role=require_role)
+
 from routes.investor import build_investor_router  # noqa: E402
 api_router.include_router(build_investor_router(
     db=db,
