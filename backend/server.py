@@ -8082,6 +8082,11 @@ build_orisei_ops_router(api_router=api_router, db=db,
                         get_current_user=get_current_user,
                         require_role=require_role)
 
+from routes.orisei_operations import build_orisei_operations_router  # noqa: E402
+build_orisei_operations_router(api_router=api_router, db=db,
+                               get_current_user=get_current_user,
+                               require_role=require_role)
+
 from routes.investor import build_investor_router  # noqa: E402
 api_router.include_router(build_investor_router(
     db=db,
