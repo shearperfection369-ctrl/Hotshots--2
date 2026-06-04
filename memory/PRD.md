@@ -981,6 +981,53 @@ Subsequent user-requested additions (chronological, all delivered):
   /no-pod/404, loyalty CRUD + tier assignment + 404s, brokerage/investor/
   public regression.
 
+## 2026-06-04 · Orisei Operations module wired + public Customer Self-Service Portal
+- **Goal**: bridge "I have a TMS" → "I dispatched my first paying load" by wiring
+  the in-progress Orisei Operations module (Customers · Quotes · Rate Cons) into
+  the app and exposing a token-gated public Customer Portal for shippers.
+- **Frontend wiring**:
+  - `App.js` — imported `OriseiOperations` and `CustomerPortal`; added protected
+    `/orisei-operations` route and public `/customer-portal` route (outside
+    `ProtectedRoute`).
+  - `lib/auth.jsx` — added `/customer-portal` to `PUBLIC_ROUTE_PREFIXES` so
+    `/auth/me` is skipped on portal visits (no 401 console noise for shippers).
+  - `Sidebar.jsx` — added `nav-orisei-operations` link (Building2 icon) for
+    admin + dispatcher roles.
+- **NEW page `pages/CustomerPortal.jsx`** — public (no auth) token-gated view
+  at `/customer-portal?token=…`. Renders customer header (name + token-verified
+  badge), 4 stat tiles (active shipments · delivered past 30d · outstanding
+  A/R · open quotes), and three sections (Your shipments · Invoices · Quotes)
+  with `StatusPill` color coding. Uses raw axios (not `api` wrapper) so it
+  truly sends no auth header.
+- **Bug fix** (testing agent iter33 HIGH-priority): customer/quote/rate-con
+  create forms spread `{...form}` into payload — empty optional `EmailStr`
+  fields became `""`, FastAPI 422'd, and `toast.error(detail)` (where `detail`
+  is the validation array) crash-rendered the entire CustomersTab subtree
+  (blank page). Added `clean()` helper to strip empty strings before POST and
+  `errText()` helper that gracefully formats array-shaped FastAPI details for
+  sonner toasts. Applied to all three tabs.
+- **Verified end-to-end** (Playwright): submitting "TEST FixCheck Co" with
+  only the name field populated now creates the customer, page stays alive,
+  success toast fires, customer appears in list.
+- **Backend** (already in place, re-verified by testing agent 16/16 backend
+  pytest):
+  - `/api/orisei/customers` full CRUD with deactivate
+  - `/api/orisei/quotes` create + list + PDF + send (drafts when Resend creds
+    missing)
+  - `/api/orisei/rate-confirmations` create + PDF + send (404 when booking
+    missing)
+  - `/api/orisei/customers/{id}/portal-link` → `{token, share_url, expires_at}`
+  - `/api/public/customer-portal/{token}` (no auth) → customer dashboard JSON
+    with summary, bookings, invoices, quotes + appends visit-log entry
+- **Tests**: `/app/test_reports/iteration_33.json` → backend 16/16 PASS,
+  frontend 100% post-fix. Test file
+  `/app/backend/tests/test_iter33_orisei_operations.py`.
+- **Known minor (not blocking)**: portal `share_url` is built from
+  `request.headers.get('origin')` — when the admin's browser hits the cluster
+  preview host the share URL uses that host. Future cleanup: derive from a
+  `PUBLIC_APP_URL` env var.
+
+
 ## 2026-02-20 (later) · Hot Shot TMS · One-Time-Link Gate
 - **Per-VC personalized URLs**: founder generates `/tms-investors?token=abc`
   links from a new admin page at `/investor-invite-links`. Each token

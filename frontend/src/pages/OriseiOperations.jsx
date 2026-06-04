@@ -13,6 +13,24 @@ import {
 
 const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
+// FastAPI returns validation errors as an array of objects; toast.error chokes on non-strings.
+function errText(e, fallback) {
+  const d = e?.response?.data?.detail;
+  if (typeof d === "string") return d;
+  if (Array.isArray(d) && d[0]?.msg) return `${d[0].loc?.slice(-1)[0] || "field"}: ${d[0].msg}`;
+  return fallback;
+}
+
+// Strip empty-string values so Pydantic Optional[EmailStr] / numbers don't 422.
+function clean(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === "" || v === undefined) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
 /** /orisei-operations — Customers · Quotes · Rate Cons · Portal Links */
 export default function OriseiOperations() {
   const [tab, setTab] = useState("customers");
@@ -75,15 +93,15 @@ function CustomersTab() {
     if (!form.name.trim()) return toast.error("Customer name required");
     setCreating(true);
     try {
-      const payload = { ...form,
-        credit_limit_usd: form.credit_limit_usd ? parseFloat(form.credit_limit_usd) : null };
+      const payload = clean({ ...form,
+        credit_limit_usd: form.credit_limit_usd ? parseFloat(form.credit_limit_usd) : null });
       await api.post("/orisei/customers", payload);
       toast.success(`Created · ${form.name}`);
       setForm({ name: "", primary_contact_name: "", primary_contact_email: "",
         primary_contact_phone: "", ap_email: "", payment_terms: "Net 30",
         credit_limit_usd: "", billing_address: "", notes: "" });
       fetchList();
-    } catch (e) { toast.error(e?.response?.data?.detail || "Create failed"); }
+    } catch (e) { toast.error(errText(e, "Create failed")); }
     finally { setCreating(false); }
   };
 
@@ -93,7 +111,7 @@ function CustomersTab() {
         { customer_id: cust.customer_id, days_valid: 90 });
       try { await navigator.clipboard.writeText(data.share_url); } catch {}
       toast.success(`Portal link generated + copied · expires ${data.expires_at?.slice(0,10)}`);
-    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    } catch (e) { toast.error(errText(e, "Failed")); }
   };
 
   const deactivate = async (cust) => {
@@ -192,18 +210,18 @@ function QuotesTab() {
     if (!form.origin || !form.destination || !form.line_haul_usd)
       return toast.error("Origin, destination, line-haul are required");
     try {
-      const payload = { ...form,
+      const payload = clean({ ...form,
         miles: form.miles ? parseFloat(form.miles) : null,
         weight_lbs: form.weight_lbs ? parseFloat(form.weight_lbs) : null,
         line_haul_usd: parseFloat(form.line_haul_usd),
         fuel_surcharge_usd: parseFloat(form.fuel_surcharge_usd || 0),
         valid_for_days: parseInt(form.valid_for_days, 10),
-      };
+      });
       const { data } = await api.post("/orisei/quotes", payload);
       toast.success(`Quote ${data.quote_id} · $${data.total_usd.toLocaleString()}`);
       setForm({ ...form, origin: "", destination: "", line_haul_usd: "", notes: "" });
       fetchAll();
-    } catch (e) { toast.error(e?.response?.data?.detail || "Create failed"); }
+    } catch (e) { toast.error(errText(e, "Create failed")); }
   };
 
   const downloadPdf = (qid) => {
@@ -215,7 +233,7 @@ function QuotesTab() {
       const { data } = await api.post(`/orisei/quotes/${qid}/send`);
       toast.success(data.sent ? `Sent to ${data.to}` : `Drafted (no Resend creds in vault — to ${data.to})`);
       fetchAll();
-    } catch (e) { toast.error(e?.response?.data?.detail || "Send failed"); }
+    } catch (e) { toast.error(errText(e, "Send failed")); }
   };
 
   return (
@@ -306,13 +324,13 @@ function RateConsTab() {
     if (!form.booking_id || !form.carrier_mc || !form.carrier_name || !form.rate_usd)
       return toast.error("Booking, carrier name, MC, and rate are required");
     try {
-      const payload = { ...form,
+      const payload = clean({ ...form,
         rate_usd: parseFloat(form.rate_usd),
-        quickpay_fee_pct: parseFloat(form.quickpay_fee_pct || 3) };
+        quickpay_fee_pct: parseFloat(form.quickpay_fee_pct || 3) });
       const { data } = await api.post("/orisei/rate-confirmations", payload);
       toast.success(`Rate-con ${data.rc_id} generated`);
       fetchList();
-    } catch (e) { toast.error(e?.response?.data?.detail || "Create failed"); }
+    } catch (e) { toast.error(errText(e, "Create failed")); }
   };
 
   const downloadPdf = (rcid) => window.open(`${REACT_APP_BACKEND_URL}/api/orisei/rate-confirmations/${rcid}/pdf`, "_blank");
@@ -322,7 +340,7 @@ function RateConsTab() {
       const { data } = await api.post(`/orisei/rate-confirmations/${rcid}/send`);
       toast.success(data.sent ? `Sent to ${data.to}` : `Drafted (to ${data.to})`);
       fetchList();
-    } catch (e) { toast.error(e?.response?.data?.detail || "Send failed"); }
+    } catch (e) { toast.error(errText(e, "Send failed")); }
   };
 
   return (
