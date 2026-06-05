@@ -195,6 +195,37 @@ def require_role(*allowed_roles: str):
     return _checker
 
 # -------------------- AUTH ENDPOINTS --------------------
+def _shared_cookie_domain(request: Request) -> Optional[str]:
+    """Return a `.parent.tld` cookie domain that's shared across the
+    frontend and backend subdomains, so the auth cookie isn't locked to
+    just the backend host. Falls back to None for local dev or custom domains.
+
+    Examples:
+        backend host `clean-logistics-dash.preview.emergentagent.com`
+            → `.emergentagent.com` (also covers preview.static.* frontend)
+        backend host `api.oriseifreight.com`
+            → `.oriseifreight.com`
+        backend host `localhost`
+            → None (browsers reject Domain for IP/localhost)
+    """
+    try:
+        host = (request.headers.get("x-forwarded-host")
+                or request.headers.get("host") or "").split(":")[0].strip().lower()
+        if not host or host in ("localhost", "127.0.0.1") or host.replace(".", "").isdigit():
+            return None
+        # Whitelist of well-known shared parents (highest precedence)
+        for parent in ("emergentagent.com", "emergent.host", "emergent.sh"):
+            if host == parent or host.endswith("." + parent):
+                return "." + parent
+        # Custom domain: drop the leftmost subdomain ("api.foo.com" → ".foo.com").
+        parts = host.split(".")
+        if len(parts) >= 2:
+            return "." + ".".join(parts[-2:])
+        return None
+    except Exception:
+        return None
+
+
 @api_router.post("/auth/session")
 async def create_session(request: Request, response: Response):
     body = await request.json()
@@ -255,17 +286,32 @@ async def create_session(request: Request, response: Response):
         "expires_at": expires_at.isoformat(),
         "created_at": datetime.now(timezone.utc).isoformat()
     })
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        path="/",
-        max_age=7 * 24 * 60 * 60,
-    )
+    cookie_kwargs = {
+        "key": "session_token",
+        "value": session_token,
+        "httponly": True,
+        "secure": True,
+        "samesite": "none",
+        "path": "/",
+        "max_age": 7 * 24 * 60 * 60,
+    }
+    # Share cookie across frontend (preview.static.*) and backend (preview.*)
+    # subdomains by setting Domain to the shared parent. Otherwise the cookie
+    # is locked to the backend host and sign-in loops forever from the static
+    # production frontend.
+    cookie_domain = _shared_cookie_domain(request)
+    if cookie_domain:
+        cookie_kwargs["domain"] = cookie_domain
+    response.set_cookie(**cookie_kwargs)
     final_role = "admin" if is_allowlisted_admin else (existing.get("role") if existing else initial_role)
-    return {"user_id": user_id, "email": email, "name": name, "picture": picture, "role": final_role}
+    # Also return the session_token so cross-origin frontends (where browsers
+    # block third-party cookies) can store it in localStorage and send it as
+    # an Authorization: Bearer header.
+    return {
+        "user_id": user_id, "email": email, "name": name,
+        "picture": picture, "role": final_role,
+        "session_token": session_token,
+    }
 
 @api_router.get("/auth/me", response_model=User)
 async def me(user: User = Depends(get_current_user)):
@@ -276,7 +322,11 @@ async def logout(request: Request, response: Response):
     token = request.cookies.get("session_token")
     if token:
         await db.user_sessions.delete_one({"session_token": token})
-    response.delete_cookie("session_token", path="/")
+    cookie_domain = _shared_cookie_domain(request)
+    if cookie_domain:
+        response.delete_cookie("session_token", path="/", domain=cookie_domain)
+    else:
+        response.delete_cookie("session_token", path="/")
     return {"ok": True}
 
 # -------------------- FACILITIES --------------------
@@ -8114,7 +8164,14 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    # Explicit allow-list of Emergent host families + the active brand's
+    # custom domain via env var. Allow-list pattern is required because the
+    # browser silently rejects credentials when the response carries
+    # `Access-Control-Allow-Origin: *`.
+    allow_origin_regex=(
+        r"https?://(?:[a-z0-9-]+\.)*(?:emergentagent\.com|emergent\.host|emergent\.sh|"
+        r"oriseifreight\.com|livecleans\.com|localhost(?::\d+)?)$"
+    ),
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -23,11 +23,23 @@ export default function DeployHealthBanner() {
       if (!BACKEND_URL || typeof window === "undefined") return null;
       const here = new URL(window.location.origin);
       const backend = new URL(BACKEND_URL);
-      const hereIsPreview = /preview\.emergentagent\.com$/i.test(here.hostname);
-      const backendIsPreview = /preview\.emergentagent\.com$/i.test(backend.hostname);
       const sameHost = here.hostname === backend.hostname;
-      // Only warn on production custom domains
-      if (!hereIsPreview && backendIsPreview && !sameHost) {
+      // Compute the parent domain — if both hosts share a parent
+      // (e.g. .emergentagent.com), the auth cookie now sets Domain=.parent
+      // and sign-in works across hosts. Only show this banner when they
+      // DON'T share a parent.
+      const parentOf = (h) => {
+        const parts = (h || "").split(".");
+        if (parts.length < 2) return h;
+        // Known shared parents take precedence
+        for (const p of ["emergentagent.com", "emergent.host", "emergent.sh"]) {
+          if (h === p || h.endsWith("." + p)) return p;
+        }
+        return parts.slice(-2).join(".");
+      };
+      const hereParent = parentOf(here.hostname);
+      const backendParent = parentOf(backend.hostname);
+      if (!sameHost && hereParent !== backendParent) {
         return { here: here.origin, backend: backend.origin };
       }
       return null;
@@ -48,14 +60,14 @@ export default function DeployHealthBanner() {
       <div className="max-w-7xl mx-auto px-4 py-2 flex items-start gap-3">
         <AlertTriangle size={16} className="text-red-300 flex-shrink-0 mt-0.5" />
         <div className="flex-1 text-xs text-red-100 leading-snug">
-          <div className="font-bold mb-0.5 text-red-200">Deployment misconfig detected — sign-in will loop forever.</div>
+          <div className="font-bold mb-0.5 text-red-200">Deployment misconfig — frontend and backend on different parent domains.</div>
           <div className="font-mono text-[11px] text-red-200/80 truncate">
-            This frontend (<code>{mismatch.here}</code>) is calling the <span className="text-red-100">preview</span> backend (<code>{mismatch.backend}</code>).
+            Frontend (<code>{mismatch.here}</code>) calls backend (<code>{mismatch.backend}</code>) — the auth cookie cannot be shared, so sign-in loops.
           </div>
           <div className="mt-1 text-red-200/90">
-            Fix: chat input → <strong>Save to GitHub → Deploy</strong> to rebuild the bundle against the production origin. Persists? Contact Emergent Support and ask them to set
-            <code className="mx-1 px-1 py-0.5 bg-red-900/40 rounded">REACT_APP_BACKEND_URL={mismatch.here}</code>
-            on the production deployment.
+            Fix: Save to GitHub → Deploy with{" "}
+            <code className="mx-1 px-1 py-0.5 bg-red-900/40 rounded">REACT_APP_BACKEND_URL={mismatch.here}/api</code>
+            so the bundle calls the same origin as the frontend. Or contact Emergent Support to align both URLs under one parent domain.
           </div>
         </div>
         <button

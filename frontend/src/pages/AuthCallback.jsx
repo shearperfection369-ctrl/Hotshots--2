@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, setStoredToken } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { TennantLogo } from "../components/TennantLogo";
 
@@ -24,6 +24,8 @@ export default function AuthCallback() {
     (async () => {
       try {
         const { data } = await api.post("/auth/session", { session_id: sessionId });
+        // Persist Bearer token for cross-origin (cookies often blocked).
+        if (data.session_token) setStoredToken(data.session_token);
         setUser(data);
         navigate("/dashboard", { replace: true, state: { user: data } });
       } catch (_) {
