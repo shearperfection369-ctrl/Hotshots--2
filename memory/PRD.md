@@ -981,7 +981,63 @@ Subsequent user-requested additions (chronological, all delivered):
   /no-pod/404, loyalty CRUD + tier assignment + 404s, brokerage/investor/
   public regression.
 
-## 2026-06-04 · Orisei Operations module wired + public Customer Self-Service Portal
+## 2026-06-04 (later) · Customer Portal Tracking + Routing Guide + Weekly Auto-Digest
+- **Goal**: replace mid-tier TMS portals (Turvo / Parade / Revenova) with a
+  self-publishing routing guide inside the existing Customer Portal — shippers
+  log in and see the lanes we run, live pricing bands, and ranked carrier
+  performance. Plus a Tracking tab with timeline + delivery photos, and a
+  weekly auto-digest email so shippers get a recap of their freight without
+  having to log in.
+- **Backend** (`routes/orisei_operations.py`):
+  - Portal data response now enriches every booking with a `tracking` object
+    `{timeline, photo_count, current_status, eta}`. Timeline derived from
+    seven canonical timestamp fields (booked_at, tendered_at, bol_generated_at,
+    pickup_actual_at, in_transit_at, delivered_at, created_at fallback).
+  - `GET /api/public/customer-portal/{token}/bookings/{booked_id}/photos` —
+    token-gated photo list, scoped by `customer_id`/`customer_name` match so
+    one token can never read another shipper's photos.
+  - `GET /api/public/customer-portal/{token}/bookings/{booked_id}/photos/{photo_id}`
+    streams JPEG bytes directly (supports both bytes and base64 storage).
+  - `GET /api/public/customer-portal/{token}/routing-guide` — aggregates
+    every brokerage_booking by `(origin, destination)` lane, computes pricing
+    bands (low/median/high $ + $/mi when avg miles known), ranks the top-3
+    carriers per lane by `OTP + 2*loads` composite score, and sorts lanes by
+    `your_loads` desc → `total_loads` desc so the shipper's active lanes
+    surface first.
+- **NEW backend** `routes/orisei_auto_digest.py` (~290 lines, admin-only):
+  - `POST /api/orisei/auto-digest/preview` — render one customer's recap
+    as HTML email + PDF (PDF size + email_html returned)
+  - `POST /api/orisei/auto-digest/run` — execute for every active customer
+    with a primary contact email; supports `dry_run`, `customer_ids` filter,
+    custom `week_start_iso`. Persists every run to
+    `db.orisei_auto_digest_runs` with per-customer result rows (sent /
+    drafted / failed / render_failed).
+  - `GET /api/orisei/auto-digest/history` + `/{run_id}` — read-only audit.
+  - KPI math: per-customer delivered-count, on-time%, A/R outstanding,
+    invoices paid this week, top lanes moved. Skips customers with no email.
+  - Cron hookup: `POST /api/orisei/auto-digest/run` with admin bearer is
+    safe to call from any external cron (K8s CronJob / GH Actions /
+    Vercel cron). Recommended schedule: Mondays 13:00 UTC = 6 AM Central.
+- **Frontend** (`pages/CustomerPortal.jsx`):
+  - Converted to tabbed layout: Overview · Tracking · Routing Guide ·
+    Invoices · Quotes.
+  - Tracking cards render the canonical timeline (CheckCircle bullets) and
+    a lazy-loaded thumbnail grid of delivery photos. Each thumbnail opens
+    the full image in a new tab via the same token-gated URL.
+  - Routing Guide tab pulls `/routing-guide` and shows 4 mini-stats (Lanes
+    You Ship · Lanes We Run · Last Refreshed · LIVE pill) + lane cards
+    with pricing-band tile (Low / Median / High with $/mi) and ranked
+    carrier list.
+- **Smoke tested**: `routing-guide` endpoint returns 4 lanes, 3 with no
+  rates → "request a spot quote" placeholder; Plymouth MN → Dallas TX
+  with $2,580–$2,640 band + $2.4/mi + 2 ranked carriers. Tracking tab
+  renders timeline; portal-tab-routing renders successfully.
+- **Known still-pending**: Resend creds not yet in Connections vault, so
+  auto-digest sends return `status='drafted'` until user pastes Resend API
+  key.
+
+
+### Earlier this same day (2026-06-04) — Orisei Operations wiring
 - **Goal**: bridge "I have a TMS" → "I dispatched my first paying load" by wiring
   the in-progress Orisei Operations module (Customers · Quotes · Rate Cons) into
   the app and exposing a token-gated public Customer Portal for shippers.

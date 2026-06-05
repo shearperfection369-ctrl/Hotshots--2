@@ -584,6 +584,32 @@ def build_orisei_operations_router(
             {"$or": [{"customer_id": doc["customer_id"]},
                      {"customer_name": doc["customer_name"]}]}, {"_id": 0}
         ).sort("created_at", -1).limit(50).to_list(50)
+        # Enrich each booking with a tracking timeline + delivery photo count so
+        # the customer-portal Tracking tab can render without a second call.
+        for b in bookings:
+            booked_id = b.get("booked_id") or b.get("booking_id") or ""
+            timeline = []
+            for label, key in [
+                ("Booked", "booked_at"), ("Booked", "created_at"),
+                ("Tendered to carrier", "tendered_at"),
+                ("BOL generated", "bol_generated_at"),
+                ("Picked up", "pickup_actual_at"),
+                ("In transit", "in_transit_at"),
+                ("Delivered", "delivered_at"),
+            ]:
+                ts = b.get(key)
+                if ts and not any(t["label"] == label for t in timeline):
+                    timeline.append({"label": label, "at": ts})
+            photo_count = 0
+            if booked_id:
+                photo_count = await db.pod_photos.count_documents(
+                    {"booked_id": booked_id})
+            b["tracking"] = {
+                "timeline": timeline,
+                "photo_count": photo_count,
+                "current_status": b.get("status") or "booked",
+                "eta": b.get("delivery_date"),
+            }
         invoices = await db.brokerage_invoices.find(
             {"$or": [{"customer_id": doc["customer_id"]},
                      {"customer_name": doc["customer_name"]}]}, {"_id": 0}
@@ -616,3 +642,169 @@ def build_orisei_operations_router(
         }
 
     api_router.include_router(public)
+
+    # ============================ PUBLIC POD PHOTO STREAMING ============================
+    async def _resolve_portal_token(token: str) -> Dict[str, Any]:
+        tok = await db.orisei_customer_portal_tokens.find_one(
+            {"token": token}, {"_id": 0})
+        if not tok:
+            raise HTTPException(404, "Portal link not found")
+        if tok.get("status") == "disabled":
+            raise HTTPException(410, "Portal link disabled")
+        try:
+            exp = datetime.fromisoformat(tok["expires_at"].replace("Z", "+00:00"))
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > exp:
+                raise HTTPException(410, "Portal link expired")
+        except ValueError:
+            pass
+        return tok
+
+    async def _booking_belongs_to_customer(booked_id: str,
+                                             customer_id: str,
+                                             customer_name: str) -> bool:
+        b = await db.brokerage_bookings.find_one(
+            {"booked_id": booked_id}, {"customer_id": 1, "customer_name": 1})
+        if not b:
+            b = await db.brokerage_bookings.find_one(
+                {"booking_id": booked_id}, {"customer_id": 1, "customer_name": 1})
+        if not b:
+            return False
+        return (b.get("customer_id") == customer_id
+                or b.get("customer_name") == customer_name)
+
+    @api_router.get("/public/customer-portal/{token}/bookings/{booked_id}/photos",
+                     tags=["customer-portal", "public"])
+    async def list_portal_photos(token: str, booked_id: str) -> Dict[str, Any]:
+        tok = await _resolve_portal_token(token)
+        if not await _booking_belongs_to_customer(
+                booked_id, tok["customer_id"], tok["customer_name"]):
+            raise HTTPException(404, "Booking not on this portal")
+        rows = await db.pod_photos.find(
+            {"booked_id": booked_id},
+            {"_id": 0, "data": 0}
+        ).sort("uploaded_at", 1).to_list(20)
+        return {"items": rows, "count": len(rows)}
+
+    @api_router.get("/public/customer-portal/{token}/bookings/{booked_id}/photos/{photo_id}",
+                     tags=["customer-portal", "public"])
+    async def get_portal_photo(token: str, booked_id: str, photo_id: str):
+        from fastapi.responses import Response as _R
+        tok = await _resolve_portal_token(token)
+        if not await _booking_belongs_to_customer(
+                booked_id, tok["customer_id"], tok["customer_name"]):
+            raise HTTPException(404, "Booking not on this portal")
+        row = await db.pod_photos.find_one(
+            {"booked_id": booked_id, "photo_id": photo_id}, {"_id": 0})
+        if not row:
+            raise HTTPException(404, "Photo not found")
+        data = row.get("data")
+        if isinstance(data, str):
+            import base64 as _b64
+            data = _b64.b64decode(data)
+        if not isinstance(data, bytes):
+            raise HTTPException(404, "Photo bytes missing")
+        return _R(content=data, media_type="image/jpeg")
+
+    # ============================ PUBLIC ROUTING GUIDE ============================
+    @api_router.get("/public/customer-portal/{token}/routing-guide",
+                     tags=["customer-portal", "public"])
+    async def portal_routing_guide(token: str) -> Dict[str, Any]:
+        """Self-publishing routing guide for shippers: which lanes we run, what
+        pricing bands look like (low/median/high RPM), and which carriers score
+        best on each lane. Aggregated from real booking history, refreshed live.
+        """
+        tok = await _resolve_portal_token(token)
+        # Pull ALL bookings for this shipper (not just their own) to derive
+        # the lanes-we-run universe + pricing reference.
+        all_bookings = await db.brokerage_bookings.find(
+            {}, {"_id": 0}).to_list(2000)
+        their_bookings = [
+            b for b in all_bookings
+            if b.get("customer_id") == tok["customer_id"]
+            or b.get("customer_name") == tok["customer_name"]
+        ]
+        # Group by lane
+        lanes: Dict[tuple, Dict[str, Any]] = {}
+        for b in all_bookings:
+            origin = (b.get("origin") or "").strip()
+            dest = (b.get("destination") or "").strip()
+            if not origin or not dest:
+                continue
+            key = (origin, dest)
+            if key not in lanes:
+                lanes[key] = {"origin": origin, "destination": dest,
+                               "loads": [], "their_loads": 0,
+                               "carriers": {}}
+            lanes[key]["loads"].append(b)
+            if b.get("customer_id") == tok["customer_id"] or b.get("customer_name") == tok["customer_name"]:
+                lanes[key]["their_loads"] += 1
+            carrier = b.get("carrier_name") or "—"
+            mc = b.get("carrier_mc") or ""
+            ck = (carrier, mc)
+            if ck not in lanes[key]["carriers"]:
+                lanes[key]["carriers"][ck] = {
+                    "name": carrier, "mc": mc, "loads": 0,
+                    "delivered": 0, "on_time": 0,
+                }
+            lanes[key]["carriers"][ck]["loads"] += 1
+            if b.get("status") == "delivered":
+                lanes[key]["carriers"][ck]["delivered"] += 1
+                if not b.get("delivery_date") or not b.get("delivered_at") \
+                        or b.get("delivered_at", "")[:10] <= b.get("delivery_date", ""):
+                    lanes[key]["carriers"][ck]["on_time"] += 1
+
+        # Compute pricing bands + carrier ranking
+        guide_lanes = []
+        for (origin, dest), info in lanes.items():
+            rates = [float(b.get("customer_rate_usd") or b.get("rate_usd") or 0)
+                      for b in info["loads"]
+                      if (b.get("customer_rate_usd") or b.get("rate_usd"))]
+            miles_list = [float(b.get("miles") or 0)
+                           for b in info["loads"] if b.get("miles")]
+            avg_miles = sum(miles_list) / len(miles_list) if miles_list else None
+            band = None
+            if rates:
+                rates_sorted = sorted(rates)
+                lo = rates_sorted[0]
+                hi = rates_sorted[-1]
+                mid = rates_sorted[len(rates_sorted) // 2]
+                rpm_band = None
+                if avg_miles and avg_miles > 0:
+                    rpm_band = {
+                        "low": round(lo / avg_miles, 2),
+                        "median": round(mid / avg_miles, 2),
+                        "high": round(hi / avg_miles, 2),
+                    }
+                band = {"low_usd": round(lo, 2), "median_usd": round(mid, 2),
+                         "high_usd": round(hi, 2),
+                         "rpm": rpm_band, "samples": len(rates)}
+            top_carriers = []
+            for c in info["carriers"].values():
+                otp = (c["on_time"] / c["delivered"] * 100) if c["delivered"] else None
+                score = (otp or 0) + (c["loads"] * 2)   # crude: weight by volume too
+                top_carriers.append({
+                    "name": c["name"], "mc": c["mc"],
+                    "loads": c["loads"], "delivered": c["delivered"],
+                    "on_time_pct": round(otp, 1) if otp is not None else None,
+                    "score": round(score, 1),
+                })
+            top_carriers.sort(key=lambda x: x["score"], reverse=True)
+            guide_lanes.append({
+                "origin": origin, "destination": dest,
+                "total_loads": len(info["loads"]),
+                "your_loads": info["their_loads"],
+                "avg_miles": round(avg_miles, 0) if avg_miles else None,
+                "pricing_band": band,
+                "top_carriers": top_carriers[:3],
+            })
+        # Sort by their_loads desc, then total_loads desc
+        guide_lanes.sort(key=lambda x: (x["your_loads"], x["total_loads"]), reverse=True)
+        return {
+            "customer_name": tok["customer_name"],
+            "generated_at": _now_iso(),
+            "lane_count": len(guide_lanes),
+            "your_lane_count": sum(1 for L in guide_lanes if L["your_loads"] > 0),
+            "lanes": guide_lanes,
+        }
