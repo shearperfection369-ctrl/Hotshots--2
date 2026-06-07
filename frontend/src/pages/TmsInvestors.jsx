@@ -671,7 +671,7 @@ export default function TmsInvestors() {
           One investable thesis.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <a href="https://mpls-automation-hub.emergent.host/" target="_blank" rel="noopener noreferrer"
+          <a href="https://onejades.com/investors#stats" target="_blank" rel="noopener noreferrer"
              data-testid="jadeos-stack-product-1"
              className="block p-5 rounded-md border bg-white/[0.02] hover:bg-white/[0.04] transition"
              style={{ borderColor: `${HSTMS_CYAN}33` }}>
