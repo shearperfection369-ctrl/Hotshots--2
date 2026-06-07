@@ -122,6 +122,13 @@ export default function Sidebar() {
             </button>
           </div>
         )}
+        <a href="https://mpls-automation-hub.emergent.host/"
+           target="_blank" rel="noopener noreferrer"
+           data-testid="sidebar-jadeos-link"
+           className="mt-3 px-3 py-2 rounded border border-white/5 text-[10px] font-mono uppercase tracking-[0.15em] text-slate-500 hover:text-cyan-300 hover:border-cyan-500/30 flex items-center justify-between transition">
+          <span>JadeOS family ↗</span>
+          <span className="text-cyan-500/60">Stack</span>
+        </a>
       </div>
     </aside>
   );

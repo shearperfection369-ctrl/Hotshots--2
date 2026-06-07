@@ -156,6 +156,23 @@ export default function TmsInvestors() {
 
   return (
     <div className="min-h-screen bg-[#050A14] text-white overflow-x-hidden">
+      {/* JadeOS family ribbon */}
+      <div className="relative z-30 border-b border-white/5 bg-black/40 text-xs font-mono"
+           data-testid="hstms-jadeos-ribbon">
+        <div className="max-w-7xl mx-auto px-6 py-1.5 flex items-center justify-between flex-wrap gap-2">
+          <span className="text-slate-400">
+            Part of the <span style={{ color: HSTMS_CYAN }}>JadeOS</span> stack —
+            three products, one cap table.
+          </span>
+          <a href="https://mpls-automation-hub.emergent.host/"
+             target="_blank" rel="noopener noreferrer"
+             data-testid="hstms-jadeos-ribbon-link"
+             className="hover:underline tracking-wider uppercase"
+             style={{ color: HSTMS_CYAN }}>
+            See the full thesis →
+          </a>
+        </div>
+      </div>
       {/* Background grid */}
       <div
         className="fixed inset-0 opacity-[0.05] pointer-events-none"
@@ -183,6 +200,7 @@ export default function TmsInvestors() {
             <a href="#video" className="hover:text-cyan-300 hidden md:inline">Demo</a>
             <a href="#changeability" className="hover:text-cyan-300 hidden md:inline">Re-Theme</a>
             <a href="#plug-and-play" className="hover:text-cyan-300 hidden md:inline">Plug & Play</a>
+            <a href="#jadeos-stack" className="hover:text-cyan-300 hidden md:inline">The Stack</a>
             <a href="#founder" className="hover:text-cyan-300 hidden md:inline">Founder</a>
             <a href="#ask" className="hover:text-cyan-300 hidden md:inline">The Ask</a>
             <a href="#intro"
@@ -587,6 +605,85 @@ export default function TmsInvestors() {
               <Pill Icon={Award} label={`${data.founder.tenure_years}+ Years Operator`} />
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* THREE-PRODUCT STACK · JadeOS family */}
+      <section id="jadeos-stack" className="relative z-10 max-w-7xl mx-auto px-6 py-20 border-t border-white/5"
+               data-testid="hstms-jadeos-stack">
+        <div className="text-[10px] font-mono uppercase tracking-[0.25em] mb-3" style={{ color: HSTMS_CYAN }}>
+          The Stack · Three products · One thesis
+        </div>
+        <h2 className="font-display text-4xl md:text-5xl font-black tracking-tighter mb-4">
+          Hot Shot TMS is <span style={{ color: HSTMS_CYAN }}>1 of 3</span> products on one cap table.
+        </h2>
+        <p className="text-slate-300 max-w-3xl leading-relaxed mb-10">
+          JadeOS Quantum AI is the flagship. JadeOS-Agent Suite is the
+          freight-vertical productization. Hot Shot TMS is the operator-built
+          system of record. Same builder. Same persistent-memory substrate.
+          One investable thesis.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <a href="https://mpls-automation-hub.emergent.host/" target="_blank" rel="noopener noreferrer"
+             data-testid="jadeos-stack-product-1"
+             className="block p-5 rounded-md border bg-white/[0.02] hover:bg-white/[0.04] transition"
+             style={{ borderColor: `${HSTMS_CYAN}33` }}>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: HSTMS_CYAN }}>
+              Product 01 · Flagship
+            </div>
+            <div className="font-display text-2xl font-black mb-2">JadeOS Quantum AI</div>
+            <p className="text-xs text-slate-400 leading-relaxed mb-3">
+              The AI command center for builders, founders, and lifelong learners.
+              50+ modules, voice-first "Hey Jade", persistent memory across modules.
+              128-qubit Qiskit Aer + Claude Haiku 4.5.
+            </p>
+            <div className="text-[10px] font-mono text-slate-500">
+              50+ MODULES · 128 QUBITS · BETA
+            </div>
+          </a>
+          <a href="https://mpls-automation-hub.emergent.host/#agents" target="_blank" rel="noopener noreferrer"
+             data-testid="jadeos-stack-product-2"
+             className="block p-5 rounded-md border bg-white/[0.02] hover:bg-white/[0.04] transition"
+             style={{ borderColor: `${HSTMS_CYAN}33` }}>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: HSTMS_CYAN }}>
+              Product 02 · Freight-vertical agents
+            </div>
+            <div className="font-display text-2xl font-black mb-2">JadeOS-Agent Suite</div>
+            <p className="text-xs text-slate-400 leading-relaxed mb-3">
+              Six AI agents that sit on top of any TMS — Hot Shot or Descartes
+              / McLeod / TMW. Rate-floor guard, audit chain, workflow memory,
+              active claims — all production-class.
+            </p>
+            <div className="text-[10px] font-mono text-slate-500">
+              6 AGENTS · 1 LIVE PROD · 2 LIVE PARTIAL
+            </div>
+          </a>
+          <div data-testid="jadeos-stack-product-3"
+               className="block p-5 rounded-md border-2 bg-white/[0.04]"
+               style={{ borderColor: HSTMS_CYAN }}>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: HSTMS_CYAN }}>
+              Product 03 · You are here
+            </div>
+            <div className="font-display text-2xl font-black mb-2" style={{ color: HSTMS_CYAN }}>
+              Hot Shot TMS
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed mb-3">
+              Operator-built transportation management for the hot-shot
+              small-to-mid carrier segment that incumbent TMS vendors don't
+              serve well. Build complete · deployment-ready · zero customers
+              yet by design.
+            </p>
+            <div className="text-[10px] font-mono text-slate-500">
+              BUILD COMPLETE · 6 MODES · READY TO DEPLOY
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 text-xs text-slate-500 font-mono">
+          Full three-product thesis →
+          <a href="https://mpls-automation-hub.emergent.host/" target="_blank" rel="noopener noreferrer"
+             className="ml-1 underline hover:no-underline" style={{ color: HSTMS_CYAN }}>
+            mpls-automation-hub.emergent.host
+          </a>
         </div>
       </section>
 

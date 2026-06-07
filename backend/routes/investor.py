@@ -675,6 +675,33 @@ Full monthly model in the data-room XLSX.
 Minneapolis · Saint Paul, MN
 oliver@oriseifreight.com
 LinkedIn · https://www.linkedin.com/in/oliver-cummins-a27304a3/
+
+---
+
+## 16. The JadeOS Stack · One thesis · Three products
+
+This pitch covers Hot Shot TMS (Product 03). It is one of three
+products on a single cap table:
+
+- **Product 01 · JadeOS Quantum AI** (flagship) — AI command center
+  for builders & founders. 50+ modules, voice-first "Hey Jade",
+  persistent memory across modules. 128-qubit Qiskit Aer + Claude
+  Haiku 4.5. **Status:** Beta.
+
+- **Product 02 · JadeOS-Agent Suite** (freight-vertical productization) —
+  Six AI agents that sit on top of any TMS (Hot Shot or McLeod /
+  Descartes / TMW): rate-floor guard, audit chain, workflow memory,
+  active claims, dispatch copilot, settlement watchdog.
+  **Status:** 1 live prod · 2 live partial.
+
+- **Product 03 · Hot Shot TMS** (operator-built system of record) —
+  Transportation management for the hot-shot small-to-mid carrier
+  segment incumbent TMS vendors don't serve well. **Status:** Build
+  complete · ready to deploy.
+
+Same builder. Same persistent-memory substrate. One investable thesis.
+
+**Full three-product thesis →** https://mpls-automation-hub.emergent.host/
 """
 
 
@@ -731,6 +758,14 @@ within 30–60 days of close, EBITDA break-even by Month {UNIT_ECONOMICS['monthl
 {company} · Minneapolis · Saint Paul, MN
 oliver@oriseifreight.com
 LinkedIn · https://www.linkedin.com/in/oliver-cummins-a27304a3/
+
+---
+
+## Part of the JadeOS Stack
+1 of 3 products on one cap table.
+JadeOS Quantum AI (flagship) · JadeOS-Agent Suite (freight agents) ·
+**Hot Shot TMS** (system of record).
+Full thesis → https://mpls-automation-hub.emergent.host/
 """
 
 
@@ -1007,7 +1042,13 @@ def build_investor_router(*, db, get_current_user: Callable, require_role: Calla
                         f"  08_{short}_Shipper_Sell_Sheet.pdf\n"
                         f"  09_{short}_Press_Release.pdf\n"
                         f"\nContact: oliver@oriseifreight.com\n"
-                        f"LinkedIn: https://www.linkedin.com/in/oliver-cummins-a27304a3/\n")
+                        f"LinkedIn: https://www.linkedin.com/in/oliver-cummins-a27304a3/\n"
+                        f"\n--- JadeOS Stack ---\n"
+                        f"Hot Shot TMS is 1 of 3 products on one cap table:\n"
+                        f"  · JadeOS Quantum AI (flagship)\n"
+                        f"  · JadeOS-Agent Suite (freight-vertical agents)\n"
+                        f"  · Hot Shot TMS (system of record)\n"
+                        f"Full thesis: https://mpls-automation-hub.emergent.host/\n")
 
         buf.seek(0)
         return StreamingResponse(
@@ -1157,7 +1198,13 @@ def build_investor_router(*, db, get_current_user: Callable, require_role: Calla
                         f"for {personalization['firm_name']}. Please do not\n"
                         f"forward without prior written consent.\n"
                         f"\nContact: oliver@oriseifreight.com\n"
-                        f"LinkedIn: https://www.linkedin.com/in/oliver-cummins-a27304a3/\n")
+                        f"LinkedIn: https://www.linkedin.com/in/oliver-cummins-a27304a3/\n"
+                        f"\n--- JadeOS Stack ---\n"
+                        f"Hot Shot TMS is 1 of 3 products on one cap table:\n"
+                        f"  · JadeOS Quantum AI (flagship)\n"
+                        f"  · JadeOS-Agent Suite (freight-vertical agents)\n"
+                        f"  · Hot Shot TMS (system of record)\n"
+                        f"Full thesis: https://mpls-automation-hub.emergent.host/\n")
         buf.seek(0)
         return StreamingResponse(
             buf,

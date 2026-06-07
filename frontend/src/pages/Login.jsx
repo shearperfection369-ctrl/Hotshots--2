@@ -88,6 +88,17 @@ export default function Login() {
               <span className="text-cyan-400 mono">v1.0</span>
             </div>
           </div>
+
+          <div className="mt-6 pt-4 border-t border-white/5 text-[10px] font-mono text-slate-500 flex items-center justify-between"
+               data-testid="login-jadeos-ribbon">
+            <span>Part of the <span className="text-cyan-400">JadeOS</span> stack</span>
+            <a href="https://mpls-automation-hub.emergent.host/"
+               target="_blank" rel="noopener noreferrer"
+               data-testid="login-jadeos-link"
+               className="text-cyan-400 hover:underline tracking-wider">
+              See the full thesis →
+            </a>
+          </div>
         </div>
       </div>
     </div>
