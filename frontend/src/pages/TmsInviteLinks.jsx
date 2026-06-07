@@ -53,7 +53,7 @@ export default function TmsInviteLinks() {
       };
       const { data } = await api.post("/investor/invite-links", payload);
       toast.success(`Generated invite link for ${data.firm_name}`);
-      try { await navigator.clipboard.writeText(data.share_url); toast.success("Share URL copied to clipboard"); } catch { /* noop */ }
+      try { await navigator.clipboard.writeText(data.share_url); toast.success("Unified deck URL copied · TMS-only URL also available below"); } catch { /* noop */ }
       setForm({ firm_name: "", contact_name: "", contact_email: "", note: "", max_visits: "", days_valid: "" });
       fetchLinks();
     } catch (e) { toast.error(e?.response?.data?.detail || "Create failed"); }
@@ -222,19 +222,46 @@ function LinkCard({ link, onCopy, onDisable, onDelete }) {
             )}
           </div>
           {link.note && <div className="text-xs text-slate-500 mb-2 italic">{link.note}</div>}
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <code className="text-[11px] font-mono px-2 py-1 rounded bg-black/40 text-cyan-300 truncate max-w-[450px]">
-              {link.share_url}
-            </code>
-            <Button size="sm" variant="ghost" onClick={() => onCopy(link.share_url)} className="h-7 px-2 text-xs"
-                    data-testid={`copy-${link.token}`}>
-              <Copy size={12} className="mr-1" /> Copy
-            </Button>
-            <a href={link.share_url} target="_blank" rel="noopener noreferrer"
-               className="inline-flex items-center text-xs text-cyan-300 hover:text-cyan-200 px-2 py-1">
-              <ExternalLink size={12} className="mr-1" /> Open
-            </a>
+          {/* Unified trio deck link */}
+          <div className="mb-2">
+            <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-cyan-300/80 mb-1">
+              Unified · JadeOS trio deck
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <code className="text-[11px] font-mono px-2 py-1 rounded bg-black/40 text-cyan-300 truncate max-w-[420px]">
+                {link.share_url}
+              </code>
+              <Button size="sm" variant="ghost" onClick={() => onCopy(link.share_url)} className="h-7 px-2 text-xs"
+                      data-testid={`copy-unified-${link.token}`}>
+                <Copy size={12} className="mr-1"/> Copy
+              </Button>
+              <a href={link.share_url} target="_blank" rel="noopener noreferrer"
+                 className="inline-flex items-center text-xs text-cyan-300 hover:text-cyan-200 px-2 py-1">
+                <ExternalLink size={12} className="mr-1"/> Open
+              </a>
+            </div>
           </div>
+          {/* Original Hot Shot TMS-only landing */}
+          {link.tms_only_share_url && (
+            <div>
+              <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-amber-300/80 mb-1">
+                TMS-only · Hot Shot landing
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <code className="text-[11px] font-mono px-2 py-1 rounded bg-black/40 text-amber-300 truncate max-w-[420px]">
+                  {link.tms_only_share_url}
+                </code>
+                <Button size="sm" variant="ghost" onClick={() => onCopy(link.tms_only_share_url)} className="h-7 px-2 text-xs"
+                        data-testid={`copy-tms-${link.token}`}>
+                  <Copy size={12} className="mr-1"/> Copy
+                </Button>
+                <a href={link.tms_only_share_url} target="_blank" rel="noopener noreferrer"
+                   className="inline-flex items-center text-xs text-amber-300 hover:text-amber-200 px-2 py-1">
+                  <ExternalLink size={12} className="mr-1"/> Open
+                </a>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex gap-1.5">
           {isLive && (

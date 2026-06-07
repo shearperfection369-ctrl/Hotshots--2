@@ -104,14 +104,24 @@ UNIFIED_DECK_URL = os.environ.get(
 
 
 def _link_share_url(base: str, token: str) -> str:
+    """Unified three-product deck URL (default share link)."""
     sep = "&" if "?" in UNIFIED_DECK_URL else "?"
     return f"{UNIFIED_DECK_URL}{sep}ref={token}"
+
+
+def _link_tms_only_share_url(base: str, token: str) -> str:
+    """Original Hot Shot TMS-only gated landing URL."""
+    return f"{base.rstrip('/')}/tms-investors?token={token}"
 
 
 def _resolve_origin(request: Request) -> str:
     """Derive the public origin (scheme + host) preferring browser-set
     Origin/Referer headers over the in-cluster base_url.
     """
+    # Highest priority: explicit env var pinning the public origin
+    env_origin = os.environ.get("HOT_SHOT_PUBLIC_ORIGIN")
+    if env_origin:
+        return env_origin.rstrip("/")
     origin = request.headers.get("origin") or ""
     if not origin:
         ref = request.headers.get("referer") or ""
@@ -249,8 +259,10 @@ def build_tms_invite_links_router(
             "visits": [],
         }
         await db[COLLECTION].insert_one(dict(doc))
-        share_url = _link_share_url(_resolve_origin(request), token)
-        return {**_serialize(doc), "share_url": share_url}
+        origin = _resolve_origin(request)
+        return {**_serialize(doc),
+                "share_url": _link_share_url(origin, token),
+                "tms_only_share_url": _link_tms_only_share_url(origin, token)}
 
     # ---------- ADMIN: LIST ----------
     @router.get("/invite-links")
@@ -261,6 +273,7 @@ def build_tms_invite_links_router(
         for r in rows:
             ser = _serialize(r)
             ser["share_url"] = _link_share_url(origin, r["token"])
+            ser["tms_only_share_url"] = _link_tms_only_share_url(origin, r["token"])
             items.append(ser)
         return {"items": items, "count": len(items)}
 
