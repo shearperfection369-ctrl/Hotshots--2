@@ -674,6 +674,7 @@ Full monthly model in the data-room XLSX.
 {company}
 Minneapolis · Saint Paul, MN
 oliver@oriseifreight.com
+LinkedIn · https://www.linkedin.com/in/oliver-cummins-a27304a3/
 """
 
 
@@ -729,6 +730,7 @@ within 30–60 days of close, EBITDA break-even by Month {UNIT_ECONOMICS['monthl
 **{founder}** · Founder & Principal Broker
 {company} · Minneapolis · Saint Paul, MN
 oliver@oriseifreight.com
+LinkedIn · https://www.linkedin.com/in/oliver-cummins-a27304a3/
 """
 
 
@@ -1004,7 +1006,8 @@ def build_investor_router(*, db, get_current_user: Callable, require_role: Calla
                         f"  07_{short}_Carrier_Sell_Sheet.pdf\n"
                         f"  08_{short}_Shipper_Sell_Sheet.pdf\n"
                         f"  09_{short}_Press_Release.pdf\n"
-                        f"\nContact: oliver@oriseifreight.com\n")
+                        f"\nContact: oliver@oriseifreight.com\n"
+                        f"LinkedIn: https://www.linkedin.com/in/oliver-cummins-a27304a3/\n")
 
         buf.seek(0)
         return StreamingResponse(
@@ -1153,7 +1156,8 @@ def build_investor_router(*, db, get_current_user: Callable, require_role: Calla
                         f"\nThis package is confidential and intended solely\n"
                         f"for {personalization['firm_name']}. Please do not\n"
                         f"forward without prior written consent.\n"
-                        f"\nContact: oliver@oriseifreight.com\n")
+                        f"\nContact: oliver@oriseifreight.com\n"
+                        f"LinkedIn: https://www.linkedin.com/in/oliver-cummins-a27304a3/\n")
         buf.seek(0)
         return StreamingResponse(
             buf,
