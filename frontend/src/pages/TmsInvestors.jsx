@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import {
-  Play, Volume2, VolumeX, Download, ArrowRight, Plug, Palette, Sparkles,
+  Play, Pause, RotateCcw, Volume2, VolumeX, Download, ArrowRight, Plug, Palette, Sparkles,
   ShieldCheck, BarChart3, Truck, Cpu, Globe2, Zap, MapPin, Briefcase,
   Award, CheckCircle2, Mail, Send, Building2, Layers, FileText, Archive,
   Stamp,
@@ -33,6 +33,8 @@ export default function TmsInvestors() {
   const [inviteInfo, setInviteInfo] = useState(null);
   const [inviteError, setInviteError] = useState(null);
   const videoRef = React.useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   useEffect(() => {
     document.title = "Hot Shot TMS · Investor Executive Summary";
@@ -114,12 +116,26 @@ export default function TmsInvestors() {
     finally { setSubmitting(false); }
   };
 
-  const unmuteAndPlay = () => {
-    setMuted(false);
-    if (videoRef.current) {
-      videoRef.current.muted = false;
-      videoRef.current.play().catch(() => {});
-    }
+  const playVideo = () => {
+    const v = videoRef.current; if (!v) return;
+    v.muted = false; setMuted(false);
+    v.play().then(() => { setIsPlaying(true); setHasStarted(true); })
+      .catch(() => {  // autoplay blocked — fall back to muted play
+        v.muted = true; setMuted(true);
+        v.play().then(() => { setIsPlaying(true); setHasStarted(true); }).catch(() => {});
+      });
+  };
+  const pauseVideo = () => {
+    const v = videoRef.current; if (!v) return;
+    v.pause(); setIsPlaying(false);
+  };
+  const replayVideo = () => {
+    const v = videoRef.current; if (!v) return;
+    v.currentTime = 0; playVideo();
+  };
+  const toggleMute = () => {
+    const v = videoRef.current; if (!v) return;
+    v.muted = !v.muted; setMuted(v.muted);
   };
 
   if (loading) {
@@ -310,38 +326,69 @@ export default function TmsInvestors() {
             <div className="relative rounded-2xl overflow-hidden border-2 shadow-2xl"
                  style={{ borderColor: `${HSTMS_CYAN}55`, boxShadow: `0 0 60px ${HSTMS_CYAN}22` }}>
               {hasLocalMp4 ? (
-                <>
+                <div className="relative">
                   <video
                     ref={videoRef}
                     src="/promo.mp4"
-                    autoPlay
-                    loop
-                    muted={muted}
+                    preload="metadata"
                     playsInline
+                    onPlay={() => { setIsPlaying(true); setHasStarted(true); }}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={() => setIsPlaying(false)}
                     className="w-full aspect-video object-cover bg-black"
                     data-testid="hstms-video"
                   />
-                  {muted && (
-                    <button onClick={unmuteAndPlay}
-                            data-testid="hstms-unmute"
-                            className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm hover:bg-black/30 transition group">
+                  {/* PRE-PLAY POSTER OVERLAY */}
+                  {!hasStarted && (
+                    <button onClick={playVideo}
+                            data-testid="hstms-play-poster"
+                            className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm hover:bg-black/50 transition group">
                       <div className="text-center">
-                        <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-3 animate-pulse shadow-2xl"
+                        <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition shadow-2xl"
                              style={{ background: HSTMS_CYAN, color: "#000" }}>
-                          <Volume2 size={32} />
+                          <Play size={32} className="ml-1" fill="currentColor" />
                         </div>
-                        <div className="text-white font-bold tracking-wider">Tap for sound</div>
-                        <div className="text-xs text-slate-300 mt-1 font-mono">Hot Shot TMS · live demo</div>
+                        <div className="text-white font-bold tracking-wider">Play Investor Trailer</div>
+                        <div className="text-xs text-slate-300 mt-1 font-mono">Hot Shot TMS · 90 seconds</div>
                       </div>
                     </button>
                   )}
-                </>
+                  {/* CONTROLS BAR (visible after first play) */}
+                  {hasStarted && (
+                    <div className="absolute bottom-0 inset-x-0 flex items-center gap-2 px-3 py-2 bg-gradient-to-t from-black/85 to-transparent"
+                         data-testid="hstms-video-controls">
+                      <button onClick={isPlaying ? pauseVideo : playVideo}
+                              data-testid={isPlaying ? "hstms-pause" : "hstms-play"}
+                              className="w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition"
+                              style={{ background: HSTMS_CYAN, color: "#000" }}
+                              title={isPlaying ? "Pause" : "Play"}>
+                        {isPlaying ? <Pause size={18} fill="currentColor"/> : <Play size={18} fill="currentColor" className="ml-0.5"/>}
+                      </button>
+                      <button onClick={replayVideo}
+                              data-testid="hstms-replay"
+                              className="w-9 h-9 rounded-full flex items-center justify-center bg-white/15 hover:bg-white/25 text-white transition"
+                              title="Restart from beginning">
+                        <RotateCcw size={15}/>
+                      </button>
+                      <button onClick={toggleMute}
+                              data-testid="hstms-mute-toggle"
+                              className="w-9 h-9 rounded-full flex items-center justify-center bg-white/15 hover:bg-white/25 text-white transition"
+                              title={muted ? "Unmute" : "Mute"}>
+                        {muted ? <VolumeX size={15}/> : <Volume2 size={15}/>}
+                      </button>
+                      <div className="flex-1"/>
+                      <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mr-1">
+                        {isPlaying ? "PLAYING" : "PAUSED"}
+                      </span>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <iframe
-                  src={`https://www.youtube.com/embed/${data.video.youtube_fallback_id}?autoplay=1&mute=1&modestbranding=1&rel=0`}
+                  src={`https://www.youtube.com/embed/${data.video.youtube_fallback_id}?modestbranding=1&rel=0`}
                   title="Hot Shot TMS · Investor Trailer"
                   className="w-full aspect-video"
-                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allow="encrypted-media; picture-in-picture; fullscreen"
                   data-testid="hstms-video-iframe"
                 />
               )}
