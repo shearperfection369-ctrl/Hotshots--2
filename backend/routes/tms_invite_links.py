@@ -92,8 +92,20 @@ def _serialize(doc: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+import os
+
+# Unified investor deck URL that showcases all three products (JadeOS Quantum AI,
+# JadeOS-Agent Suite, Hot Shot TMS) on one page with links to each. Pre-token
+# email invites now point here instead of the single-product /tms-investors
+# page. The token is still appended as ?ref=<token> so visits can be tracked.
+UNIFIED_DECK_URL = os.environ.get(
+    "INVESTOR_UNIFIED_DECK_URL",
+    "https://mpls-automation-hub.emergent.host/deck")
+
+
 def _link_share_url(base: str, token: str) -> str:
-    return f"{base.rstrip('/')}/tms-investors?token={token}"
+    sep = "&" if "?" in UNIFIED_DECK_URL else "?"
+    return f"{UNIFIED_DECK_URL}{sep}ref={token}"
 
 
 def _resolve_origin(request: Request) -> str:

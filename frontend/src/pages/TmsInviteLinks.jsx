@@ -99,13 +99,15 @@ export default function TmsInviteLinks() {
           <div className="flex items-start justify-between flex-wrap gap-5">
             <div>
               <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-cyan-400">
-                Hot Shot TMS · One-time-link Gate
+                JadeOS Stack · Unified Investor Demo Gate
               </div>
               <h1 className="font-display text-3xl font-black mt-1">Investor Invite Links</h1>
               <p className="text-sm text-slate-400 mt-2 max-w-2xl leading-relaxed">
-                Generate a unique, watermarked URL per VC firm. Every visit and download is
-                logged with IP, user-agent, and timestamp. First-visit / first-download triggers
-                a real-time Resend alert to shearperfection369@gmail.com.
+                Generate a unique URL per VC firm pointing to the <span className="text-cyan-300">unified
+                three-product demo deck</span> (JadeOS Quantum AI · JadeOS-Agent Suite · Hot Shot TMS).
+                Token tracking still applies — every visit and download is logged
+                with IP, user-agent, timestamp, and triggers a real-time Resend alert
+                to shearperfection369@gmail.com.
               </p>
             </div>
             <div className="flex gap-3">
