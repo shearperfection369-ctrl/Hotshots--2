@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Topbar from "../components/Topbar";
-import { api } from "../lib/api";
+import { api, getStoredToken } from "../lib/api";
 import { useBranding } from "../lib/branding";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -87,7 +87,7 @@ export default function InvestorBoardroom() {
   const triggerDownload = async (path, label, filename) => {
     setDownloading(label);
     try {
-      const token = localStorage.getItem("session_token");
+      const token = getStoredToken();
       const r = await fetch(`${REACT_APP_BACKEND_URL}/api${path}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: "include",
@@ -129,7 +129,7 @@ export default function InvestorBoardroom() {
     }
     setGenerating(true);
     try {
-      const token = localStorage.getItem("session_token");
+      const token = getStoredToken();
       const endpointMap = {
         "deck": "/investor/personalized-deck.pdf",
         "one-pager": "/investor/personalized-one-pager.pdf",
