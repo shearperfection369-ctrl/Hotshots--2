@@ -31,6 +31,8 @@ import MarginShield from "@/pages/MarginShield";
 import BrokerageOpsKpis from "@/pages/BrokerageOpsKpis";
 import OriseiOperations from "@/pages/OriseiOperations";
 import CustomerPortal from "@/pages/CustomerPortal";
+import CompetitiveTms from "@/pages/CompetitiveTms";
+import PublicRfpBoard from "@/pages/PublicRfpBoard";
 import Reports from "@/pages/Reports";
 import Chat from "@/pages/Chat";
 import QuickLinks from "@/pages/QuickLinks";
@@ -104,6 +106,7 @@ function AppRouter() {
       <Route path="/landing" element={<About />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/customer-portal" element={<CustomerPortal />} />
+      <Route path="/rfp-board" element={<PublicRfpBoard />} />
       {/* Driver mobile is auth-free */}
       <Route path="/driver" element={<DriverMobile />} />
       <Route path="/driver/:shipmentId" element={<DriverMobile />} />
@@ -126,6 +129,7 @@ function AppRouter() {
         <Route path="/margin-shield" element={<MarginShield />} />
         <Route path="/brokerage-ops-kpis" element={<BrokerageOpsKpis />} />
         <Route path="/orisei-operations" element={<OriseiOperations />} />
+        <Route path="/competitive-tms" element={<CompetitiveTms />} />
         <Route path="/marketing-pack" element={<MarketingPack />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/chat" element={<Chat />} />

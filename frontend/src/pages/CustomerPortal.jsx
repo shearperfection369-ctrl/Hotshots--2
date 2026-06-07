@@ -18,16 +18,26 @@ export default function CustomerPortal() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("overview");
 
+  /* eslint-disable */
   useEffect(() => {
     if (!token) {
       setError("Missing portal token. Please use the link your Orisei contact sent you.");
       setLoading(false); return;
     }
-    axios.get(`${REACT_APP_BACKEND_URL}/api/public/customer-portal/${token}`)
-      .then((r) => setData(r.data))
-      .catch((e) => setError(e?.response?.data?.detail || "Unable to load portal."))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await axios.get(`${REACT_APP_BACKEND_URL}/api/public/customer-portal/${token}`);
+        if (!cancelled) setData(r.data);
+      } catch (e) {
+        if (!cancelled) setError(e?.response?.data?.detail || "Unable to load portal.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [token]);
+  /* eslint-enable */
 
   if (loading) return <Shell><div className="text-slate-400 text-sm">Loading…</div></Shell>;
   if (error) return (
@@ -274,7 +284,7 @@ function RoutingGuideTab({ token }) {
         </p>
         {guide.lanes.length === 0 ? <Empty msg="No lanes published yet." /> : (
           <div className="space-y-3">
-            {guide.lanes.map((L, i) => <LaneCard key={i} L={L} />)}
+            {guide.lanes.map((L, i) => <LaneCard key={i} L={L} token={token} />)}
           </div>
         )}
       </Section>
@@ -292,8 +302,9 @@ function MiniStat({ label, value, accent }) {
   );
 }
 
-function LaneCard({ L }) {
+function LaneCard({ L, token }) {
   const band = L.pricing_band;
+  const [reqOpen, setReqOpen] = useState(false);
   return (
     <div className="p-4 rounded border bg-white/[0.02]"
          style={{ borderColor: "rgba(255,255,255,0.06)" }}
@@ -309,11 +320,18 @@ function LaneCard({ L }) {
             {L.your_loads > 0 && <> · <span className="text-cyan-300">{L.your_loads} for you</span></>}
           </div>
         </div>
-        {L.your_loads > 0 && (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider border bg-cyan-500/15 text-cyan-300 border-cyan-500/30">
-            Active lane
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {L.your_loads > 0 && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider border bg-cyan-500/15 text-cyan-300 border-cyan-500/30">
+              Active lane
+            </span>
+          )}
+          <button onClick={() => setReqOpen(true)}
+                  data-testid={`req-quote-${L.origin}-${L.destination}`}
+                  className="px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider border border-amber-500/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25">
+            Request quote
+          </button>
+        </div>
       </div>
 
       {/* Pricing band */}
@@ -352,6 +370,96 @@ function LaneCard({ L }) {
           </div>
         </div>
       )}
+      {reqOpen && (
+        <QuoteRequestDialog L={L} token={token} onClose={() => setReqOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+function QuoteRequestDialog({ L, token, onClose }) {
+  const [form, setForm] = useState({
+    pickup_date: "", equipment: "Dry Van", weight_lbs: "",
+    commodity: "", notes: "", requester_name: "", requester_email: "", requester_phone: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    setSubmitting(true);
+    try {
+      const payload = {
+        origin: L.origin, destination: L.destination,
+        ...Object.fromEntries(Object.entries(form).filter(([_, v]) => v !== "")),
+      };
+      if (payload.weight_lbs) payload.weight_lbs = parseFloat(payload.weight_lbs);
+      await axios.post(
+        `${REACT_APP_BACKEND_URL}/api/public/customer-portal/${token}/spot-quote-request`,
+        payload);
+      setDone(true);
+    } catch (e) {
+      alert(e?.response?.data?.detail || "Request failed");
+    } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+         onClick={onClose} data-testid="quote-req-dialog">
+      <Card className="hud-surface p-6 max-w-xl w-full" onClick={(e) => e.stopPropagation()}>
+        {done ? (
+          <div className="text-center py-6">
+            <CheckCircle2 className="text-emerald-400 mx-auto mb-3" size={40} />
+            <div className="text-emerald-300 font-bold text-xl">Request submitted</div>
+            <div className="text-sm text-slate-400 mt-1">Oliver will respond within 4 business hours.</div>
+            <button onClick={onClose}
+              className="mt-5 px-4 py-2 rounded bg-cyan-500 text-black font-bold text-sm">
+              Close
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="font-bold text-lg">Request spot quote</div>
+            <div className="text-xs text-slate-500 font-mono mb-4">{L.origin} → {L.destination}</div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <Field label="Pickup date" type="date" v={form.pickup_date}
+                     onChange={(v) => setForm({ ...form, pickup_date: v })}/>
+              <Field label="Equipment" v={form.equipment}
+                     onChange={(v) => setForm({ ...form, equipment: v })}/>
+              <Field label="Weight (lbs)" type="number" v={form.weight_lbs}
+                     onChange={(v) => setForm({ ...form, weight_lbs: v })}/>
+              <Field label="Commodity" v={form.commodity}
+                     onChange={(v) => setForm({ ...form, commodity: v })}/>
+              <Field label="Your name" v={form.requester_name}
+                     onChange={(v) => setForm({ ...form, requester_name: v })}/>
+              <Field label="Your email" type="email" v={form.requester_email}
+                     onChange={(v) => setForm({ ...form, requester_email: v })}/>
+              <div className="col-span-2">
+                <Field label="Notes" v={form.notes}
+                       onChange={(v) => setForm({ ...form, notes: v })}/>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={submit} disabled={submitting}
+                data-testid="quote-req-submit"
+                className="flex-1 px-4 py-2 rounded bg-cyan-500 text-black font-bold text-sm disabled:opacity-50">
+                {submitting ? "Submitting…" : "Send request"}
+              </button>
+              <button onClick={onClose}
+                className="px-4 py-2 rounded border border-white/10 text-sm text-slate-300">Cancel</button>
+            </div>
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function Field({ label, v, onChange, type = "text" }) {
+  return (
+    <div>
+      <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-400 mb-1">{label}</div>
+      <input type={type} value={v} onChange={(e) => onChange(e.target.value)}
+             className="w-full px-2 py-1.5 rounded bg-black/40 border border-white/10 text-white text-sm" />
     </div>
   );
 }

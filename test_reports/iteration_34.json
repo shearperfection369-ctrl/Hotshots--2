@@ -1,0 +1,46 @@
+{
+  "summary": "Tested the Competitive TMS module (10-feature parity build) end-to-end. Backend pytest suite test_iter34_tms_competitive.py = 12 passed, 1 skipped (freight-audit requires a pre-existing brokerage booking with carrier_rate_usd which is not auto-creatable from a public endpoint). Covered: accessorials seed+CRUD (12/12 defaults), FMCSA SAFER graceful-degrade (FREE webKey returns fmcsa_unreachable as designed), lane analytics aggregation, contract rates create + rate-lookup (contract beats spot when customer matches), dock scheduling CRUD, mode-shift (1900mi/42000lbs returns Intermodal with savings>0 and added_days=3), spot-quote public-portal submit + admin list/quote, RFP create + public list + bid + bid_count increment, driver PWA 404 on bad PIN. Frontend /competitive-tms admin page loads — all 9 tabs render, sidebar 'Competitive TMS' nav present, all 12 default accessorials visible on Accessorials tab, FMCSA tab renders the graceful error 'fmcsa_unreachable / FMCSA SAFER may require registration for a webKey...', Mode-Shift form computes and shows Intermodal recommendation for 1900mi/42000lbs/$4800, Lane analytics shows loads/RPM/OTP, admin RFP tab shows 2 RFPs with bid counts. Public /rfp-board (no auth) lists open RFPs with 'Submit bid' buttons. Customer portal Routing Guide tab shows REQUEST QUOTE amber buttons per lane card (URL is /customer-portal?token=... — query-param, not path-param).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/tms-competitive/freight-audit", "issue": "Field lookup uses booking.get('carrier_rate_usd') or booking.get('rate_usd'). Existing brokerage bookings in this codebase store carrier pay as 'forecast_carrier_pay_usd' / 'settled_carrier_pay_usd'. As written, audit will always flag NO_RATE_CON (rate_con_amt=0) → diff math wrong → verdict=RED for the wrong reason. Recommend adding fallback to forecast_carrier_pay_usd and settled_carrier_pay_usd."},
+      {"endpoint": "GET /api/tms-competitive/fmcsa/{mc}", "issue": "Hard-coded webKey='FREE' is rejected by FMCSA today (always falls into the unreachable branch). Functionally fine due to graceful degrade, but the verdict path is never exercised in this env. Move to env var FMCSA_WEBKEY and document in /app/backend/.env."},
+      {"endpoint": "GET /api/driver-pwa/booking/{booking_id}", "issue": "Cannot E2E test happy path because no admin endpoint exposes a way to set driver_pin on a booking. Add a PATCH /api/brokerage/bookings/{id}/tender (or similar) that writes driver_pin + returns the link a dispatcher would text to the driver. Currently only 404 path is reachable."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Customer portal share-link routing", "issue": "App.js declares only <Route path='/customer-portal'> and CustomerPortal.jsx reads token from useSearchParams ('?token=...'). If any admin code generates path-style URLs like /customer-portal/{token}, the page falls through to NoMatch and renders a blank screen (confirmed: /customer-portal/<token> yields 'No routes matched location' warning + len=18 body). Verify share_url generators in orisei_operations.py / tms_competitive.py and CompetitiveTms.jsx 'public board' links use the query-param form, OR add a second <Route path='/customer-portal/:token'>.", "affected_selectors": ["customer-portal page root"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter34_tms_competitive.py",
+    "/app/test_reports/pytest/iter34_results.xml"
+  ],
+  "action_items": [
+    "(minor) freight-audit: include forecast_carrier_pay_usd / settled_carrier_pay_usd as fallback rate-con sources in /app/backend/routes/tms_competitive.py freight_audit handler.",
+    "(minor) FMCSA: move webKey to env (FMCSA_WEBKEY) so the verdict path can be exercised in production; current FREE key is rejected by SAFER.",
+    "(minor) driver-pwa: add an admin endpoint that sets/returns driver_pin so the happy path can be tested.",
+    "(minor) customer-portal route: ensure all generated share_url's use /customer-portal?token=... (the only declared route). Or add a /customer-portal/:token alternate route. Path-style URLs currently render a blank page."
+  ],
+  "critical_code_review_comments": [
+    "tms_competitive.py freight_audit: tighten the rate-con lookup to match how brokerage_bookings actually stores carrier pay (forecast_carrier_pay_usd / settled_carrier_pay_usd) — otherwise the endpoint always flags NO_RATE_CON.",
+    "tms_competitive.py FMCSA: webKey='FREE' is hardcoded; works only because the failure branch is well-handled. Pull from env to enable real verdicts.",
+    "_seed_accessorials is fired via asyncio.create_task in build_tms_competitive_router — fine for normal startup, but if Mongo is briefly unavailable on boot the seed silently fails and never retries. Consider awaiting it in a startup event with a try/except + retry, or running an explicit /api/tms-competitive/seed admin endpoint.",
+    "CompetitiveTms.jsx (629 lines) — file is borderline at our 700-line guideline; consider splitting each tab component into its own file when a 10th tab is added.",
+    "Public /api/public/rfps/{id}/bid has no rate-limit and no captcha — a public, unauthenticated POST that writes to the DB. Add a per-IP rate limit and require a minimal CAPTCHA before launch."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter34_tms_competitive.py (created)",
+    "/app/test_reports/pytest/iter34_results.xml (created)"
+  ],
+  "success_rate": {"backend": "92% (12/13 — 1 skipped due to test-data dependency, no failures)", "frontend": "100% — all 9 tabs render, all tested flows work end-to-end (admin + public RFP board + customer portal Routing Guide)"},
+  "test_credentials": "Admin Bearer test_session_admin_1 for /api/tms-competitive/*. Portal token HXACT0uXu-2TEYHG4G4otNGfLMU for public /api/public/customer-portal/* and the customer portal UI (must be passed as ?token=<token> not /customer-portal/<token>).",
+  "seed_data_creation": "Created 1 TEST_ accessorial (auto-deleted), 1 TEST_ contract rate MN→TX (auto-deleted), 1 TEST_ dock appointment (auto-cancelled), 1 TEST_ public spot-quote-request via portal (left in DB, marked quoted), 1 TEST_RFP_Iter34 with 2 lanes + 1 carrier bid (left in DB — visible on /rfp-board).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run pytest backend/tests/test_iter34_tms_competitive.py -v. The freight-audit test is intentionally skipped — to exercise it, first POST a brokerage booking with carrier_rate_usd set (the standard /api/brokerage/bookings endpoint requires specific shape; lookup how other iteration tests created bookings). The customer portal is at /customer-portal?token=... (query param). Path-style /customer-portal/<token> renders blank — confirm that's not how share_url is being generated for admins to copy/paste.",
+  "rca of the issue": "No critical bug found. The only environment quirks: (1) FMCSA returns fmcsa_unreachable because webKey=FREE is rejected — graceful degrade verified. (2) freight-audit can't read carrier_rate_usd from existing bookings (they use forecast_carrier_pay_usd), so verdict is always RED via NO_RATE_CON. (3) /customer-portal/<token> path-style URL is unrouted and renders blank — the actual working URL is the query-param form /customer-portal?token=..."
+}
