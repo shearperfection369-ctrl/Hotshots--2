@@ -17,6 +17,7 @@ Plus driver PWA endpoints (H) under /api/driver-pwa/*.
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 import asyncio
 from datetime import datetime, timedelta, timezone
@@ -143,7 +144,7 @@ async def _fmcsa_safer_lookup(mc_number: str) -> Dict[str, Any]:
         async with httpx.AsyncClient(timeout=10) as http:
             r = await http.get(
                 f"https://mobile.fmcsa.dot.gov/qc/services/carriers/docket-number/{mc}",
-                params={"webKey": "FREE"},
+                params={"webKey": os.environ.get("FMCSA_WEBKEY", "FREE")},
                 headers={"Accept": "application/json"},
             )
             if r.status_code != 200:
@@ -489,7 +490,9 @@ def build_tms_competitive_router(
         if not booking:
             raise HTTPException(404, "Booking not found")
         rate_con_amt = float(booking.get("carrier_rate_usd")
-                              or booking.get("rate_usd") or 0)
+                              or booking.get("rate_usd")
+                              or booking.get("settled_carrier_pay_usd")
+                              or booking.get("forecast_carrier_pay_usd") or 0)
         accessorial_amt = sum(float(a.get("amount_usd") or 0)
                                for a in (payload.accessorial_breakdown or []))
         expected = rate_con_amt + accessorial_amt
@@ -635,7 +638,16 @@ def build_tms_competitive_router(
         return doc
 
     @api_router.post("/public/rfps/{rfp_id}/bid", tags=["rfp", "public"])
-    async def public_submit_bid(rfp_id: str, payload: RfpBidIn) -> Dict[str, Any]:
+    async def public_submit_bid(rfp_id: str, payload: RfpBidIn,
+                                  request: Request) -> Dict[str, Any]:
+        # Minimal abuse protection: per-IP throttle (5 bids / hour)
+        client_ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+                       or (request.client.host if request.client else "anon"))
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+        recent = await db.orisei_rfp_bids.count_documents(
+            {"submitted_from_ip": client_ip, "submitted_at": {"$gte": cutoff}})
+        if recent >= 5:
+            raise HTTPException(429, "Too many bids from this IP. Please wait.")
         rfp = await db.orisei_rfps.find_one(
             {"rfp_id": rfp_id, "is_public": True}, {"_id": 0})
         if not rfp:
@@ -646,6 +658,7 @@ def build_tms_competitive_router(
             "bid_id": f"BID-{uuid.uuid4().hex[:10].upper()}",
             "rfp_id": rfp_id, "submitted_at": _now(),
             "status": "submitted",
+            "submitted_from_ip": client_ip,
             **payload.model_dump(),
         }
         await db.orisei_rfp_bids.insert_one(dict(doc))
@@ -653,6 +666,31 @@ def build_tms_competitive_router(
             {"$inc": {"bid_count": 1}})
         doc.pop("_id", None)
         return {"ok": True, "bid_id": doc["bid_id"]}
+
+    # ============================ H · ADMIN-SIDE DRIVER PIN ============================
+    class DriverPinIn(BaseModel):
+        driver_name: Optional[str] = None
+        driver_phone: Optional[str] = None
+
+    @api_router.post("/brokerage/bookings/{booking_id}/driver-pin",
+                       tags=["driver-pwa", "admin"])
+    async def set_driver_pin(booking_id: str, payload: DriverPinIn,
+                                 user=admin_dep) -> Dict[str, Any]:
+        """Generate a 4-digit driver PIN + text-ready PWA link for a booking."""
+        pin = f"{int.from_bytes(uuid.uuid4().bytes[:2], 'big') % 10000:04d}"
+        res = await db.brokerage_bookings.find_one_and_update(
+            {"$or": [{"booked_id": booking_id}, {"booking_id": booking_id}]},
+            {"$set": {"driver_pin": pin,
+                       "driver_name": payload.driver_name,
+                       "driver_phone": payload.driver_phone,
+                       "driver_pin_issued_at": _now()}},
+            projection={"_id": 0, "booked_id": 1, "booking_id": 1})
+        if not res:
+            raise HTTPException(404, "Booking not found")
+        return {
+            "ok": True, "pin": pin, "booking_id": booking_id,
+            "driver_url_template": "/driver?booking={booking_id}&pin={pin}",
+        }
 
 
 # ============================ H · DRIVER PWA ============================

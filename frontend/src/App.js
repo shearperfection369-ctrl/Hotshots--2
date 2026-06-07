@@ -33,6 +33,7 @@ import OriseiOperations from "@/pages/OriseiOperations";
 import CustomerPortal from "@/pages/CustomerPortal";
 import CompetitiveTms from "@/pages/CompetitiveTms";
 import PublicRfpBoard from "@/pages/PublicRfpBoard";
+import DriverPwa from "@/pages/DriverPwa";
 import Reports from "@/pages/Reports";
 import Chat from "@/pages/Chat";
 import QuickLinks from "@/pages/QuickLinks";
@@ -107,6 +108,7 @@ function AppRouter() {
       <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/customer-portal" element={<CustomerPortal />} />
       <Route path="/rfp-board" element={<PublicRfpBoard />} />
+      <Route path="/driver" element={<DriverPwa />} />
       {/* Driver mobile is auth-free */}
       <Route path="/driver" element={<DriverMobile />} />
       <Route path="/driver/:shipmentId" element={<DriverMobile />} />

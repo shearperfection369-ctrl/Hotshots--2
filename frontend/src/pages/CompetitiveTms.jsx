@@ -549,17 +549,24 @@ function FreightAuditTab() {
 // ============================ J · RFP ============================
 function RfpTab() {
   const [items, setItems] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const fetchAll = async () => { const { data } = await api.get("/tms-competitive/rfps"); setItems(data.items || []); };
   useEffect(() => { fetchAll(); }, []);
   return (
     <Card className="hud-surface p-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h3 className="font-display text-lg font-bold">Active RFPs · {items.length}</h3>
-        <a href="/rfp-board" target="_blank" rel="noreferrer" className="text-xs text-cyan-300 hover:underline">
-          Public RFP board ↗
-        </a>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setDialogOpen(true)}
+            className="bg-cyan-500 hover:bg-cyan-400 text-black text-xs h-7"
+            data-testid="rfp-create-open">
+            <Plus size={12} className="mr-1"/> New RFP
+          </Button>
+          <a href="/rfp-board" target="_blank" rel="noreferrer"
+             className="text-xs text-cyan-300 hover:underline">Public board ↗</a>
+        </div>
       </div>
-      {items.length === 0 ? <Empty msg="No RFPs published yet. Create one from the API or future Create RFP dialog."/> : (
+      {items.length === 0 ? <Empty msg="No RFPs published yet."/> : (
         <div className="space-y-2">
           {items.map((r) => (
             <div key={r.rfp_id} className="p-3 rounded border bg-white/[0.02]" style={{borderColor:"rgba(255,255,255,0.06)"}}>
@@ -576,7 +583,81 @@ function RfpTab() {
           ))}
         </div>
       )}
+      {dialogOpen && <RfpCreateDialog onClose={() => { setDialogOpen(false); fetchAll(); }}/>}
     </Card>
+  );
+}
+
+function RfpCreateDialog({ onClose }) {
+  const [form, setForm] = useState({
+    shipper_name: "", title: "", description: "", submission_deadline: "",
+    contact_email: "", is_public: true,
+  });
+  const [lanes, setLanes] = useState([{ origin: "", destination: "", equipment: "Dry Van", est_volume_per_week: 1 }]);
+  const [submitting, setSubmitting] = useState(false);
+
+  const addLane = () => setLanes([...lanes, { origin: "", destination: "", equipment: "Dry Van", est_volume_per_week: 1 }]);
+  const removeLane = (i) => setLanes(lanes.filter((_, idx) => idx !== i));
+  const setLane = (i, k, v) => { const u = [...lanes]; u[i] = { ...u[i], [k]: v }; setLanes(u); };
+
+  const submit = async () => {
+    if (!form.shipper_name || !form.title || !form.submission_deadline) return toast.error("Shipper, title, deadline required");
+    if (lanes.some((L) => !L.origin || !L.destination)) return toast.error("Every lane needs origin + destination");
+    setSubmitting(true);
+    try {
+      await api.post("/tms-competitive/rfps", {
+        ...form, lanes: lanes.map((L) => ({ ...L, est_volume_per_week: parseInt(L.est_volume_per_week, 10) || 1 })),
+      });
+      toast.success("RFP published");
+      onClose();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    finally { setSubmitting(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+         onClick={onClose} data-testid="rfp-create-dialog">
+      <Card className="hud-surface p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="font-bold text-lg mb-4">Publish RFP</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+          <F label="Shipper name *" value={form.shipper_name} onChange={(v)=>setForm({...form,shipper_name:v})} testId="rfp-shipper"/>
+          <F label="Title *" value={form.title} onChange={(v)=>setForm({...form,title:v})} testId="rfp-title"/>
+          <F label="Submission deadline *" type="date" value={form.submission_deadline} onChange={(v)=>setForm({...form,submission_deadline:v})} testId="rfp-deadline"/>
+          <F label="Contact email" type="email" value={form.contact_email} onChange={(v)=>setForm({...form,contact_email:v})} testId="rfp-contact"/>
+          <div className="col-span-2">
+            <F label="Description" value={form.description} onChange={(v)=>setForm({...form,description:v})} testId="rfp-desc"/>
+          </div>
+        </div>
+        <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-400 mb-2">Lanes</div>
+        <div className="space-y-2 mb-4">
+          {lanes.map((L, i) => (
+            <div key={i} className="grid grid-cols-12 gap-2 items-end p-2 rounded bg-white/[0.02]">
+              <div className="col-span-4"><F label="Origin" value={L.origin} onChange={(v)=>setLane(i,"origin",v)} testId={`rfp-lane-o-${i}`}/></div>
+              <div className="col-span-4"><F label="Destination" value={L.destination} onChange={(v)=>setLane(i,"destination",v)} testId={`rfp-lane-d-${i}`}/></div>
+              <div className="col-span-2"><F label="Equip" value={L.equipment} onChange={(v)=>setLane(i,"equipment",v)} testId={`rfp-lane-e-${i}`}/></div>
+              <div className="col-span-1"><F label="Vol/wk" type="number" value={L.est_volume_per_week} onChange={(v)=>setLane(i,"est_volume_per_week",v)} testId={`rfp-lane-v-${i}`}/></div>
+              <div className="col-span-1 flex justify-end">
+                {lanes.length > 1 && (
+                  <Button size="sm" variant="ghost" onClick={() => removeLane(i)} className="text-red-400 h-7 w-7 p-0">
+                    <Trash2 size={12}/>
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <Button size="sm" variant="ghost" onClick={addLane} className="text-cyan-300 mb-4 text-xs" data-testid="rfp-add-lane">
+          <Plus size={12} className="mr-1"/> Add lane
+        </Button>
+        <div className="flex gap-2 mt-3">
+          <Button onClick={submit} disabled={submitting} className="bg-cyan-500 hover:bg-cyan-400 text-black flex-1"
+                  data-testid="rfp-create-submit">
+            {submitting ? "Publishing…" : "Publish RFP"}
+          </Button>
+          <Button onClick={onClose} variant="outline" className="border-white/10">Cancel</Button>
+        </div>
+      </Card>
+    </div>
   );
 }
 

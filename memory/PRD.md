@@ -981,6 +981,30 @@ Subsequent user-requested additions (chronological, all delivered):
   /no-pod/404, loyalty CRUD + tier assignment + 404s, brokerage/investor/
   public regression.
 
+## 2026-06-07 · TMS Competitive Parity — 10 features (A-J) closing the gap with McLeod / MercuryGate / Descartes / TMW
+- **Goal**: bring Hot Shot TMS to feature parity with the mid-market TMS field
+  so Orisei can pitch enterprise shippers without losing on the spec sheet.
+- **NEW backend** `routes/tms_competitive.py` (~720 lines):
+  - **A · Customer-portal spot-quote request** — `POST /api/public/customer-portal/{token}/spot-quote-request` token-gated, emails Oliver via Resend when creds present, drafts otherwise. Admin endpoints `/spot-quote-requests` (list) and `/{id}/quote` (mark quoted).
+  - **B · Accessorial library** — `/tms-competitive/accessorials` CRUD with idempotent seed of 12 industry-standard codes (DET / LMP / LAY / TONU / DA / STP / FSC / TARP / RES / REWG / INSIDE / OVRDIM). Each code carries label, description, rate_usd, rate_type (flat/per_hour/per_mile/per_pallet), and chargeable_to.
+  - **C · FMCSA auto-vetting** — `/tms-competitive/fmcsa/{mc}` hits the public SAFER snapshot API. webKey configurable via `FMCSA_WEBKEY` env var (FREE rejected by FMCSA — graceful degrade returns `fmcsa_unreachable`). Computes RED/AMBER/GREEN verdict from operating_status, safety_rating, broker_authority flags. 6h in-process cache.
+  - **D · Lane analytics** — `/tms-competitive/lane-analytics?window_days=N` aggregates every booking by (origin, destination) and emits avg/median rates, $/mi RPM, OTP %, avg miles, and a capacity-tightness signal (high/medium/low) based on load count × RPM.
+  - **E · Contract rate matrix** — `/tms-competitive/contract-rates` CRUD scoped by (customer_id, origin_state, destination_state, equipment, effective_from→to) + `/rate-lookup` that auto-prefers contract over spot.
+  - **F · Dock / appointment scheduling** — `/tms-competitive/dock-appointments` CRUD with facility name/address, pickup vs delivery, ISO scheduled_at, duration, optional booking/carrier link.
+  - **G · Multi-modal mode-shift recommender** — `POST /mode-shift` returns Intermodal (15-18% saves, +2-3d) for ≥800 mi dry/reefer and LTL (45% saves, +1d) for ≤5,000 lbs dry-van, with carrier suggestions per mode.
+  - **I · Freight audit & pay** — `POST /freight-audit` reconciles carrier invoice against rate-con + accessorial breakdown; emits RED if diff > 5% & > $25 OR rate-con missing; AMBER if accessorials present but not itemized. Falls back across `carrier_rate_usd / rate_usd / settled_carrier_pay_usd / forecast_carrier_pay_usd`.
+  - **J · Public RFP / digital RFQ board** — admin `/rfps` CRUD; public `/api/public/rfps` list + `/api/public/rfps/{id}/bid` submit. Per-IP rate limit (5 bids/hr) for abuse mitigation. Bid counter increments atomically.
+  - **H · Driver PWA endpoints** — `/api/driver-pwa/booking/{id}?pin=` + `/status?pin=` with PIN auth. Admin endpoint `/api/brokerage/bookings/{id}/driver-pin` generates a 4-digit PIN and returns the share-link template.
+- **NEW frontend pages**:
+  - **`/competitive-tms`** (admin, protected) — `pages/CompetitiveTms.jsx` 9-tab module. Each tab has its own create form + list with proper test-ids. RFP tab now has a fully-wired **Create RFP dialog** with dynamic lane rows (add/remove).
+  - **`/rfp-board`** (public, no auth) — `pages/PublicRfpBoard.jsx`. Lists open RFPs with deadlines + bid counts. Click "Submit bid" → dialog with per-lane rate inputs + name/email/MC.
+  - **`/driver`** (public, PIN-auth) — `pages/DriverPwa.jsx`. Driver opens link from dispatcher text. Geolocation ping with every status update.
+- **Customer portal upgrade** (`pages/CustomerPortal.jsx`):
+  - Routing Guide tab — each lane card now has an amber **"Request quote"** button → opens `QuoteRequestDialog` modal that POSTs to the public spot-quote-request endpoint.
+- **App.js + Sidebar + auth public-route list** updated to wire `/competitive-tms`, `/rfp-board`, `/driver`.
+- **Tested** (iteration_34): backend 12/13 pytest pass (1 skipped intentional — requires pre-existing booking with carrier_rate_usd); frontend 100% — all 9 tabs render, default accessorials visible, FMCSA gracefully degrades, mode-shift returns Intermodal for 1900mi/42000lbs, RFP board live, customer portal Request-quote button verified.
+- **Known**: FMCSA needs a real webKey from FMCSA — set `FMCSA_WEBKEY=…` in `/app/backend/.env` to enable production verdicts. Resend creds needed in `/connections` for portal spot-quote email notifications.
+
 ## 2026-06-04 (later) · Customer Portal Tracking + Routing Guide + Weekly Auto-Digest
 - **Goal**: replace mid-tier TMS portals (Turvo / Parade / Revenova) with a
   self-publishing routing guide inside the existing Customer Portal — shippers
