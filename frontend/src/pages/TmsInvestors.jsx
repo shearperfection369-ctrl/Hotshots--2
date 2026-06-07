@@ -670,7 +670,7 @@ export default function TmsInvestors() {
           system of record. Same builder. Same persistent-memory substrate.
           One investable thesis.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <a href="https://onejades.com/investors#stats" target="_blank" rel="noopener noreferrer"
              data-testid="jadeos-stack-product-1"
              className="block p-5 rounded-md border bg-white/[0.02] hover:bg-white/[0.04] transition"
@@ -724,12 +724,32 @@ export default function TmsInvestors() {
               BUILD COMPLETE · 6 MODES · READY TO DEPLOY
             </div>
           </div>
+          <a href="https://mpls-automation-hub.emergent.host/deck" target="_blank" rel="noopener noreferrer"
+             data-testid="jadeos-stack-deck"
+             className="block p-5 rounded-md border bg-gradient-to-br from-cyan-500/[0.08] to-amber-500/[0.06] hover:from-cyan-500/[0.14] hover:to-amber-500/[0.10] transition group"
+             style={{ borderColor: `${HSTMS_CYAN}55` }}>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: HSTMS_CYAN }}>
+              The Deck · All three · Unified
+            </div>
+            <div className="font-display text-2xl font-black mb-2 flex items-center gap-2 group-hover:translate-x-1 transition">
+              The Stack
+              <ArrowRight size={20} className="text-cyan-400"/>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed mb-3">
+              One investor deck. Three products. The full thesis — Quantum AI +
+              Agent Suite + Hot Shot TMS — in a single read-through prepared for
+              partner meetings.
+            </p>
+            <div className="text-[10px] font-mono text-slate-500">
+              3 PRODUCTS · 1 CAP TABLE · LIVE DECK
+            </div>
+          </a>
         </div>
         <div className="mt-6 text-xs text-slate-500 font-mono">
           Full three-product thesis →
-          <a href="https://mpls-automation-hub.emergent.host/" target="_blank" rel="noopener noreferrer"
+          <a href="https://mpls-automation-hub.emergent.host/deck" target="_blank" rel="noopener noreferrer"
              className="ml-1 underline hover:no-underline" style={{ color: HSTMS_CYAN }}>
-            mpls-automation-hub.emergent.host
+            mpls-automation-hub.emergent.host/deck
           </a>
         </div>
       </section>
