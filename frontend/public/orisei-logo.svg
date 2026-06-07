@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="800" height="240">
+  <!--
+    Orisei Freight Solutions · Primary Wordmark
+    Design intent:
+      · Bold sans wordmark in deep navy (#0E3A6B) — financial-services trust
+      · Gold chevron arrow (#C9A24A) cutting through the O — freight in motion
+      · Subtitle in slate sets the niche without crowding the mark
+      · Works at 24px (favicon) up to 12-ft truck wrap
+  -->
+  <defs>
+    <linearGradient id="goldArrow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E0B85C"/>
+      <stop offset="100%" stop-color="#B08A36"/>
+    </linearGradient>
+    <linearGradient id="navyText" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0E3A6B"/>
+      <stop offset="100%" stop-color="#0A2D55"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Mark: stylized O with freight chevron -->
+  <g transform="translate(40, 50)">
+    <!-- Outer O ring -->
+    <circle cx="70" cy="70" r="62" fill="none" stroke="url(#navyText)" stroke-width="14"/>
+    <!-- Chevron arrow piercing the O -->
+    <path d="M 30 70 L 110 70 L 95 50 M 110 70 L 95 90"
+          fill="none" stroke="url(#goldArrow)" stroke-width="14"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- North-star accent dot (Minnesota) -->
+    <circle cx="135" cy="22" r="6" fill="url(#goldArrow)"/>
+  </g>
+
+  <!-- Wordmark -->
+  <g transform="translate(200, 50)">
+    <text x="0" y="80"
+          font-family="'Helvetica Neue', Arial, sans-serif"
+          font-weight="900" font-size="68"
+          fill="url(#navyText)" letter-spacing="-2">
+      ORISEI
+    </text>
+    <text x="0" y="135"
+          font-family="'Helvetica Neue', Arial, sans-serif"
+          font-weight="600" font-size="32"
+          fill="#3A4A5E" letter-spacing="6">
+      FREIGHT SOLUTIONS
+    </text>
+    <!-- Tagline divider + subtitle -->
+    <line x1="0" y1="155" x2="60" y2="155" stroke="url(#goldArrow)" stroke-width="3"/>
+    <text x="72" y="162"
+          font-family="'Courier New', monospace"
+          font-size="14" fill="#C9A24A" letter-spacing="2">
+      MN · AG · GRAIN · SPECIALTY
+    </text>
+  </g>
+</svg>

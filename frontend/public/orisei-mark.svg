@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Orisei mark · square format for avatars, favicons, mobile -->
+  <defs>
+    <linearGradient id="goldArrow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E0B85C"/>
+      <stop offset="100%" stop-color="#B08A36"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="0.3" cy="0.3" r="1">
+      <stop offset="0%" stop-color="#143F75"/>
+      <stop offset="100%" stop-color="#0A2D55"/>
+    </radialGradient>
+  </defs>
+  <rect width="200" height="200" rx="32" fill="url(#bg)"/>
+  <circle cx="100" cy="100" r="62" fill="none" stroke="#E0B85C" stroke-width="10" opacity="0.95"/>
+  <path d="M 56 100 L 140 100 L 122 78 M 140 100 L 122 122"
+        fill="none" stroke="url(#goldArrow)" stroke-width="12"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="160" cy="42" r="6" fill="#E0B85C"/>
+</svg>

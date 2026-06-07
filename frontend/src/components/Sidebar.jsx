@@ -22,6 +22,7 @@ const NAV = [
   { to: "/brokerage-ops-kpis", label: "Ops KPIs", icon: Calculator, tid: "nav-brokerage-ops-kpis", roles: ["admin", "dispatcher"] },
   { to: "/orisei-operations", label: "Orisei Operations", icon: Building2, tid: "nav-orisei-operations", roles: ["admin", "dispatcher"] },
   { to: "/competitive-tms", label: "Competitive TMS", icon: Trophy, tid: "nav-competitive-tms", roles: ["admin", "dispatcher"] },
+  { to: "/gtm-assets", label: "GTM Marketing", icon: Sparkles, tid: "nav-gtm-assets", roles: ["admin"] },
   { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console", roles: ["admin", "dispatcher"] },
   { to: "/driver-registry", label: "Drivers & Trailers", icon: IdCard, tid: "nav-driver-registry", roles: ["admin", "auditor", "dispatcher"] },

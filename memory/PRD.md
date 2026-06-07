@@ -981,6 +981,53 @@ Subsequent user-requested additions (chronological, all delivered):
   /no-pod/404, loyalty CRUD + tier assignment + 404s, brokerage/investor/
   public regression.
 
+## 2026-06-07 (later) · Orisei Brand Identity + Ag/Grain GTM Asset Kit
+- **Goal**: equip Oliver with a complete go-to-market package to sign 5
+  lighthouse clients in MN's grain belt — no SOC 2 required.
+- **NEW SVG logo system** (`/app/frontend/public/`):
+  - `orisei-logo.svg` (800×240, horizontal wordmark) — deep navy ORISEI
+    in Helvetica Black + gold chevron piercing an O (= freight in motion)
+    + monospace tagline "MN · AG · GRAIN · SPECIALTY" + gold dot top-right
+    (Minnesota's North Star reference).
+  - `orisei-mark.svg` (200×200, square mark) — same concept, condensed for
+    favicons/avatars on dark backgrounds. Embeds cleanly in PDFs/emails.
+  - Brand colors locked: `#0E3A6B` navy, `#C9A24A` gold, slate `#3A4A5E`.
+- **NEW backend** `routes/orisei_gtm_assets.py`:
+  - `GET /api/marketing/orisei/brochure-pdf` — branded one-page PDF (~430 KB)
+    rendered from internal Markdown via existing `build_branded_markdown_pdf`.
+    Covers offering, $1M/$100K insurance line, BMC-84 bond, coverage lanes
+    (MN harvest belt → Cargill/CHS/ADM + MSP rail + Gulf + PNW export),
+    equipment, "how a load works" 6-step.
+  - `GET /api/marketing/orisei/email-templates` — 3 cold-email variants
+    keyed for ag/grain prospects: v1 lane-specific ("Plymouth → MSP at
+    $2.85/mi"), v2 harvest-overflow ("12-hour roll-out for {city}"),
+    v3 break-up ("closing your file"). All include `{first_name}`,
+    `{company}`, `{shipper_city}`, `{portal_token}` merge tokens.
+  - `GET /api/marketing/orisei/linkedin-profile` — full LinkedIn rewrite:
+    headline, About section (2,000 chars), Featured items, Experience
+    entry, connection invite template (300-char compliant), Mon/Wed/Fri
+    posting cadence.
+  - `GET /api/marketing/orisei/video-script` — 30-sec demo video script
+    with VO copy ("echo" voice), visual storyboard (6 scenes timestamped),
+    distribution channels, music recommendation. Reuses the existing
+    `build_hotshot_tms_promo.py` Playwright + FFmpeg + OpenAI TTS pipeline.
+- **NEW frontend** `pages/GtmAssets.jsx` + route `/gtm-assets` (admin-only,
+  added to Sidebar as "GTM Marketing"):
+  - Brand Identity section with both logo previews, color codes, type spec,
+    and direct SVG downloads.
+  - Brochure download button (fetches PDF blob → triggers browser
+    download with proper filename).
+  - 3 email templates each with copy-to-clipboard button.
+  - LinkedIn rewrite + video script as monospace scrolling blocks with
+    copy-all buttons.
+- **Tested**: brochure PDF returns 200 + valid %PDF-1.4 (428 KB), all 3
+  copy endpoints return JSON without error. Frontend renders all 5 sections
+  cleanly, logos load and look professional, no compile errors. Sidebar
+  nav-gtm-assets link works.
+- **Niche rationale**: User picked ag/specialty grain over building materials,
+  food/bev, med-device — copy is calibrated specifically for harvest-overflow
+  pitches and Cargill/CHS/ADM crush-plant lanes.
+
 ## 2026-06-07 · TMS Competitive Parity — 10 features (A-J) closing the gap with McLeod / MercuryGate / Descartes / TMW
 - **Goal**: bring Hot Shot TMS to feature parity with the mid-market TMS field
   so Orisei can pitch enterprise shippers without losing on the spec sheet.
