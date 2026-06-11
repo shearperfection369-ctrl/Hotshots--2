@@ -32,6 +32,7 @@ import BrokerageOpsKpis from "@/pages/BrokerageOpsKpis";
 import OriseiOperations from "@/pages/OriseiOperations";
 import CustomerPortal from "@/pages/CustomerPortal";
 import CompetitiveTms from "@/pages/CompetitiveTms";
+import EnterpriseTms from "@/pages/EnterpriseTms";
 import PublicRfpBoard from "@/pages/PublicRfpBoard";
 import DriverPwa from "@/pages/DriverPwa";
 import GtmAssets from "@/pages/GtmAssets";
@@ -133,6 +134,7 @@ function AppRouter() {
         <Route path="/brokerage-ops-kpis" element={<BrokerageOpsKpis />} />
         <Route path="/orisei-operations" element={<OriseiOperations />} />
         <Route path="/competitive-tms" element={<CompetitiveTms />} />
+        <Route path="/enterprise-tms" element={<EnterpriseTms />} />
         <Route path="/gtm-assets" element={<GtmAssets />} />
         <Route path="/marketing-pack" element={<MarketingPack />} />
         <Route path="/reports" element={<Reports />} />

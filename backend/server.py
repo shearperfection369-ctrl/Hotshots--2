@@ -8149,6 +8149,11 @@ build_tms_competitive_router(api_router=api_router, db=db,
 build_driver_pwa_router(api_router=api_router, db=db,
                          get_current_user=get_current_user)
 
+from routes.enterprise_tms import build_enterprise_tms_router  # noqa: E402
+build_enterprise_tms_router(api_router=api_router, db=db,
+                             get_current_user=get_current_user,
+                             require_role=require_role)
+
 from routes.orisei_gtm_assets import build_gtm_assets_router  # noqa: E402
 build_gtm_assets_router(api_router=api_router, db=db, require_role=require_role)
 
