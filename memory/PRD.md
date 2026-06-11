@@ -1398,3 +1398,66 @@ Subsequent user-requested additions (chronological, all delivered):
   navy wordmark (2 images) with clean transparent edges. Homepage hero
   shows the griffin floating cleanly inside its blue card with no gray
   bitmap box.
+
+
+---
+
+## Iteration 36 (Feb 2026) — Routing-Rules Engine + 9 Integration Adapters + Audit ML
+
+### Backend (`/app/backend/routes/enterprise_tms.py`)
+- **Rule Engine wired into `/dynamic-route`** — evaluates active rules in priority
+  order; applies actions: `prefer_carrier`, `force_mode`, `block`, `escalate`.
+  Returns `applied_rules`, `blocked`, `forced_mode`, `preferred_carriers`, `escalated`.
+- Every decision persisted to `enterprise_routing_log` with a `decision_id`.
+- New endpoint `GET /api/enterprise-tms/routing-decisions` returns audit trail.
+- Updated dynamic_route response now sets `recommended: true` on the cheapest viable option (fixes RECOMMENDED-badge visibility issue).
+
+### Backend (`/app/backend/routes/enterprise_adapters.py` — NEW)
+Adapter pattern: read creds from Connections vault → live API call → graceful
+mock-mode fallback when keys absent. All 9 adapters + ML auditor:
+
+| Adapter | Endpoint | Live source | Fallback |
+|---------|----------|-------------|----------|
+| Mileage | `POST /enterprise-adapters/mileage` | PC*Miler → OpenRouteService | Haversine on state centroids × 1.18 |
+| Parcel | `POST /enterprise-adapters/parcel-rate` | FedEx Web Services + UPS OAuth | ZIP-distance heuristic with 6 rate options |
+| GPS | `POST /enterprise-adapters/gps-track` | project44 → FourKites | Driver PWA updates |
+| EDI inbound | `POST /enterprise-adapters/edi/inbound` | SPS Commerce post | Internal log + auto-990 ack |
+| EDI log | `GET /enterprise-adapters/edi/log` | — | Returns all logged transactions |
+| WMS wave | `POST /enterprise-adapters/wms/wave` | AutoStore API | Manual pick log |
+| WMS list | `GET /enterprise-adapters/wms/waves` | — | List released waves |
+| DAT spot | `POST /enterprise-adapters/dat-spot` | DAT One API | Historical median over 120d |
+| Audit ML | `POST /enterprise-adapters/freight-audit-ml` | Built-in (always live) | — |
+| Adapter status | `GET /enterprise-adapters/adapter-status` | — | Returns per-adapter live/partial/absent |
+
+Audit ML uses modified z-score (Iglewicz–Hoaglin, MAD-based) — robust to outliers. No external dependency.
+
+### Frontend (`/app/frontend/src/pages/EnterpriseTms.jsx`)
+Expanded to 18 tabs. **7 new tabs added**:
+- Routing Rules (CRUD + audit trail)
+- Parcel Rater (FedEx + UPS)
+- Audit ML (statistical anomaly detection)
+- Live GPS (project44 / FourKites cascade)
+- EDI Gateway (204/210/214/990/856 with auto-ack)
+- WMS / Waves (AutoStore)
+- Adapter Health (live status of all 10 integrations)
+
+RECOMMENDED badge upgraded:
+- Uses `o.recommended === true` flag from backend (no longer object-equality)
+- Emerald border + glow + ★ icon
+- New `data-testid="dyn-recommended"` and `data-testid="dyn-blocked"`
+
+### Testing
+- Iter 36 backend pytest: 14/14 PASS (`/app/backend/tests/test_iter36_adapters_rules.py`)
+- Frontend: all 18 tabs render, RECOMMENDED + BLOCKED both verified
+- Adapter cascade: 1/10 live (Audit ML), 9/10 awaiting user keys
+
+### Outstanding (user blocking)
+- Cloudflare R2 keys (R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY)
+- PC*Miler OR OpenRouteService key (free tier)
+- FedEx + UPS OAuth credentials (developer.fedex.com + developer.ups.com)
+- project44 OR FourKites API key (paid)
+- SPS Commerce VAN credentials (paid, trading-partner setup)
+- AutoStore / WMS API endpoint + auth token (only if AutoStore deployed)
+- DAT One API key (paid subscription)
+- FMCSA SAFER webKey (free registration)
+- Resend API key (free tier available)
