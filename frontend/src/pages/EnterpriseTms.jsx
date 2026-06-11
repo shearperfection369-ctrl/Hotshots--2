@@ -11,21 +11,29 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Globe, Network, Boxes, ShieldAlert, Activity, Layers, Building2,
   Plus, Trash2, BadgeCheck, RefreshCw, AlertTriangle, Truck, Plane,
-  Train, Package, Gauge, MapPinned, FileBarChart, Plug,
+  Train, Package, Gauge, MapPinned, FileBarChart, Plug, Sparkles,
+  Workflow, Radar, Ban, ArrowRight,
 } from "lucide-react";
 
 const TABS = [
   { id: "coverage",     label: "RFP Coverage",      icon: BadgeCheck },
   { id: "visibility",   label: "Global Visibility", icon: Globe },
   { id: "routing",      label: "Dynamic Routing",   icon: Network },
+  { id: "rules",        label: "Routing Rules",     icon: Workflow },
   { id: "consolidate",  label: "Consolidation",     icon: Boxes },
   { id: "hazmat",       label: "Hazmat Compliance", icon: ShieldAlert },
   { id: "mode-shop",    label: "Mode + Rate Shop",  icon: Layers },
+  { id: "parcel",       label: "Parcel Rater",      icon: Package },
   { id: "benchmark",    label: "Rate Benchmark",    icon: FileBarChart },
+  { id: "audit-ml",     label: "Audit ML",          icon: Sparkles },
+  { id: "tracking",     label: "Live GPS",          icon: Radar },
+  { id: "edi",          label: "EDI Gateway",       icon: ArrowRight },
+  { id: "wms",          label: "WMS / Waves",       icon: Activity },
   { id: "kpis",         label: "OTIF · Cost-to-Serve", icon: Gauge },
   { id: "regional",     label: "Regional Network",  icon: Building2 },
   { id: "inbound",      label: "Inbound Shipments", icon: Truck },
   { id: "integrations", label: "Integration Registry", icon: Plug },
+  { id: "adapters",     label: "Adapter Health",    icon: Plug },
 ];
 
 export default function EnterpriseTms() {
@@ -70,14 +78,21 @@ export default function EnterpriseTms() {
         {tab === "coverage" && <CoverageTab />}
         {tab === "visibility" && <VisibilityTab />}
         {tab === "routing" && <RoutingTab />}
+        {tab === "rules" && <RulesTab />}
         {tab === "consolidate" && <ConsolidationTab />}
         {tab === "hazmat" && <HazmatTab />}
         {tab === "mode-shop" && <ModeRateShopTab />}
+        {tab === "parcel" && <ParcelTab />}
         {tab === "benchmark" && <BenchmarkTab />}
+        {tab === "audit-ml" && <AuditMlTab />}
+        {tab === "tracking" && <TrackingTab />}
+        {tab === "edi" && <EdiTab />}
+        {tab === "wms" && <WmsTab />}
         {tab === "kpis" && <KpisTab />}
         {tab === "regional" && <RegionalNetworkTab />}
         {tab === "inbound" && <InboundTab />}
         {tab === "integrations" && <IntegrationsTab />}
+        {tab === "adapters" && <AdaptersTab />}
       </div>
     </>
   );
@@ -202,24 +217,14 @@ function VisibilityTab() {
   );
 }
 
-// ============================ C · DYNAMIC ROUTING ============================
+// ============================ C · DYNAMIC ROUTING (decision only) ============================
 function RoutingTab() {
-  const [rules, setRules] = useState([]);
   const [decision, setDecision] = useState(null);
   const [decideForm, setDecideForm] = useState({
     origin: "Chicago, IL", destination: "Dallas, TX", equipment: "Dry Van",
     weight_lbs: 22000, pickup_date: new Date().toISOString().slice(0, 10),
     hazmat_un: "",
   });
-  const [ruleForm, setRuleForm] = useState({
-    name: "", priority: 100, action: "prefer_carrier",
-    preferred_carrier_name: "", match_equipment: "",
-    match_hazmat: false, match_origin_region: "",
-    match_destination_region: "", forced_mode: "",
-  });
-  const loadRules = () => api.get("/enterprise-tms/routing-rules?active_only=true")
-    .then(({ data }) => setRules(data.items || []));
-  useEffect(() => { loadRules(); }, []);
 
   const decide = async () => {
     try {
@@ -230,95 +235,210 @@ function RoutingTab() {
       setDecision(data);
     } catch (e) { toast.error(e?.response?.data?.detail || "Decision failed"); }
   };
+
+  return (
+    <Card className="hud-surface p-5" data-testid="dyn-route-card">
+      <h3 className="font-display text-lg font-bold mb-1 flex items-center gap-2">
+        <Network size={16} className="text-cyan-300" /> Dynamic Routing Decision
+      </h3>
+      <p className="text-xs text-slate-500 mb-4">
+        Replaces static routing tables. Evaluates contract carriers, spot market,
+        mode shifts, hazmat constraints, AND all active routing rules in real time.
+      </p>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <F label="Origin" value={decideForm.origin} onChange={(v) => setDecideForm({ ...decideForm, origin: v })} testId="dyn-origin" />
+        <F label="Destination" value={decideForm.destination} onChange={(v) => setDecideForm({ ...decideForm, destination: v })} testId="dyn-dest" />
+        <F label="Equipment" value={decideForm.equipment} onChange={(v) => setDecideForm({ ...decideForm, equipment: v })} testId="dyn-eq" />
+        <F label="Weight (lbs)" type="number" value={decideForm.weight_lbs} onChange={(v) => setDecideForm({ ...decideForm, weight_lbs: v })} testId="dyn-wt" />
+        <F label="Pickup date" type="date" value={decideForm.pickup_date} onChange={(v) => setDecideForm({ ...decideForm, pickup_date: v })} testId="dyn-date" />
+        <F label="Hazmat UN# (optional)" value={decideForm.hazmat_un} onChange={(v) => setDecideForm({ ...decideForm, hazmat_un: v })} testId="dyn-un" />
+      </div>
+      <Button onClick={decide} className="bg-cyan-500 hover:bg-cyan-400 text-black mt-3" data-testid="dyn-decide">
+        <Network size={14} className="mr-2" /> Decide Route
+      </Button>
+      {decision && (
+        <div className="mt-5 space-y-2">
+          <div className="text-xs text-slate-400 font-mono">
+            {decision.lane} · {decision.weight_lbs} lbs · {decision.miles} mi
+          </div>
+
+          {/* Applied rules pill */}
+          {decision.applied_rules?.length > 0 && (
+            <div className="p-3 rounded border border-cyan-500/30 bg-cyan-500/5 text-xs">
+              <div className="text-cyan-300 font-mono uppercase tracking-wider text-[10px] mb-1">
+                <Workflow size={11} className="inline mr-1" /> {decision.applied_rules.length} routing rule(s) matched
+              </div>
+              {decision.applied_rules.map((r, i) => (
+                <div key={i} className="text-slate-300">
+                  · <span className="font-mono text-cyan-300">P{r.priority}</span> {r.name} → <span className="font-mono text-amber-300">{r.action}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Blocked state */}
+          {decision.blocked && (
+            <div className="p-4 rounded border border-red-500/40 bg-red-500/10 text-red-200 flex items-start gap-2"
+                 data-testid="dyn-blocked">
+              <Ban size={18} className="mt-0.5" />
+              <div>
+                <div className="font-bold">Routing BLOCKED by active rule.</div>
+                <div className="text-xs text-slate-400 mt-1">
+                  No options will be returned. Modify or deactivate the rule under "Routing Rules" tab to proceed.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Hazmat constraint */}
+          {decision.hazmat_constraint && (
+            <div className="p-3 rounded border border-amber-500/30 bg-amber-500/5 text-xs text-amber-200 flex items-start gap-2">
+              <AlertTriangle size={14} className="mt-0.5" />
+              <div>
+                <b>{decision.hazmat_constraint.un}</b> · Class {decision.hazmat_constraint.class}
+                {decision.hazmat_constraint.placard_required ? " · Placard required" : ""}
+                <div className="text-[11px] mt-1 text-slate-400">{decision.hazmat_constraint.constraint}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Options */}
+          {(decision.options || []).map((o, i) => {
+            const isRec = o.recommended === true || (decision.recommendation && o.mode === decision.recommendation.mode && o.rate_usd === decision.recommendation.rate_usd);
+            return (
+              <div key={i} className={`p-3 rounded border ${isRec ? "border-emerald-500/50 bg-emerald-500/10 shadow-lg shadow-emerald-500/10" : "border-white/5 bg-white/[0.02]"}`}
+                   data-testid={`dyn-opt-${i}`}>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-base">{o.mode}</span>
+                    {isRec && (
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300 border border-emerald-500/50 bg-emerald-500/20 px-2 py-0.5 rounded"
+                            data-testid="dyn-recommended">
+                        ★ RECOMMENDED
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-500 font-mono">{o.source}</span>
+                  </div>
+                  <div className={`font-display text-2xl font-bold ${isRec ? "text-emerald-300" : "text-cyan-300"}`}>${o.rate_usd}</div>
+                </div>
+                <div className="text-xs text-slate-400 mt-1">{o.rationale}</div>
+                <div className="text-[11px] text-slate-500 font-mono mt-1">Transit: {o.transit_days_est} d</div>
+                {o.preferred_carriers?.length > 0 && (
+                  <div className="text-[11px] text-cyan-300 font-mono mt-1">
+                    Preferred carriers (per rule): {o.preferred_carriers.join(", ")}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {decision.forced_mode && (
+            <div className="text-[11px] text-amber-300 font-mono mt-2">
+              ⚡ Mode forced to "{decision.forced_mode}" by active rule.
+            </div>
+          )}
+          {decision.escalated && (
+            <div className="text-[11px] text-amber-300 font-mono">
+              ⚠ Decision escalated to manual review per rule.
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ============================ C2 · ROUTING RULES (CRUD) ============================
+function RulesTab() {
+  const [rules, setRules] = useState([]);
+  const [decisions, setDecisions] = useState([]);
+  const [ruleForm, setRuleForm] = useState({
+    name: "", priority: 100, action: "prefer_carrier",
+    preferred_carrier_name: "", match_equipment: "",
+    match_hazmat: false, match_origin_region: "",
+    match_destination_region: "", forced_mode: "",
+    match_weight_min_lbs: "", match_weight_max_lbs: "",
+    match_customer_id: "", notes: "",
+  });
+
+  const load = () => Promise.all([
+    api.get("/enterprise-tms/routing-rules?active_only=true").then(({ data }) => setRules(data.items || [])),
+    api.get("/enterprise-tms/routing-decisions?limit=20").then(({ data }) => setDecisions(data.items || [])),
+  ]);
+  useEffect(() => { load(); }, []);
+
   const createRule = async () => {
     if (!ruleForm.name) return toast.error("Name required");
     try {
       await api.post("/enterprise-tms/routing-rules", {
-        ...ruleForm, priority: parseInt(ruleForm.priority) || 100,
+        ...ruleForm,
+        priority: parseInt(ruleForm.priority) || 100,
         match_hazmat: ruleForm.match_hazmat || null,
+        match_weight_min_lbs: ruleForm.match_weight_min_lbs ? parseFloat(ruleForm.match_weight_min_lbs) : null,
+        match_weight_max_lbs: ruleForm.match_weight_max_lbs ? parseFloat(ruleForm.match_weight_max_lbs) : null,
       });
-      toast.success("Rule added"); setRuleForm({ ...ruleForm, name: "" }); loadRules();
+      toast.success("Rule added");
+      setRuleForm({ ...ruleForm, name: "", preferred_carrier_name: "", forced_mode: "" });
+      load();
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
   };
   const deleteRule = async (id) => {
     if (!window.confirm("Deactivate rule?")) return;
-    await api.delete(`/enterprise-tms/routing-rules/${id}`); loadRules();
+    await api.delete(`/enterprise-tms/routing-rules/${id}`); load();
   };
+
+  const actionColor = (a) => a === "block" ? "text-red-300" : a === "force_mode" ? "text-amber-300" :
+                              a === "escalate" ? "text-purple-300" : "text-cyan-300";
 
   return (
     <>
-      <Card className="hud-surface p-5" data-testid="dyn-route-card">
-        <h3 className="font-display text-lg font-bold mb-1 flex items-center gap-2">
-          <Network size={16} className="text-cyan-300" /> Dynamic Routing Decision
-        </h3>
-        <p className="text-xs text-slate-500 mb-4">
-          Replaces static routing tables. Evaluates contract carriers, spot market,
-          mode shifts, hazmat constraints in real time.
-        </p>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <F label="Origin" value={decideForm.origin} onChange={(v) => setDecideForm({ ...decideForm, origin: v })} testId="dyn-origin" />
-          <F label="Destination" value={decideForm.destination} onChange={(v) => setDecideForm({ ...decideForm, destination: v })} testId="dyn-dest" />
-          <F label="Equipment" value={decideForm.equipment} onChange={(v) => setDecideForm({ ...decideForm, equipment: v })} testId="dyn-eq" />
-          <F label="Weight (lbs)" type="number" value={decideForm.weight_lbs} onChange={(v) => setDecideForm({ ...decideForm, weight_lbs: v })} testId="dyn-wt" />
-          <F label="Pickup date" type="date" value={decideForm.pickup_date} onChange={(v) => setDecideForm({ ...decideForm, pickup_date: v })} testId="dyn-date" />
-          <F label="Hazmat UN# (optional)" value={decideForm.hazmat_un} onChange={(v) => setDecideForm({ ...decideForm, hazmat_un: v })} testId="dyn-un" />
-        </div>
-        <Button onClick={decide} className="bg-cyan-500 hover:bg-cyan-400 text-black mt-3" data-testid="dyn-decide">
-          <Network size={14} className="mr-2" /> Decide Route
-        </Button>
-        {decision && (
-          <div className="mt-5 space-y-2">
-            <div className="text-xs text-slate-400 font-mono">{decision.lane} · {decision.weight_lbs} lbs</div>
-            {decision.hazmat_constraint && (
-              <div className="p-3 rounded border border-amber-500/30 bg-amber-500/5 text-xs text-amber-200 flex items-start gap-2">
-                <AlertTriangle size={14} className="mt-0.5" />
-                <div>
-                  <b>{decision.hazmat_constraint.un}</b> · Class {decision.hazmat_constraint.class}
-                  {decision.hazmat_constraint.placard_required ? " · Placard required" : ""}
-                  <div className="text-[11px] mt-1 text-slate-400">{decision.hazmat_constraint.constraint}</div>
-                </div>
-              </div>
-            )}
-            {decision.options.map((o, i) => {
-              const isRec = o === decision.recommendation;
-              return (
-                <div key={i} className={`p-3 rounded border ${isRec ? "border-emerald-500/40 bg-emerald-500/5" : "border-white/5 bg-white/[0.02]"}`}
-                     data-testid={`dyn-opt-${i}`}>
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div>
-                      <span className="font-bold">{o.mode}</span>
-                      {isRec && <span className="ml-2 text-[10px] font-mono uppercase tracking-wider text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded">RECOMMENDED</span>}
-                      <span className="text-xs text-slate-500 ml-3 font-mono">{o.source}</span>
-                    </div>
-                    <div className="font-display text-2xl font-bold text-cyan-300">${o.rate_usd}</div>
-                  </div>
-                  <div className="text-xs text-slate-400 mt-1">{o.rationale}</div>
-                  <div className="text-[11px] text-slate-500 font-mono mt-1">Transit: {o.transit_days_est} d</div>
-                </div>
-              );
-            })}
+      <Card className="hud-surface p-5 border-cyan-500/20" data-testid="rules-header">
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <h3 className="font-display text-lg font-bold flex items-center gap-2">
+              <Workflow size={16} className="text-cyan-300" /> Routing Rules Engine
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+              Rules are evaluated in priority order (1 = highest) on every `/dynamic-route` decision.
+              Match conditions are AND-combined. Actions: <b>prefer_carrier</b>, <b>force_mode</b>, <b>block</b>, <b>escalate</b>.
+            </p>
           </div>
-        )}
+          <div className="text-right">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Active rules</div>
+            <div className="font-display text-3xl font-black text-cyan-300">{rules.length}</div>
+          </div>
+        </div>
       </Card>
 
       <Card className="hud-surface p-5" data-testid="rule-form">
-        <h3 className="font-display text-lg font-bold mb-3 flex items-center gap-2">
-          <Plus size={14} className="text-cyan-400" /> Persist a routing rule
+        <h3 className="font-display text-base font-bold mb-3 flex items-center gap-2">
+          <Plus size={14} className="text-cyan-400" /> New rule
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <F label="Name *" value={ruleForm.name} onChange={(v) => setRuleForm({ ...ruleForm, name: v })} testId="rule-name" />
           <F label="Priority (1 highest)" type="number" value={ruleForm.priority} onChange={(v) => setRuleForm({ ...ruleForm, priority: v })} testId="rule-priority" />
           <Select label="Action" value={ruleForm.action} onChange={(v) => setRuleForm({ ...ruleForm, action: v })}
                   opts={["prefer_carrier", "force_mode", "block", "escalate"]} testId="rule-action" />
-          <F label="Equipment match" value={ruleForm.match_equipment} onChange={(v) => setRuleForm({ ...ruleForm, match_equipment: v })} testId="rule-eq" />
-          <F label="Origin region" value={ruleForm.match_origin_region} onChange={(v) => setRuleForm({ ...ruleForm, match_origin_region: v })} testId="rule-orig" />
-          <F label="Destination region" value={ruleForm.match_destination_region} onChange={(v) => setRuleForm({ ...ruleForm, match_destination_region: v })} testId="rule-dest" />
-          <F label="Preferred carrier" value={ruleForm.preferred_carrier_name} onChange={(v) => setRuleForm({ ...ruleForm, preferred_carrier_name: v })} testId="rule-carrier" />
-          <F label="Forced mode (if action=force_mode)" value={ruleForm.forced_mode} onChange={(v) => setRuleForm({ ...ruleForm, forced_mode: v })} testId="rule-mode" />
+        </div>
+        <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 mt-4 mb-2">Match conditions (all that are set must match)</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <F label="Equipment" value={ruleForm.match_equipment} onChange={(v) => setRuleForm({ ...ruleForm, match_equipment: v })} testId="rule-eq" />
+          <F label="Origin region / state" value={ruleForm.match_origin_region} onChange={(v) => setRuleForm({ ...ruleForm, match_origin_region: v })} testId="rule-orig" />
+          <F label="Destination region / state" value={ruleForm.match_destination_region} onChange={(v) => setRuleForm({ ...ruleForm, match_destination_region: v })} testId="rule-dest" />
+          <F label="Min weight (lbs)" type="number" value={ruleForm.match_weight_min_lbs} onChange={(v) => setRuleForm({ ...ruleForm, match_weight_min_lbs: v })} />
+          <F label="Max weight (lbs)" type="number" value={ruleForm.match_weight_max_lbs} onChange={(v) => setRuleForm({ ...ruleForm, match_weight_max_lbs: v })} />
+          <F label="Customer ID" value={ruleForm.match_customer_id} onChange={(v) => setRuleForm({ ...ruleForm, match_customer_id: v })} />
           <label className="flex items-center gap-2 text-xs text-slate-300 mt-6">
-            <input type="checkbox" checked={ruleForm.match_hazmat} onChange={(e) => setRuleForm({ ...ruleForm, match_hazmat: e.target.checked })} />
-            Match hazmat-only
+            <input type="checkbox" checked={ruleForm.match_hazmat} onChange={(e) => setRuleForm({ ...ruleForm, match_hazmat: e.target.checked })}
+                   data-testid="rule-hazmat" />
+            Match hazmat shipments only
           </label>
+        </div>
+        <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 mt-4 mb-2">Action payload</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <F label="Preferred carrier (action=prefer_carrier)" value={ruleForm.preferred_carrier_name} onChange={(v) => setRuleForm({ ...ruleForm, preferred_carrier_name: v })} testId="rule-carrier" />
+          <F label="Forced mode (action=force_mode)" value={ruleForm.forced_mode} onChange={(v) => setRuleForm({ ...ruleForm, forced_mode: v })} testId="rule-mode" />
+          <F label="Notes (free text)" value={ruleForm.notes} onChange={(v) => setRuleForm({ ...ruleForm, notes: v })} />
         </div>
         <Button onClick={createRule} className="bg-cyan-500 hover:bg-cyan-400 text-black mt-3" data-testid="rule-create">
           <Plus size={14} className="mr-2" /> Save rule
@@ -326,21 +446,58 @@ function RoutingTab() {
       </Card>
 
       <Card className="hud-surface p-5" data-testid="rule-list">
-        <h3 className="font-display text-sm font-bold mb-3">Active routing rules · {rules.length}</h3>
-        {rules.length === 0 ? <Empty msg="No active rules — use defaults from the decision engine." /> : (
+        <h3 className="font-display text-base font-bold mb-3">Active rules · {rules.length}</h3>
+        {rules.length === 0 ? <Empty msg="No rules — the decision engine uses defaults (cheapest viable option)." /> : (
           <div className="space-y-1.5">
             {rules.map((r) => (
-              <div key={r.rule_id} className="px-3 py-2 rounded border bg-white/[0.02] flex justify-between items-center"
-                   style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                <div>
-                  <div className="text-sm"><span className="font-mono text-cyan-300 text-[11px] mr-2">P{r.priority}</span>{r.name}</div>
-                  <div className="text-[11px] text-slate-500 font-mono">
-                    {r.action}{r.preferred_carrier_name ? ` → ${r.preferred_carrier_name}` : ""}{r.forced_mode ? ` → ${r.forced_mode}` : ""}
+              <div key={r.rule_id} className="px-3 py-2 rounded border bg-white/[0.02] flex justify-between items-start flex-wrap gap-2"
+                   style={{ borderColor: "rgba(255,255,255,0.06)" }} data-testid={`rule-row-${r.rule_id}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm">
+                    <span className="font-mono text-cyan-300 text-[11px] mr-2">P{r.priority}</span>
+                    <span className="font-bold">{r.name}</span>
+                    <span className={`ml-2 text-[10px] font-mono uppercase tracking-wider ${actionColor(r.action)}`}>{r.action}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
+                    {[
+                      r.match_equipment && `eq=${r.match_equipment}`,
+                      r.match_origin_region && `from=${r.match_origin_region}`,
+                      r.match_destination_region && `to=${r.match_destination_region}`,
+                      r.match_hazmat && "hazmat",
+                      r.match_weight_min_lbs && `≥${r.match_weight_min_lbs}lb`,
+                      r.match_weight_max_lbs && `≤${r.match_weight_max_lbs}lb`,
+                      r.preferred_carrier_name && `→ ${r.preferred_carrier_name}`,
+                      r.forced_mode && `mode=${r.forced_mode}`,
+                    ].filter(Boolean).join(" · ") || "no match conditions"}
+                  </div>
+                  <div className="text-[10px] text-slate-600 font-mono mt-0.5">
+                    matched {r.match_count || 0}× {r.last_matched_at ? `· last ${r.last_matched_at.slice(0, 10)}` : ""}
                   </div>
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => deleteRule(r.rule_id)} className="text-red-400 hover:bg-red-500/10 h-7 w-7 p-0">
                   <Trash2 size={12} />
                 </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card className="hud-surface p-5" data-testid="rule-audit">
+        <h3 className="font-display text-base font-bold mb-3">Recent routing decisions (audit trail) · {decisions.length}</h3>
+        {decisions.length === 0 ? <Empty msg="No decisions logged yet." /> : (
+          <div className="space-y-1">
+            {decisions.slice(0, 10).map((d, i) => (
+              <div key={i} className="px-3 py-1.5 rounded border bg-white/[0.02] flex justify-between text-xs"
+                   style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                <span className="truncate flex-1 mr-3">
+                  <span className="font-mono text-cyan-300 mr-2">{d.decision_id}</span>
+                  {d.lane} · {d.weight_lbs} lbs
+                </span>
+                <span className="text-slate-500 font-mono">
+                  {d.blocked ? <span className="text-red-300">BLOCKED</span> :
+                   d.recommendation ? `${d.recommendation.mode} $${d.recommendation.rate_usd}` : "no options"}
+                </span>
               </div>
             ))}
           </div>
@@ -896,6 +1053,390 @@ function IntegrationsTab() {
             <div className="text-[11px] text-slate-500 mt-1 font-mono">Needs: {i.needs.join(" · ")}</div>
           </div>
         ))}
+      </div>
+    </Card>
+  );
+}
+
+// ============================ L · PARCEL RATER ============================
+function ParcelTab() {
+  const [form, setForm] = useState({
+    origin_zip: "60601", destination_zip: "75201",
+    weight_lbs: 12, length_in: 14, width_in: 10, height_in: 8, residential: true,
+  });
+  const [data, setData] = useState(null);
+  const run = async () => {
+    try {
+      const { data } = await api.post("/enterprise-adapters/parcel-rate", {
+        ...form, weight_lbs: parseFloat(form.weight_lbs),
+        length_in: parseFloat(form.length_in), width_in: parseFloat(form.width_in),
+        height_in: parseFloat(form.height_in),
+      });
+      setData(data);
+    } catch { toast.error("Quote failed"); }
+  };
+  return (
+    <Card className="hud-surface p-5" data-testid="parcel-card">
+      <h3 className="font-display text-lg font-bold mb-1 flex items-center gap-2">
+        <Package size={16} className="text-cyan-300" /> Parcel Rater · FedEx + UPS
+      </h3>
+      <p className="text-xs text-slate-500 mb-4">
+        Live quotes when FedEx/UPS keys are wired; heuristic fallback otherwise. Auto-tags CHEAPEST + FASTEST.
+      </p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <F label="Origin ZIP" value={form.origin_zip} onChange={(v) => setForm({ ...form, origin_zip: v })} testId="px-orig" />
+        <F label="Destination ZIP" value={form.destination_zip} onChange={(v) => setForm({ ...form, destination_zip: v })} testId="px-dest" />
+        <F label="Weight (lbs)" type="number" value={form.weight_lbs} onChange={(v) => setForm({ ...form, weight_lbs: v })} />
+        <F label="L (in)" type="number" value={form.length_in} onChange={(v) => setForm({ ...form, length_in: v })} />
+        <F label="W (in)" type="number" value={form.width_in} onChange={(v) => setForm({ ...form, width_in: v })} />
+        <F label="H (in)" type="number" value={form.height_in} onChange={(v) => setForm({ ...form, height_in: v })} />
+        <label className="flex items-center gap-2 text-xs text-slate-300 mt-6">
+          <input type="checkbox" checked={form.residential} onChange={(e) => setForm({ ...form, residential: e.target.checked })} />
+          Residential delivery
+        </label>
+      </div>
+      <Button onClick={run} className="bg-cyan-500 hover:bg-cyan-400 text-black mt-3" data-testid="px-run">
+        <Package size={14} className="mr-2" /> Quote parcel
+      </Button>
+      {data && (
+        <div className="mt-5">
+          <div className="text-xs text-slate-400 font-mono mb-3 flex items-center gap-2">
+            {data.origin_zip} → {data.destination_zip} · {data.weight_lbs} lbs
+            <span className={`text-[10px] px-2 py-0.5 rounded border ${data.live ? "border-emerald-500/40 text-emerald-300" : "border-amber-500/40 text-amber-300"}`}>
+              {data.live ? "LIVE" : "HEURISTIC"}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {data.rates.map((r, i) => (
+              <div key={i} className={`p-3 rounded border ${r.badges?.includes("CHEAPEST") ? "border-emerald-500/40 bg-emerald-500/5" : "border-white/5 bg-white/[0.02]"}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold">{r.carrier}</span>
+                    <span className="text-xs text-slate-500 ml-2 font-mono">{r.service}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {(r.badges || []).map((b) => (
+                      <span key={b} className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${b === "CHEAPEST" ? "border-emerald-500/40 text-emerald-300" : "border-cyan-500/40 text-cyan-300"}`}>{b}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="font-display text-2xl font-bold text-cyan-300 mt-1">${r.rate_usd}</div>
+                <div className="text-[11px] text-slate-500 font-mono">{r.transit_days} d</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ============================ M · AUDIT ML ============================
+function AuditMlTab() {
+  const [data, setData] = useState(null);
+  const [params, setParams] = useState({ window_days: 180, z_threshold: 2.0 });
+  const [loading, setLoading] = useState(false);
+  const run = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.post("/enterprise-adapters/freight-audit-ml", {
+        window_days: parseInt(params.window_days), z_threshold: parseFloat(params.z_threshold),
+      });
+      setData(data);
+    } catch { toast.error("Audit failed"); }
+    finally { setLoading(false); }
+  };
+  return (
+    <>
+      <Card className="hud-surface p-5" data-testid="audit-ml-card">
+        <h3 className="font-display text-lg font-bold mb-1 flex items-center gap-2">
+          <Sparkles size={16} className="text-purple-300" /> Freight Audit · Statistical Anomaly Detection
+        </h3>
+        <p className="text-xs text-slate-500 mb-4">
+          Modified z-score (Iglewicz–Hoaglin, MAD-based, robust to outliers) over lane-equipment baselines.
+          Flags carrier invoices that deviate beyond threshold. No API key needed.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <F label="Window (days)" type="number" value={params.window_days} onChange={(v) => setParams({ ...params, window_days: v })} />
+          <F label="Z threshold" type="number" value={params.z_threshold} onChange={(v) => setParams({ ...params, z_threshold: v })} />
+        </div>
+        <Button onClick={run} disabled={loading} className="bg-purple-500 hover:bg-purple-400 text-white mt-3" data-testid="audit-run">
+          <Sparkles size={14} className="mr-2" /> {loading ? "Analyzing…" : "Run audit"}
+        </Button>
+      </Card>
+      {data && (
+        <>
+          <Card className="hud-surface p-5">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <Stat label="Audited" value={data.bookings_audited} />
+              <Stat label="Lanes modeled" value={data.lanes_modeled} color="cyan" />
+              <Stat label="Anomalies" value={data.flags} color={data.flags > 0 ? "amber" : "emerald"} />
+              <Stat label="Overbilled" value={`$${data.total_overbilled_usd.toLocaleString()}`} color="red" />
+              <Stat label="Recovery $" value={`$${data.estimated_recovery_usd.toLocaleString()}`} color="emerald" />
+            </div>
+          </Card>
+          <Card className="hud-surface p-5">
+            <h3 className="font-display text-sm font-bold mb-3">Flagged invoices · {data.anomalies.length}</h3>
+            {data.anomalies.length === 0 ? <Empty msg="No anomalies above threshold — invoices look clean." /> : (
+              <div className="space-y-1.5">
+                {data.anomalies.slice(0, 30).map((a, i) => (
+                  <div key={i} className={`px-3 py-2 rounded border ${a.severity === "HIGH" ? "border-red-500/30 bg-red-500/5" : "border-amber-500/20 bg-amber-500/5"}`}
+                       data-testid={`audit-flag-${i}`}>
+                    <div className="flex justify-between items-start flex-wrap gap-2">
+                      <div className="text-sm">
+                        <span className="font-mono text-cyan-300 text-[11px] mr-2">{a.booking_id}</span>
+                        {a.lane} · {a.equipment} · {a.carrier || "—"}
+                      </div>
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${a.direction === "OVER" ? "border-red-500/40 text-red-300" : "border-amber-500/40 text-amber-300"}`}>
+                        {a.direction} · z={a.z_score} · {a.severity}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-mono mt-1">
+                      Invoice ${a.invoice_usd} vs median ${a.expected_median_usd} · Δ ${a.delta_usd} · baseline n={a.samples_in_baseline}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+    </>
+  );
+}
+
+// ============================ N · LIVE GPS TRACKING ============================
+function TrackingTab() {
+  const [form, setForm] = useState({ booking_id: "", bol_number: "", carrier_pro: "" });
+  const [data, setData] = useState(null);
+  const run = async () => {
+    if (!form.booking_id) return toast.error("Booking ID required");
+    try {
+      const { data } = await api.post("/enterprise-adapters/gps-track", form);
+      setData(data);
+    } catch { toast.error("Tracking failed"); }
+  };
+  return (
+    <Card className="hud-surface p-5" data-testid="gps-card">
+      <h3 className="font-display text-lg font-bold mb-1 flex items-center gap-2">
+        <Radar size={16} className="text-cyan-300" /> Live GPS Tracking · project44 + FourKites
+      </h3>
+      <p className="text-xs text-slate-500 mb-4">
+        Cascade: project44 → FourKites → internal Driver PWA. Add an integration key to upgrade tracking fidelity.
+      </p>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <F label="Booking ID *" value={form.booking_id} onChange={(v) => setForm({ ...form, booking_id: v })} testId="gps-booking" />
+        <F label="BOL #" value={form.bol_number} onChange={(v) => setForm({ ...form, bol_number: v })} />
+        <F label="Carrier PRO #" value={form.carrier_pro} onChange={(v) => setForm({ ...form, carrier_pro: v })} />
+      </div>
+      <Button onClick={run} className="bg-cyan-500 hover:bg-cyan-400 text-black mt-3" data-testid="gps-run">
+        <Radar size={14} className="mr-2" /> Track shipment
+      </Button>
+      {data && (
+        <div className="mt-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs text-slate-400 font-mono">Source: {data.source}</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded border ${data.live ? "border-emerald-500/40 text-emerald-300" : "border-amber-500/40 text-amber-300"}`}>
+              {data.live ? "LIVE" : "MOCK"}
+            </span>
+            {data.current_status && <span className="text-[11px] text-cyan-300 font-mono">· {data.current_status}</span>}
+          </div>
+          {data.events?.length > 0 ? (
+            <div className="space-y-1">
+              {data.events.slice(0, 25).map((e, i) => (
+                <div key={i} className="px-3 py-1.5 rounded border bg-white/[0.02] text-xs flex justify-between"
+                     style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <span>{e.status || e.eventType || "—"} {e.notes && `· ${e.notes}`}</span>
+                  <span className="text-slate-500 font-mono">{(e.at || e.timestamp || "").slice(0, 19)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-slate-500 text-sm italic">{data.note || "No events available."}</div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ============================ O · EDI GATEWAY ============================
+function EdiTab() {
+  const [log, setLog] = useState([]);
+  const [form, setForm] = useState({
+    edi_type: "204", sender_isa: "ACMECORP", receiver_isa: "ORISEI",
+    payload_raw: '{"shipment_id":"SH-001","origin":"Chicago, IL","destination":"Dallas, TX","weight_lbs":18000,"equipment":"Dry Van"}',
+  });
+  const load = () => api.get("/enterprise-adapters/edi/log").then(({ data }) => setLog(data.items || []));
+  useEffect(() => { load(); }, []);
+  const submit = async () => {
+    try {
+      const payload = JSON.parse(form.payload_raw);
+      await api.post("/enterprise-adapters/edi/inbound", {
+        edi_type: form.edi_type, sender_isa: form.sender_isa,
+        receiver_isa: form.receiver_isa, payload,
+      });
+      toast.success("EDI received"); load();
+    } catch (e) { toast.error("Invalid JSON or failed: " + (e?.message || "")); }
+  };
+  return (
+    <>
+      <Card className="hud-surface p-5" data-testid="edi-form">
+        <h3 className="font-display text-lg font-bold mb-1 flex items-center gap-2">
+          <ArrowRight size={16} className="text-cyan-300" /> EDI Gateway · SPS Commerce
+        </h3>
+        <p className="text-xs text-slate-500 mb-4">
+          Accept inbound EDI 204 (tender) · 210 (invoice) · 214 (status) · 990 (response) · 856 (ASN).
+          204s auto-emit a 990 ack. Posts to SPS Commerce API when key is configured.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <Select label="EDI type" value={form.edi_type} onChange={(v) => setForm({ ...form, edi_type: v })} opts={["204", "210", "214", "990", "856"]} testId="edi-type" />
+          <F label="Sender ISA" value={form.sender_isa} onChange={(v) => setForm({ ...form, sender_isa: v })} />
+          <F label="Receiver ISA" value={form.receiver_isa} onChange={(v) => setForm({ ...form, receiver_isa: v })} />
+        </div>
+        <div className="mt-3">
+          <Label className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-400 mb-1.5 block">Payload (JSON)</Label>
+          <Textarea value={form.payload_raw} onChange={(e) => setForm({ ...form, payload_raw: e.target.value })}
+                    className="bg-[#0B1320] border-white/10 text-white font-mono text-xs min-h-[100px]"
+                    data-testid="edi-payload" />
+        </div>
+        <Button onClick={submit} className="bg-cyan-500 hover:bg-cyan-400 text-black mt-3" data-testid="edi-submit">
+          <ArrowRight size={14} className="mr-2" /> Receive EDI
+        </Button>
+      </Card>
+      <Card className="hud-surface p-5">
+        <h3 className="font-display text-sm font-bold mb-3">EDI activity · {log.length}</h3>
+        {log.length === 0 ? <Empty msg="No EDI transactions yet." /> : (
+          <div className="space-y-1">
+            {log.slice(0, 30).map((e, i) => (
+              <div key={i} className="px-3 py-1.5 rounded border bg-white/[0.02] flex justify-between items-center text-xs"
+                   style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                <span>
+                  <span className="font-mono text-cyan-300 mr-2">EDI {e.edi_type}</span>
+                  <span className={`text-[10px] font-mono uppercase mr-2 ${e.direction === "inbound" ? "text-cyan-300" : "text-amber-300"}`}>{e.direction}</span>
+                  {e.sender_isa} → {e.receiver_isa}
+                </span>
+                <span className="text-slate-500 font-mono">{(e.received_at || "").slice(0, 19)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </>
+  );
+}
+
+// ============================ P · WMS / WAVES ============================
+function WmsTab() {
+  const [waves, setWaves] = useState([]);
+  const [form, setForm] = useState({
+    facility: "Atlanta DC", order_ids_raw: "PO-1001, PO-1002, PO-1003",
+    aligned_shipment_ids_raw: "",
+  });
+  const load = () => api.get("/enterprise-adapters/wms/waves").then(({ data }) => setWaves(data.items || []));
+  useEffect(() => { load(); }, []);
+  const release = async () => {
+    if (!form.facility) return toast.error("Facility required");
+    try {
+      await api.post("/enterprise-adapters/wms/wave", {
+        facility: form.facility,
+        order_ids: form.order_ids_raw.split(",").map((s) => s.trim()).filter(Boolean),
+        aligned_shipment_ids: form.aligned_shipment_ids_raw.split(",").map((s) => s.trim()).filter(Boolean),
+      });
+      toast.success("Wave released"); load();
+    } catch { toast.error("Failed"); }
+  };
+  return (
+    <>
+      <Card className="hud-surface p-5" data-testid="wms-form">
+        <h3 className="font-display text-lg font-bold mb-1 flex items-center gap-2">
+          <Activity size={16} className="text-cyan-300" /> WMS · Wave Release (AutoStore)
+        </h3>
+        <p className="text-xs text-slate-500 mb-4">
+          Align warehouse waves with TMS shipment plan. Posts to AutoStore API when configured.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <F label="Facility *" value={form.facility} onChange={(v) => setForm({ ...form, facility: v })} testId="wms-facility" />
+          <F label="Order IDs (CSV)" value={form.order_ids_raw} onChange={(v) => setForm({ ...form, order_ids_raw: v })} />
+          <F label="Aligned shipment IDs (CSV)" value={form.aligned_shipment_ids_raw} onChange={(v) => setForm({ ...form, aligned_shipment_ids_raw: v })} />
+        </div>
+        <Button onClick={release} className="bg-cyan-500 hover:bg-cyan-400 text-black mt-3" data-testid="wms-release">
+          <Activity size={14} className="mr-2" /> Release wave
+        </Button>
+      </Card>
+      <Card className="hud-surface p-5">
+        <h3 className="font-display text-sm font-bold mb-3">Released waves · {waves.length}</h3>
+        {waves.length === 0 ? <Empty msg="No waves released yet." /> : (
+          <div className="space-y-1.5">
+            {waves.map((w) => (
+              <div key={w.wave_id} className="px-3 py-2 rounded border bg-white/[0.02]"
+                   style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                <div className="flex justify-between items-start flex-wrap gap-2">
+                  <div>
+                    <span className="font-mono text-cyan-300 text-[11px] mr-2">{w.wave_id}</span>
+                    {w.facility} · {w.pick_tasks_generated} picks
+                  </div>
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${w.live ? "border-emerald-500/40 text-emerald-300" : "border-amber-500/40 text-amber-300"}`}>
+                    {w.live ? "LIVE" : "MANUAL"}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                  Released {(w.released_at || "").slice(0, 19)} · orders: {(w.order_ids || []).join(", ").slice(0, 80)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </>
+  );
+}
+
+// ============================ Q · ADAPTER HEALTH ============================
+function AdaptersTab() {
+  const [data, setData] = useState(null);
+  const load = () => api.get("/enterprise-adapters/adapter-status").then(({ data }) => setData(data));
+  useEffect(() => { load(); }, []);
+  if (!data) return <Empty msg="Loading…" />;
+  const meta = {
+    pcmiler: { name: "PC*Miler", category: "Mileage / routing", purpose: "Hazmat-aware road miles + restricted-route compliance" },
+    openrouteservice: { name: "OpenRouteService", category: "Mileage / routing", purpose: "Free-tier road miles (2k calls/day)" },
+    fedex: { name: "FedEx Web Services", category: "Parcel rater", purpose: "Live FedEx Ground/Express quotes" },
+    ups: { name: "UPS Rate API", category: "Parcel rater", purpose: "Live UPS quotes" },
+    project44: { name: "project44", category: "GPS tracking", purpose: "Real-time TL/LTL/parcel tracking + ETA refresh" },
+    fourkites: { name: "FourKites", category: "GPS tracking", purpose: "Strong reefer / cold-chain SLA visibility" },
+    sps_commerce: { name: "SPS Commerce", category: "EDI VAN", purpose: "204/210/214/990/856 + Fortune-500 trading partners" },
+    autostore: { name: "AutoStore", category: "WMS automation", purpose: "Wave-aligned pick + slot + dock" },
+    dat_one: { name: "DAT One", category: "Load board", purpose: "Live spot rate snapshots + capacity discovery" },
+    freight_audit_ml: { name: "Audit ML (built-in)", category: "Internal", purpose: "MAD-based statistical anomaly detection" },
+  };
+  return (
+    <Card className="hud-surface p-5" data-testid="adapters-card">
+      <h3 className="font-display text-lg font-bold mb-1 flex items-center gap-2">
+        <Plug size={16} className="text-cyan-300" /> Adapter Health · {data.live_count}/{data.total} live
+      </h3>
+      <p className="text-xs text-slate-500 mb-4">
+        Each adapter cascades from live API → fallback. Add a key in <a className="text-cyan-300 underline" href="/connections">Connections</a> to upgrade.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {Object.entries(data.adapters).map(([slug, status]) => {
+          const m = meta[slug] || { name: slug, category: "—", purpose: "—" };
+          return (
+            <div key={slug} className="px-3 py-3 rounded border bg-white/[0.02]"
+                 style={{ borderColor: "rgba(255,255,255,0.06)" }} data-testid={`adapter-${slug}`}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-sm font-bold">{m.name}</div>
+                <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border ${
+                  status === "live" ? "border-emerald-500/40 text-emerald-300" :
+                  status === "partial" ? "border-amber-500/40 text-amber-300" :
+                  "border-slate-500/40 text-slate-400"
+                }`}>{status}</span>
+              </div>
+              <div className="text-[11px] text-slate-500 font-mono">{m.category}</div>
+              <div className="text-xs text-slate-400 mt-1">{m.purpose}</div>
+            </div>
+          );
+        })}
       </div>
     </Card>
   );

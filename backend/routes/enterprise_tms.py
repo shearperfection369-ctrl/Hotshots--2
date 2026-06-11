@@ -657,13 +657,16 @@ def build_enterprise_tms_router(
     async def dynamic_route(payload: DynamicRouteIn, _=auth) -> Dict[str, Any]:
         """Replace static routing tables with a real-time decision that
         considers contract rates, current spot market, carrier OTP, capacity,
-        hazmat constraints. Returns a ranked list of execution options."""
+        hazmat constraints AND active routing rules (priority-ordered).
+        Returns a ranked list of execution options."""
         options: List[Dict[str, Any]] = []
+        miles = _approx_miles(payload.origin, payload.destination)
+
         # Option 1 · Contract carrier (if any contract exists for this customer+lane)
         if payload.customer_id:
             today = datetime.now(timezone.utc).date().isoformat()
-            origin_state = payload.origin.split(",")[-1].strip()[:2].upper() if "," in payload.origin else payload.origin[:2].upper()
-            dest_state = payload.destination.split(",")[-1].strip()[:2].upper() if "," in payload.destination else payload.destination[:2].upper()
+            origin_state = _extract_state(payload.origin) or ""
+            dest_state = _extract_state(payload.destination) or ""
             contract = await db.orisei_contract_rates.find_one(
                 {"customer_id": payload.customer_id,
                   "origin_state": origin_state, "destination_state": dest_state,
@@ -678,27 +681,27 @@ def build_enterprise_tms_router(
                     "transit_days_est": 2,
                     "rationale": "Contract on file — honor first per routing policy.",
                     "contract_id": contract.get("contract_rate_id")})
-        # Option 2 · Spot market via Margin Shield (synthetic for now)
-        spot_rate = round(payload.weight_lbs * 0.45 + 600, 2)
+
+        # Option 2 · Spot market
+        spot_rate = round(payload.weight_lbs * 0.06 + miles * 1.85 + 250, 2)
         options.append({
             "rank": 2, "mode": "Spot Market",
             "source": "margin_shield",
             "rate_usd": spot_rate,
-            "transit_days_est": 2,
-            "rationale": "Real-time spot rate via Margin Shield + DAT/Truckstop boards.",
-            "premium_vs_contract": None})
-        # Option 3 · Mode shift if applicable (>800 mi → intermodal)
-        # Crude lane distance — placeholder until real GIS
-        lane_str = f"{payload.origin}->{payload.destination}"
-        if any(state in lane_str.upper() for state in ("CA", "WA", "FL", "TX", "NY")):
+            "transit_days_est": max(1, int(miles / 500)),
+            "rationale": "Real-time spot rate via Margin Shield + DAT/Truckstop boards."})
+
+        # Option 3 · Intermodal where viable (>=800 mi, dry/reefer, <=42,500 lb)
+        if miles >= 800 and payload.weight_lbs <= 42500 and payload.equipment in ("Dry Van", "Reefer"):
             options.append({
                 "rank": 3, "mode": "Intermodal",
                 "source": "mode_shift_engine",
                 "rate_usd": round(spot_rate * 0.82, 2),
-                "transit_days_est": 5,
+                "transit_days_est": max(3, int(miles / 400)),
                 "rationale": "Intermodal saves 15-18% on long-haul if SLA allows +3d.",
                 "added_transit_days": 3})
-        # Hazmat constraint — surface a warning
+
+        # ---------- Hazmat constraint ----------
         hazmat_flag = None
         if payload.hazmat_un:
             hz = _hazmat_lookup(payload.hazmat_un)
@@ -706,20 +709,132 @@ def build_enterprise_tms_router(
                 hazmat_flag = {"un": payload.hazmat_un, "class": hz.get("hazard_class"),
                                 "placard_required": hz.get("placard_required"),
                                 "constraint": "Carriers must hold HM-126F endorsement"}
-        # OTP filter — drop any option below target
-        # (placeholder — real impl reads carrier scorecards)
-        recommendation = min(options, key=lambda o: o["rate_usd"])
-        return {
+
+        # ---------- ROUTING RULES ENGINE ----------
+        # Evaluate active rules in priority order and apply their actions.
+        active_rules = await db.enterprise_routing_rules.find(
+            {"active": True}, {"_id": 0}).sort("priority", 1).to_list(200)
+        applied_rules: List[Dict[str, Any]] = []
+        blocked = False
+        forced_mode: Optional[str] = None
+        preferred_carriers: List[str] = []
+        escalated = False
+
+        o_state = _extract_state(payload.origin) or ""
+        d_state = _extract_state(payload.destination) or ""
+
+        for rule in active_rules:
+            # Check match conditions — all set fields must match
+            if rule.get("match_equipment") and rule["match_equipment"] != payload.equipment:
+                continue
+            if rule.get("match_weight_min_lbs") is not None and payload.weight_lbs < rule["match_weight_min_lbs"]:
+                continue
+            if rule.get("match_weight_max_lbs") is not None and payload.weight_lbs > rule["match_weight_max_lbs"]:
+                continue
+            if rule.get("match_hazmat") is True and not payload.hazmat_un:
+                continue
+            if rule.get("match_hazmat") is False and payload.hazmat_un:
+                continue
+            if rule.get("match_customer_id") and rule["match_customer_id"] != payload.customer_id:
+                continue
+            if rule.get("match_origin_region"):
+                region = rule["match_origin_region"].upper()
+                if region not in (o_state, payload.origin.upper()):
+                    if region not in payload.origin.upper():
+                        continue
+            if rule.get("match_destination_region"):
+                region = rule["match_destination_region"].upper()
+                if region not in (d_state, payload.destination.upper()):
+                    if region not in payload.destination.upper():
+                        continue
+
+            # Rule matched — apply action
+            action = rule.get("action")
+            applied_rules.append({
+                "rule_id": rule.get("rule_id"),
+                "name": rule.get("name"),
+                "priority": rule.get("priority"),
+                "action": action,
+                "notes": rule.get("notes"),
+            })
+            if action == "block":
+                blocked = True
+                break
+            if action == "force_mode" and rule.get("forced_mode"):
+                forced_mode = rule["forced_mode"]
+            if action == "prefer_carrier" and rule.get("preferred_carrier_name"):
+                preferred_carriers.append(rule["preferred_carrier_name"])
+            if action == "escalate":
+                escalated = True
+
+            # Increment match count async (best-effort)
+            await db.enterprise_routing_rules.update_one(
+                {"rule_id": rule.get("rule_id")},
+                {"$inc": {"match_count": 1}, "$set": {"last_matched_at": _now()}})
+
+        # Apply blocking → return immediately with denied verdict
+        if blocked:
+            decision_doc = {
+                "decision_id": f"DR-{uuid.uuid4().hex[:10].upper()}",
+                "lane": f"{payload.origin} → {payload.destination}",
+                "decision_at": _now(),
+                "blocked": True,
+                "applied_rules": applied_rules,
+                "options": [],
+                "recommendation": None,
+                "rationale": "Routing blocked by active rule(s).",
+            }
+            await db.enterprise_routing_log.insert_one(dict(decision_doc))
+            decision_doc.pop("_id", None)
+            return decision_doc
+
+        # Apply forced_mode → filter options
+        if forced_mode:
+            filtered = [o for o in options if forced_mode.lower() in o["mode"].lower()]
+            if filtered:
+                options = filtered
+                for o in options:
+                    o["rationale"] = f"Mode forced to {forced_mode} by routing rule. " + o["rationale"]
+
+        # Apply preferred carriers → tag options
+        if preferred_carriers:
+            for o in options:
+                o["preferred_carriers"] = preferred_carriers
+
+        # Recommend cheapest viable
+        recommendation = min(options, key=lambda o: o["rate_usd"]) if options else None
+        if recommendation:
+            recommendation["recommended"] = True
+
+        decision_doc = {
+            "decision_id": f"DR-{uuid.uuid4().hex[:10].upper()}",
             "lane": f"{payload.origin} → {payload.destination}",
             "equipment": payload.equipment,
             "weight_lbs": payload.weight_lbs,
+            "miles": miles,
             "decision_at": _now(),
             "options": options,
             "recommendation": recommendation,
             "hazmat_constraint": hazmat_flag,
+            "applied_rules": applied_rules,
+            "preferred_carriers": preferred_carriers,
+            "forced_mode": forced_mode,
+            "escalated": escalated,
             "static_routing_replaced": True,
-            "audit_trail": "Decision logged to enterprise_routing_log",
+            "blocked": False,
         }
+        # Audit trail
+        await db.enterprise_routing_log.insert_one(dict(decision_doc))
+        decision_doc.pop("_id", None)
+        return decision_doc
+
+    @router.get("/routing-decisions")
+    async def routing_decisions(limit: int = Query(50, ge=1, le=500),
+                                   _=auth) -> Dict[str, Any]:
+        """Audit trail of dynamic routing decisions."""
+        rows = await db.enterprise_routing_log.find(
+            {}, {"_id": 0}).sort("decision_at", -1).limit(limit).to_list(limit)
+        return {"items": rows, "count": len(rows)}
 
     # ---------------- SAP IDoc inbound stubs ----------------
     @router.post("/sap/idoc/inbound")

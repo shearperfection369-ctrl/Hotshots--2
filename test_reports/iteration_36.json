@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 36 — Routing-rules engine wired into /dynamic-route + enterprise_adapters module (9 integrations + Freight Audit ML). 14/14 backend pytest cases PASS (100%). All 18 frontend tabs render. Rules Engine, Adapter Health, Audit ML, Parcel Rater, EDI Gateway, WMS Waves, Live GPS, Dynamic Routing (RECOMMENDED + BLOCKED) all functional end-to-end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter36_adapters_rules.py",
+    "/app/test_reports/pytest/iter36_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "enterprise_adapters.py is 683 lines — within limit but could be split into per-adapter modules (mileage.py, parcel.py, edi.py, wms.py, dat.py, audit_ml.py) when the file crosses 700.",
+    "POST /api/enterprise-tms/dynamic-route requires `pickup_date` — undocumented mandatory field. Consider making optional with today's date as default or document explicitly.",
+    "Multiple live-API HTTP clients (FedEx/UPS/PC*Miler/ORS/p44/FourKites/SPS/AutoStore/DAT) lack retry/backoff and circuit-breaker. Fine for mock mode, but production keys will hit transient 5xx. Wrap _get_creds-gated branches with a small tenacity-style retry.",
+    "Freight Audit ML samples first 100 anomalies and 25 baselines — make these limits configurable via query params for tenants with large fleets.",
+    "EDI 990 ack is queued but never actually transmitted when SPS creds are absent — should expose an outbound queue with retry status visible in /edi/log."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter36_adapters_rules.py"
+  ],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100% (all 7 new tabs + RECOMMENDED + BLOCKED verified)"},
+  "test_credentials": "Bearer test_session_admin_1 (admin) — read from /app/memory/test_credentials.md",
+  "seed_data_creation": "Created/deleted 3 transient routing-rules during backend tests (block, prefer_carrier, force_mode) and 1 UI rule (UI_TEST_BLOCK_HAZ_CA) which is still active — main agent may want to delete it via /api/enterprise-tms/routing-rules/{id}.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All adapter endpoints under /api/enterprise-adapters/* are functional with graceful mock fallback. adapter-status returns adapters dict (10 keys), live_count=1 (freight_audit_ml only) until user provides keys. Rule engine: action=block + match_hazmat=true + match_destination_region='CA' produces blocked=true with applied_rules list. Frontend dyn-blocked card + dyn-recommended badge both render correctly. Backend tests verified by repeated run. Note: /api/enterprise-tms/dynamic-route REQUIRES pickup_date.",
+  "rca of the issue": "N/A — all features verified working."
+}
