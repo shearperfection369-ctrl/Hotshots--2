@@ -8159,6 +8159,11 @@ build_enterprise_adapters_router(api_router=api_router, db=db,
                                    get_current_user=get_current_user,
                                    require_role=require_role)
 
+from routes.research_analytics import build_research_analytics_router  # noqa: E402
+build_research_analytics_router(api_router=api_router, db=db,
+                                   get_current_user=get_current_user,
+                                   require_role=require_role)
+
 from routes.orisei_gtm_assets import build_gtm_assets_router  # noqa: E402
 build_gtm_assets_router(api_router=api_router, db=db, require_role=require_role)
 

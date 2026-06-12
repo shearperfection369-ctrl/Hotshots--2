@@ -23,6 +23,7 @@ const NAV = [
   { to: "/orisei-operations", label: "Orisei Operations", icon: Building2, tid: "nav-orisei-operations", roles: ["admin", "dispatcher"] },
   { to: "/competitive-tms", label: "Competitive TMS", icon: Trophy, tid: "nav-competitive-tms", roles: ["admin", "dispatcher"] },
   { to: "/enterprise-tms", label: "Enterprise TMS", icon: Globe, tid: "nav-enterprise-tms", roles: ["admin", "dispatcher"] },
+  { to: "/research-analytics", label: "Research & Analytics", icon: PieChart, tid: "nav-research-analytics", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/gtm-assets", label: "GTM Marketing", icon: Sparkles, tid: "nav-gtm-assets", roles: ["admin"] },
   { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console", roles: ["admin", "dispatcher"] },
