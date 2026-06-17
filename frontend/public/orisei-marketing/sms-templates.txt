@@ -1,0 +1,111 @@
+ORISEI · CARRIER & SHIPPER SMS TEMPLATE BANK
+═══════════════════════════════════════════════════════════
+Use these as paired follow-ups to your email outreach.
+SMS gets 5-8× the response rate of cold email when timed
+24-48 hrs AFTER the email lands.
+
+Replace {Name}, {Carrier}, {Lane}, {Spend} with merge tags.
+Keep each under 160 chars (1 SMS segment).
+
+───────────────────────────────────────────────────────────
+A · CARRIER COLD OUTREACH (Day 0)
+───────────────────────────────────────────────────────────
+
+A1. First touch
+   "Hi {Name} — Oliver at Orisei. We dispatch hot-shot, reefer,
+    dry van across the U.S. 24hr ACH, no forced dispatch.
+    5-min onboarding: orisei.com/c · OK to call?"
+
+A2. After email opened, no reply
+   "Hi {Name} — saw you opened the Orisei note. Got freight
+    moving in/out of {Lane} this week? I have a dedicated lane
+    paying above market. Call me: 763-443-4459"
+
+A3. Hot-shot specialist
+   "{Name} — Orisei dispatch here. Need a 26K-lb hot shot
+    Chicago→Dallas Friday. $/mi: top of market. Reply YES to
+    book."
+
+A4. Carrier reactivation (lapsed)
+   "{Carrier} — we lost touch but the boards say you're still
+    moving in {Lane}. Orisei has 4 dedicated runs/week on that
+    lane. Want the rate sheet? Reply Y."
+
+───────────────────────────────────────────────────────────
+B · SHIPPER COLD OUTREACH (Day 0)
+───────────────────────────────────────────────────────────
+
+B1. First touch
+   "Hi {Name} — Oliver at Orisei (TMS). 30-min working session
+    on your top 25 lanes typically surfaces 14-22% of recoverable
+    spend. Free. Worth 30 min? oriseifreight.com/s"
+
+B2. After LinkedIn connect
+   "Thanks for connecting, {Name}. Quick one — if I built you a
+    free benchmark of your top 25 lanes vs DAT spot this week,
+    would your team look at it? Just 'yes' or 'no' works."
+
+B3. Q4 angle (June–August)
+   "{Name} — Q4 capacity locks happen NOW. Orisei runs free Q4
+    readiness audits through end of June. Want a slot?
+    oriseifreight.com/q4"
+
+B4. Audit ML hook
+   "Hi {Name} — Orisei found $640K of FSC leakage on a $40M
+    parcel program last week. Worth running your invoices through
+    the audit? Free. Reply Y for the link."
+
+───────────────────────────────────────────────────────────
+C · FOLLOW-UP CADENCE (after email)
+───────────────────────────────────────────────────────────
+
+C1. Day 2 (email opened, no reply)
+   "{Name} — quick nudge. Free benchmark or working session
+    still on the table. 60 sec to say yes/no? -Oliver"
+
+C2. Day 5 (no response yet)
+   "Last note from me, {Name}. If freight isn't a Q1 priority,
+    no worries — I'll catch you in Q2. If it IS, hit me back
+    today. -O"
+
+C3. Day 10 (re-engage after silence)
+   "Heads up {Name}: DAT spot just moved +6% on your top 3
+    lanes. Want a 5-min audio summary? Reply HEAR."
+
+───────────────────────────────────────────────────────────
+D · TRANSACTIONAL (post-onboarding)
+───────────────────────────────────────────────────────────
+
+D1. Load offered (driver/carrier)
+   "ORISEI: Load #{ID} {Origin}→{Dest} {Equipment} {Date}
+    Pay: ${Rate}. ACCEPT? Reply A. Decline: D. Details: link"
+
+D2. POD reminder
+   "ORISEI: POD still needed for #{ID}. Snap & reply or upload:
+    orisei.com/pod/{token}. Payment delays w/o POD."
+
+D3. Quick-pay confirmation
+   "ORISEI: 24hr ACH approved for #{ID}. $X.XX hits account by
+    {Date}. Settlement: orisei.com/s/{token}"
+
+D4. Detention claim
+   "ORISEI: Detention claim filed for #{ID}. {Hours}hrs ×
+    $XX/hr = $XXX. Billed to shipper. You'll see it on next
+    settlement."
+
+───────────────────────────────────────────────────────────
+E · COMPLIANCE CONSENT (legally required, opt-in)
+───────────────────────────────────────────────────────────
+
+E1. After signup
+   "ORISEI: You opted in to SMS load offers & updates. Reply
+    STOP to opt out. Msg & data rates may apply. Help: link"
+
+───────────────────────────────────────────────────────────
+TONE NOTES
+───────────────────────────────────────────────────────────
+· Always identify as ORISEI in caps for transactional msgs
+· Use first name only for cold outreach
+· Always include opt-out for marketing per TCPA
+· Best send windows: 7-9am or 4-6pm local time (carriers)
+· Avoid: hype emojis (🔥💰🚀), ALL CAPS body, false urgency
