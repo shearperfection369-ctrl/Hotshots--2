@@ -1461,3 +1461,32 @@ RECOMMENDED badge upgraded:
 - DAT One API key (paid subscription)
 - FMCSA SAFER webKey (free registration)
 - Resend API key (free tier available)
+
+
+---
+
+## Iteration 37 (Feb 2026) — AI Marketing Promo Videos (sound + pro visuals)
+
+User reported: "the videos don't appear to have sound. add actual professional visuals to the promo vids".
+
+### Implementation
+- New generator script: `/tmp/build_ai_videos.py`
+- **Visuals**: 8 cinematic golden-hour freight/logistics images generated via Gemini Nano Banana (`gemini-3.1-flash-image-preview`) using `emergentintegrations.llm.chat.LlmChat` with modalities=["image","text"]. Subjects: highway hero, container port aerial, warehouse loading bays, dashboard control room, dispatcher hands, desert convoy, intermodal rail, brokerage office skyline.
+- **Voiceover**: OpenAI TTS via `emergentintegrations.llm.openai.OpenAITextToSpeech`, model `tts-1-hd`, voice `nova` (warm female, professional). Two scripts written for 15s + 30s.
+- **Video composition** (FFmpeg, system-installed):
+  - 1280×720 @ 30 fps, H.264 (libx264 medium / CRF 20), AAC 192 kbps audio
+  - Ken-burns slow zoom (alternating in/out) on each image via `zoompan`
+  - Dark gradient top/bottom letterbox bars for legibility
+  - Animated `drawtext` headlines + golden-hued subtitles with fade-in/out
+  - Persistent `ORISEI` brand mark top-left in brand orange `#FF8A3D`
+  - Audio fade-in 0.4s, fade-out 0.5s, exact `-t` clamp
+
+### Output
+- `/app/frontend/public/orisei-marketing/video/orisei-15s.mp4` (2.78 MB, 15.00s, H.264 + AAC)
+- `/app/frontend/public/orisei-marketing/video/orisei-30s.mp4` (5.71 MB, 30.00s, H.264 + AAC)
+- HTTP 200 verified via REACT_APP_BACKEND_URL
+
+### User choices applied
+- Messaging tone: Hybrid (brand opener + stat-driven hook)
+- Voice: Warm female / professional ("nova")
+- Aesthetic: Cinematic dusk / golden hour
