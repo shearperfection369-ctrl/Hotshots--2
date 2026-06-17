@@ -317,6 +317,71 @@ async def create_session(request: Request, response: Response):
 async def me(user: User = Depends(get_current_user)):
     return user
 
+
+@api_router.post("/auth/dev-session")
+async def dev_session(request: Request, response: Response):
+    """Friction-free admin sign-in for the founder on PREVIEW environments.
+    Disabled on production (livecleans.com) — checks the Origin / Host header
+    so it cannot be invoked against the production deployment.
+
+    Issues a real session_token for the first admin email in ADMIN_EMAILS so
+    the founder can one-click sign in without the Google OAuth round-trip
+    every time the preview backend rotates."""
+    # Production guard — must be explicitly enabled via env. Production
+    # deployments won't have ENABLE_DEV_LOGIN set, so this endpoint will
+    # always return 404 there. Preview .env sets it to "true".
+    if (os.environ.get("ENABLE_DEV_LOGIN") or "").lower() not in ("1", "true", "yes"):
+        raise HTTPException(status_code=404, detail="Not available")
+
+    admin_emails = [
+        e.strip() for e in (os.environ.get("ADMIN_EMAILS", "") or "").split(",")
+        if e.strip()
+    ]
+    if not admin_emails:
+        raise HTTPException(status_code=400, detail="No ADMIN_EMAILS configured")
+    email = admin_emails[0]
+
+    existing = await db.users.find_one({"email": email}, {"_id": 0})
+    if existing:
+        user_id = existing["user_id"]
+        if existing.get("role") != "admin":
+            await db.users.update_one({"user_id": user_id}, {"$set": {"role": "admin"}})
+        name = existing.get("name") or email.split("@")[0].title()
+        picture = existing.get("picture")
+    else:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        name = email.split("@")[0].title()
+        picture = None
+        await db.users.insert_one({
+            "user_id": user_id, "email": email, "name": name,
+            "picture": picture, "role": "admin",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+    session_token = f"dev_{uuid.uuid4().hex}"
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    await db.user_sessions.insert_one({
+        "user_id": user_id, "session_token": session_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "dev_session": True,
+    })
+    cookie_kwargs = {
+        "key": "session_token", "value": session_token,
+        "httponly": True, "secure": True, "samesite": "none",
+        "path": "/", "max_age": 7 * 24 * 60 * 60,
+    }
+    cookie_domain = _shared_cookie_domain(request)
+    if cookie_domain:
+        cookie_kwargs["domain"] = cookie_domain
+    response.set_cookie(**cookie_kwargs)
+    return {
+        "user_id": user_id, "email": email, "name": name,
+        "picture": picture, "role": "admin",
+        "session_token": session_token,
+    }
+
+
 @api_router.post("/auth/logout")
 async def logout(request: Request, response: Response):
     token = request.cookies.get("session_token")

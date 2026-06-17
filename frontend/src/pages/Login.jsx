@@ -1,14 +1,34 @@
 import React from "react";
 import { Button } from "../components/ui/button";
 import { TennantLogo } from "../components/TennantLogo";
-import { Truck, Plane, Ship, Package, Train, MapPinned } from "lucide-react";
-import { TENNANT_LOGO_URL } from "../lib/api";
+import { Truck, Plane, Ship, Package, Train, MapPinned, Zap } from "lucide-react";
+import { TENNANT_LOGO_URL, BACKEND_URL } from "../lib/api";
 
 export default function Login() {
   const handleSignIn = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
     const redirectUrl = window.location.origin + "/dashboard";
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  };
+
+  // One-click dev sign-in — hidden on production. Eliminates the Google OAuth
+  // round-trip on preview when backend session tokens rotate between forks.
+  const isProduction = typeof window !== "undefined" &&
+                          window.location.hostname.includes("livecleans.com");
+  const handleDevSignIn = async () => {
+    try {
+      const r = await fetch(`${BACKEND_URL}/api/auth/dev-session`, {
+        method: "POST", credentials: "include",
+      });
+      if (!r.ok) throw new Error(`${r.status}`);
+      const data = await r.json();
+      if (data.session_token) {
+        localStorage.setItem("tms_session_token", data.session_token);
+      }
+      window.location.href = "/dashboard";
+    } catch (e) {
+      alert("Quick sign-in failed: " + (e.message || ""));
+    }
   };
 
   return (
@@ -75,6 +95,18 @@ export default function Login() {
             </svg>
             Continue with Google
           </Button>
+
+          {!isProduction && (
+            <Button
+              onClick={handleDevSignIn}
+              data-testid="dev-signin-btn"
+              variant="outline"
+              className="w-full mt-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40 hover:border-amber-400 font-medium py-5 text-sm transition-all"
+            >
+              <Zap size={14} className="mr-2" />
+              Quick Sign In (preview · founder shortcut)
+            </Button>
+          )}
 
           <div className="mt-6 text-[11px] text-slate-500 font-mono leading-relaxed">
             By signing in, you agree to Tennant&apos;s acceptable-use policy.
