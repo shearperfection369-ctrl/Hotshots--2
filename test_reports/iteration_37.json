@@ -1,0 +1,23 @@
+{
+  "summary": "Iter 37 — Full validation of Orisei 'Run-the-Load' workflow batch (workflow HUD, Quick Margin, invite templates, doc overrides, branded invoices, domain config, broker promo video). All 15 pytest backend tests passed (5.71s). Frontend flows verified via Playwright: login bypass, Workflow HUD with 12 bookings + 8-stage progress + AI Co-Pilot, Quick Margin calc ($545.28 / 39.08% strong), Broker Settings 4 tabs, default templates seeded, Domain tab, Invoices tab w/ 4 existing invoices, Topbar Orisei brand mark visible, PromoVideo page loading new orisei-broker-promo.mp4. Marketing video confirmed 36s · 1920x1080 · H.264+AAC and HTTP 200 via CDN, marketing site references new file.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_orisei_workflow.py",
+    "/app/test_reports/pytest/iter37_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "orisei_workflow.py get_checklist returns a dict but response_model=None — fine, but consider adding strict response model later for typing.",
+    "_propagate_domain_to_static mutates static HTML files synchronously inside an async request — acceptable for small marketing folder; if folder grows, move to background task.",
+    "WorkflowChecklist.jsx stage count rendered as 9 elements (8 stages + likely a hidden helper); UI shows correct 8/8 progression so non-blocking but worth a sanity check (1 extra match for data-testid prefix 'workflow-stage-')."
+  ],
+  "updated_files": ["/app/backend/tests/test_orisei_workflow.py"],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% of critical flows"},
+  "test_credentials": "Authorization: Bearer test_session_admin_1 (admin) — /app/memory/test_credentials.md",
+  "seed_data_creation": "Created TEST_Acme customer + 1 TEST invoice + 1 TEST invite template (deleted in-test).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_orisei_workflow.py is the regression suite for the 'Run-the-Load' batch. It uses the first active brokerage booking from /api/brokerage/bookings as anchor and unmarks any stage it marks. The new broker promo MP4 is /app/frontend/public/orisei-marketing/video/orisei-broker-promo.mp4 (17MB, 36s). Workflow page has data-testid='workflow-pick-{booked_id}'; broker settings tabs: tab-invites/tab-domain/tab-doc-edit/tab-invoices.",
+  "rca of the issue": "No bugs found."
+}

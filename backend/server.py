@@ -8202,6 +8202,11 @@ build_orisei_operations_router(api_router=api_router, db=db,
                                get_current_user=get_current_user,
                                require_role=require_role)
 
+from routes.orisei_workflow import build_orisei_workflow_router  # noqa: E402
+build_orisei_workflow_router(api_router=api_router, db=db,
+                             get_current_user=get_current_user,
+                             require_role=require_role)
+
 from routes.orisei_auto_digest import build_auto_digest_router  # noqa: E402
 build_auto_digest_router(api_router=api_router, db=db,
                           get_current_user=get_current_user,

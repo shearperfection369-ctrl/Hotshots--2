@@ -13,9 +13,18 @@ export default function Topbar({ title, subtitle }) {
   return (
     <header className="sticky top-0 z-30 px-4 md:px-6 py-3 border-b border-white/5 bg-[#0B0E14]/80 backdrop-blur-xl" data-testid="topbar">
       <div className="flex items-center justify-between gap-4">
-        <div className="shrink-0 min-w-0">
-          <h1 className="font-display text-xl md:text-2xl font-bold tracking-tight text-white truncate" data-testid="topbar-title">{title}</h1>
-          {subtitle && <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">{subtitle}</p>}
+        <div className="shrink-0 min-w-0 flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 pr-3 border-r border-white/10">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center font-orisei text-xl shadow-[0_0_18px_rgba(224,184,92,0.4)]"
+                 style={{ background: "linear-gradient(135deg,#E0B85C,#B08A36)", color: "#0A2D55" }}>
+              O
+            </div>
+            <div className="font-orisei text-lg leading-none text-amber-300" data-testid="topbar-brand">Orisei</div>
+          </div>
+          <div className="min-w-0">
+            <h1 className="font-display text-xl md:text-2xl font-bold tracking-tight text-white truncate" data-testid="topbar-title">{title}</h1>
+            {subtitle && <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">{subtitle}</p>}
+          </div>
         </div>
         {/* Omni-search — searches every TMS reference + jumps into SAP S/4HANA */}
         <div className="hidden md:block flex-1 max-w-md">

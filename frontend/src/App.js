@@ -71,6 +71,8 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import Brokerage from "@/pages/Brokerage";
 import SpecialtyCarriers from "@/pages/SpecialtyCarriers";
 import DriverRegistry from "@/pages/DriverRegistry";
+import WorkflowChecklist from "@/pages/WorkflowChecklist";
+import BrokerSettings from "@/pages/BrokerSettings";
 import WellnessNudges from "@/components/WellnessNudges";
 import { ThemeProvider } from "@/lib/theme";
 import { BrandingProvider } from "@/lib/branding";
@@ -132,6 +134,8 @@ function AppRouter() {
         <Route path="/investor-boardroom" element={<InvestorBoardroom />} />
         <Route path="/investor-invite-links" element={<TmsInviteLinks />} />
         <Route path="/margin-shield" element={<MarginShield />} />
+        <Route path="/workflow" element={<WorkflowChecklist />} />
+        <Route path="/broker-settings" element={<BrokerSettings />} />
         <Route path="/brokerage-ops-kpis" element={<BrokerageOpsKpis />} />
         <Route path="/orisei-operations" element={<OriseiOperations />} />
         <Route path="/competitive-tms" element={<CompetitiveTms />} />

@@ -66,7 +66,7 @@ export default function PromoVideo() {
   useEffect(() => { setActiveIdx(0); }, [brand?.brand_id]);
 
   useEffect(() => {
-    fetch("/promo.mp4", { method: "HEAD" })
+    fetch("/orisei-marketing/video/orisei-broker-promo.mp4", { method: "HEAD" })
       .then((r) => {
         const ct = (r.headers.get("content-type") || "").toLowerCase();
         const len = parseInt(r.headers.get("content-length") || "0", 10);
@@ -97,7 +97,7 @@ export default function PromoVideo() {
               <>
                 <video
                   ref={videoRef}
-                  src="/promo.mp4"
+                  src="/orisei-marketing/video/orisei-broker-promo.mp4"
                   controls
                   autoPlay
                   muted={muted}
