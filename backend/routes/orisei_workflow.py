@@ -361,6 +361,36 @@ def build_orisei_workflow_router(
         if mirror_field:
             await db.brokerage_bookings.update_one(
                 {"booked_id": booked_id}, {"$set": {mirror_field: now}})
+        # Auto-route factoring when carrier_assigned hits
+        if payload.stage_id == "carrier_assigned":
+            try:
+                from .cash_flow import _best_factor_for, _shipper_credit_score  # type: ignore
+                bk = await db.brokerage_bookings.find_one(
+                    {"booked_id": booked_id}, {"_id": 0}) or {}
+                invoice_usd = (bk.get("settled_rate_usd")
+                                or bk.get("forecast_rate_usd") or 0)
+                terms = bk.get("payment_terms_days", 14)
+                credit = (_shipper_credit_score(bk.get("customer_name"), {})
+                          if bk.get("customer_name") else None)
+                score = credit["score"] if credit else None
+                rec = _best_factor_for(invoice_usd, terms, score)
+                proposal = {
+                    "booked_id": booked_id, "invoice_usd": invoice_usd,
+                    "carrier_cost_usd": (bk.get("carrier_cost_manual_usd")
+                                          or bk.get("forecast_carrier_pay_usd") or 0),
+                    "payment_terms_days": terms,
+                    "shipper_name": bk.get("customer_name"),
+                    "shipper_credit": credit,
+                    "best_factor": rec["best"],
+                    "all_ranked": rec["all_ranked"],
+                    "created_at": now, "status": "proposed",
+                    "created_by": getattr(user, "name", "system"),
+                    "source": "workflow-hook",
+                }
+                await db.cash_flow_factor_proposals.replace_one(
+                    {"booked_id": booked_id}, proposal, upsert=True)
+            except Exception as exc:                                            # noqa: BLE001
+                logger.warning("Auto-route factoring hook failed: %s", exc)
         return await get_checklist(booked_id)  # type: ignore[arg-type]
 
     @router.post("/checklist/{booked_id}/unmark")

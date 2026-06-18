@@ -32,8 +32,34 @@ export default function Tracking() {
   const [refreshAt, setRefreshAt] = useState(Date.now());
 
   const load = async () => {
-    const [s, f] = await Promise.all([api.get("/shipments"), api.get("/facilities")]);
-    setShipments(s.data || []);
+    const [s, f, bk] = await Promise.all([
+      api.get("/shipments"),
+      api.get("/facilities"),
+      api.get("/brokerage/margins").catch(() => ({ data: { bookings: [] } })),
+    ]);
+    // Convert brokerage bookings into shipment-shaped rows so they appear
+    // in tracking alongside ocean / parcel / TL shipments.
+    const bookings = (bk.data?.bookings || []).filter(b => b.booked_id).map(b => ({
+      shipment_id: b.booked_id,
+      reference: b.load_id,
+      booking_number: b.booked_id,
+      carrier: b.carrier_name || "Unassigned",
+      carrier_mc: b.carrier_mc,
+      mode: "TL",
+      status: b.status === "settled" ? "delivered"
+            : b.delivered_at ? "delivered"
+            : b.in_transit_at ? "in_transit"
+            : b.dispatched_at ? "in_transit"
+            : "pending",
+      origin:      { city: b.origin || "—", name: b.origin || "—" },
+      destination: { city: b.destination || "—", name: b.destination || "—" },
+      commodity: b.equipment || b.commodity || "Freight",
+      consignee: b.customer_name,
+      supplier:  b.customer_name,
+      eta: b.delivery_at,
+      _booking: true,
+    }));
+    setShipments([...(s.data || []), ...bookings]);
     setFacilities(f.data || []);
     setRefreshAt(Date.now());
   };

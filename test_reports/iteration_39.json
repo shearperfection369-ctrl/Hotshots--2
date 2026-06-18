@@ -1,0 +1,34 @@
+{
+  "summary": "Iter 39 — Validated Cash Flow Command Center + Workflow auto-route hook. Backend: 9/9 pytest passed in /api/cash-flow/* (position, bank-balance persistence, qualify-load Target=A/score88/+12 Tier-1 bonus/450 margin/30%, auto-route-factor with best.factor_id+advance_usd+take-home, dynamic-discount $750=5% of 15k, scenario monthly_loads=866 + best='ABL (interest)', shipper-term-analysis sorted desc + candidate_count, shipper-credit by real customer_id, AND the workflow carrier_assigned hook → cash_flow_factor_proposals upsert with best_factor populated). Frontend: /cash-flow renders all 6 modules with correct data-testids; bank-balance Edit→8000→Save persists ($8,000 with CRITICAL health badge given AP $7,372 vs deploy $2,947); LoadQualifier (1500/1050/14/Target) → Margin $450 / 30% / Shipper Credit A / score 88 / Auto-route to best factor → On The Spot Capital 2.75% advance $1,275 fee $41.25 take-home $225; Auto-Routed Proposals feed shows BK-8A6CB0889E with On The Spot 2.75% advance $1,185.99 (workflow hook end-to-end verified); Dynamic Discount auto-recalcs to Total Save $750, Outlay $9,975, Coverage 1×, carrier pitch '$997.50 vs $1,050.00'; Scenario Planner with hire_dispatcher=true → monthly_loads 866, gross $199,180, WC req $362,103.47, net $183,334.19, Recommended Funding ABL (interest); Shipper Term Analysis 7 candidates · $6,321.12/yr · Draft pitch buttons present. Sidebar nav-cash-flow (Wallet icon · 'Cash Flow HUD') present. ISSUE: /tracking page crashes with runtime TypeError reading 'lat' from MapView when brokerage_bookings rows are merged in — the converted bookings don't include lat/lng coords that MapView expects.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Tracking → MapView", "issue": "Uncaught TypeError: Cannot read properties of undefined (reading 'lat') at MapView/Array.map (bundle.js:175501:39 / 175500:28). Brokerage bookings converted to shipment-shaped rows for /tracking are missing lat/lng on origin/dest so MapView crashes when iterating markers.", "selector": "MapView in /app/frontend/src/pages/Tracking.jsx", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter39_cash_flow.py",
+    "/app/test_reports/pytest/iter39_results.xml"
+  ],
+  "action_items": [
+    "Fix Tracking MapView crash: guard against undefined coords or fill default lat/lng (city geocode or 0,0 with marker skip) when converting brokerage_bookings → shipment rows in pages/Tracking.jsx. The list/search/omni-search work; only the map markers crash.",
+    "Optional: add an ErrorBoundary around MapView so a single bad row doesn't blow up the whole /tracking page."
+  ],
+  "critical_code_review_comments": [
+    "cash_flow.py _live_position uses synchronous-style aggregation correctly with async motor — good. AR factorable at flat 85% is a reasonable default but should be config-driven if a real factor with 90% is connected.",
+    "_shipper_credit_score is deterministic via SHA-256 — fine for MVP; flagged in docstring that this is a stub until D&B key is wired. No PII concern.",
+    "Workflow auto-route hook in orisei_workflow.py mark_stage swallows exceptions with logger.warning — defensive, but currently any silent failure leaves no proposal. Consider surfacing via a dedicated 'hook_errors' collection so QA can spot regressions.",
+    "Tracking.jsx merges brokerage_bookings into the shipment list without enriching with geo coords — MapView assumes every row has origin.lat/lng. Either enrich on the server or guard on client.",
+    "DynamicDiscount carrier_pitch hardcodes avg_carrier=1050 in /api/cash-flow/dynamic-discount — should ideally use actual avg from waiting_carriers_usd / estimated_carrier_count."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter39_cash_flow.py"],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "85% (Cash Flow 100%; Tracking integration broken by MapView crash)"},
+  "test_credentials": "Authorization: Bearer test_session_admin_1 (admin) — /app/memory/test_credentials.md. Frontend uses Quick Sign In on /login.",
+  "seed_data_creation": "test_iter39_cash_flow.py upserts bank balance to $8,000 (persists), may create a brokerage booking via /api/brokerage/loads/book if none exist, and writes one cash_flow_factor_proposals row keyed by booked_id (replace_one upsert — idempotent).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iter39_cash_flow.py is the regression suite for /api/cash-flow/*. Bank balance is global key {_id:'primary'} in cash_flow_bank; tests force it to 8000 — re-run safe. The workflow auto-route hook lives at orisei_workflow.py mark_stage(stage_id='carrier_assigned') and imports cash_flow._best_factor_for + _shipper_credit_score lazily. Proposals collection is cash_flow_factor_proposals (upsert by booked_id). Health tiers boundary: critical when available < ap*0.5 — preview env currently shows CRITICAL. Tracking MapView crash needs fix before retest.",
+  "rca of the issue": "Tracking MapView crash RCA: when /api/brokerage/margins (or /api/brokerage/bookings) rows are converted into shipment-shaped objects inside Tracking.jsx load(), the resulting objects lack the origin.lat / origin.lng (and dest.*) keys that ocean/parcel/TL shipments have. MapView's marker render does an Array.map over all shipments and reads `.origin.lat` directly — undefined for the booking-shaped rows → TypeError. Mitigation: in Tracking.jsx, either (a) geocode origin_city/state and dest_city/state when constructing rows, (b) supply sentinel coords + skip-marker flag, or (c) filter shipments with valid coords before passing to MapView. Reproduction: login via Quick Sign In, navigate to /tracking — red 'Uncaught runtime errors' overlay appears immediately after data fetch."
+}
