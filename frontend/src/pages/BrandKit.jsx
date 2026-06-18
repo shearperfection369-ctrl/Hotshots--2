@@ -3,7 +3,7 @@ import Topbar from "@/components/Topbar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Image as ImageIcon, FileText, ExternalLink, Copy } from "lucide-react";
+import { Download, Image as ImageIcon, FileText, ExternalLink, Copy, Play, Film } from "lucide-react";
 import { toast } from "sonner";
 
 /**
@@ -20,9 +20,11 @@ const BRAND_ASSETS = [
     title: "Hero Brochure Cover",
     description: "Queen Califia with full ORISEI title block + tagline. Perfect for the front page of a sales deck, landing-page hero, or print brochure cover.",
     src: "/orisei-marketing/brand-assets/califia/califia-hero.png",
+    videoSrc: "/orisei-marketing/brand-assets/califia/califia-hero.mp4",
+    videoSizeLabel: "~1.1 MB · MP4 · 4 s",
     dim: "2400 × 1339 px",
     sizeLabel: "~4.1 MB · PNG",
-    badges: ["BROCHURE COVER", "LANDING HERO"],
+    badges: ["BROCHURE COVER", "LANDING HERO", "ANIMATED"],
     accent: "amber",
   },
   {
@@ -30,9 +32,11 @@ const BRAND_ASSETS = [
     title: "Subtle Corner Watermark",
     description: "Queen Califia with an elegant gold ORISEI monogram + wordmark in the bottom-right corner. Use as a presentation background, internal report cover, or social hero.",
     src: "/orisei-marketing/brand-assets/califia/califia-watermark.png",
+    videoSrc: "/orisei-marketing/brand-assets/califia/califia-watermark.mp4",
+    videoSizeLabel: "~515 KB · MP4 · 4 s",
     dim: "2400 × 1339 px",
     sizeLabel: "~4.7 MB · PNG",
-    badges: ["PRESENTATION", "REPORT COVER"],
+    badges: ["PRESENTATION", "REPORT COVER", "ANIMATED"],
     accent: "cyan",
   },
   {
@@ -40,9 +44,11 @@ const BRAND_ASSETS = [
     title: "Social Share Card",
     description: "Optimized 1200 × 630 crop with a refined brand band — the exact aspect for LinkedIn, X / Twitter, and OpenGraph previews.",
     src: "/orisei-marketing/brand-assets/califia/califia-social.png",
+    videoSrc: "/orisei-marketing/brand-assets/califia/califia-social.mp4",
+    videoSizeLabel: "~412 KB · MP4 · 4 s",
     dim: "1200 × 630 px",
     sizeLabel: "~1.3 MB · PNG",
-    badges: ["LINKEDIN", "OPENGRAPH", "TWITTER"],
+    badges: ["LINKEDIN", "OPENGRAPH", "TWITTER", "ANIMATED"],
     accent: "emerald",
   },
   {
@@ -67,6 +73,7 @@ const ACCENT_CLASS = {
 
 export default function BrandKit() {
   const [preview, setPreview] = useState(null);
+  const [playingId, setPlayingId] = useState(null); // which card is showing its MP4
 
   const copyLink = (src) => {
     const url = `${window.location.origin}${src}`;
@@ -102,6 +109,9 @@ export default function BrandKit() {
             reports, and the <b className="text-emerald-300">Social Card</b> for LinkedIn / Twitter
             previews. Print-ready PDF lives at the bottom.
           </p>
+          <p className="text-xs text-amber-200/80 mt-2 font-mono uppercase tracking-widest">
+            New · 4-second animated MP4 variants — tap <span className="text-amber-300">Play 4 s</span> on any card to preview the wordmark fade-in.
+          </p>
         </Card>
 
         {/* Asset cards */}
@@ -118,6 +128,12 @@ export default function BrandKit() {
                     <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-red-950/40 to-slate-950">
                       <FileText className="text-red-300" size={64} />
                     </div>
+                  ) : playingId === a.id && a.videoSrc ? (
+                    <video src={a.videoSrc}
+                           data-testid={`video-${a.id}`}
+                           autoPlay loop muted playsInline
+                           onClick={() => setPreview(a)}
+                           className="absolute inset-0 w-full h-full object-cover cursor-zoom-in" />
                   ) : (
                     <img src={a.src} alt={a.title}
                          loading="lazy"
@@ -129,6 +145,15 @@ export default function BrandKit() {
                       <Badge key={b} className={`${acc.bg} ${acc.text} ${acc.border} text-[9px]`}>{b}</Badge>
                     ))}
                   </div>
+                  {a.videoSrc && (
+                    <button
+                      type="button"
+                      data-testid={`toggle-anim-${a.id}`}
+                      onClick={() => setPlayingId(playingId === a.id ? null : a.id)}
+                      className="absolute bottom-2 right-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono uppercase tracking-widest bg-slate-950/80 border border-amber-400/40 text-amber-200 hover:bg-amber-500 hover:text-slate-950 transition">
+                      {playingId === a.id ? (<><ImageIcon size={11} /> Static</>) : (<><Play size={11} /> Play 4 s</>)}
+                    </button>
+                  )}
                 </div>
 
                 {/* Meta */}
@@ -156,8 +181,16 @@ export default function BrandKit() {
                       <a href={a.src} download
                          data-testid={`download-${a.id}`}
                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 transition`}>
-                        <Download size={12} /> Download
+                        <Download size={12} /> {a.isPdf ? "PDF" : "PNG"}
                       </a>
+                      {a.videoSrc && (
+                        <a href={a.videoSrc} download
+                           data-testid={`download-video-${a.id}`}
+                           title={`Download animated MP4 — ${a.videoSizeLabel}`}
+                           className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold bg-slate-900 text-amber-200 border border-amber-400/40 hover:bg-amber-500 hover:text-slate-950 transition">
+                          <Film size={12} /> MP4
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -186,8 +219,13 @@ export default function BrandKit() {
         <div onClick={() => setPreview(null)}
              className="fixed inset-0 z-50 bg-black/90 grid place-items-center p-6 cursor-zoom-out"
              data-testid="brand-lightbox">
-          <img src={preview.src} alt={preview.title}
-               className="max-w-[95vw] max-h-[90vh] rounded shadow-2xl" />
+          {playingId === preview.id && preview.videoSrc ? (
+            <video src={preview.videoSrc} autoPlay loop muted playsInline controls
+                   className="max-w-[95vw] max-h-[90vh] rounded shadow-2xl" />
+          ) : (
+            <img src={preview.src} alt={preview.title}
+                 className="max-w-[95vw] max-h-[90vh] rounded shadow-2xl" />
+          )}
         </div>
       )}
     </>

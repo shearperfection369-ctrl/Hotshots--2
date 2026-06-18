@@ -1577,3 +1577,30 @@ brochures / branding / marketing.
 - HTTP verified 200 on all 4 assets via Cloudflare CDN
 - Frontend smoke screenshot: gallery renders with both branded variants visible
 
+
+---
+
+## Iteration 43 (Feb 2026) — Animated 4-Second Brand Assets
+
+User: "auto-generate animated 4-second versions of these branded assets (the gold
+wordmark fades in over the Califia image)."
+
+### Delivered
+- `/tmp/build_califia_animated.py` — generates per-variant `*-base.png` (clean Califia)
+  and `*-overlay.png` (seal + wordmark + tagline on transparent layer), then renders
+  4-second 30 fps H.264 MP4s via ffmpeg using `fade=t=in:st=0.5:d=2:alpha=1` on the
+  overlay composited over the looped base.
+- Three new MP4s in `/app/frontend/public/orisei-marketing/brand-assets/califia/`:
+  1. **califia-hero.mp4** (1936×1080, 1.1 MB, 4 s) — full brochure title block fade-in
+  2. **califia-watermark.mp4** (1936×1080, 515 KB, 4 s) — corner badge fade-in
+  3. **califia-social.mp4** (1200×630, 412 KB, 4 s) — social card with band fade-in
+- `BrandKit.jsx` updated with per-card `Play 4 s ⇄ Static` toggle (top-right of
+  each thumbnail), inline `<video autoPlay loop muted playsInline>`, an extra
+  `MP4` download button alongside the `PNG` button, lightbox renders the active
+  video when in play mode, plus an `ANIMATED` badge on the three updated cards.
+
+### Testing
+- ffprobe confirms all three MP4s are H.264 yuv420p, 4.000 s, browser-playable
+- CDN serves with `Content-Type: video/mp4` (HTTP 200, 1.15 MB)
+- Frontend smoke: page renders, `Play 4 s` toggle on first card swaps `<img>` →
+  `<video>` correctly; second card remains static (independent per-card state)
