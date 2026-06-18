@@ -1648,3 +1648,54 @@ agreement / welcome / credit-ref) plus a full shipper onboarding flow.
 - Doc Vault confirmed to receive CAPABILITY (428 KB), WELCOME, and
   ONBOARDING_PACKET (439 KB) entries automatically
 
+---
+
+## Iteration 45 (Feb 2026) — Sample/Real Labeling + Cross-Module Sync + Workflow Drill-Down
+
+User: "I just booked a test load in the book loads. It shows up in shipments
+but not in the workflow where it should immediately go. The workflow sequence
+is currently perfect! Make sure that it actually works for all loads."
+
+### Critical bug fix
+- `POST /api/shipments` (Book Load) was creating only `db.shipments` rows.
+  The Workflow / Factoring / Cash Flow / Triage modules read from
+  `db.brokerage_bookings`, so any load booked through the UI was invisible to
+  the run-the-load HUD. Now `create_shipment` auto-mirrors into
+  `brokerage_bookings` with `source="book_load"`, `is_sample=false`, and
+  a full schema mapping (forecast_rate_usd, carrier_pay 85%, margin 15%,
+  equipment derived from mode, pickup_date, commodity, weight, pieces,
+  status="booked", booked_at, etc.).
+
+### Delivered
+- **Backend `routes/data_status.py`** — `/api/data-status` (mode + per-collection
+  counts), `/api/admin/backfill-sample-flags` (stamps existing rows with
+  `is_sample: true`), `/api/admin/clear-sample-data?confirm=true` (deletes
+  sample rows, preserves anything marked `is_sample: false`).
+- **Frontend `components/DataStatusBanner.jsx`** — sticky top banner driven by
+  /data-status, polls every 30 s, only renders when mode != live/empty. Shows
+  total sample vs real counts + a destructive "Wipe Sample" button (admin-only)
+  and a Go Live → Launch Runway link. Dismissal persists via sessionStorage.
+- **Frontend `lib/freightCities.js`** — 90 freight-relevant US / CAN / MX
+  cities with lat/lng. Powers a `<datalist>` autocomplete in Book Load so
+  typing "Mem" → "Memphis, TN" auto-fills coordinates 35.1495 / -90.049.
+- **Frontend `pages/BookLoad.jsx`** — Destination input upgraded with
+  list=freight-cities-list + onChange lookup. Submit toast now reads
+  "routed to Workflow, Factoring & Cash Flow automatically" with an
+  Open Workflow action button.
+- **Frontend `pages/WorkflowChecklist.jsx`** — sidebar booking cards now tag
+  each row as "· REAL" (amber) or "· sample" so the operator can see what's
+  what at a glance. Added a full-width "Load Details · drill-down" panel
+  below the existing HUD with 3 columns (Trip / Carrier · Financials /
+  Freight), a "Linked Archived Documents" sub-section that pulls
+  /api/doc-vault?ref_id={booked_id}, and four deep-link buttons:
+  View in Shipments, AI Triage, Factoring, Open Document Archive.
+- **Frontend `components/Layout.jsx`** — mounts DataStatusBanner above
+  every authenticated page.
+
+### Testing
+- Backend pytest: **8/8 PASS** (`/app/backend/tests/test_iter44_book_load_mirror.py`)
+- Frontend Playwright E2E: all critical flows green
+- 410 sample rows backfilled with `is_sample: true`. 2 real Book Load
+  shipments (REAL-TEST-001 + iter44 toast test) verified to survive the
+  wipe-sample-data path.
+
