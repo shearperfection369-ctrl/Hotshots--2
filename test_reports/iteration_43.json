@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 43 — Launch Runway + Shipper Outreach Studio: full backend + frontend regression. 19/19 pytest backend tests pass (12-milestone plan structure, summary KPIs, toggle persistence + revert + 404/400 edge cases, note persistence, all 3 text channels, all 5 PDF channels including 350+KB onboarding packet, auto-archive into doc_vault for CAPABILITY/WELCOME/ONBOARDING_PACKET, and edge cases for missing/empty contact_name). Frontend Playwright E2E confirms /launch-plan loads with all 3 tabs, 4 metric cards, 12 milestone timeline, milestone toggle round-trip flips IN PROGRESS → DONE on the card, email channel renders result-email with subject/copy/open-mail buttons, capability_pdf renders iframe + download link, and onboarding packet generates a PDF with filename containing the shipper slug (Orisei_OnboardingPacket_acme_foods.pdf) plus the auto-archive toast appears. Backend Y1 margin target=$50,000, current milestone p1-close-3 in READY state (7 shippers > target of 3) as expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/launch-plan (initial load)", "issues": ["4 spurious 401 console errors observed at first paint — looks like a sidecar widget polls /api before the dev token is hydrated into localStorage. Not blocking but noisy. Worth a one-line guard in the polling hook."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter43_launch_runway.py",
+    "/app/test_reports/pytest/iter43.xml"
+  ],
+  "action_items": [
+    "(Optional polish) Suppress the 4 transient 401 console errors at /launch-plan first paint by gating sidecar fetches behind a token-ready check."
+  ],
+  "critical_code_review_comments": [
+    "launch_runway.py _status_for: when manual_override='todo' is sent, the function returns 'todo' (override beats auto), but completed_at is correctly cleared in toggle_milestone — good. However the test confirmed actual recomputed status may still flip to 'ready'/'in_progress' on next GET because override is only consulted via _load_overrides() and override value 'todo' DOES take precedence (line 230) — so the revert is honored. Documented behaviour matches code; no change needed.",
+    "shipper_outreach.py _today() uses '%-d' format specifier — Linux/macOS only. On Windows it raises ValueError. Low priority (deployment is Linux) but flag for portability.",
+    "shipper_outreach.py /pdf endpoint: bare except + log.exception around archive_pdf swallows ALL archive failures silently to the client. Consider returning a header X-Vault-Archived: false on archive failure so frontend can warn the user the legal vault didn't capture it.",
+    "launch_runway.py PLAN list is module-level mutable; safe today but consider freezing or wrapping in a function to prevent accidental in-test mutation across pytest sessions."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter43_launch_runway.py"
+  ],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% (7/7 flows)"},
+  "test_credentials": "Dev session via POST /api/auth/dev-session (creates Bearer dev_... token, stored in localStorage as tms_session_token). Backend tests use mongosh-injected test sessions per conftest.py.",
+  "seed_data_creation": "No new seed data created. Tests reused existing 7 orisei_customers / invoices / factoring_state. Test notes were written to launch_runway_state collection on milestone p1-cold-call (prefixed 'TEST_iter43').",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 43 = Launch Runway. Backend tests live at /app/backend/tests/test_iter43_launch_runway.py and are 100% green. doc_vault auto-archive verified for CAPABILITY, WELCOME, ONBOARDING_PACKET. Onboarding packet size on this seed is ~350KB (above 300KB threshold). Frontend Playwright flow verified all critical testids (toggle-p1-cold-call, channel-email, channel-capability_pdf, onb-generate, download-packet). 4 minor 401 console errors at first paint of /launch-plan are unrelated to this feature (sidecar polling before token hydrates).",
+  "rca of the issue": "N/A — no bugs found this iteration."
+}

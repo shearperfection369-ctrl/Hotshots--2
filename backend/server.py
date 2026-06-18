@@ -8297,6 +8297,21 @@ api_router.include_router(build_doc_vault_router(
     require_role=require_role,
 ))
 
+from routes.launch_runway import build_launch_runway_router  # noqa: E402
+api_router.include_router(build_launch_runway_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+))
+
+from routes.shipper_outreach import build_shipper_outreach_router  # noqa: E402
+api_router.include_router(build_shipper_outreach_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+    active_brand_doc=_active_brand_doc,
+))
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 
