@@ -1488,5 +1488,36 @@ User reported: "the videos don't appear to have sound. add actual professional v
 
 ### User choices applied
 - Messaging tone: Hybrid (brand opener + stat-driven hook)
+
+---
+
+## Iteration 37 (Feb 2026) — Run-the-Load Workflow Batch
+
+User asked for 8 deliverables in one batch. All landed.
+
+### Delivered
+1. **AI Workflow Checklist** (`/workflow`) — visually stunning 8-stage HUD per booking (Booked → Carrier Assigned → BOL → Dispatched → In Transit → Delivered → POD → Invoiced). AI Co-Pilot card prompts the next action with one-click CTA. Auto-completes stages from booking data; manual marks supported with notes.
+2. **Quick Margin Calculator** — manual carrier-cost entry on each booking returns live $/% margin without waiting for settlement, with strong/healthy/thin/loss health badge.
+3. **Editable invite templates** (`/broker-settings` → Invite Templates) — DB-backed CRUD on carrier + shipper templates with `{{token}}` substitution and live email preview. Two default templates pre-seeded.
+4. **Domain config** (`/broker-settings` → Domain) — single admin setting that propagates to all `{{site_url}}` tokens in emails AND optionally rewrites every static HTML file under `/orisei-marketing/`. One-click swap when user buys a new domain.
+5. **Editable doc field overrides** (`/broker-settings` → Document Editor) — override any field on BOL/RC/Invoice/Quote PDFs. PDF re-renders with overrides on the fly via `GET /api/orisei/workflow/invoices/{id}/pdf`.
+6. **Branded Invoice generation** (`/broker-settings` → Invoices) — generate Orisei-themed invoices from one or many bookings. Inline edit line_items / tax / terms / status / notes. Download branded PDF with Cormorant Garamond headings + gold accents.
+7. **Hot Shot TMS-style broker promo video** — new `orisei-broker-promo.mp4` (36s, 1920×1080, H.264+AAC) walks through 8 modules (Command Center → Branded Invoices) with AI-generated cinematic imagery (Gemini Nano Banana) and warm female voiceover (OpenAI TTS, voice=nova). Replaces the prior promo on `/promo` page and on the marketing site `/orisei-marketing/site/`.
+8. **Orisei brand propagation** — Topbar across the entire app now shows the gold gradient "O" logomark + "Orisei" wordmark in Cormorant Garamond before each page title. Global Cormorant Garamond + Inter font imports added; `.font-orisei` utility class available app-wide.
+
+### Backend module
+- `/app/backend/routes/orisei_workflow.py` (single 786-line module)
+- Wired in `server.py` after `orisei_operations` builder
+- Collections: `orisei_workflow_state`, `orisei_invite_templates`, `orisei_doc_overrides`, `orisei_domain_config`, plus existing `brokerage_invoices` and `brokerage_bookings`
+
+### Frontend pages
+- `/app/frontend/src/pages/WorkflowChecklist.jsx` (529 lines) — HUD page
+- `/app/frontend/src/pages/BrokerSettings.jsx` (815 lines) — 4-tab settings hub
+
+### Testing
+- Iter 37 backend pytest: **15/15 PASS** (5.71s) at `/app/backend/tests/test_orisei_workflow.py`
+- Frontend Playwright: all critical flows pass
+- Promo video HTTP 200 verified via Cloudflare CDN, exact 36s duration, valid AAC audio
+
 - Voice: Warm female / professional ("nova")
 - Aesthetic: Cinematic dusk / golden hour
