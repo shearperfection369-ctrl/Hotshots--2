@@ -22,6 +22,7 @@ const NAV = [
   { to: "/factoring", label: "Factoring & ABL", icon: DollarSign, tid: "nav-factoring", roles: ["admin", "dispatcher"] },
   { to: "/cash-flow", label: "Cash Flow HUD", icon: Wallet, tid: "nav-cash-flow", roles: ["admin", "dispatcher"] },
   { to: "/triage", label: "AI Triage Console", icon: ShieldAlert, tid: "nav-triage", roles: ["admin", "dispatcher"] },
+  { to: "/brand-kit", label: "Brand Kit", icon: Award, tid: "nav-brand-kit", roles: ["admin", "dispatcher"] },
   { to: "/margin-shield", label: "Margin Shield", icon: Calculator, tid: "nav-margin-shield", roles: ["admin", "dispatcher"] },
   { to: "/brokerage-ops-kpis", label: "Ops KPIs", icon: Calculator, tid: "nav-brokerage-ops-kpis", roles: ["admin", "dispatcher"] },
   { to: "/orisei-operations", label: "Orisei Operations", icon: Building2, tid: "nav-orisei-operations", roles: ["admin", "dispatcher"] },

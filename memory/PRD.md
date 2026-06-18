@@ -1552,3 +1552,28 @@ User pasted the full Factoring playbook and asked for a module integrating the 8
 - Iter 38 backend pytest: **15/15 PASS** (7.98s)
 - Frontend Playwright: 100% critical flows
 
+
+---
+
+## Iteration 42 (Feb 2026) — Queen Califia Brand Kit
+
+User uploaded the Queen Califia + griffin AI illustration and asked to add the
+official Orisei logo + company name as a stunning watermark, downloadable for
+brochures / branding / marketing.
+
+### Delivered
+- `/tmp/build_califia_brand.py` — Python/Pillow script that upscales the source
+  to 2400px, then emits 4 branded variants to
+  `/app/frontend/public/orisei-marketing/brand-assets/califia/`:
+  1. **califia-hero.png** (2400×1339) — Brochure cover with gold rule + ORISEI title block + tagline
+  2. **califia-watermark.png** (2400×1339) — Subtle bottom-right gold monogram + wordmark
+  3. **califia-social.png** (1200×630) — Cropped + branded for LinkedIn / OpenGraph / Twitter
+  4. **orisei-califia-brochure.pdf** — Print-ready single-page PDF
+- **Brand Kit page** at `/brand-kit` — visual gallery with previews, click-to-zoom lightbox, copy-link / preview / download CTAs per asset, usage guidelines.
+- New sidebar nav `Brand Kit` (Award icon).
+- All HTTP-200 from REACT_APP_BACKEND_URL, including the PDF.
+
+### Testing
+- HTTP verified 200 on all 4 assets via Cloudflare CDN
+- Frontend smoke screenshot: gallery renders with both branded variants visible
+
