@@ -527,14 +527,23 @@ function DocEditorTab() {
             ))}
           </div>
           {docId && (
-            <a
-              href={`${process.env.REACT_APP_BACKEND_URL}/api/orisei/workflow/invoices/${docId}/pdf`}
-              target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1 text-cyan-300 text-xs mt-4 hover:underline"
-              data-testid="doc-download-pdf"
-            >
-              <ExternalLink size={11} /> Download {docKind} PDF
-            </a>
+            <div className="mt-4 space-y-1.5">
+              <a
+                href={`${process.env.REACT_APP_BACKEND_URL}/api/orisei/workflow/invoices/${docId}/pdf`}
+                target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1 text-cyan-300 text-xs hover:underline"
+                data-testid="doc-download-pdf"
+              >
+                <ExternalLink size={11} /> Download {docKind} PDF
+              </a>
+              <a
+                href={`/document-archive?doc_id=${docId}`}
+                className="block text-amber-300 text-[11px] hover:underline"
+                data-testid="doc-history-link"
+              >
+                ↳ View immutable version history for <span className="font-mono">{docId}</span>
+              </a>
+            </div>
           )}
         </div>
       </div>

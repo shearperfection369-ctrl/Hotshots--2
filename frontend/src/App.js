@@ -77,6 +77,7 @@ import Factoring from "@/pages/Factoring";
 import CashFlow from "@/pages/CashFlow";
 import ShipmentTriage from "@/pages/ShipmentTriage";
 import BrandKit from "@/pages/BrandKit";
+import DocumentArchive from "@/pages/DocumentArchive";
 import WellnessNudges from "@/components/WellnessNudges";
 import { ThemeProvider } from "@/lib/theme";
 import { BrandingProvider } from "@/lib/branding";
@@ -144,6 +145,7 @@ function AppRouter() {
         <Route path="/cash-flow" element={<CashFlow />} />
         <Route path="/triage" element={<ShipmentTriage />} />
         <Route path="/brand-kit" element={<BrandKit />} />
+        <Route path="/document-archive" element={<DocumentArchive />} />
         <Route path="/brokerage-ops-kpis" element={<BrokerageOpsKpis />} />
         <Route path="/orisei-operations" element={<OriseiOperations />} />
         <Route path="/competitive-tms" element={<CompetitiveTms />} />

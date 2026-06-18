@@ -254,6 +254,14 @@ export default function WorkflowChecklist() {
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.3em] text-cyan-300 font-mono">
                     Mission · {checklist.booked_id}
+                    <a
+                      href={`/document-archive?ref_id=${checklist.booked_id}`}
+                      data-testid="workflow-doc-archive-link"
+                      title="Open immutable document archive for this load"
+                      className="ml-2 inline-flex items-center gap-1 text-[10px] text-amber-300 hover:underline normal-case tracking-normal"
+                    >
+                      ↳ archive
+                    </a>
                   </div>
                   <div className="text-xl font-light text-white mt-1">
                     {checklist.origin} <span className="text-amber-300">→</span> {checklist.destination}

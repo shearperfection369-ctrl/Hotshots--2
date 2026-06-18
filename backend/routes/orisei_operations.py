@@ -371,7 +371,7 @@ def build_orisei_operations_router(
 
     @router.get("/quotes/{quote_id}/pdf")
     async def quote_pdf(quote_id: str,
-                         _=Depends(get_current_user)) -> StreamingResponse:
+                         user=Depends(get_current_user)) -> StreamingResponse:
         quote = await db.orisei_quotes.find_one({"quote_id": quote_id}, {"_id": 0})
         if not quote:
             raise HTTPException(404, "Quote not found")
@@ -384,6 +384,19 @@ def build_orisei_operations_router(
             subtitle=f"Prepared for {customer.get('name', 'Customer')}",
             brand=brand,
         )
+        try:
+            from .doc_vault import archive_pdf
+            await archive_pdf(
+                db, pdf,
+                doc_type="QUOTE", doc_id=quote_id,
+                ref_id=quote.get("customer_id"),
+                source_endpoint=f"/api/orisei/quotes/{quote_id}/pdf",
+                payload_snapshot={"quote": quote, "customer": customer},
+                user=user,
+                filename=f"Orisei_Quote_{quote_id}.pdf",
+            )
+        except Exception:                                       # noqa: BLE001
+            pass
         return StreamingResponse(io.BytesIO(pdf), media_type="application/pdf",
             headers={"Content-Disposition":
                 f'attachment; filename="Orisei_Quote_{quote_id}.pdf"'})
@@ -460,7 +473,7 @@ def build_orisei_operations_router(
 
     @router.get("/rate-confirmations/{rc_id}/pdf")
     async def rate_con_pdf(rc_id: str,
-                            _=Depends(get_current_user)) -> StreamingResponse:
+                            user=Depends(get_current_user)) -> StreamingResponse:
         rc = await db.orisei_rate_confirmations.find_one({"rc_id": rc_id}, {"_id": 0})
         if not rc:
             raise HTTPException(404, "Rate confirmation not found")
@@ -473,6 +486,19 @@ def build_orisei_operations_router(
             subtitle=f"For {rc['carrier_name']} · MC {rc['carrier_mc']}",
             brand=brand,
         )
+        try:
+            from .doc_vault import archive_pdf
+            await archive_pdf(
+                db, pdf,
+                doc_type="RATE_CONFIRMATION", doc_id=rc_id,
+                ref_id=rc.get("booking_id"),
+                source_endpoint=f"/api/orisei/rate-confirmations/{rc_id}/pdf",
+                payload_snapshot={"rc": rc, "booking": booking},
+                user=user,
+                filename=f"Orisei_RateCon_{rc_id}.pdf",
+            )
+        except Exception:                                       # noqa: BLE001
+            pass
         return StreamingResponse(io.BytesIO(pdf), media_type="application/pdf",
             headers={"Content-Disposition":
                 f'attachment; filename="Orisei_RateCon_{rc_id}.pdf"'})

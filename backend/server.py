@@ -3456,6 +3456,24 @@ async def download_document_pdf(document_id: str, _: User = Depends(get_current_
             logger.exception("PDF render failed")
             raise HTTPException(status_code=500, detail=f"PDF render failed: {e}")
     filename = f"{doc['type']}_{doc['document_id']}.pdf"
+    # Auto-archive into the immutable Document Vault (fire-and-forget; never
+    # blocks the download)
+    try:
+        from routes.doc_vault import archive_pdf  # local import to avoid cycle
+        await archive_pdf(
+            db, pdf_bytes,
+            doc_type=doc.get("type", "OTHER"),
+            doc_id=doc["document_id"],
+            ref_id=doc.get("shipment_ref") or doc.get("shipment_id"),
+            source_endpoint=f"/api/documents/{document_id}/pdf",
+            payload_snapshot={"data": doc.get("data", {}),
+                              "type": doc.get("type"),
+                              "shipment_ref": doc.get("shipment_ref")},
+            user=_,
+            filename=filename,
+        )
+    except Exception:                                            # noqa: BLE001
+        logger.exception("doc_vault archive failed for %s", doc["document_id"])
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
@@ -8270,6 +8288,13 @@ api_router.include_router(build_marketing_router(
     get_current_user=get_current_user,
     require_role=require_role,
     active_brand_doc=_active_brand_doc,
+))
+
+from routes.doc_vault import build_doc_vault_router  # noqa: E402
+api_router.include_router(build_doc_vault_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
 ))
 
 # -------------------- WIRE UP --------------------

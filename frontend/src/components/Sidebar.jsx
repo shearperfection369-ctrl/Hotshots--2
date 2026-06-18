@@ -48,6 +48,7 @@ const NAV = [
   { to: "/documents", label: "Documents", icon: FileText, tid: "nav-documents", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/routing-guide", label: "Routing Guide", icon: BookOpen, tid: "nav-routing-guide", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/vault", label: "Document Vault", icon: Archive, tid: "nav-vault", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/document-archive", label: "Document Archive (Legal Hold)", icon: ShieldCheck, tid: "nav-document-archive", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/hs-lookup", label: "HS Code Lookup", icon: Search, tid: "nav-hs-lookup", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/trailers", label: "Trailer Specs", icon: Truck, tid: "nav-trailers", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/integrations", label: "Integrations", icon: Plug, tid: "nav-integrations", roles: ["admin"] },
