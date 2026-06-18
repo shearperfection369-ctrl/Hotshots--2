@@ -51,6 +51,7 @@ export default function WorkflowChecklist() {
   const [margin, setMargin] = useState(null);
   const [carrierCost, setCarrierCost] = useState("");
   const [extraCost, setExtraCost] = useState("");
+  const [exceptions, setExceptions] = useState([]);
 
   const loadBookings = useCallback(async () => {
     try {
@@ -67,12 +68,18 @@ export default function WorkflowChecklist() {
     if (!bookedId) return;
     setLoading(true);
     try {
-      const [cl, mg] = await Promise.all([
+      const [cl, mg, ex] = await Promise.all([
         api.get(`/orisei/workflow/checklist/${bookedId}`),
         api.get(`/orisei/workflow/margin/${bookedId}`),
+        api.get(`/shipment-triage/exceptions?booked_id=${bookedId}`).catch(() => ({ data: { items: [] } })),
       ]);
       setChecklist(cl.data);
       setMargin(mg.data);
+      setExceptions(
+        (ex.data?.items || []).filter(
+          e => e.status === "open" || e.status === "acknowledged" || e.status === "in_progress"
+        )
+      );
       if (mg.data?.has_manual_cost) {
         setCarrierCost(String(mg.data.carrier_cost_usd ?? ""));
         setExtraCost(String(mg.data.extra_costs_usd ?? ""));
@@ -355,6 +362,31 @@ export default function WorkflowChecklist() {
 
         {/* RIGHT — AI coach + margin */}
         <div className="col-span-12 lg:col-span-3 space-y-4">
+
+          {/* Exception alerts */}
+          {exceptions.length > 0 && (
+            <Card className="p-4 bg-red-950/40 border-red-400/50 shadow-[0_0_25px_rgba(239,68,68,0.35)] relative overflow-hidden" data-testid="workflow-exceptions">
+              <div className="flex items-center gap-2 text-red-300 text-[10px] uppercase tracking-[0.3em] font-mono mb-2">
+                <AlertTriangle size={12} className="animate-pulse" /> Active Exceptions
+              </div>
+              <div className="space-y-2">
+                {exceptions.map(ex => (
+                  <a key={ex.exception_id} href="/triage"
+                     data-testid={`hud-ex-${ex.exception_id}`}
+                     className="block p-2 rounded bg-slate-900/60 border border-red-400/30 hover:border-red-400/60 transition">
+                    <div className="flex justify-between items-center">
+                      <div className="text-xs font-semibold text-white">{ex.advice?.title || ex.exception_type}</div>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded uppercase bg-red-500/20 text-red-200">{ex.severity}</span>
+                    </div>
+                    <div className="text-[10px] text-slate-300 italic mt-0.5 truncate">{ex.signal}</div>
+                  </a>
+                ))}
+              </div>
+              <a href="/triage" className="block text-center text-[11px] text-red-300 mt-2 hover:underline">
+                Open AI Triage Console →
+              </a>
+            </Card>
+          )}
 
           {/* AI coach card */}
           {checklist?.next_action ? (

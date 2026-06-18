@@ -1,0 +1,38 @@
+{
+  "summary": "Iter 41 — Verified AI Shipment Triage / Exception Detection end-to-end (both backend + frontend). Backend pytest suite test_iter41_shipment_triage.py: 10/10 PASS covering /api/shipment-triage/exception-types (8 types incl. carrier_no_response & off_route), /scan (detects 4 active exceptions across 12 booked loads — pickup_late x3 + off_route x1 from prior manual TEST_iter41 row), /exceptions list with severity sort (critical→high→medium→low) + summary counts + is_after_hours, status filter ?status=open, booked_id filter, manual POST /exceptions (400 on bad type, 404 on bad booked_id, 200 with full advice on valid input), POST /exceptions/{id}/status persists resolved + resolved_at + resolution_notes (404 on unknown id), /dashboard returns active_count/critical_count/high_count/by_type/by_severity/mttr_hours/resolved_total/is_after_hours, and POST /ai-polish returns 200 with graceful fallback path (no 5xx — body carries ai_polished:false + note/error if AI unavailable, else advice_ai_polished text). Frontend: /triage page loads with triage-band (active=4, resolved=1, mode=AFTER HOURS badge — current UTC hour ≥18), 6 filter chips render (active/open/acknowledged/in_progress/resolved/all), 4 exception cards visible (Pickup Late HIGH x3 + Off Route MEDIUM x1), card click opens triage modal showing escalation banner (after-hours · paging on-call broker AND backup-carrier desk), AI Root Cause text, 3-step Playbook numbered list, side-by-side Customer Message + Carrier Escalation with Copy buttons, and action row (AI Polish, I'm on it, Escalate, Resolve). scan-btn POST works and toast 'All clear · no new exceptions' fires. Report dialog (manual-booking select with 13 booking options, manual-create-btn) creates an exception successfully. Sidebar nav-triage with ShieldAlert icon present. Workflow HUD /workflow Active Exceptions red panel renders with data-testid='workflow-exceptions' and hud-ex-{exception_id} per item — verified for BK-8A6CB0889E (2 exceptions: Off Route + Pickup Late) and BK-0B95A379CE (1 exception: Pickup Late HIGH), each with severity pill and 'Open AI Triage Console →' link.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/triage modal", "issues": ["'Made with Emergent' fixed badge in bottom-right overlaps the Resolve button on 1920x1080 — minor; modal action row sits just above the badge. Consider raising the modal action z-index or shifting the badge for the /triage route."]},
+      {"screen": "/triage Report dialog", "issues": ["Hydration warning logged: '<span> cannot be a child of <option>' on the manual-booking native <select>. Originates from Emergent's visual-editor instrumentation wrapping JSX expressions in spans (x-ve-dynamic). Functionally harmless — selection + submission both work — but emits a console error on every dialog mount. Safe fix is to replace the native <select> with a shadcn <Select> (the rest of the page already uses it) so the visual-editor span wrapper sits inside SelectItem instead of <option>."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter41_shipment_triage.py",
+    "/app/test_reports/pytest/iter41_results.xml"
+  ],
+  "action_items": [
+    "Optional: replace native <select data-testid='manual-booking'> + native <select> for exception_type/severity in ShipmentTriage.jsx Report dialog with shadcn <Select> components to eliminate the <span> in <option> hydration warning (cosmetic only).",
+    "Optional: bump the /triage modal action row z-index above the Made-with-Emergent badge (or hide the badge inside dialogs) so Resolve isn't visually crowded on 1920x1080."
+  ],
+  "critical_code_review_comments": [
+    "routes/shipment_triage.py severity sort is implemented twice: Mongo .sort([(severity,-1)]) followed by Python sort with sev_order map. The Mongo sort is redundant (and wrong because severity is a string). Keep only the Python sort; remove the Mongo .sort() to avoid confusion.",
+    "shipment_triage._is_after_hours uses UTC hour with band 18→7. This is correct as designed but worth surfacing in the UI tooltip — currently the band text 'High+ severity pages on-call after 6pm UTC' is the only indicator; ops users in PT/CT may be confused at 10am local appearing as after-hours.",
+    "dashboard MTTR computation: durs.append(d - rd) where d=hours since created_at, rd=hours since resolved_at — this yields (resolved_at - created_at) in hours, which is correct, but variable names are misleading; rename to `created_hours_ago` / `resolved_hours_ago` and compute `created_hours_ago - resolved_hours_ago` for clarity.",
+    "AI Polish path catches all exceptions and returns 200 with ai_polished:false — good for UX, but the response shape changes (no advice_ai_polished key on failure). Frontend code should defensively read `body.advice_ai_polished || body.note || body.error` to render fallback text.",
+    "Manual exception endpoint accepts any severity that matches the regex but doesn't enforce default_severity guardrail — fine, just confirm dispatchers can intentionally override.",
+    "ShipmentTriage.jsx is 469 lines — approaching the 700 line threshold but still focused. No refactor needed yet."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter41_shipment_triage.py (NEW — 10 tests, 100% pass)"
+  ],
+  "success_rate": {"backend": "100% (10/10 pytest)", "frontend": "100% (all data-testids + flows verified on live preview)"},
+  "test_credentials": "Quick Sign In on /login (admin Bearer test_session_admin_1) per /app/memory/test_credentials.md",
+  "seed_data_creation": "Created during tests: 1× manual carrier_no_response exception on first brokerage booking (then resolved with TEST_iter41 notes) + 1× off_route exception (used as AI polish target — left in DB). Plus 3× pickup_late auto-detected on existing booked loads from /scan. All prefixed with TEST_iter41 in signal/notes for easy cleanup.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 41 AI Shipment Triage is fully verified. Reuse /app/backend/tests/test_iter41_shipment_triage.py for regression. The suite expects 8 exception_types (pickup_late, delivery_late, no_gps_checkin, lost_load, pod_missing, margin_drift, carrier_no_response, off_route) and 4 severities. The brokerage/margins endpoint shape is {by_board, bookings:[{booked_id,...}]} — used in the a_booking_id fixture. /api/shipment-triage routes are mounted under the main api_router. After-hours flag toggles at UTC hour 18 / 7 — be aware tests that assert mode badge text may flip during the day.",
+  "rca of the issue": "N/A — no bugs found. All acceptance criteria pass."
+}

@@ -5,7 +5,7 @@ import {
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
   DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon,
-  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2, Trophy, Wallet
+  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2, Trophy, Wallet, ShieldAlert
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -21,6 +21,7 @@ const NAV = [
   { to: "/workflow", label: "Workflow · Run-the-Load", icon: Activity, tid: "nav-workflow", roles: ["admin", "dispatcher"] },
   { to: "/factoring", label: "Factoring & ABL", icon: DollarSign, tid: "nav-factoring", roles: ["admin", "dispatcher"] },
   { to: "/cash-flow", label: "Cash Flow HUD", icon: Wallet, tid: "nav-cash-flow", roles: ["admin", "dispatcher"] },
+  { to: "/triage", label: "AI Triage Console", icon: ShieldAlert, tid: "nav-triage", roles: ["admin", "dispatcher"] },
   { to: "/margin-shield", label: "Margin Shield", icon: Calculator, tid: "nav-margin-shield", roles: ["admin", "dispatcher"] },
   { to: "/brokerage-ops-kpis", label: "Ops KPIs", icon: Calculator, tid: "nav-brokerage-ops-kpis", roles: ["admin", "dispatcher"] },
   { to: "/orisei-operations", label: "Orisei Operations", icon: Building2, tid: "nav-orisei-operations", roles: ["admin", "dispatcher"] },
