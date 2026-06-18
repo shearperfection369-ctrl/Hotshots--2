@@ -1604,3 +1604,47 @@ wordmark fades in over the Califia image)."
 - CDN serves with `Content-Type: video/mp4` (HTTP 200, 1.15 MB)
 - Frontend smoke: page renders, `Play 4 s` toggle on first card swaps `<img>` →
   `<video>` correctly; second card remains static (independent per-card state)
+---
+
+## Iteration 44 (Feb 2026) — Launch Runway + Shipper Outreach Studio
+
+User shared a 12-month founder launch plan (Week 1–2 cold calls → close 3
+shippers → Net 7/10/14 agreements → Day 15 factor apps → Day 28 UCC-1 →
+Month 12 $200k/wk · 650+ credit) and asked for a tracking dashboard PLUS
+branded outreach materials (cold-call, email, LinkedIn, PDF capability /
+agreement / welcome / credit-ref) plus a full shipper onboarding flow.
+
+### Delivered
+- **Backend `routes/launch_runway.py`** — 12 milestones across 8 phases, with
+  `_compute_actuals` pulling live data from `orisei_customers`,
+  `brokerage_bookings`, `orisei_invoices`, `factoring_state`, `audit_log`.
+  Endpoints: GET `/api/launch-runway`, GET `/api/launch-runway/summary`,
+  POST `/api/launch-runway/{id}/toggle`, POST `/api/launch-runway/{id}/notes`.
+- **Backend `routes/shipper_outreach.py`** — 8 channels: email (subject + plain + HTML),
+  cold-call script (markdown), LinkedIn DM, capability statement PDF, service agreement
+  PDF (Net 7/10/14/30), welcome letter PDF, credit-reference form PDF, and a
+  **one-click onboarding packet** that concatenates all four PDFs into a single
+  branded document. AI-personalized intro via Claude Sonnet 4.5 (Emergent LLM Key),
+  with graceful fallback to static templates. Every PDF auto-archives into
+  the immutable Document Vault.
+- **Frontend `pages/LaunchPlan.jsx`** — single page at `/launch-plan` with three tabs:
+  1. **12-Month Roadmap** — 4 live KPI metric cards, current-focus card with TARGET
+     HIT badge when actual ≥ target, phase-grouped vertical timeline of 12 milestone
+     cards each with toggle button, progress bar, status badge, and inline notes.
+  2. **Outreach Studio** — input form (shipper / contact / lane / mode / net-terms /
+     AI personalize) + channel pickers (text + PDF) + Generate. Email result shows
+     subject panel + HTML preview + Subject/Body/Open-Mail action buttons. PDF
+     results show iframe preview + download link.
+  3. **Onboarding Packet** — focused single-input form + Generate button that
+     produces a 350+ KB branded combined-PDF (welcome + capability + agreement +
+     credit-ref), with iframe preview and download.
+- New sidebar nav `Launch Runway` (Sparkles icon, top of OPERATIONS group, admin-only).
+
+### Testing
+- Backend pytest: **19/19 PASS** (`/app/backend/tests/test_iter43_launch_runway.py`)
+- Frontend Playwright E2E: **7/7 flows PASS** — tab switching, milestone
+  toggle round-trip, email rendering with copy/mailto, capability PDF iframe,
+  onboarding packet download with correctly-slugged filename
+- Doc Vault confirmed to receive CAPABILITY (428 KB), WELCOME, and
+  ONBOARDING_PACKET (439 KB) entries automatically
+
