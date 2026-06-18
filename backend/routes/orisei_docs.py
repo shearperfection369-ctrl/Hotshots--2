@@ -777,6 +777,30 @@ def build_branded_markdown_pdf(md_text: str, *, title: str = "Business Plan",
         stripped = line.strip()
         if not stripped or _re.fullmatch(r"-{3,}|={3,}|\*{3,}", stripped):
             story.append(Spacer(1, 4)); i += 1; continue
+        # Inline image: ![alt](path)  — path can be local file or absolute
+        m_img = _re.match(r"^!\[([^\]]*)\]\(([^)]+)\)$", stripped)
+        if m_img:
+            from reportlab.platypus import Image as _Img
+            from pathlib import Path as _Pp
+            img_path = m_img.group(2)
+            p = _Pp(img_path)
+            if p.exists():
+                try:
+                    # Cap width at 5.2 inches, preserve aspect via kind="proportional"
+                    story.append(_Img(str(p), width=5.2 * inch,
+                                       height=2.9 * inch, kind="proportional"))
+                    story.append(Spacer(1, 4))
+                    if m_img.group(1):
+                        story.append(Paragraph(
+                            f"<i>{_inline(m_img.group(1))}</i>", md_styles["quo"]))
+                    story.append(Spacer(1, 6))
+                except Exception:                                # noqa: BLE001
+                    story.append(Paragraph(
+                        f"<i>[image: {m_img.group(1)}]</i>", md_styles["quo"]))
+            else:
+                story.append(Paragraph(
+                    f"<i>[image not found: {img_path}]</i>", md_styles["quo"]))
+            i += 1; continue
         if "|" in stripped and i + 1 < len(lines) and _re.match(r"\|?\s*[:-]+\s*\|", lines[i + 1]):
             j = i
             while j < len(lines) and lines[j].strip().startswith("|"):

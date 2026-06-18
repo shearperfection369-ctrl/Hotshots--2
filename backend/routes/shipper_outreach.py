@@ -36,6 +36,109 @@ log = logging.getLogger("orisei.shipper_outreach")
 
 
 # ---------------------------------------------------------------------------
+# Founder bio — anchors trust in every piece of outreach
+# ---------------------------------------------------------------------------
+FOUNDER_BIO_ASSETS = "/app/frontend/public/founder-bio"
+
+FOUNDER_CREDENTIALS = {
+    "summary": (
+        "Five-plus years as the first employee and Export Documentation "
+        "Specialist at Stone Arch Commodities (Minneapolis, MN) — a US "
+        "containerized agricultural-commodity exporter that earned the SBA "
+        "Minnesota Small Business Exporter of the Year award and a place on "
+        "the JOC Top 100 Exporters of the U.S. list for two consecutive years."
+    ),
+    "highlights": [
+        ("SBA 2019 Minnesota Small Business Exporter of the Year",
+         "Awarded to Stone Arch Commodities — recognized by the U.S. Small "
+         "Business Administration for excellence in international trade."),
+        ("JOC Top 100 U.S. Exporters · 2019 & 2020",
+         "Two consecutive years on the Journal of Commerce Top 100 — youngest "
+         "company on the 2020 list."),
+        ("Canadian Pacific 2019 Transload Growth & Innovation Award",
+         "Won for the Shoreham Minneapolis rail yard transload operation — "
+         "a model for ag-bulk to container conversion in the Midwest."),
+        ("U.S. Grains Council COVID-era essential-business feature",
+         "Filmed at the Ag Transfer Minneapolis facility — chosen by the "
+         "USGC to demonstrate how U.S. agribusiness kept the global food "
+         "supply chain moving during the pandemic."),
+    ],
+    "what_i_did": (
+        "Owned the full export documentation lifecycle — letters of credit, "
+        "bills of lading, certificates of origin, USDA APHIS phyto certs, "
+        "USSEC and FGIS inspection coordination, ISF 10+2 filings, AES "
+        "submissions through ACE, and ocean-carrier booking/release across "
+        "every major NVOCC and steamship line moving DDGs, soybean meal, "
+        "and animal-feed ingredients out of Minneapolis-area transload "
+        "facilities to Asia, Latin America, and the Middle East. Built the "
+        "documentation systems from a clean sheet — there was no playbook "
+        "when I walked in on day one."
+    ),
+    "why_it_matters": (
+        "Brokerage isn't about trucks — it's about paperwork that doesn't fail "
+        "at midnight on a Friday. Five years of containerized agricultural "
+        "exports taught me how to keep documents tight, customs clean, and "
+        "drivers paid on time. That discipline is now baked into every "
+        "load Orisei moves."
+    ),
+}
+
+
+def _founder_bio_section_md(*, include_images: bool = True,
+                              variant: str = "full") -> str:
+    """Markdown block for embedding in outreach PDFs.
+
+    variant:
+      "full"   — full bio + 4 highlights + 3 images
+      "brief"  — one-paragraph summary + 2 highlights, no images
+      "inline" — single-sentence credential line (for email body)
+    """
+    if variant == "inline":
+        return (
+            "Before founding Orisei I spent five-plus years as the first "
+            "employee and Export Documentation Specialist at Stone Arch "
+            "Commodities (SBA Minnesota Small Business Exporter of the Year, "
+            "JOC Top 100 U.S. Exporters 2019 & 2020) — building the "
+            "documentation backbone for containerized animal-feed exports "
+            "out of Minneapolis."
+        )
+    if variant == "brief":
+        return (
+            "## Founder Background\n\n"
+            f"{FOUNDER_CREDENTIALS['summary']}\n\n"
+            "- **SBA 2019 Minnesota Small Business Exporter of the Year** "
+            "(Stone Arch Commodities)\n"
+            "- **JOC Top 100 U.S. Exporters · 2019 & 2020**\n"
+        )
+    # full
+    lines: list[str] = ["## Founder Background", "",
+                          FOUNDER_CREDENTIALS["summary"], ""]
+    if include_images:
+        lines += [
+            f"![SBA Minnesota Small Business Exporter of the Year — May 2019]"
+            f"({FOUNDER_BIO_ASSETS}/sba_award_team.jpg)",
+            "",
+        ]
+    lines += ["### Awards & recognition", ""]
+    for title, blurb in FOUNDER_CREDENTIALS["highlights"]:
+        lines.append(f"- **{title}** — {blurb}")
+    lines += ["", "### What I did there", "",
+                FOUNDER_CREDENTIALS["what_i_did"], ""]
+    if include_images:
+        lines += [
+            f"![JOC Top 100 U.S. Exporters listing — 2019]"
+            f"({FOUNDER_BIO_ASSETS}/joc_top_100.png)",
+            "",
+            f"![Canadian Pacific Transload Growth & Innovation Award · Shoreham yard]"
+            f"({FOUNDER_BIO_ASSETS}/cp_transload_award.jpg)",
+            "",
+        ]
+    lines += ["### Why it matters for your freight", "",
+                FOUNDER_CREDENTIALS["why_it_matters"]]
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 def _today() -> str:
@@ -109,6 +212,8 @@ def _email_body(shipper: str, contact: str, lane: str, mode: str,
 
 {opening}
 
+{_founder_bio_section_md(variant="inline")}
+
 A few reasons it's worth a 15-minute call:
 
 - **One owner, one call.** You speak directly with me — no junior dispatcher rotation. Margin Shield tooling and real-time tracking are baked in from day one.
@@ -177,6 +282,7 @@ If they say **go ahead**: pivot into the value pitch ↓
 | --- | --- |
 | "We already have a broker." | "Totally fair — most of our customers had one too. I'd love five minutes to bid one lane against them and show you what tight looks like." |
 | "You're new — what's your bond?" | "$75k BMC-84 in place, certificate available on the spot. I'd rather earn the load than the comfort." |
+| "You're new — what's your background?" | "Five-plus years as the first employee and Export Documentation Specialist at Stone Arch Commodities — we won the SBA Minnesota Small Business Exporter of the Year and made the JOC Top 100 U.S. Exporters list two years running. I built the doc backbone for containerized animal-feed exports out of Minneapolis. I know what a clean BOL, a clean ISF, and a clean carrier file look like — and what happens when they're not." |
 | "Send me your info." | "Happy to — sending the capability statement to {contact or '<email>'} right after this call. Quick question while I have you: which lane would you most like priced?" |
 | "Email me your rates." | "I price by lane — give me your top two and a benchmark RFQ comes back in 24 hours." |
 
@@ -288,6 +394,12 @@ nationwide — but we do it differently:
 - $75,000 BMC-84 surety bond
 - $100k cargo / $1M auto / $1M general liability
 - Workers' comp + cyber liability
+
+---
+
+{_founder_bio_section_md(include_images=True, variant="full")}
+
+---
 
 ## A focused first step
 
@@ -448,6 +560,10 @@ and quietly under control.
 
 ---
 
+{_founder_bio_section_md(include_images=False, variant="brief")}
+
+---
+
 **Thank you** for trusting us with the freight.
 The spirit of Califia, the power of modern freight — that's the brand,
 and we mean it every load.
@@ -505,6 +621,45 @@ Date: ______________________________
 """
 
 
+def _founder_bio_markdown(meta: Dict[str, str]) -> str:
+    """Standalone Founder Bio PDF — leans heavily on the Stone Arch
+    Commodities track record (SBA + JOC + CP awards) and embeds the
+    three hero images."""
+    return f"""# FOUNDER BIO · {meta['founder'].upper()}
+
+**{meta['founder']}** · Founder · {meta['company']}
+**Prepared:** {_today()}
+
+> "Brokerage isn't about trucks — it's about paperwork that doesn't fail at
+> midnight on a Friday."
+
+{_founder_bio_section_md(include_images=True, variant="full")}
+
+---
+
+## Building Orisei
+
+What I learned during the Stone Arch years is now the backbone of
+{meta['company']}:
+
+- **Document discipline first.** Every BOL, rate confirmation, POD, and
+  invoice is auto-archived to an immutable 7-year vault the moment it's
+  rendered — same audit posture I built at SAC, now applied to domestic
+  trucking and multi-modal freight.
+- **Single-owner accountability.** No bench-rotation. The first phone call
+  is mine and the last one is mine.
+- **Real metrics, not vibes.** Lane-cost benchmarks, OTD %, claim ratio,
+  margin per mile — exposed to the customer through a portal, not buried
+  in an EOM PDF.
+
+---
+
+**{meta['founder']}** · Founder
+{meta['company']}
+{meta['contact']} · {meta['phone']} · {meta['site']}
+"""
+
+
 # ---------------------------------------------------------------------------
 # Router
 # ---------------------------------------------------------------------------
@@ -529,6 +684,7 @@ def build_shipper_outreach_router(*, db, get_current_user, require_role,
                 {"id": "call_script", "label": "Cold Call Script",   "kind": "text"},
                 {"id": "linkedin_dm", "label": "LinkedIn DM",        "kind": "text"},
                 {"id": "capability_pdf", "label": "Capability Statement", "kind": "pdf"},
+                {"id": "founder_bio_pdf", "label": "Founder Bio (Stone Arch credentials)", "kind": "pdf"},
                 {"id": "agreement_pdf",  "label": "Service Agreement",    "kind": "pdf"},
                 {"id": "welcome_pdf",    "label": "Welcome Letter",       "kind": "pdf"},
                 {"id": "credit_ref_pdf", "label": "Credit Reference Form","kind": "pdf"},
@@ -598,6 +754,11 @@ def build_shipper_outreach_router(*, db, get_current_user, require_role,
             title = "Capability Statement"
             subtitle = f"Prepared for {payload.shipper_name}"
             fname = f"Orisei_Capability_{_slug(payload.shipper_name)}.pdf"
+        elif channel == "founder_bio_pdf":
+            md = _founder_bio_markdown(meta)
+            title = f"Founder Bio · {meta['founder']}"
+            subtitle = "Stone Arch Commodities credentials · Export documentation track record"
+            fname = f"Orisei_FounderBio_{_slug(meta['founder'])}.pdf"
         elif channel == "agreement_pdf":
             md = _agreement_markdown(payload.shipper_name,
                                        payload.contact_name or "",
@@ -622,6 +783,7 @@ def build_shipper_outreach_router(*, db, get_current_user, require_role,
                 _welcome_markdown(payload.shipper_name, payload.contact_name or "", meta),
                 _capability_markdown(payload.shipper_name, payload.lane_focus or "",
                                        payload.mode_mix or "", meta),
+                _founder_bio_markdown(meta),
                 _agreement_markdown(payload.shipper_name, payload.contact_name or "",
                                       int(payload.net_terms or 14), meta),
                 _credit_ref_markdown(payload.shipper_name, meta),

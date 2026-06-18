@@ -79,6 +79,7 @@ import ShipmentTriage from "@/pages/ShipmentTriage";
 import BrandKit from "@/pages/BrandKit";
 import DocumentArchive from "@/pages/DocumentArchive";
 import LaunchPlan from "@/pages/LaunchPlan";
+import Invoices from "@/pages/Invoices";
 import WellnessNudges from "@/components/WellnessNudges";
 import { ThemeProvider } from "@/lib/theme";
 import { BrandingProvider } from "@/lib/branding";
@@ -149,6 +150,7 @@ function AppRouter() {
         <Route path="/document-archive" element={<DocumentArchive />} />
         <Route path="/launch-plan" element={<LaunchPlan />} />
         <Route path="/launch-runway" element={<LaunchPlan />} />
+        <Route path="/invoices" element={<Invoices />} />
         <Route path="/brokerage-ops-kpis" element={<BrokerageOpsKpis />} />
         <Route path="/orisei-operations" element={<OriseiOperations />} />
         <Route path="/competitive-tms" element={<CompetitiveTms />} />

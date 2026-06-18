@@ -253,6 +253,7 @@ const TEXT_CHANNELS = [
 ];
 const PDF_CHANNELS = [
   { id: "capability_pdf",  label: "Capability Statement PDF", icon: FileText },
+  { id: "founder_bio_pdf", label: "Founder Bio · Stone Arch credentials", icon: FileText },
   { id: "agreement_pdf",   label: "Service Agreement PDF",    icon: FileText },
   { id: "welcome_pdf",     label: "Welcome Letter PDF",       icon: FileText },
   { id: "credit_ref_pdf",  label: "Credit / Setup Form PDF",  icon: FileText },
@@ -505,6 +506,7 @@ function OnboardingTab() {
   const PACKET_CONTENTS = [
     { title: "Welcome Letter",     desc: "Day 1–14 onboarding cadence + escalation path" },
     { title: "Capability Statement", desc: "Modes, tech stack, authority & coverage" },
+    { title: "Founder Bio",        desc: "Stone Arch · SBA · JOC Top 100 · CP Transload Award" },
     { title: "Service Agreement",  desc: `Broker · Shipper master agreement · Net ${netTerms}` },
     { title: "Customer Setup & Credit Reference", desc: "Trade refs + W-9/COI checklist" },
   ];

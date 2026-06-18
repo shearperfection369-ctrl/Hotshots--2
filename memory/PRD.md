@@ -1699,3 +1699,58 @@ is currently perfect! Make sure that it actually works for all loads."
   shipments (REAL-TEST-001 + iter44 toast test) verified to survive the
   wipe-sample-data path.
 
+---
+
+## Iteration 46 (Feb 2026) — Founder Bio + Stone Arch Credentials in Outreach
+
+User: "I was the first employee for this company as an Export documentation
+specialist in which I worked there for five-plus years. Add this reference
+and pictures into the shipper outreach as a founder bio."
+Source: https://www.stonearchcom.com/news
+
+### Awards extracted from Stone Arch Commodities news page
+1. **2019 SBA Minnesota Small Business Exporter of the Year**
+2. **JOC Top 100 U.S. Exporters · 2019 & 2020** (youngest company on 2020 list)
+3. **2019 Canadian Pacific Transload Growth & Innovation Award** (Shoreham
+   Minneapolis yard)
+4. **U.S. Grains Council COVID-era essential-business feature** at the
+   Ag Transfer Minneapolis transload facility
+
+### Delivered
+- Pulled 5 real images from stonearchcom.com to `/app/frontend/public/founder-bio/`:
+  `sac_logo.png`, `joc_top_100.png`, `sba_award_team.jpg`,
+  `cp_transload_award.jpg`, `sac_5yr.jpg` (775 KB total).
+- **Backend `routes/orisei_docs.py`** — `build_branded_markdown_pdf` now
+  parses `![alt](path)` image syntax and embeds inline at 5.2"×2.9" with
+  italic captions, falls back gracefully if a path doesn't exist.
+- **Backend `routes/shipper_outreach.py`** —
+  - `FOUNDER_CREDENTIALS` constant + `_founder_bio_section_md(variant=...)`
+    helper produces three variants: `inline` (one-sentence email credential),
+    `brief` (one-paragraph welcome insert), `full` (multi-section with 3 images).
+  - **Email** body now includes the inline Stone Arch credential line after
+    the opening: *"Before founding Orisei I spent five-plus years as the
+    first employee and Export Documentation Specialist at Stone Arch
+    Commodities (SBA Minnesota Small Business Exporter of the Year, JOC
+    Top 100 U.S. Exporters 2019 & 2020)…"*
+  - **Cold-call script** objection table now includes a "You're new — what's
+    your background?" row with the full Stone Arch story.
+  - **Capability statement** PDF embeds the full bio + 3 award images
+    between Authority and "A focused first step".
+  - **Welcome letter** PDF embeds the brief variant.
+  - **Onboarding packet** now bundles the bio between capability and agreement.
+  - **New standalone `founder_bio_pdf` channel** — generates a dedicated
+    3-page Founder Bio PDF with all 3 images, what-I-did detail (LCs, BOLs,
+    USDA APHIS phyto certs, ISF 10+2, AES filings via ACE, USSEC inspections),
+    and a "Building Orisei" closing section.
+- **Frontend `pages/LaunchPlan.jsx`** — Founder Bio chip added to the
+  Outreach Studio PDF channel row + Onboarding Packet contents now lists
+  the bio as one of the 5 included sections.
+
+### Verified
+- Founder Bio PDF: 3.98 MB, 3 pages, JOC + SBA + CP images present
+- Capability PDF: 3.98 MB (was 428 KB) with bio embedded
+- Onboarding packet: 4.00 MB
+- Email plaintext contains the credential line; cold-call script contains
+  the objection row
+- All renders auto-archived to immutable Document Vault
+

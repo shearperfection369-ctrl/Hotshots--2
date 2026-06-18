@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
+import { authedDownload } from "@/lib/authedDownload";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -528,14 +529,17 @@ function DocEditorTab() {
           </div>
           {docId && (
             <div className="mt-4 space-y-1.5">
-              <a
-                href={`${process.env.REACT_APP_BACKEND_URL}/api/orisei/workflow/invoices/${docId}/pdf`}
-                target="_blank" rel="noreferrer"
-                className="inline-flex items-center gap-1 text-cyan-300 text-xs hover:underline"
+              <button
+                type="button"
+                onClick={() => authedDownload(
+                  `/api/orisei/workflow/invoices/${docId}/pdf`,
+                  { filename: `${docKind}_${docId}.pdf`, inline: true }
+                )}
+                className="inline-flex items-center gap-1 text-cyan-300 text-xs hover:underline cursor-pointer"
                 data-testid="doc-download-pdf"
               >
                 <ExternalLink size={11} /> Download {docKind} PDF
-              </a>
+              </button>
               <a
                 href={`/document-archive?doc_id=${docId}`}
                 className="block text-amber-300 text-[11px] hover:underline"
@@ -554,7 +558,7 @@ function DocEditorTab() {
 // ============================================================
 // INVOICES
 // ============================================================
-function InvoicesTab() {
+export function InvoicesTab() {
   const [invoices, setInvoices] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -635,11 +639,15 @@ function InvoicesTab() {
               Due {inv.due_at?.slice(0,10) || "—"} · {inv.payment_terms || "Net 30"}
             </div>
             <div className="flex gap-2 mt-3">
-              <a href={`${process.env.REACT_APP_BACKEND_URL}/api/orisei/workflow/invoices/${inv.invoice_id}/pdf`}
-                 target="_blank" rel="noreferrer"
-                 className="flex-1 inline-flex items-center justify-center gap-1 text-[11px] text-cyan-300 hover:underline">
+              <button type="button"
+                 onClick={() => authedDownload(
+                   `/api/orisei/workflow/invoices/${inv.invoice_id}/pdf`,
+                   { filename: `Invoice_${inv.invoice_id}.pdf`, inline: true }
+                 )}
+                 data-testid={`invoice-pdf-${inv.invoice_id}`}
+                 className="flex-1 inline-flex items-center justify-center gap-1 text-[11px] text-cyan-300 hover:underline cursor-pointer">
                 <ExternalLink size={11} /> PDF
-              </a>
+              </button>
               <Button size="sm" variant="outline" onClick={() => setEdit({
                 ...inv,
                 tax_usd: inv.tax_usd || 0,
