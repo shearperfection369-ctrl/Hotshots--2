@@ -763,8 +763,63 @@ async def create_shipment(payload: ShipmentCreate, user: User = Depends(get_curr
         "carrier_contact_email": payload.carrier_contact_email,
         "created_by": user.user_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "is_sample": False,            # explicitly real, not seeded
+        "source": "book_load",         # so the UI can route correctly
     }
     await db.shipments.insert_one(dict(shipment))
+
+    # Cross-module sync: every shipment booked from the Book Load screen
+    # must also create a brokerage_bookings row so the load flows into
+    # Workflow → Factoring → Cash Flow → AI Triage. Without this mirror,
+    # the load is visible only in /shipments and the operator can't run
+    # the run-the-load HUD on it.
+    try:
+        equipment_map = {
+            "TL": "Van", "LTL": "LTL", "Parcel": "Parcel",
+            "Ocean": "Container", "Air": "Air", "Rail": "Rail",
+        }
+        rate_usd = float(payload.value_usd or 0)
+        carrier_pay = round(rate_usd * 0.85, 2) if rate_usd > 0 else 0
+        margin = round(rate_usd - carrier_pay, 2) if rate_usd > 0 else 0
+        booking_doc = {
+            "booked_id":         f"BK-{uuid.uuid4().hex[:10].upper()}",
+            "load_id":           sid,
+            "shipment_id":       sid,           # back-reference
+            "reference":         shipment["reference"],
+            "source":            "book_load",   # so the UI can tag it
+            "board_id":          "internal",
+            "carrier_name":      payload.carrier or "Unassigned",
+            "carrier_mc":        None,
+            "origin":            origin.get("city") or "Origin",
+            "destination":       destination.get("city") or "Destination",
+            "origin_full":       origin,
+            "destination_full":  destination,
+            "miles":             0,
+            "equipment":         equipment_map.get(payload.mode, payload.mode),
+            "mode":              payload.mode,
+            "pieces":             payload.pieces,
+            "weight_lbs":         payload.weight_lbs,
+            "commodity":          payload.commodity,
+            "pickup_date":        payload.pickup_date,
+            "delivery_date":      None,
+            "forecast_rate_usd":  rate_usd,
+            "forecast_carrier_pay_usd": carrier_pay,
+            "forecast_margin_usd":      margin,
+            "rate_usd":           rate_usd,
+            "carrier_pay_usd":    carrier_pay,
+            "settled_rate_usd":   None,
+            "settled_carrier_pay_usd": None,
+            "settled_margin_usd":      None,
+            "status":             "booked",
+            "booked_at":          shipment["created_at"],
+            "booked_by":          user.user_id,
+            "notes":              "",
+            "is_sample":          False,
+        }
+        await db.brokerage_bookings.insert_one(dict(booking_doc))
+    except Exception as e:                                       # noqa: BLE001
+        logger.exception("book_load → brokerage_bookings mirror failed: %s", e)
+
     return Shipment(**shipment)
 
 # -------------------- DOCUMENTS --------------------
@@ -8310,6 +8365,13 @@ api_router.include_router(build_shipper_outreach_router(
     get_current_user=get_current_user,
     require_role=require_role,
     active_brand_doc=_active_brand_doc,
+))
+
+from routes.data_status import build_data_status_router  # noqa: E402
+api_router.include_router(build_data_status_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
 ))
 
 # -------------------- WIRE UP --------------------

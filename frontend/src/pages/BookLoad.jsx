@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Database, AlertTriangle, Search, FileText, Download, ArrowRight } from "lucide-react";
 import { BACKEND_URL } from "../lib/api";
+import { CITY_NAMES, lookupCity } from "../lib/freightCities";
 
 const CARRIERS = {
   TL: ["XPO Logistics", "ArcBest", "Schneider", "J.B. Hunt"],
@@ -150,7 +151,13 @@ export default function BookLoad() {
         sap_material_numbers: form.sap_material_numbers && form.sap_material_numbers.length ? form.sap_material_numbers : null,
       };
       const { data: shipment } = await api.post("/shipments", payload);
-      toast.success(`Load booked: ${shipment.reference}`, { description: `${shipment.mode} via ${shipment.carrier} — ${shipment.shipment_id}` });
+      toast.success(`Load booked: ${shipment.reference}`, {
+        description: `${shipment.mode} via ${shipment.carrier} — routed to Workflow, Factoring & Cash Flow automatically.`,
+        action: {
+          label: "Open Workflow",
+          onClick: () => navigate("/workflow"),
+        },
+      });
 
       // Auto-generate the BOL so it shows up as a preview the dispatcher can save.
       try {
@@ -241,8 +248,26 @@ export default function BookLoad() {
 
             {/* Destination */}
             <div className="md:col-span-2">
-              <Label className={labelCls}>Destination City</Label>
-              <Input data-testid="destination-input" className={inpCls} value={form.destination_city} onChange={(e) => set("destination_city", e.target.value)} />
+              <Label className={labelCls}>Destination City <span className="text-cyan-300 normal-case text-[10px]">· type to search · lat/lng auto-fills</span></Label>
+              <Input
+                data-testid="destination-input"
+                list="freight-cities-list"
+                className={inpCls}
+                value={form.destination_city}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  set("destination_city", v);
+                  const m = lookupCity(v);
+                  if (m) {
+                    set("destination_lat", m.lat);
+                    set("destination_lng", m.lng);
+                  }
+                }}
+                placeholder="Start typing — e.g. Dallas, TX"
+              />
+              <datalist id="freight-cities-list">
+                {CITY_NAMES.map(c => <option key={c} value={c} />)}
+              </datalist>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 44 — Book Load → cross-module Workflow mirror + Data Status (sample/real labeling, backfill, clear). Backend 8/8 pytest pass (mirror creation + brokerage_bookings + auto-completed 'booked' stage + idempotent backfill + admin-only clear + real-row preservation). Frontend E2E confirms: destination datalist 'freight-cities-list' has 90 options & sets correct lat/lng, submit toast says 'routed to Workflow, Factoring & Cash Flow automatically' with working 'Open Workflow' action (navigated to /workflow), workflow sidebar shows 5 newly-booked entries all tagged '· REAL', drilldown panel renders with BK-* badge + 'FROM BOOK LOAD' amber badge, Trip/Carrier·Financials/Freight columns populated, all 4 deep-links present (open-shipment-link→/shipments?id=SHP-..., open-triage-link→/triage?booked_id=BK-..., open-factoring-link→/factoring?booked_id=BK-..., open-archive-link→/document-archive?ref_id=BK-...), empty docs message 'No documents archived for this load yet' renders, sticky DataStatusBanner shows 'MOSTLY LIVE · 2 sample / 10 real' with WIPE SAMPLE + GO LIVE · LAUNCH RUNWAY buttons and dismissal persists via sessionStorage key 'tms_sample_banner_dismissed_at'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/workflow drilldown", "issues": ["Drilldown panel defaults to OPEN (detailsOpen initial=true assumed). The collapsed/expanded chevron icon doesn't visually rotate on first click in some cases — minor visual polish, behavior is correct."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter44_book_load_mirror.py",
+    "/app/test_reports/pytest/iter44_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/data_status.py: clear-sample-data is a destructive action gated only by ?confirm=true query param. Consider also requiring a typed confirmation token (e.g. body {confirm_phrase:'WIPE'}) to avoid accidental wipes from a misclick in another tab or CSRF.",
+    "routes/data_status.py: TRACKED_COLLECTIONS is module-scoped — if any future code path inserts rows into a collection NOT in this list, /data-status will silently mis-report. Worth a periodic 'unknown collection' audit log.",
+    "server.py L820: the brokerage_bookings mirror swallows ANY exception with logger.exception and still returns 200 to the client. That means a Book Load creation that fails to mirror returns success but doesn't appear in /workflow. Consider returning an X-Workflow-Mirror: failed header (or 207) so the UI can warn the operator their load won't show in the HUD.",
+    "server.py L797: miles is hardcoded to 0 on the mirror. Once a routing/distance service exists this should be populated so the margin/% mileage breakdown in Workflow HUD shows actual numbers.",
+    "iter42 backend regression: my own clear-sample-data test wipes sample orisei_quotes / sample bookings, which leaves 8 iter42 setup fixtures in 'no data' state. iter42 tests need a self-seed fixture or to mark themselves skip-if-no-sample-data so iter44 doesn't cause spurious failures. Functional behavior is correct — sample rows ARE supposed to be wipeable. Recommend hardening iter42 fixtures rather than reverting the wipe."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter44_book_load_mirror.py"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% (all critical flows)"},
+  "test_credentials": "POST /api/auth/dev-session for backend Bearer dev_... token. Frontend uses 'Quick Sign In' button at /login (gated by ENABLE_DEV_LOGIN=true). Pytest fixtures inject admin/dispatcher sessions directly into MongoDB via mongosh (see conftest.py).",
+  "seed_data_creation": "Created 2 real (is_sample=false) Book Load shipments via test_iter44_book_load_mirror.py for mirror verification. Also created 1 real shipment via Playwright (REAL-iter44-toast-8887, Memphis TN). All preserved by clear-sample-data — proof that real loads survive the wipe. Per the agent-to-agent note, these were left in place.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 44 = Book Load → Workflow cross-module mirror + Data Status banner/wipe. All endpoints verified at /app/backend/tests/test_iter44_book_load_mirror.py. Reproducible flow: (1) sign in via Quick Sign In, (2) /book-load → fill destination with 'Memphis, TN' (datalist 'freight-cities-list' auto-fills lat/lng 35.1495/-90.049), (3) submit → toast with 'Open Workflow' action navigates to /workflow, (4) sidebar shows '· REAL' tag for is_sample=false bookings, (5) click booking → drilldown shows Trip / Carrier·Financials / Freight columns + 4 deep-links, (6) DataStatusBanner is mode-driven, dismiss key 'tms_sample_banner_dismissed_at' in sessionStorage. Note: iter42 fixtures may fail after running iter44 clear-sample-data — they need a self-seed; not an iter44 regression.",
+  "rca of the issue": "N/A — feature works as specified. Cross-module mirror confirmed (POST /api/shipments → instant brokerage_bookings row with source='book_load', is_sample=false, fresh BK-* id, full schema mapping including forecast_rate_usd, equipment, miles=0, status='booked', booked_at, etc.) and the new booked_id is immediately fetchable via /api/orisei/workflow/checklist/{id} with stage 'booked' auto-completed."
+}

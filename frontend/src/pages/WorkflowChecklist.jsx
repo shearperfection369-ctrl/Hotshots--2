@@ -52,6 +52,13 @@ export default function WorkflowChecklist() {
   const [carrierCost, setCarrierCost] = useState("");
   const [extraCost, setExtraCost] = useState("");
   const [exceptions, setExceptions] = useState([]);
+  const [archivedDocs, setArchivedDocs] = useState([]);
+  const [detailsOpen, setDetailsOpen] = useState(true);
+
+  const selectedBooking = useMemo(
+    () => bookings.find(b => b.booked_id === selectedId) || null,
+    [bookings, selectedId]
+  );
 
   const loadBookings = useCallback(async () => {
     try {
@@ -97,6 +104,14 @@ export default function WorkflowChecklist() {
 
   useEffect(() => { loadBookings(); }, [loadBookings]);
   useEffect(() => { if (selectedId) loadChecklist(selectedId); }, [selectedId, loadChecklist]);
+
+  // Load archived documents tied to the current booking
+  useEffect(() => {
+    if (!selectedId) { setArchivedDocs([]); return; }
+    api.get(`/doc-vault?ref_id=${selectedId}&limit=20`)
+       .then(r => setArchivedDocs(r.data?.items || []))
+       .catch(() => setArchivedDocs([]));
+  }, [selectedId, checklist]);
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
@@ -213,8 +228,14 @@ export default function WorkflowChecklist() {
                   <StatusPill status={b.status} />
                 </div>
                 <div className="text-xs text-white mt-1 truncate">{b.origin} → {b.destination}</div>
-                <div className="text-[10px] text-slate-400 mt-0.5 truncate">
+                <div className="text-[10px] text-slate-400 mt-0.5 truncate flex items-center gap-1">
                   {b.carrier_name || "Unassigned"} · {b.miles ? `${b.miles}mi` : ""}
+                  {b.source === "book_load" && (
+                    <span className="text-amber-300 ml-1">· REAL</span>
+                  )}
+                  {b.is_sample && (
+                    <span className="text-slate-500 ml-1">· sample</span>
+                  )}
                 </div>
               </button>
             ))}
@@ -513,7 +534,136 @@ export default function WorkflowChecklist() {
         </div>
       </div>
 
-      {/* Notes modal */}
+      {/* DRILL-DOWN — full load details */}
+      {selectedBooking && (
+        <div className="px-4 md:px-6 pb-6">
+          <Card className="bg-slate-950/70 border-cyan-500/20" data-testid="workflow-drilldown">
+            <button
+              type="button"
+              data-testid="drilldown-toggle"
+              onClick={() => setDetailsOpen(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-900/40 transition"
+            >
+              <div className="flex items-center gap-2">
+                <Search size={14} className="text-cyan-300" />
+                <span className="text-xs font-mono uppercase tracking-[0.25em] text-cyan-200">
+                  Load Details · drill-down
+                </span>
+                <Badge className="bg-slate-900 border border-white/10 text-slate-300 text-[10px] font-mono">
+                  {selectedBooking.booked_id}
+                </Badge>
+                {selectedBooking.source === "book_load" && (
+                  <Badge className="bg-amber-500/20 text-amber-200 border border-amber-400/40 text-[10px] font-mono">
+                    ↳ FROM BOOK LOAD
+                  </Badge>
+                )}
+                {selectedBooking.is_sample && (
+                  <Badge className="bg-slate-700/40 text-slate-300 border border-white/10 text-[10px] font-mono">
+                    SAMPLE DATA
+                  </Badge>
+                )}
+              </div>
+              <ChevronRight
+                size={16}
+                className={`text-slate-400 transition-transform ${detailsOpen ? "rotate-90" : ""}`}
+              />
+            </button>
+
+            {detailsOpen && (
+              <div className="border-t border-white/5 grid grid-cols-12 gap-4 p-4">
+                {/* Trip */}
+                <div className="col-span-12 md:col-span-4 space-y-2">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-amber-300 mb-1">Trip</div>
+                  <DetailRow label="Origin" value={selectedBooking.origin} />
+                  <DetailRow label="Destination" value={selectedBooking.destination} />
+                  <DetailRow label="Equipment" value={selectedBooking.equipment} />
+                  <DetailRow label="Miles" value={selectedBooking.miles?.toLocaleString() || "—"} />
+                  <DetailRow label="Pickup" value={selectedBooking.pickup_date || "—"} />
+                  <DetailRow label="Delivery" value={selectedBooking.delivery_date || "—"} />
+                </div>
+
+                {/* Carrier + financials */}
+                <div className="col-span-12 md:col-span-4 space-y-2">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-amber-300 mb-1">Carrier · Financials</div>
+                  <DetailRow label="Carrier" value={selectedBooking.carrier_name} />
+                  <DetailRow label="MC #" value={selectedBooking.carrier_mc || "—"} />
+                  <DetailRow label="Rate" value={selectedBooking.forecast_rate_usd ? `$${Number(selectedBooking.forecast_rate_usd).toLocaleString()}` : "—"} />
+                  <DetailRow label="Carrier pay" value={selectedBooking.forecast_carrier_pay_usd ? `$${Number(selectedBooking.forecast_carrier_pay_usd).toLocaleString()}` : "—"} />
+                  <DetailRow label="Forecast margin" value={selectedBooking.forecast_margin_usd ? `$${Number(selectedBooking.forecast_margin_usd).toLocaleString()}` : "—"} accent="emerald" />
+                  <DetailRow label="Status" value={selectedBooking.status} />
+                </div>
+
+                {/* Freight */}
+                <div className="col-span-12 md:col-span-4 space-y-2">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-amber-300 mb-1">Freight</div>
+                  <DetailRow label="Commodity" value={selectedBooking.commodity || "—"} />
+                  <DetailRow label="Pieces" value={selectedBooking.pieces || "—"} />
+                  <DetailRow label="Weight" value={selectedBooking.weight_lbs ? `${Number(selectedBooking.weight_lbs).toLocaleString()} lbs` : "—"} />
+                  <DetailRow label="Booked at" value={selectedBooking.booked_at ? new Date(selectedBooking.booked_at).toLocaleString() : "—"} />
+                  <DetailRow label="Source" value={selectedBooking.source || "load_board"} />
+                  <DetailRow label="Reference" value={selectedBooking.reference || selectedBooking.load_id || "—"} />
+                </div>
+
+                {/* Linked archived documents */}
+                <div className="col-span-12 mt-2 border-t border-white/5 pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-amber-300">
+                      Linked archived documents · {archivedDocs.length}
+                    </div>
+                    <a href={`/document-archive?ref_id=${selectedId}`}
+                       data-testid="open-archive-link"
+                       className="text-[10px] font-mono text-cyan-300 hover:underline">
+                      Open Document Archive →
+                    </a>
+                  </div>
+                  {archivedDocs.length === 0 ? (
+                    <div className="text-[11px] text-slate-500 italic">
+                      No documents archived for this load yet — generating a BOL, rate-con, or invoice will auto-archive it here.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {archivedDocs.map(d => (
+                        <a key={d.archive_id}
+                           href={`/document-archive?doc_id=${d.doc_id}`}
+                           data-testid={`linked-doc-${d.archive_id}`}
+                           className="block p-2 rounded bg-slate-900/60 border border-white/5 hover:border-amber-400/40 transition">
+                          <div className="flex items-center justify-between">
+                            <div className="text-[10px] font-mono uppercase tracking-widest text-amber-200">{d.doc_type}</div>
+                            <div className="text-[10px] font-mono text-slate-500">v{d.version}</div>
+                          </div>
+                          <div className="text-xs text-white mt-0.5 font-mono truncate">{d.doc_id}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">{new Date(d.created_at).toLocaleString()}</div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick links */}
+                <div className="col-span-12 flex flex-wrap gap-2 mt-2 pt-3 border-t border-white/5">
+                  {selectedBooking.shipment_id && (
+                    <a href={`/shipments?id=${selectedBooking.shipment_id}`}
+                       data-testid="open-shipment-link"
+                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs text-cyan-200 bg-slate-900 border border-cyan-400/30 hover:border-cyan-400/60">
+                      <Truck size={11} /> View in Shipments
+                    </a>
+                  )}
+                  <a href={`/triage?booked_id=${selectedId}`}
+                     data-testid="open-triage-link"
+                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs text-rose-200 bg-slate-900 border border-rose-400/30 hover:border-rose-400/60">
+                    <AlertTriangle size={11} /> AI Triage
+                  </a>
+                  <a href={`/factoring?booked_id=${selectedId}`}
+                     data-testid="open-factoring-link"
+                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs text-emerald-200 bg-slate-900 border border-emerald-400/30 hover:border-emerald-400/60">
+                    <DollarSign size={11} /> Factoring
+                  </a>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
       <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
         <DialogContent className="bg-slate-950 border-cyan-500/30 text-white">
           <DialogHeader>
@@ -564,5 +714,15 @@ function StatusPill({ status }) {
     <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase tracking-widest border ${cls}`}>
       {status || "?"}
     </span>
+  );
+}
+
+function DetailRow({ label, value, accent }) {
+  const valCls = accent === "emerald" ? "text-emerald-200" : "text-white";
+  return (
+    <div className="flex items-baseline justify-between gap-2 text-xs">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500 shrink-0">{label}</div>
+      <div className={`${valCls} font-mono text-right truncate`} title={String(value ?? "")}>{value ?? "—"}</div>
+    </div>
   );
 }
