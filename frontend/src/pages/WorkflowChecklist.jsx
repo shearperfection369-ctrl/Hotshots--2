@@ -54,6 +54,7 @@ export default function WorkflowChecklist() {
   const [exceptions, setExceptions] = useState([]);
   const [archivedDocs, setArchivedDocs] = useState([]);
   const [detailsOpen, setDetailsOpen] = useState(true);
+  const [expandedId, setExpandedId] = useState(null);  // inline-expand in sidebar
 
   const selectedBooking = useMemo(
     () => bookings.find(b => b.booked_id === selectedId) || null,
@@ -212,33 +213,95 @@ export default function WorkflowChecklist() {
             Active Bookings · {filtered.length}
           </div>
           <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
-            {filtered.map(b => (
-              <button
-                key={b.booked_id}
-                data-testid={`workflow-pick-${b.booked_id}`}
-                onClick={() => setSelectedId(b.booked_id)}
-                className={`w-full text-left p-2.5 rounded-lg border transition-all ${
-                  selectedId === b.booked_id
-                    ? "bg-cyan-500/10 border-cyan-400/50 shadow-[0_0_15px_rgba(34,211,238,0.25)]"
-                    : "bg-slate-900/40 border-white/5 hover:border-cyan-400/30"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="font-mono text-[11px] text-cyan-200">{b.booked_id}</div>
-                  <StatusPill status={b.status} />
-                </div>
-                <div className="text-xs text-white mt-1 truncate">{b.origin} → {b.destination}</div>
-                <div className="text-[10px] text-slate-400 mt-0.5 truncate flex items-center gap-1">
-                  {b.carrier_name || "Unassigned"} · {b.miles ? `${b.miles}mi` : ""}
-                  {b.source === "book_load" && (
-                    <span className="text-amber-300 ml-1">· REAL</span>
+            {filtered.map(b => {
+              const isSelected = selectedId === b.booked_id;
+              const isExpanded = expandedId === b.booked_id;
+              const fmt$ = (n) => n ? `$${Number(n).toLocaleString()}` : "—";
+              return (
+                <div key={b.booked_id}
+                     data-testid={`workflow-card-${b.booked_id}`}
+                     className={`rounded-lg border transition-all ${
+                       isSelected
+                         ? "bg-cyan-500/10 border-cyan-400/50 shadow-[0_0_15px_rgba(34,211,238,0.25)]"
+                         : "bg-slate-900/40 border-white/5 hover:border-cyan-400/30"
+                     }`}>
+                  {/* Header row — click body selects + expands */}
+                  <button
+                    type="button"
+                    data-testid={`workflow-pick-${b.booked_id}`}
+                    onClick={() => {
+                      setSelectedId(b.booked_id);
+                      setExpandedId(prev => prev === b.booked_id ? null : b.booked_id);
+                    }}
+                    className="w-full text-left p-2.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="font-mono text-[11px] text-cyan-200">{b.booked_id}</div>
+                      <div className="flex items-center gap-1.5">
+                        <StatusPill status={b.status} />
+                        <ChevronRight
+                          size={12}
+                          className={`text-slate-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-xs text-white mt-1 truncate">{b.origin} → {b.destination}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5 truncate flex items-center gap-1">
+                      {b.carrier_name || "Unassigned"} · {b.miles ? `${b.miles}mi` : ""}
+                      {b.source === "book_load" && (
+                        <span className="text-amber-300 ml-1">· REAL</span>
+                      )}
+                      {b.is_sample && (
+                        <span className="text-slate-500 ml-1">· sample</span>
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Inline expandable detail */}
+                  {isExpanded && (
+                    <div data-testid={`workflow-expand-${b.booked_id}`}
+                         className="px-2.5 pb-2.5 pt-1 border-t border-cyan-400/15 space-y-1 text-[10px]">
+                      <Row k="Equipment" v={b.equipment || b.mode || "—"} />
+                      <Row k="Rate" v={fmt$(b.forecast_rate_usd || b.rate_usd)} tone="amber" />
+                      <Row k="Carrier pay" v={fmt$(b.forecast_carrier_pay_usd || b.carrier_pay_usd)} />
+                      <Row k="Margin" v={fmt$(b.forecast_margin_usd)} tone="emerald" />
+                      <Row k="Pickup" v={b.pickup_date || "—"} />
+                      <Row k="Delivery" v={b.delivery_date || "—"} />
+                      <Row k="MC #" v={b.carrier_mc || "—"} />
+                      <Row k="Commodity" v={b.commodity || "—"} />
+                      <Row k="Weight" v={b.weight_lbs ? `${Number(b.weight_lbs).toLocaleString()} lbs` : "—"} />
+                      <Row k="Pieces" v={b.pieces || "—"} />
+                      <Row k="Booked" v={b.booked_at ? new Date(b.booked_at).toLocaleString() : "—"} />
+                      <Row k="Source" v={b.source || "load_board"} />
+                      <Row k="Reference" v={b.reference || b.load_id || "—"} />
+
+                      <div className="flex gap-1 pt-1.5 border-t border-white/5 mt-1.5">
+                        <button
+                          type="button"
+                          data-testid={`scroll-detail-${b.booked_id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const el = document.querySelector('[data-testid="workflow-drilldown"]');
+                            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }}
+                          className="flex-1 px-2 py-1 rounded text-[9px] font-mono uppercase tracking-widest border border-cyan-400/30 text-cyan-200 hover:bg-cyan-500/20 transition"
+                        >
+                          Jump to drill-down ↓
+                        </button>
+                        {b.shipment_id && (
+                          <a href={`/shipments?id=${b.shipment_id}`}
+                             onClick={(e) => e.stopPropagation()}
+                             data-testid={`sidebar-shipment-${b.booked_id}`}
+                             className="px-2 py-1 rounded text-[9px] font-mono uppercase tracking-widest border border-amber-400/30 text-amber-200 hover:bg-amber-500/20 transition">
+                            Shipments →
+                          </a>
+                        )}
+                      </div>
+                    </div>
                   )}
-                  {b.is_sample && (
-                    <span className="text-slate-500 ml-1">· sample</span>
-                  )}
                 </div>
-              </button>
-            ))}
+              );
+            })}
             {!filtered.length && (
               <div className="text-xs text-slate-500 py-8 text-center">
                 No bookings match.
@@ -723,6 +786,21 @@ function DetailRow({ label, value, accent }) {
     <div className="flex items-baseline justify-between gap-2 text-xs">
       <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500 shrink-0">{label}</div>
       <div className={`${valCls} font-mono text-right truncate`} title={String(value ?? "")}>{value ?? "—"}</div>
+    </div>
+  );
+}
+
+// Sidebar inline-expand row: tighter, mono, tone-aware
+function Row({ k, v, tone }) {
+  const valCls =
+    tone === "emerald" ? "text-emerald-200" :
+    tone === "amber"   ? "text-amber-200"   :
+                         "text-slate-200";
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500 shrink-0">{k}</div>
+      <div className={`${valCls} font-mono text-[10px] text-right truncate`}
+           title={String(v ?? "")}>{v ?? "—"}</div>
     </div>
   );
 }
