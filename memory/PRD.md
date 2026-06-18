@@ -1521,3 +1521,34 @@ User asked for 8 deliverables in one batch. All landed.
 
 - Voice: Warm female / professional ("nova")
 - Aesthetic: Cinematic dusk / golden hour
+
+---
+
+## Iteration 38 (Feb 2026) — Freight Factoring & ABL Transition Module
+
+User pasted the full Factoring playbook and asked for a module integrating the 8 named factors plus a Day-1 → ABL transition roadmap.
+
+### Delivered
+1. **8 Factor partner catalog** — pre-seeded: Truckstop Capital, On The Spot Capital (Minneapolis · MIDWEST badge), BlueChip Financial (Chicago · MIDWEST), Apex Capital, Coyote/RXO, Rapid Finance, Factor Network, Republic Business Credit. Each has fee_min/max, advance %, min volume, setup time, specialization, midwest flag, website, contact methods, notes.
+2. **5-stage Maturity Roadmap** — Stage 1 Startup (Spot 3.5%) · Stage 2 Early Growth (Recourse 3%) · Stage 3 Growth (Multi-Factor 2.75%) · Stage 4 Scale (Recourse+ABL 2.5%) · Stage 5 Enterprise (ABL 2%). Each stage carries actions[] checklist + success_metric.
+3. **Cost Calculator** — Spot vs Recourse vs Non-Recourse vs ABL side-by-side; auto-flags lowest-cost method; shows cost / net margin / % of margin / cash unlocked per method.
+4. **Outreach Generator** — deterministic ready-to-send email template (subject + body + mailto) populated from broker_name, volume forecasts, top shippers, lanes.
+5. **AI Polish** (Claude Sonnet 4.5 via Emergent LLM Key) — tightens the deterministic email into a single confident 220-word first-touch.
+6. **Applications tracker** — CRUD on factoring_applications with status pipeline (preparing → sent → underwriting → approved → live → declined).
+7. **Submissions tracker** — submit each invoice for factoring, compute fee/advance/reserve/broker_take_home automatically; inline status changes (submitted → approved → funded → settled).
+8. **Strategies** — 4 critical strategies from the playbook (Multi-Factor Redundancy, Shipper Term Compression, Reserve Release Negotiation, Concentration Control) with implementation bullets.
+9. **Dashboard** — live KPIs (Live Factor count, 90d Invoiced, 90d Fee, Effective %, Current Stage based on monthly load estimate) + per-factor volume mix + application funnel.
+
+### Backend module
+- `/app/backend/routes/factoring.py` (633 lines, single file)
+- 15 endpoints under `/api/factoring/...`
+- Collections: `factoring_applications`, `factoring_submissions`, `factoring_factor_overrides`
+
+### Frontend
+- `/app/frontend/src/pages/Factoring.jsx` (~900 lines, 6 tabs)
+- New sidebar nav `Factoring & ABL` with DollarSign icon
+
+### Testing
+- Iter 38 backend pytest: **15/15 PASS** (7.98s)
+- Frontend Playwright: 100% critical flows
+
