@@ -8207,6 +8207,13 @@ build_orisei_workflow_router(api_router=api_router, db=db,
                              get_current_user=get_current_user,
                              require_role=require_role)
 
+from routes.factoring import build_factoring_router  # noqa: E402
+build_factoring_router(api_router=api_router, db=db,
+                       get_current_user=get_current_user,
+                       require_role=require_role,
+                       emergent_llm_key=EMERGENT_LLM_KEY,
+                       LlmChat=LlmChat, UserMessage=UserMessage)
+
 from routes.orisei_auto_digest import build_auto_digest_router  # noqa: E402
 build_auto_digest_router(api_router=api_router, db=db,
                           get_current_user=get_current_user,
