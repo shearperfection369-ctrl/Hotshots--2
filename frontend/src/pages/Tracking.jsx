@@ -38,7 +38,9 @@ export default function Tracking() {
       api.get("/brokerage/margins").catch(() => ({ data: { bookings: [] } })),
     ]);
     // Convert brokerage bookings into shipment-shaped rows so they appear
-    // in tracking alongside ocean / parcel / TL shipments.
+    // in tracking alongside ocean / parcel / TL shipments. They have no
+    // lat/lng yet (geocoding is a paid integration), so we omit them from
+    // the map but keep them in the list + omni-search.
     const bookings = (bk.data?.bookings || []).filter(b => b.booked_id).map(b => ({
       shipment_id: b.booked_id,
       reference: b.load_id,
@@ -58,6 +60,7 @@ export default function Tracking() {
       supplier:  b.customer_name,
       eta: b.delivery_at,
       _booking: true,
+      _noMap: true,  // hint to MapView: skip plotting this row
     }));
     setShipments([...(s.data || []), ...bookings]);
     setFacilities(f.data || []);
@@ -82,8 +85,14 @@ export default function Tracking() {
     });
   }, [shipments, q]);
 
-  // Map shows matches only when actively searching, else everything
-  const mapShipments = q.trim() ? matches : shipments;
+  // Map shows matches only when actively searching, else everything.
+  // Skip rows without geo coordinates (e.g. brokerage bookings) so MapView
+  // markers don't crash.
+  const mapShipments = (q.trim() ? matches : shipments).filter(
+    s => !s._noMap
+       && s.origin && typeof s.origin.lat === "number"
+       && s.destination && typeof s.destination.lat === "number"
+  );
 
   const trackOnCarrier = (s) => {
     const trackNum = s.pro_no || s.container_no || s.bol_no || s.booking_number || s.reference;

@@ -1,0 +1,26 @@
+{
+  "summary": "Iter 40 — Verified Iter 39 single fix: Tracking → MapView crash resolved when brokerage_bookings are merged into the shipment list. Frontend-only retest. Logged in via Quick Sign In on /login (admin token) → navigated to /tracking. Fix in pages/Tracking.jsx (a) tags converted booking rows with _noMap=true, (b) mapShipments now filters to require numeric origin.lat AND destination.lat. ALL 4 ACCEPTANCE CRITERIA PASS: (1) /tracking loads with ZERO lat/undefined runtime errors — no react-error-overlay; only an unrelated 'Invalid language tag: en-US@posix' console warning (mapbox locale, not from Tracking). (2) Brokerage bookings remain in the tracker list and are fully searchable — searching 'BK-8A6CB0889E' returns 1 match and the row [data-testid=\"tracker-row-BK-8A6CB0889E\"] renders; searching carrier 'dff' also returns 1 match. (3) Real shipments with valid lat/lng still render as markers — Leaflet map rendered with ~53 markers visible. (4) 'Live Map · N shipments' counter shows only geocoded shipments: 53 on map vs 65 in tracker list (12 bookings excluded from map); when searching a booking-only term, map counter correctly drops to 0 while tracker count is 1.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_40.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Tracking.jsx mapShipments filter is now defensive (typeof origin.lat === 'number' && typeof destination.lat === 'number') — good belt-and-suspenders alongside _noMap flag; will also guard against any future shipment ingestion path that omits coords.",
+    "Minor: the 'Invalid language tag: en-US@posix' pageerror originates from a third-party (likely mapbox-gl or i18n lib) reading process.env.LANG or navigator.language. Non-blocking but worth a follow-up to normalize the locale tag before passing to Intl.* APIs.",
+    "Optional hardening (already noted in iter 39): wrapping MapView in an ErrorBoundary would prevent a single malformed marker row from ever blanking the /tracking page in the future."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only retest)", "frontend": "100% (4/4 acceptance criteria pass on /tracking)"},
+  "test_credentials": "Quick Sign In on /login (Bearer test_session_admin_1, admin) — /app/memory/test_credentials.md",
+  "seed_data_creation": "None — used existing /api/brokerage/margins data (20 bookings, sample booked_ids: BK-8A6CB0889E, BK-D47C98CFE8, BK-9FD0D0A6D8) and /api/shipments (real shipments with lat/lng).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 39 MapView crash fix verified end-to-end on the live preview env. The fix in /app/frontend/src/pages/Tracking.jsx is robust: (a) bookings get _noMap=true sentinel, (b) mapShipments filter requires typeof origin.lat === 'number' && typeof destination.lat === 'number'. Counter math validated: 53 map markers + 12 booking-only rows = 65 active in tracker. Search across booking fields (booked_id, carrier_name) works as designed. No further action needed on the Tracking page; the iter 39 backend pytest regression suite at /app/backend/tests/test_iter39_cash_flow.py remains the source-of-truth for /api/cash-flow/*.",
+  "rca of the issue": "RCA confirmed and mitigated: prior crash was MapView's marker .map(s => ... s.origin.lat) hitting undefined on booking-shaped rows. Fix path: load() now stamps every booking row with _noMap:true, and the consumer (mapShipments) double-guards with typeof checks on origin.lat and destination.lat before handing rows to MapView. Reproduction in preview: visit /tracking after Quick Sign In — no overlay, no lat/undefined pageerror, map renders 53 markers, search finds bookings by booked_id and carrier name."
+}
