@@ -8374,6 +8374,21 @@ api_router.include_router(build_data_status_router(
     require_role=require_role,
 ))
 
+from routes.upwork_portfolio import build_upwork_portfolio_router  # noqa: E402
+api_router.include_router(build_upwork_portfolio_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+    active_brand_doc=_active_brand_doc,
+))
+
+from routes.autocomplete import build_autocomplete_router  # noqa: E402
+api_router.include_router(build_autocomplete_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+))
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 
@@ -8446,6 +8461,13 @@ async def startup():
         await _ensure_indexes()
     except Exception as e:
         logger.warning(f"Index ensure failed: {e}")
+
+    # ---------- 1.5 Brand bootstrap — every PDF depends on this
+    try:
+        from routes.brand_bootstrap import ensure_active_brand
+        await ensure_active_brand(db)
+    except Exception as e:
+        logger.warning(f"Brand bootstrap failed: {e}")
 
     # ---------- 2. Auto-seed if empty
     try:

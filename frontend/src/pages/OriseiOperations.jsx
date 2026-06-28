@@ -10,6 +10,7 @@ import {
   Plus, Users, FileText, Send, Truck, Copy, Trash2, Mail,
   DollarSign, ExternalLink, Building2, ClipboardCheck,
 } from "lucide-react";
+import { authedDownload } from "@/lib/authedDownload";
 
 const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -225,7 +226,10 @@ function QuotesTab() {
   };
 
   const downloadPdf = (qid) => {
-    window.open(`${REACT_APP_BACKEND_URL}/api/orisei/quotes/${qid}/pdf`, "_blank");
+    authedDownload(`/api/orisei/quotes/${qid}/pdf`, {
+      filename: `Orisei_Quote_${qid}.pdf`,
+      inline: true,
+    });
   };
   const sendQuote = async (qid) => {
     if (!window.confirm("Email this quote to the customer's primary contact?")) return;
@@ -333,7 +337,10 @@ function RateConsTab() {
     } catch (e) { toast.error(errText(e, "Create failed")); }
   };
 
-  const downloadPdf = (rcid) => window.open(`${REACT_APP_BACKEND_URL}/api/orisei/rate-confirmations/${rcid}/pdf`, "_blank");
+  const downloadPdf = (rcid) => authedDownload(
+    `/api/orisei/rate-confirmations/${rcid}/pdf`,
+    { filename: `Orisei_RateCon_${rcid}.pdf`, inline: true }
+  );
   const sendRc = async (rcid) => {
     if (!window.confirm("Email this rate confirmation to the carrier?")) return;
     try {

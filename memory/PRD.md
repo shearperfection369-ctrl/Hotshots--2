@@ -1754,3 +1754,44 @@ Source: https://www.stonearchcom.com/news
   the objection row
 - All renders auto-archived to immutable Document Vault
 
+---
+
+## Iteration 47 (Jun 2026) — Brand-aware PDF Pipeline + Quote 401 fix
+
+User: "make sure that all pdf's generate properly with the current company
+kit of the app. I just tried to generate a quote and could not."
+
+### Root causes
+1. **Quote PDF 401:** `/orisei-operations` Quote action used `window.open()` which
+   doesn't attach the localStorage Bearer token — browser hit the API without
+   auth and got "Not authenticated."
+2. **Brand row missing:** `db.company_brand` had zero active rows. Every PDF
+   generator's `_get_active_brand()` returned `{}` and the PDFs fell back to
+   defaults — losing color, contact details, and proper company metadata.
+
+### Fixes
+- **`routes/brand_bootstrap.py`** — runs on every backend startup. Idempotent.
+  Seeds the active Orisei brand row (company_name, short_name, primary_color
+  #0E3A6B, accent #C9A24A, founder_name, contact_email, phone, hq_city,
+  tagline, MC/bond/insurance metadata, local logo paths, etc.) or patches
+  missing fields onto whatever exists. Server startup now logs
+  "Seeded active Orisei brand row" / "Patched N missing brand fields".
+- **`OriseiOperations.jsx`** — quote + rate-conf download buttons now use the
+  `authedDownload(path, { inline: true })` helper. Token attaches, PDF opens
+  in a new tab, no 401.
+- **`orisei_workflow.py` invoice_pdf** — now also auto-archives to the
+  immutable Document Vault (was the last PDF endpoint missing the hook;
+  every PDF in the app now archives).
+- **Verified end-to-end** via in-browser fetch from `/orisei-operations`:
+  `{ ok: true, status: 200, bytes: 426853 }`. Vault now contains 40
+  documents across 11 distinct doc types including the first
+  COMMERCIAL_INVOICE entry.
+
+### PDF endpoints audited & confirmed branded
+- `/api/orisei/quotes/{id}/pdf` ✅
+- `/api/orisei/rate-confirmations/{id}/pdf` ✅
+- `/api/orisei/workflow/invoices/{id}/pdf` ✅ + now archived
+- `/api/documents/{id}/pdf` (BOL / COO / Packing / Weight Cert) ✅
+- `/api/shipper-outreach/pdf` (Capability / Welcome / Agreement / Bio / Onboarding) ✅
+- `/api/upwork-portfolio/pdf` ✅
+

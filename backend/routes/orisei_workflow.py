@@ -696,7 +696,7 @@ Reference **{inv['invoice_id']}** on remittance.
         return inv
 
     @router.get("/invoices/{invoice_id}/pdf")
-    async def invoice_pdf(invoice_id: str, _=Depends(get_current_user)) -> StreamingResponse:
+    async def invoice_pdf(invoice_id: str, user=Depends(get_current_user)) -> StreamingResponse:
         inv = await db.brokerage_invoices.find_one(
             {"invoice_id": invoice_id}, {"_id": 0})
         if not inv:
@@ -713,6 +713,21 @@ Reference **{inv['invoice_id']}** on remittance.
             subtitle=f"Bill to {inv['customer_name']}",
             brand=brand,
         )
+        # Auto-archive into the immutable Document Vault
+        try:
+            from .doc_vault import archive_pdf
+            await archive_pdf(
+                db, pdf,
+                doc_type="COMMERCIAL_INVOICE", doc_id=invoice_id,
+                ref_id=inv.get("booking_ids", [None])[0]
+                         if isinstance(inv.get("booking_ids"), list) else None,
+                source_endpoint=f"/api/orisei/workflow/invoices/{invoice_id}/pdf",
+                payload_snapshot={"invoice": inv},
+                user=user,
+                filename=f"Orisei_Invoice_{invoice_id}.pdf",
+            )
+        except Exception:                                       # noqa: BLE001
+            pass
         return StreamingResponse(
             io.BytesIO(pdf), media_type="application/pdf",
             headers={"Content-Disposition":
