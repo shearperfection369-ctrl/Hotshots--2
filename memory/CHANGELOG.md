@@ -4,6 +4,40 @@
 
 ---
 
+## Iter 48 — 2026-06-28 · Export/Import documentation suite + AES ITN capture
+
+**Status**: ✅ Tested 100% backend (18/18 pytest) + 100% frontend (testing_agent iteration_48)
+
+- New backend module `/app/backend/routes/intl_documents.py` attaches onto
+  the existing `/api/international/*` router via
+  `attach_intl_documents_router()`. 16 doc types · 6 statuses · 3 sources.
+- **10 branded PDF generators** (all heraldic-styled via
+  `build_branded_markdown_pdf`):
+  AES Filing Worksheet · Commercial Invoice · Packing List · Certificate of
+  Origin · Phytosanitary Application (USDA Form 572) · Letter of Credit
+  (UCP 600) · Shipper's Export Declaration · ISF-10 · CBP 7501 Entry
+  Summary prep · Customs Broker Cover Letter. Each PDF ~428 KB, visually
+  verified Orisei-branded.
+- **AES ITN capture**: `POST /container-bookings/{id}/aes/filing` stores
+  the ITN on the booking and auto-creates an `ITN_RECEIPT` tracker entry.
+  Includes a 20-field AES help cheat sheet (`GET /aes/help`) + 12-field
+  Phytosanitary cheat sheet (`GET /phyto/help`).
+- **Document tracker** per container: list / record / upload (GridFS
+  bucket `intl_docs`) / download / status-update / delete. Soft-delete
+  cleans up orphan GridFS chunks. Each tracker entry stores doc_type,
+  status, source (INTERNAL_GEN/EXTERNAL_UPLOAD/PARTNER_PORTAL),
+  reference number (ITN/Phyto cert#/LC#), counterparty, filed_with_agency,
+  filed_at, expires_at.
+- New frontend `<DocumentsDrawer>` opens from each container booking row
+  via the "Docs ({count})" button. Surfaces: AES ITN capture form (with
+  AESDirect deep-link), 10 one-click PDF generators, external file upload
+  with type/ref/counterparty/agency fields, and a live tracker list with
+  status dropdowns + delete.
+
+(Prior iterations retained below — see CHANGELOG.md history.)
+
+---
+
 ## Iter 47 — 2026-06-28 · International (Ocean + Intermodal Rail) module
 
 **Status**: ✅ Tested 100% backend (16/16 pytest) + 100% frontend (testing_agent_v3_fork iteration_47)

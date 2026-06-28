@@ -15,7 +15,7 @@
  *     pills (DRAFT / READY / FILED / RECEIVED / EXPIRED / VOID).
  */
 import React, { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -135,6 +135,11 @@ export function DocumentsDrawer({ booking, onClose }) {
             Documentation · {booking.booking_number}
             <span className="text-slate-500 text-xs font-mono ml-2">{booking.pol} → {booking.pod}</span>
           </DialogTitle>
+          <DialogDescription className="text-xs text-slate-500">
+            Generate, upload, and track every internal and external document
+            tied to this containerized shipment — AES, customs, banking,
+            phyto, and partner-issued PDFs.
+          </DialogDescription>
         </DialogHeader>
 
         {/* AES filing capture */}

@@ -959,6 +959,20 @@ def attach_intl_documents_router(
     @router.delete("/container-bookings/{booking_id}/docs/{doc_id}")
     async def delete_doc(booking_id: str, doc_id: str,
                           user=admin_dep) -> Dict[str, Any]:
+        b = await _booking(booking_id)
+        doc = next((d for d in (b.get("documents") or []) if d.get("doc_id") == doc_id), None)
+        if not doc:
+            raise HTTPException(404, "Doc not found on this booking")
+        # If the doc has an uploaded file attached, also drop the GridFS
+        # chunks to avoid orphan accumulation.
+        if doc.get("file_id"):
+            try:
+                from bson import ObjectId
+                from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+                bucket = AsyncIOMotorGridFSBucket(db, bucket_name="intl_docs")
+                await bucket.delete(ObjectId(doc["file_id"]))
+            except Exception as e:                                # noqa: BLE001
+                logger.warning("GridFS cleanup failed for %s: %s", doc_id, e)
         await db.intl_container_bookings.update_one(
             {"booking_id": booking_id},
             {"$pull": {"documents": {"doc_id": doc_id}}})
