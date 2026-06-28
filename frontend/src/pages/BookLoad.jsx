@@ -12,6 +12,8 @@ import { useNavigate } from "react-router-dom";
 import { Database, AlertTriangle, Search, FileText, Download, ArrowRight } from "lucide-react";
 import { BACKEND_URL } from "../lib/api";
 import { CITY_NAMES, lookupCity } from "../lib/freightCities";
+import { Autocomplete } from "../components/Autocomplete";
+import { CarrierCombobox } from "../components/CarrierCombobox";
 
 const CARRIERS = {
   TL: ["XPO Logistics", "ArcBest", "Schneider", "J.B. Hunt"],
@@ -232,11 +234,17 @@ export default function BookLoad() {
               </Select>
             </div>
             <div>
-              <Label className={labelCls}>Carrier</Label>
-              <Select value={form.carrier} onValueChange={(v) => set("carrier", v)}>
-                <SelectTrigger data-testid="carrier-select" className={inpCls}><SelectValue /></SelectTrigger>
-                <SelectContent>{CARRIERS[form.mode].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
+              <Label className={labelCls}>Carrier <span className="text-cyan-300 normal-case text-[10px]">· type-ahead from full directory + suggestions for {form.mode}</span></Label>
+              <CarrierCombobox
+                value={form.carrier}
+                onChange={(v) => set("carrier", v)}
+                onSelect={(rec) => {
+                  set("carrier", rec.name);
+                  if (rec.contact_email) set("carrier_contact_email", rec.contact_email);
+                }}
+                testid="carrier-select"
+                className={inpCls}
+              />
             </div>
             <div>
               <Label className={labelCls}>Origin Facility</Label>
@@ -295,8 +303,14 @@ export default function BookLoad() {
             </div>
 
             <div className="md:col-span-2">
-              <Label className={labelCls}>Commodity</Label>
-              <Input className={inpCls} value={form.commodity} onChange={(e) => set("commodity", e.target.value)} data-testid="commodity-input" />
+              <Label className={labelCls}>Commodity <span className="text-cyan-300 normal-case text-[10px]">· type-ahead from common freight</span></Label>
+              <Autocomplete
+                kind="commodities"
+                value={form.commodity}
+                onChange={(v) => set("commodity", v)}
+                testid="commodity-input"
+                className={inpCls}
+              />
             </div>
             <div>
               <Label className={labelCls}>Cargo Value (USD)</Label>

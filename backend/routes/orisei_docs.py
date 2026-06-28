@@ -727,22 +727,32 @@ def build_branded_markdown_pdf(md_text: str, *, title: str = "Business Plan",
                                doc_id: Optional[str] = None,
                                brand: Optional[Dict[str, Any]] = None,
                                personalization: Optional[Dict[str, Any]] = None) -> bytes:
-    """Render a markdown document (business plan, cost analysis, home-office
-    setup, VC pitch, etc.) using the active brand's heraldic template.
+    """Render a markdown document (business plan, quote, rate confirmation,
+    invoice, etc.) using the active brand's heraldic template.
+
+    Visual upgrades over a plain markdown renderer:
+      • H2 headings render as branded ◆ section headers (matches BOL/POD).
+      • Adjacent ``- **Label**: value`` bullets coalesce into a boxed
+        2-column shipment-meta table (azure label header, paper rows, gold
+        border) — gives quotes/rate-cons the same visual weight as a BOL.
+      • Lines starting with ``## Total`` (or ``**Total**``) render as a
+        gold-banner callout matching the BOL "Freight Charges" treatment.
+      • Founder/contact signature lines from the markdown render as a real
+        signature block table at the bottom when detected.
 
     Pass `personalization={"firm_name": "...", "contact_name": "...",
     "prepared_date": "..."}` to stamp every page with a top
     "Confidential · Prepared for {firm}" banner + diagonal watermark.
     """
     theme = _theme(brand)
+    s = _styles(theme)
     base_styles = getSampleStyleSheet()
     md_styles = {
         "h1":  ParagraphStyle("h1",  parent=base_styles["Heading1"], fontSize=18, leading=22,
                               textColor=theme["azure"], spaceBefore=10, spaceAfter=8),
-        "h2":  ParagraphStyle("h2",  parent=base_styles["Heading2"], fontSize=14, leading=18,
-                              textColor=theme["gold"], spaceBefore=12, spaceAfter=6),
         "h3":  ParagraphStyle("h3",  parent=base_styles["Heading3"], fontSize=11, leading=15,
-                              textColor=theme["azure"], spaceBefore=8, spaceAfter=4),
+                              textColor=theme["azure"], spaceBefore=8, spaceAfter=4,
+                              fontName="Helvetica-Bold"),
         "p":   ParagraphStyle("p",   parent=base_styles["BodyText"], fontSize=9.5, leading=13,
                               textColor=theme["ink"], spaceAfter=4),
         "li":  ParagraphStyle("li",  parent=base_styles["BodyText"], fontSize=9.5, leading=13,
@@ -769,6 +779,57 @@ def build_branded_markdown_pdf(md_text: str, *, title: str = "Business Plan",
                     .replace("\x00i\x00", "<i>").replace("\x00I\x00", "</i>"))
         return text
 
+    # Helper: render a 2-column "label / value" boxed table mirroring the
+    # BOL's `_shipment_meta` aesthetic. Falls back to plain bullets if pairs
+    # list is empty.
+    def _label_value_table(pairs: List[tuple]) -> Optional[Table]:
+        if not pairs:
+            return None
+        rows: List[List[Any]] = [[
+            Paragraph("<b>FIELD</b>", s["field_label"]),
+            Paragraph("<b>DETAIL</b>", s["field_label"]),
+        ]]
+        for label, value in pairs:
+            rows.append([
+                Paragraph(label.upper(), s["field_label"]),
+                Paragraph(value or "—", s["field_value"]),
+            ])
+        t = Table(rows, colWidths=[2.0 * inch, 5.0 * inch])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), theme["azure"]),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 7.5),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [theme["paper"], colors.white]),
+            ("BOX", (0, 0), (-1, -1), 0.5, theme["gold"]),
+            ("INNERGRID", (0, 0), (-1, -1), 0.3, theme["gold_light"]),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        return t
+
+    # Helper: gold-banner callout used for "Total / Grand Total / Amount Due".
+    def _gold_callout(text: str) -> Table:
+        banner = Table([[Paragraph(
+            f"<font color='{theme['ink'].hexval().replace('0x','#')[:7]}' size='14'><b>{text}</b></font>",
+            ParagraphStyle("cb", alignment=1, leading=18)
+        )]], colWidths=[7.0 * inch])
+        banner.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), theme["gold"]),
+            ("BOX", (0, 0), (-1, -1), 1.2, theme["azure"]),
+            ("TOPPADDING", (0, 0), (-1, -1), 12),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ]))
+        return banner
+
+    # Pattern for "- **Label**: value" bullets (used to coalesce into a table)
+    LV_PATTERN = _re.compile(r"^[-*+]\s+\*\*([^*]+?)\*\*\s*[:：]\s*(.+)$")
+    TOTAL_PATTERN = _re.compile(r"^##\s+(.*\bTotal\b.*)$", _re.IGNORECASE)
+
     lines = md_text.splitlines()
     i = 0
     skipped_first_h1 = False
@@ -786,7 +847,6 @@ def build_branded_markdown_pdf(md_text: str, *, title: str = "Business Plan",
             p = _Pp(img_path)
             if p.exists():
                 try:
-                    # Cap width at 5.2 inches, preserve aspect via kind="proportional"
                     story.append(_Img(str(p), width=5.2 * inch,
                                        height=2.9 * inch, kind="proportional"))
                     story.append(Spacer(1, 4))
@@ -809,14 +869,48 @@ def build_branded_markdown_pdf(md_text: str, *, title: str = "Business Plan",
             i = j; continue
         if stripped.startswith("### "):
             story.append(Paragraph(_inline(stripped[4:]), md_styles["h3"])); i += 1; continue
+        # H2 → gold callout if it mentions Total, else branded ◆ section header
+        m_total = TOTAL_PATTERN.match(stripped)
+        if m_total:
+            # Strip markdown emphasis from callout text
+            callout = _re.sub(r"\*+", "", m_total.group(1)).strip()
+            story.append(Spacer(1, 4))
+            story.append(_gold_callout(callout))
+            story.append(Spacer(1, 6))
+            i += 1; continue
         if stripped.startswith("## "):
-            story.append(Paragraph(_inline(stripped[3:]), md_styles["h2"])); i += 1; continue
+            story.append(_section_header(theme, stripped[3:].strip()))
+            i += 1; continue
         if stripped.startswith("# "):
             if not skipped_first_h1:
                 skipped_first_h1 = True; i += 1; continue
             story.append(Paragraph(_inline(stripped[2:]), md_styles["h1"])); i += 1; continue
         if stripped.startswith("> "):
             story.append(Paragraph(_inline(stripped[2:]), md_styles["quo"])); i += 1; continue
+        # Coalesce consecutive "- **Label**: value" lines into a branded table.
+        m_lv = LV_PATTERN.match(stripped)
+        if m_lv:
+            pairs: List[tuple] = []
+            j = i
+            while j < len(lines):
+                s_j = lines[j].strip()
+                m_j = LV_PATTERN.match(s_j)
+                if not m_j:
+                    break
+                pairs.append((m_j.group(1).strip(), _inline(m_j.group(2).strip())))
+                j += 1
+            if len(pairs) >= 2:
+                tbl = _label_value_table(pairs)
+                if tbl is not None:
+                    story.append(tbl)
+                    story.append(Spacer(1, 6))
+                i = j; continue
+            # Single label/value pair → render as one-row table for consistency.
+            tbl = _label_value_table(pairs)
+            if tbl is not None:
+                story.append(tbl)
+                story.append(Spacer(1, 4))
+                i = j; continue
         m = _re.match(r"^[-*+]\s+(.+)$", stripped)
         if m:
             story.append(Paragraph(_inline(m.group(1)), md_styles["li"], bulletText="•"))

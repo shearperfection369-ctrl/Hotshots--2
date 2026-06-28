@@ -1,0 +1,34 @@
+{
+  "summary": "Iter 45 — Smart Combobox auto-fill + branded PDFs. Backend pytest 6/6 PASS (carriers/directory rich shape, includes XPO Logistics + Schneider National curated names, ?q=Sch filter works, customers/directory rich shape, legacy /carriers simple endpoint still works, quote PDF 427KB > 50KB threshold). Frontend E2E confirmed: (a) /brokerage Load Boards → Book dialog → CarrierCombobox (data-testid='book-carrier-name') renders → typing 'Sch' filters dropdown to 3 items (Schneider booking · Hirschbach · Schneider National curated) with metadata badges → clicking 'Schneider' sets carrier input. (b) /brokerage Accounting → + Invoice → CustomerCombobox (data-testid='invoice-customer') renders → typing 'a' shows 4 customers with payment terms + AP email. (c) /orisei-operations Rate Confirmations → rc-name combobox shows XPO. (d) /book-load page has carrier-select combobox (3 items for 'XP') + commodity-input with datalist. (e) Quotes form has 3 inputs with HTML datalist attached (origin/destination cities, equipment, commodities). PDFs are 427KB branded reportlab output.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Book Load → CarrierCombobox auto-fill of MC#", "issue": "MC# field stays empty when picking 'Schneider' because the backend directory currently has no MC stored for ANY carrier (all returned items have mc=null — both booking-derived rows and curated big-board names). Auto-fill code path is correct; this is purely a seed-data limitation. Once any booking carries carrier_mc, future picks of that carrier will populate the MC field.", "affected_selectors": ["book-carrier-mc"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter45_autocomplete_directory.py",
+    "/app/test_reports/pytest/iter45_results.xml"
+  ],
+  "action_items": [
+    "Optional seed enhancement: pre-populate carrier_mc on at least one curated/sample carrier (e.g., Schneider National → MC-378401) so the MC auto-fill flow is demoable out-of-the-box. Code is correct, only data is missing."
+  ],
+  "critical_code_review_comments": [
+    "backend/routes/autocomplete.py L177-187: booking carrier aggregation reads `row.get('contact_email')` / `row.get('contact_phone')` from the $group result, but the pipeline aliases those keys via $last as 'contact_email'/'contact_phone' — so this works, however the source field names in the underlying brokerage_bookings doc are `carrier_contact_email` / `carrier_contact_phone`. The {$last: '$carrier_contact_email'} aliasing to 'contact_email' is fine; just verify all writers (Book Load route, rate-con issuance) actually persist `carrier_contact_email` consistently or the contact will always be null.",
+    "backend/routes/autocomplete.py: `/carriers/directory` and `/customers/directory` routes are declared AFTER `/{kind}` in `build_autocomplete_router`. FastAPI route registration order matters when paths overlap; ‘/carriers/directory’ has two segments so `/{kind}` doesn’t collide today, but if someone adds `/{kind}/{sub}` later this will silently swallow the rich endpoint. Consider explicitly registering specific routes BEFORE the generic `/{kind}` for safety.",
+    "backend/routes/orisei_docs.py L831 TOTAL_PATTERN: only matches markdown lines starting with literal '## ' that contain the word 'Total'. Rate confirmations / invoices that use '### Grand Total' or '**Total Due: $...**' won't render as the gold callout. Consider relaxing the pattern (e.g., any heading line containing 'Total|Amount Due|Grand Total').",
+    "frontend CarrierCombobox.jsx: dropdown does not close on Escape key. Minor UX polish — should add a keydown handler to close the dropdown and clear focus."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter45_autocomplete_directory.py"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (all 5 wiring points verified)"},
+  "test_credentials": "Bearer test_session_admin_1 for backend curl. Frontend: localStorage.tms_session_token='test_session_admin_1' before nav.",
+  "seed_data_creation": "Created 3 TEST_BrandCust_* customers + 1 quote PDF (427KB) via pytest. PDF saved at /tmp/iter45_quote.pdf.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 45 = autocomplete directories + branded PDF upgrade. Reproducible flows: (1) curl /api/autocomplete/carriers/directory?q=Sch with admin bearer → 3 rich items. (2) /brokerage → Load Boards tab → click any Book button → Book Load dialog renders CarrierCombobox at data-testid='book-carrier-name'. Typing filters. data-testid='book-carrier-mc' is the adjacent MC input; will only auto-fill if the picked carrier has a non-null mc in the directory response. (3) /brokerage → Accounting → '+ Invoice' button (label is just 'Invoice') opens New Invoice dialog with CustomerCombobox at data-testid='invoice-customer'. (4) /book-load page has data-testid='carrier-select' (CarrierCombobox) and 'commodity-input' (Autocomplete with HTML datalist). (5) Quote form on /orisei-operations Quotes tab — origin/dest/equipment inputs all have HTML 'list' attribute pointing at datalists populated from /api/autocomplete/{kind}. PDF branded path: POST /api/orisei/customers → POST /api/orisei/quotes with line_haul_usd + fuel_surcharge_usd required → GET /api/orisei/quotes/{id}/pdf returns ~427KB application/pdf with logo, ◆ section headers, label/value tables, gold Total banner.",
+  "rca of the issue": "MC auto-fill no-op observed in CarrierCombobox: NOT a bug. Backend /api/autocomplete/carriers/directory currently returns mc=null for every carrier (both booking aggregation — because no prior booking stored carrier_mc — and curated entries which intentionally have mc=null). The CarrierCombobox onSelect handler in Brokerage.jsx correctly reads the picked record's mc and writes it into book-carrier-mc, but with mc=null nothing is filled. To validate the auto-fill code path, manually POST a brokerage_bookings doc with carrier_mc='MC-378401' and pick that carrier in the dialog → MC will populate. Recommend the main agent seed at least one carrier_mc value."
+}

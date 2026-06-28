@@ -11,6 +11,8 @@ import {
   DollarSign, ExternalLink, Building2, ClipboardCheck,
 } from "lucide-react";
 import { authedDownload } from "@/lib/authedDownload";
+import { CarrierCombobox } from "@/components/CarrierCombobox";
+import { Autocomplete } from "@/components/Autocomplete";
 
 const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -256,11 +258,11 @@ function QuotesTab() {
               {customers.map((c) => <option key={c.customer_id} value={c.customer_id}>{c.name}</option>)}
             </select>
           </div>
-          <F label="Origin *" value={form.origin} onChange={(v) => setForm({...form, origin: v})} testId="quote-origin" />
-          <F label="Destination *" value={form.destination} onChange={(v) => setForm({...form, destination: v})} testId="quote-dest" />
+          <F label="Origin *" value={form.origin} onChange={(v) => setForm({...form, origin: v})} testId="quote-origin" kind="cities" />
+          <F label="Destination *" value={form.destination} onChange={(v) => setForm({...form, destination: v})} testId="quote-dest" kind="cities" />
           <F label="Pickup date" type="date" value={form.pickup_date} onChange={(v) => setForm({...form, pickup_date: v})} testId="quote-pickup" />
           <F label="Delivery date" type="date" value={form.delivery_date} onChange={(v) => setForm({...form, delivery_date: v})} testId="quote-delivery" />
-          <F label="Equipment" value={form.equipment} onChange={(v) => setForm({...form, equipment: v})} testId="quote-equip" />
+          <F label="Equipment" value={form.equipment} onChange={(v) => setForm({...form, equipment: v})} testId="quote-equip" kind="equipment" />
           <F label="Miles" type="number" value={form.miles} onChange={(v) => setForm({...form, miles: v})} testId="quote-miles" />
           <F label="Weight (lbs)" type="number" value={form.weight_lbs} onChange={(v) => setForm({...form, weight_lbs: v})} testId="quote-weight" />
           <F label="Line haul $ *" type="number" value={form.line_haul_usd} onChange={(v) => setForm({...form, line_haul_usd: v})} testId="quote-linehaul" />
@@ -358,8 +360,23 @@ function RateConsTab() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <F label="Booking ID *" value={form.booking_id} onChange={(v) => setForm({...form, booking_id: v})} testId="rc-booking" />
+          <div>
+            <Label className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-400 mb-1.5 block">Carrier name * <span className="text-cyan-300 normal-case tracking-normal">· auto-fills MC #</span></Label>
+            <CarrierCombobox
+              value={form.carrier_name}
+              onChange={(v) => setForm({ ...form, carrier_name: v })}
+              onSelect={(rec) => setForm((f) => ({
+                ...f,
+                carrier_name: rec.name,
+                carrier_mc: rec.mc || f.carrier_mc,
+                carrier_contact_email: rec.contact_email || f.carrier_contact_email,
+                carrier_contact_phone: rec.contact_phone || f.carrier_contact_phone,
+              }))}
+              testid="rc-name"
+              className="bg-[#0B1320] border-white/10 text-white"
+            />
+          </div>
           <F label="Carrier MC *" value={form.carrier_mc} onChange={(v) => setForm({...form, carrier_mc: v})} testId="rc-mc" />
-          <F label="Carrier name *" value={form.carrier_name} onChange={(v) => setForm({...form, carrier_name: v})} testId="rc-name" />
           <F label="Carrier email" type="email" value={form.carrier_contact_email} onChange={(v) => setForm({...form, carrier_contact_email: v})} testId="rc-email" />
           <F label="Carrier phone" value={form.carrier_contact_phone} onChange={(v) => setForm({...form, carrier_contact_phone: v})} testId="rc-phone" />
           <F label="All-in rate $ *" type="number" value={form.rate_usd} onChange={(v) => setForm({...form, rate_usd: v})} testId="rc-rate" />
@@ -410,12 +427,25 @@ function RateConsTab() {
   );
 }
 
-function F({ label, value, onChange, type = "text", testId }) {
+function F({ label, value, onChange, type = "text", testId, kind }) {
+  // When `kind` is provided, render a typeahead-enabled <Autocomplete>
+  // (cities / equipment / commodities / carriers / etc.). Otherwise a
+  // plain <Input> — same as before so this stays a drop-in upgrade.
   return (
     <div>
       <Label className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-400 mb-1.5 block">{label}</Label>
-      <Input type={type} value={value} onChange={(e) => onChange(e.target.value)}
-        data-testid={testId} className="bg-[#0B1320] border-white/10 text-white" />
+      {kind ? (
+        <Autocomplete
+          kind={kind}
+          value={value}
+          onChange={onChange}
+          testid={testId}
+          className="bg-[#0B1320] border-white/10 text-white"
+        />
+      ) : (
+        <Input type={type} value={value} onChange={(e) => onChange(e.target.value)}
+          data-testid={testId} className="bg-[#0B1320] border-white/10 text-white" />
+      )}
     </div>
   );
 }

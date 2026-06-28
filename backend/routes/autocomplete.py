@@ -2,14 +2,18 @@
 Universal Autocomplete API
 ==========================
 
-Powers the global <Autocomplete> input across every form in the TMS.
-Returns short, alpha-sorted suggestion lists for the supplied field type,
-merging live values from the DB with a curated "common terms" baseline so
-the operator always sees sensible options on day one.
+Powers the global <Autocomplete> + <EntityCombobox> across every form in the
+TMS. Returns short, alpha-sorted suggestion lists for the supplied field
+type, merging live values from the DB with a curated "common terms"
+baseline so the operator always sees sensible options on day one.
 
-Endpoint
---------
-* GET /api/autocomplete/{kind}?q=<prefix>&limit=20
+Endpoints
+---------
+* GET /api/autocomplete/{kind}?q=<prefix>&limit=20            — simple list
+* GET /api/autocomplete/{kind}/rich?q=<prefix>&limit=20       — rich objects
+* GET /api/autocomplete/carriers/directory?q=<prefix>         — DB carriers
+                                                                with MC #s &
+                                                                contact info
 
 `kind` is one of:
   - carriers        : carrier_name values from brokerage_bookings
@@ -133,5 +137,132 @@ def build_autocomplete_router(*, db, get_current_user, require_role):
         return {"kind": kind, "query": q,
                 "suggestions": merged[:limit],
                 "total_available": len(merged)}
+
+    # ---------- Rich carrier directory (with MC #, contact, DOT) ----------
+    @router.get("/carriers/directory")
+    async def carriers_directory(q: str = Query(default=""),
+                                  limit: int = Query(default=40, ge=1, le=200),
+                                  _=Depends(get_current_user)) -> Dict[str, Any]:
+        """Returns known carriers with MC # + contact info merged from
+        previous bookings, rate confirmations, and the static curated list.
+
+        Each item shape::
+            {
+              "name": "XPO Logistics",
+              "mc": "MC-228329" | None,
+              "dot": "1156621" | None,
+              "contact_email": "dispatch@xpo.com" | None,
+              "contact_phone": "+1 ..." | None,
+              "last_used_at": "2026-02-09T15:32:00Z" | None,
+              "use_count": 12,
+              "source": "booking" | "rate-con" | "curated",
+            }
+        Used by `<CarrierCombobox>` to auto-populate MC# when a carrier is
+        chosen.
+        """
+        # Aggregate carriers seen on prior bookings.
+        pipeline = [
+            {"$match": {"carrier_name": {"$exists": True, "$ne": ""}}},
+            {"$group": {
+                "_id": "$carrier_name",
+                "mc": {"$last": "$carrier_mc"},
+                "dot": {"$last": "$carrier_dot"},
+                "contact_email": {"$last": "$carrier_contact_email"},
+                "contact_phone": {"$last": "$carrier_contact_phone"},
+                "last_used_at": {"$max": "$booked_at"},
+                "use_count": {"$sum": 1},
+            }},
+        ]
+        booking_carriers: List[Dict[str, Any]] = []
+        async for row in db.brokerage_bookings.aggregate(pipeline):
+            booking_carriers.append({
+                "name": row["_id"],
+                "mc": row.get("mc"),
+                "dot": row.get("dot"),
+                "contact_email": row.get("contact_email"),
+                "contact_phone": row.get("contact_phone"),
+                "last_used_at": row.get("last_used_at"),
+                "use_count": int(row.get("use_count") or 0),
+                "source": "booking",
+            })
+        # Backfill from any rate confirmations (richer MC + contact data).
+        rc_pipeline = [
+            {"$match": {"carrier_name": {"$exists": True, "$ne": ""}}},
+            {"$group": {
+                "_id": "$carrier_name",
+                "mc": {"$last": "$carrier_mc"},
+                "contact_email": {"$last": "$carrier_contact_email"},
+                "contact_phone": {"$last": "$carrier_contact_phone"},
+                "last_used_at": {"$max": "$issued_at"},
+                "use_count": {"$sum": 1},
+            }},
+        ]
+        by_name: Dict[str, Dict[str, Any]] = {c["name"].strip().lower(): c
+                                               for c in booking_carriers}
+        async for row in db.orisei_rate_confirmations.aggregate(rc_pipeline):
+            key = (row["_id"] or "").strip().lower()
+            if not key:
+                continue
+            existing = by_name.get(key) or {"name": row["_id"], "source": "rate-con",
+                                             "use_count": 0}
+            existing.setdefault("name", row["_id"])
+            # Prefer non-empty MC / contact from RC if booking missed them
+            for f in ("mc", "contact_email", "contact_phone"):
+                if not existing.get(f) and row.get(f):
+                    existing[f] = row.get(f)
+            existing["use_count"] = (existing.get("use_count") or 0) + int(row.get("use_count") or 0)
+            if not existing.get("last_used_at") or (row.get("last_used_at") and row.get("last_used_at") > existing.get("last_used_at", "")):
+                existing["last_used_at"] = row.get("last_used_at")
+            by_name[key] = existing
+        # Fill in curated big-board carriers (no MC# yet — operator can enter
+        # it on first booking and we'll learn it).
+        for name in CURATED.get("carriers", []):
+            key = name.strip().lower()
+            by_name.setdefault(key, {
+                "name": name, "mc": None, "dot": None,
+                "contact_email": None, "contact_phone": None,
+                "last_used_at": None, "use_count": 0, "source": "curated",
+            })
+        items = list(by_name.values())
+        qn = (q or "").strip().lower()
+        if qn:
+            items = [c for c in items
+                     if qn in (c.get("name") or "").lower()
+                     or qn in (c.get("mc") or "").lower()]
+        # Sort: bookings first by use_count desc, then alpha.
+        items.sort(key=lambda c: (-(c.get("use_count") or 0),
+                                   (c.get("name") or "").lower()))
+        return {"items": items[:limit], "total": len(items),
+                "query": q}
+
+    # ---------- Rich customers directory ----------
+    @router.get("/customers/directory")
+    async def customers_directory(q: str = Query(default=""),
+                                    limit: int = Query(default=40, ge=1, le=200),
+                                    _=Depends(get_current_user)) -> Dict[str, Any]:
+        """Customer directory with email + payment terms + credit limit so
+        forms can auto-fill billing/AP info when a customer is picked."""
+        cursor = db.orisei_customers.find({}, {"_id": 0}).sort("name", 1)
+        items: List[Dict[str, Any]] = []
+        async for row in cursor:
+            items.append({
+                "customer_id": row.get("customer_id"),
+                "name": row.get("name"),
+                "primary_contact_name": row.get("primary_contact_name"),
+                "primary_contact_email": row.get("primary_contact_email"),
+                "primary_contact_phone": row.get("primary_contact_phone"),
+                "ap_email": row.get("ap_email"),
+                "payment_terms": row.get("payment_terms"),
+                "credit_limit_usd": row.get("credit_limit_usd"),
+                "billing_address": row.get("billing_address"),
+                "active": row.get("active", True),
+            })
+        qn = (q or "").strip().lower()
+        if qn:
+            items = [c for c in items
+                     if qn in (c.get("name") or "").lower()
+                     or qn in (c.get("primary_contact_email") or "").lower()
+                     or qn in (c.get("ap_email") or "").lower()]
+        return {"items": items[:limit], "total": len(items), "query": q}
 
     return router

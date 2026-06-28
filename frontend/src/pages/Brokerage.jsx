@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
+import { CarrierCombobox } from "../components/CarrierCombobox";
+import { CustomerCombobox } from "../components/CustomerCombobox";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -272,6 +274,7 @@ function BoardsTab({ refresh }) {
   const [book, setBook] = useState(null);
   const [carrier, setCarrier] = useState("");
   const [carrierMc, setCarrierMc] = useState("");
+  const [carrierContact, setCarrierContact] = useState("");
   const [detail, setDetail] = useState(null);
 
   useEffect(() => { api.get("/brokerage/boards").then(({ data }) => setBoards(data.boards)).catch(() => {}); }, []);
@@ -286,10 +289,12 @@ function BoardsTab({ refresh }) {
     if (!book || !carrier.trim()) { toast.error("Carrier name required"); return; }
     try {
       await api.post("/brokerage/loads/book", {
-        load_id: book.load_id, board_id: book.board_id, carrier_name: carrier, carrier_mc: carrierMc,
+        load_id: book.load_id, board_id: book.board_id,
+        carrier_name: carrier, carrier_mc: carrierMc,
+        carrier_contact_email: carrierContact || undefined,
       });
       toast.success(`Booked ${book.load_id}`);
-      setBook(null); setCarrier(""); setCarrierMc(""); refresh();
+      setBook(null); setCarrier(""); setCarrierMc(""); setCarrierContact(""); refresh();
     } catch (e) { toast.error("Booking failed"); }
   };
 
@@ -370,8 +375,21 @@ function BoardsTab({ refresh }) {
             <DialogDescription className="text-xs">{book?.load_id} · {book?.origin} → {book?.destination}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div><Label className="text-[10px] font-mono uppercase">Carrier Name *</Label><Input value={carrier} onChange={(e) => setCarrier(e.target.value)} data-testid="book-carrier-name" /></div>
+            <div>
+              <Label className="text-[10px] font-mono uppercase">Carrier Name * <span className="text-cyan-300 normal-case">· pick from {`{`}known directory{`}`} to auto-fill MC #</span></Label>
+              <CarrierCombobox
+                value={carrier}
+                onChange={(v) => setCarrier(v)}
+                onSelect={(rec) => {
+                  if (rec.mc) setCarrierMc(rec.mc);
+                  if (rec.contact_email) setCarrierContact(rec.contact_email);
+                }}
+                testid="book-carrier-name"
+                placeholder="Start typing — XPO, Schneider, J.B. Hunt…"
+              />
+            </div>
             <div><Label className="text-[10px] font-mono uppercase">MC Number</Label><Input value={carrierMc} onChange={(e) => setCarrierMc(e.target.value)} data-testid="book-carrier-mc" placeholder="MC-123456" /></div>
+            <div><Label className="text-[10px] font-mono uppercase">Dispatch Contact Email</Label><Input value={carrierContact} onChange={(e) => setCarrierContact(e.target.value)} data-testid="book-carrier-contact" placeholder="dispatch@carrier.com" /></div>
             <div className="text-[10px] text-slate-500">Forecast margin <span className="text-emerald-300">${fmt(book?.forecast_margin_usd || 0)}</span> ({book?.margin_pct}%) will be added to the scorecard.</div>
           </div>
           <DialogFooter>
@@ -513,7 +531,21 @@ function InvoiceDialog({ open, onClose, onSaved }) {
       <DialogContent className="bg-[#0B0E14] border-cyan-500/40">
         <DialogHeader><DialogTitle>New Invoice</DialogTitle></DialogHeader>
         <div className="space-y-2">
-          {[["customer", "Customer *"], ["customer_email", "Email"], ["load_ref", "Load Ref"], ["amount_usd", "Amount (USD) *"], ["due_date", "Due Date (YYYY-MM-DD) *"]].map(([k, l]) => (
+          <div>
+            <Label className="text-[10px] font-mono uppercase">Customer * <span className="text-cyan-300 normal-case">· pick to auto-fill email</span></Label>
+            <CustomerCombobox
+              value={form.customer}
+              onChange={(v) => setForm((f) => ({ ...f, customer: v }))}
+              onSelect={(c) => setForm((f) => ({
+                ...f,
+                customer: c.name,
+                customer_email: c.primary_contact_email || c.ap_email || f.customer_email,
+              }))}
+              testid="invoice-customer"
+              placeholder="Start typing customer…"
+            />
+          </div>
+          {[["customer_email", "Email"], ["load_ref", "Load Ref"], ["amount_usd", "Amount (USD) *"], ["due_date", "Due Date (YYYY-MM-DD) *"]].map(([k, l]) => (
             <div key={k}><Label className="text-[10px] font-mono uppercase">{l}</Label><Input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} data-testid={`invoice-${k}`} /></div>
           ))}
         </div>
