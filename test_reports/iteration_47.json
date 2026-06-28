@@ -1,0 +1,62 @@
+{
+  "summary": "Iteration 47 — International (Ocean + Intermodal Rail) module validated end-to-end. Backend: 16/16 pytest pass covering reference data (20 ocean / 12 rail / 46 yards / 12 container types / 8 statuses), Maersk/MSC SCAC values, yard filtering by railroad (BNSF) and city (Memphis spans multiple Class-I networks), POST creates booking with INTL-* id + BOOKED status + status_history[1], GET/list filter by carrier, ingate auto-advances GATE_IN_ORIGIN, outgate auto-advances OUTGATED, waybill attaches with WB-* id, status advance ON_VESSEL valid + invalid rejected 400, House BL + SLI PDFs return 200 application/pdf >100KB (428KB observed), invalid carrier_scac returns 404. Frontend: /international page renders with header 'Containerized Cargo Command Center', all 4 tabs (bookings/ocean/yards/gates) present and clickable, ocean-table renders with ocean-row-MAEU, yards-table renders 46 rows then filters to 12 when BNSF selected, New Container Booking dialog opens, all required fields fillable, submit creates booking — list went 5→6, new booking shows BOOKED badge, House BL PDF download via auth fetch returns 200 application/pdf 428KB, booking-bl button clickable. Success toast 'Container booking created with MAEU' observed.",
+  "p0_results": {
+    "backend": {
+      "GET_reference_full_payload": "PASS",
+      "GET_ocean_carriers_MAEU_MSCU": "PASS",
+      "GET_rail_yards_filter_BNSF": "PASS",
+      "GET_rail_yards_filter_city_Memphis_multi_railroad": "PASS",
+      "GET_container_types": "PASS",
+      "POST_container_bookings_creates_INTL_id_BOOKED": "PASS",
+      "GET_booking_detail_persisted": "PASS",
+      "GET_list_bookings_filter_carrier": "PASS",
+      "POST_gate_ingate_auto_advances_GATE_IN_ORIGIN": "PASS",
+      "POST_gate_outgate_auto_advances_OUTGATED": "PASS",
+      "POST_waybill_attaches_WB_id": "PASS",
+      "POST_status_advance_ON_VESSEL_valid": "PASS",
+      "POST_status_advance_invalid_rejects_400/422": "PASS",
+      "GET_house_bl_pdf_200_appPdf_428KB": "PASS",
+      "GET_sli_pdf_200_appPdf_428KB": "PASS",
+      "POST_booking_invalid_SCAC_returns_404": "PASS"
+    },
+    "frontend": {
+      "page_load_international_page_testid": "PASS",
+      "header_Containerized_Cargo_Command_Center": "PASS",
+      "tabs_bookings_ocean_yards_gates_present": "PASS",
+      "ocean_table_with_MAEU_row": "PASS",
+      "yards_table_filter_BNSF_46_to_12": "PASS",
+      "new_booking_dialog_opens_all_fields_present": "PASS",
+      "new_booking_submit_creates_with_BOOKED_status": "PASS",
+      "House_BL_PDF_download_HTTP_200_application_pdf": "PASS (428KB)",
+      "booking_bl_button_clickable": "PASS"
+    }
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "International page initial load", "issue": "Page mounts before localStorage token is set, causing two GETs (/api/international/reference and /api/international/container-bookings) to fire with no auth header and return 401 — silently retried on token presence so user sees no error. Cosmetic only (console 401s in dev). Could be avoided by gating render on token presence or showing skeleton.", "affected_selectors": []}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter47_international.py",
+    "/app/test_reports/pytest/iter47_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "international.py StatusAdvanceIn uses key 'new_status' while GateEventIn uses 'terminal_code' — both well-named but ensure frontend always sends these exact keys (verified: International.jsx sends new_status & terminal_code correctly).",
+    "Booking number uniqueness is not enforced — duplicate booking_number values can be created (observed two 'TEST_BK_47_001' rows in list). Consider unique index on (carrier_scac, booking_number) if business rules require it.",
+    "No DELETE endpoint for container bookings — test data accumulates over time (current preview already has 6+ TEST_* rows). Recommend either adding DELETE or a cleanup endpoint, OR prefix-based wipe in 'Wipe Sample' UI.",
+    "international.py is 620 lines — still within the 700-line guideline but borderline. Reference data (lines 46-200) could be moved to a JSON/seed module to keep route logic lean.",
+    "PDF endpoints (house-bl.pdf, sli.pdf) accept Bearer token via Authorization header only — direct <a href> downloads from the browser would 401. Frontend correctly uses authedDownload() helper (lib/authedDownload.js)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter47_international.py (new)"],
+  "success_rate": {"backend": "100% (16/16 pytest)", "frontend": "100% on all P0 checklist items"},
+  "test_credentials": "test_session_admin_1 (Bearer) — confirmed working for all /api/international/* endpoints and frontend localStorage tms_session_token",
+  "seed_data_creation": "Tests created INTL bookings prefixed TEST_BK_47_* and one TEST_UI_47_* via the UI. No delete endpoint exists for international bookings, so test data remains in DB (each run adds new rows). 'Wipe Sample' UI may or may not target this collection.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "International module is fully functional. The 401 console errors on /international initial load are a cosmetic timing issue (page mounts before token is applied) — backend + UI behaviour is correct on retry. If main agent adds a DELETE endpoint or unique-index on booking_number, update test_iter47_international.py accordingly. The frontend uses lib/authedDownload.js for PDFs — bypasses href 401 issue.",
+  "rca of the issue": "n/a — no bugs found. Initial test draft used wrong key names ('terminal' vs 'terminal_code' and 'status' vs 'new_status') which I corrected against the Pydantic schema in international.py; frontend already uses correct keys."
+}

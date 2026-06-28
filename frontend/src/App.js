@@ -30,6 +30,7 @@ import TmsInviteLinks from "@/pages/TmsInviteLinks";
 import MarginShield from "@/pages/MarginShield";
 import BrokerageOpsKpis from "@/pages/BrokerageOpsKpis";
 import OriseiOperations from "@/pages/OriseiOperations";
+import International from "@/pages/International";
 import CustomerPortal from "@/pages/CustomerPortal";
 import CompetitiveTms from "@/pages/CompetitiveTms";
 import EnterpriseTms from "@/pages/EnterpriseTms";
@@ -153,6 +154,7 @@ function AppRouter() {
         <Route path="/invoices" element={<Invoices />} />
         <Route path="/brokerage-ops-kpis" element={<BrokerageOpsKpis />} />
         <Route path="/orisei-operations" element={<OriseiOperations />} />
+        <Route path="/international" element={<International />} />
         <Route path="/competitive-tms" element={<CompetitiveTms />} />
         <Route path="/enterprise-tms" element={<EnterpriseTms />} />
         <Route path="/research-analytics" element={<ResearchAnalytics />} />

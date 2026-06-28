@@ -8617,6 +8617,14 @@ api_router.include_router(build_autocomplete_router(
     require_role=require_role,
 ))
 
+# Mount International (ocean + intermodal rail) module
+from routes.international import build_international_router  # noqa: E402
+build_international_router(
+    api_router=api_router, db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+)
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 
