@@ -34,7 +34,7 @@ const STORAGE_KEY = "tms-dashboard-video";
 const PLAYLIST_KEY = "tms-dashboard-playlist.v2";
 
 const DEFAULT_PLAYLIST = [
-  { id: "mTxE3g7o4aY", title: "Tennant · Is Everywhere Trailer" },
+  { id: "mTxE3g7o4aY", title: "Brand Demo Reel" },
   { id: "5qap5aO4i9A", title: "Lofi Hip Hop · Study Stream" },
   { id: "jfKfPfyJRdk", title: "Lofi Hip Hop · Beats to Relax" },
   { id: "DWcJFNfaw9c", title: "Daily Stoic Reading" },

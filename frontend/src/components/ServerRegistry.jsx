@@ -275,7 +275,7 @@ export default function ServerRegistry() {
               </Select>
             </Field>
             <Field label="Hostname *" testid="server-form-host">
-              <Input value={form.hostname} onChange={(e) => setForm({ ...form, hostname: e.target.value })} placeholder="edi.tennantco.internal" data-testid="server-form-host-input" />
+              <Input value={form.hostname} onChange={(e) => setForm({ ...form, hostname: e.target.value })} placeholder="edi.oriseifreight.internal" data-testid="server-form-host-input" />
             </Field>
             <Field label="Port" testid="server-form-port">
               <Input type="number" value={form.port} onChange={(e) => setForm({ ...form, port: e.target.value })} placeholder="443" data-testid="server-form-port-input" />
@@ -304,11 +304,11 @@ export default function ServerRegistry() {
               <Input value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} placeholder="us-east-1" />
             </Field>
             <Field label="Owner Email">
-              <Input value={form.owner_email} onChange={(e) => setForm({ ...form, owner_email: e.target.value })} placeholder="ops@tennantco.com" />
+              <Input value={form.owner_email} onChange={(e) => setForm({ ...form, owner_email: e.target.value })} placeholder="ops@oriseifreight.com" />
             </Field>
             <div className="col-span-2">
               <Field label="Health URL (optional · used for /ping)">
-                <Input value={form.health_url} onChange={(e) => setForm({ ...form, health_url: e.target.value })} placeholder="https://edi.tennantco.internal/healthz" data-testid="server-form-healthurl-input" />
+                <Input value={form.health_url} onChange={(e) => setForm({ ...form, health_url: e.target.value })} placeholder="https://edi.oriseifreight.internal/healthz" data-testid="server-form-healthurl-input" />
               </Field>
             </div>
             <div className="col-span-2">

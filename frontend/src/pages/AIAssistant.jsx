@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useAuth } from "../lib/auth";
 
 const SUGGESTED = [
-  "What HS code should I use for a Tennant T16 AMR scrubber?",
+  "What HS code should I use for a industrial floor scrubber?",
   "Compare XPO vs SAIA for a 12,000-lb LTL shipment Holland → Atlanta.",
   "Which Incoterms should I use for an export to Rotterdam via ocean K+N?",
   "Auto-disputable accessorials I should flag in our freight audit rules?",

@@ -20,6 +20,7 @@ import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
 import { CarrierCombobox } from "../components/CarrierCombobox";
 import { CustomerCombobox } from "../components/CustomerCombobox";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -267,6 +268,7 @@ function QbControls({ qb, onChange }) {
 //                     BOARDS TAB
 // ============================================================
 function BoardsTab({ refresh }) {
+  const navigate = useNavigate();
   const [boards, setBoards] = useState([]);
   const [active, setActive] = useState("dat");
   const [loads, setLoads] = useState([]);
@@ -288,13 +290,21 @@ function BoardsTab({ refresh }) {
   const doBook = async () => {
     if (!book || !carrier.trim()) { toast.error("Carrier name required"); return; }
     try {
-      await api.post("/brokerage/loads/book", {
+      const { data: booked } = await api.post("/brokerage/loads/book", {
         load_id: book.load_id, board_id: book.board_id,
         carrier_name: carrier, carrier_mc: carrierMc,
         carrier_contact_email: carrierContact || undefined,
       });
-      toast.success(`Booked ${book.load_id}`);
-      setBook(null); setCarrier(""); setCarrierMc(""); setCarrierContact(""); refresh();
+      const boardName = (boards.find((b) => b.id === book.board_id) || {}).name
+                          || book.board_id?.toUpperCase()
+                          || "BOARD";
+      toast.success(`Booked ${book.load_id}`, {
+        description: `Sourced from ${boardName} · routing to Workflow…`,
+      });
+      setBook(null); setCarrier(""); setCarrierMc(""); setCarrierContact("");
+      refresh();
+      // Auto-route to the workflow tab focused on the just-booked load.
+      navigate(`/workflow?booked_id=${encodeURIComponent(booked.booked_id)}`);
     } catch (e) { toast.error("Booking failed"); }
   };
 

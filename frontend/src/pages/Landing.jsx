@@ -156,7 +156,7 @@ export default function Landing() {
                 ["Tenure", "13 years in supply chain & logistics"],
                 ["Modes mastered", "TL · LTL · Parcel · Ocean · Air · Rail · Intermodal"],
                 ["Specialization", "International logistics · customs · FTAs"],
-                ["Current role", "Transportation Analyst · Tennant Companies"],
+                ["Current role", "Transportation Analyst · Orisei Freight Solutions"],
                 ["HQ", "Minneapolis · Saint Paul · Minnesota"],
               ].map(([k, v]) => (
                 <div key={k} className="grid grid-cols-3 gap-3 border-b border-white/5 pb-2 last:border-b-0">

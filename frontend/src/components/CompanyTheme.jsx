@@ -92,7 +92,7 @@ export default function CompanyTheme() {
     try {
       await api.delete(`/branding/${brand_id}`);
       await loadAll();
-      if (brand?.brand_id === brand_id) await activate("tennant");
+      if (brand?.brand_id === brand_id) await activate("orisei-freight");
       toast.success("Brand removed");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Delete failed");
@@ -117,7 +117,7 @@ export default function CompanyTheme() {
           {brand?.logo_letter || "T"}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold text-white truncate">{brand?.company_name || "Tennant Companies"}</div>
+          <div className="text-sm font-bold text-white truncate">{brand?.company_name || "Orisei Freight Solutions"}</div>
           <div className="text-[10px] font-mono text-slate-400 truncate">{brand?.tagline || ""}</div>
         </div>
         <Badge className="text-[9px] font-mono uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Active</Badge>
@@ -227,10 +227,10 @@ export default function CompanyTheme() {
       {/* Built-in default + generated list */}
       <div className="mt-5 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500">Available Brands</div>
       <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2" data-testid="brands-list">
-        {/* Tennant default - always shown */}
+        {/* Orisei default - always shown */}
         <BrandRow
-          b={{ brand_id: "tennant", company_name: "Tennant Companies", short_name: "Tennant", primary_color: "#00A4E4", logo_letter: "T", tagline: "Mission-control TMS · Built for the team's day (built-in default)", is_default: true }}
-          active={brand?.brand_id === "tennant" || !brand?.brand_id}
+          b={{ brand_id: "orisei-freight", company_name: "Orisei Freight Solutions", short_name: "Orisei", primary_color: "#00A4E4", logo_letter: "T", tagline: "Mission-control TMS · Built for the team's day (built-in default)", is_default: true }}
+          active={brand?.brand_id === "orisei-freight" || !brand?.brand_id}
           activating={activating}
           onActivate={activate}
           onRemove={null}

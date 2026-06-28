@@ -49,7 +49,7 @@ const EDIT_FIELDS = [
 
 const EMPTY_FORM = {
   type: "BOL", shipment_ref: "",
-  shipper: "Tennant Company", consignee: "", origin: "", destination: "",
+  shipper: "Orisei Freight Solutions", consignee: "", origin: "", destination: "",
   carrier: "", commodity: "", weight: "", pieces: "", value: "",
   bol_no: "", pro_no: "", country_origin: "USA",
 };

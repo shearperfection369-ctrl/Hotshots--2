@@ -19,7 +19,7 @@ export default function HSLookup() {
 
   return (
     <>
-      <Topbar title="HS Code Lookup" subtitle="Harmonized Tariff Schedule · Tennant-relevant classifications" />
+      <Topbar title="HS Code Lookup" subtitle="Harmonized Tariff Schedule · Industry-relevant classifications" />
       <div className="p-4 md:p-6 space-y-4">
         <Card className="hud-surface p-5">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-3">Search HTS</div>

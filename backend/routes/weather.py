@@ -53,7 +53,7 @@ async def _fetch_live_nws_alerts(locations: List[Dict[str, Any]]) -> List[Dict[s
     out: List[Dict[str, Any]] = []
     seen_ids: set[str] = set()
     headers = {
-        "User-Agent": "Tennant-TMS/2.4 (ops@tennantco.com)",
+        "User-Agent": "Orisei-TMS/2.4 (ops@oriseifreight.com)",
         "Accept": "application/geo+json",
     }
     sev_map = {"Extreme": "high", "Severe": "high", "Moderate": "moderate", "Minor": "low", "Unknown": "low"}
@@ -120,7 +120,7 @@ async def _fetch_live_nws_alerts(locations: List[Dict[str, Any]]) -> List[Dict[s
 
 async def _seed_alert_locations_from_brand(brand: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Geocode the active brand's facility cities so the user starts with
-    sensible defaults. **No brand is special-cased** — Tennant facilities are
+    sensible defaults. **No brand is special-cased** — named facilities are
     treated like any other brand's facilities (looked up via the same
     Open-Meteo geocoder). If the geocoder is unreachable we fall through to
     a tiny baked-in seed so the UI is never empty.

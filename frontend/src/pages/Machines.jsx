@@ -69,7 +69,7 @@ export default function Machines() {
 
   return (
     <>
-      <Topbar title={catalogLabel} subtitle={`${machines.length} models · ${brand?.short_name || "Tennant"} ${brand?.industry || "Industrial"}`} />
+      <Topbar title={catalogLabel} subtitle={`${machines.length} models · ${brand?.short_name || "Orisei"} ${brand?.industry || "Industrial"}`} />
       <div className="p-4 md:p-6 space-y-4">
         <Card className="hud-surface p-3 flex flex-wrap items-center gap-2">
           <button onClick={() => setCategory("ALL")} data-testid="cat-ALL"
@@ -176,7 +176,7 @@ function MachineDetail({ m, onClose, canEdit, onDelete }) {
         <div className="p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-cyan-400">Tennant Companies · Model</div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-cyan-400">Orisei Freight Solutions · Model</div>
               <h2 className="font-display text-4xl font-bold text-white mt-1">{m.model}</h2>
               <p className="text-slate-400 text-base mt-2 max-w-2xl">{m.use_case}</p>
             </div>

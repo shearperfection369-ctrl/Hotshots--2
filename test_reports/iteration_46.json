@@ -1,0 +1,28 @@
+{
+  "summary": "Iter 46 — NMFC expansion, Tennant removal, branded non-BOL PDFs, post-book → /workflow routing. Backend pytest 8/8 PASS. /api/nmfc/codes returns 82 codes across 17 categories (Food & Beverage, Apparel, Electronics, Pharmaceuticals, Furniture, Building, Machinery, Metals, Hazmat 3/8/9, Automotive, Paper, FAK, etc.) — confirmed nmfc='73130' (Foodstuffs canned) and nmfc='FAK-85' present, NO Tennant-branded entries. All 4 non-BOL doc types (PACKING_SLIP / COMMERCIAL_INVOICE / WEIGHT_CERT / COO) now render via build_branded_markdown_pdf — every PDF is ~427KB, contains '◆' diamond section headers and 'Orisei' brand, contains NO 'tennant' text (verified via pypdf text extraction). BOL still renders branded (~428KB, no regression). /api/brokerage/loads/book returns booked_id starting BK-. Frontend E2E PASS: /login has zero 'Tennant Compan' / 'Authorized Tennant' strings. /book-load NMFC <select> has 82 options spanning Foodstuffs/Beverages/Electronics/Hazmat/etc. (not Tennant scrubber/battery), default commodity is 'General freight'. /brokerage Load Boards tab → Book → Book Load dialog → Confirm Booking → URL changes to /workflow?booked_id=BK-9D7E5C8D38, WorkflowChecklist page loads with sidebar visible and just-booked row pre-selected (highlighted with cyan ring at top of Active Bookings list). Toast shows 'Booked DAT-791676 · routing to Workflow→'.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter46_branded_docs_nmfc.py",
+    "/app/test_reports/pytest/iter46_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend/server.py /api/documents/{document_id}/pdf — non-BOL doc types now all route through build_branded_markdown_pdf via _doc_to_branded_markdown(doc, brand). Confirmed via downloaded PDFs (~427KB, contain ◆ section headers and 'Orisei' branding). Heraldic engine output is reused for PACKING_SLIP, COMMERCIAL_INVOICE, WEIGHT_CERT, COO — recurring complaint resolved.",
+    "backend/server.py GENERIC_NMFC_CODES (82 entries, 17 categories) successfully replaces TENNANT_NMFC_CODES. The hardcoded list lives inline; consider moving to a JSON seed file under /app/backend/data/ so non-engineers can extend it without touching server.py.",
+    "frontend/src/pages/WorkflowChecklist.jsx — booked_id deep-link selection works, but sidebar rows do not appear to use a `data-testid='workflow-booking-row-{id}'` pattern (my eval found 0 matching rows even though sidebar renders 12+ rows). Consider adding data-testid attributes on each booking sidebar row for easier automated verification."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter46_branded_docs_nmfc.py"
+  ],
+  "success_rate": {"backend": "100% (8/8 — 2 NMFC + 1 BOL + 4 non-BOL branded + 1 book)", "frontend": "100% (4/4 — login no-Tennant, book-load NMFC select 82 options, brokerage→workflow routing, sidebar pre-selection)"},
+  "test_credentials": "Bearer test_session_admin_1 for backend; localStorage.tms_session_token='test_session_admin_1' OR 'Quick Sign In' button on /login for frontend.",
+  "seed_data_creation": "Created 1 TEST shipment + 1 BOL doc + 4 non-BOL docs (PACKING_SLIP/COMMERCIAL_INVOICE/WEIGHT_CERT/COO) + 1 brokerage booking BK-9D7E5C8D38 via test run. PDFs saved at /tmp/iter46_{type}_{doc_id}.pdf.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 46 = NMFC generic catalog + Tennant cleanup + branded non-BOL docs + post-book /workflow routing. Repro flows: (1) curl GET /api/nmfc/codes with admin bearer → 82 codes, includes 73130 & FAK-85. (2) POST /api/documents with type='PACKING_SLIP'|'COMMERCIAL_INVOICE'|'WEIGHT_CERT'|'COO', shipment_ref, data → GET /api/documents/{document_id}/pdf returns ~427KB branded PDF. (3) POST /api/shipments (full ShipmentCreate fields: mode, carrier, destination_city, destination_lat, destination_lng, pickup_date, pieces, value_usd, weight_lbs, commodity) → POST /api/shipments/{id}/generate-bol body {'shipper':'Orisei Freight Solutions'} → GET /api/documents/{doc_id}/pdf returns branded BOL. (4) /brokerage page: click data-testid='brokerage-tab-boards' → click any 'Book' button → dialog shows data-testid='book-carrier-name' input and data-testid='book-confirm' button → set carrier value via JS (NOT keyboard.press Escape — that closes the dialog) → click book-confirm → page navigates to /workflow?booked_id=BK-xxx and sidebar shows the new row pre-selected with cyan ring at top of Active Bookings."
+}

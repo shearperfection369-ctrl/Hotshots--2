@@ -36,7 +36,7 @@ const LAUNCHERS = [
     title: "Microsoft 365 Copilot",
     sub: "Word · Excel · PowerPoint · Outlook · Teams",
     url: "https://m365.cloud.microsoft/chat/",
-    blurb: "Enterprise Copilot grounded in your Tennant tenant — emails, files, meetings, Teams chats. Requires an M365 Copilot license.",
+    blurb: "Enterprise Copilot grounded in your tenant — emails, files, meetings, Teams chats. Requires an M365 Copilot license.",
   },
   {
     id: "github",
@@ -56,11 +56,11 @@ const LAUNCHERS = [
 
 const QUICK_PROMPTS = [
   { icon: FileText, text: "Summarize this Bill of Lading PDF and pull out the BOL #, PRO #, weight, pieces, and pickup date." },
-  { icon: Search, text: "What HS code should I use for a Tennant T16 AMR scrubber exported from the USA to Germany?" },
+  { icon: Search, text: "What HS code should I use for a industrial floor scrubber exported from the USA to Germany?" },
   { icon: Lightbulb, text: "Compare XPO Logistics vs. SAIA for a 12,000-lb LTL shipment from Holland MI to Atlanta GA, including transit days and accessorials." },
-  { icon: MessageSquare, text: "Draft a polite escalation email to a supplier who keeps using a non-approved carrier on inbound Tennant shipments." },
+  { icon: MessageSquare, text: "Draft a polite escalation email to a supplier who keeps using a non-approved carrier on inbound inbound shipments." },
   { icon: FileText, text: "Convert this freight invoice into a markdown table grouped by accessorial code, with a total and a quoted-vs-actual variance column." },
-  { icon: Search, text: "Which Incoterm should we use for an ocean export from Long Beach to Rotterdam where Tennant covers carriage and insurance to destination port?" },
+  { icon: Search, text: "Which Incoterm should we use for an ocean export from Long Beach to Rotterdam where the seller covers carriage and insurance to destination port?" },
 ];
 
 function copilotLink(q) {
@@ -81,7 +81,7 @@ function MSLogoMark({ size = 24 }) {
 
 export default function MicrosoftCopilot() {
   const { brand } = useBranding();
-  const shortName = brand?.short_name || "Tennant";
+  const shortName = brand?.short_name || "Orisei";
   // X-Frame-Options: DENY still emits a `load` event for a blank document,
   // so we can't trust onLoad to mean "Copilot rendered". Instead we just
   // assume embedding will fail (because it always does in production) and

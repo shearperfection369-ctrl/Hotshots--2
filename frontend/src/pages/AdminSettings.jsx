@@ -33,11 +33,11 @@ const SECTIONS = [
     icon: Mail,
     title: "Email",
     fields: [
-      { key: "email_from", label: "Default \"from\" address", type: "text", default: "transportation@tennantco.com" },
-      { key: "email_cs_quality", label: "CS · Quality team", type: "text", default: "CS-Quality@tennantco.com" },
-      { key: "email_cs_parts", label: "CS · Parts team", type: "text", default: "CS-Parts@tennantco.com" },
-      { key: "email_cs_distribution", label: "CS · Distribution team", type: "text", default: "CS-Distribution@tennantco.com" },
-      { key: "email_cs_strategic", label: "CS · Strategic Accounts", type: "text", default: "CS-StrategicAccounts@tennantco.com" },
+      { key: "email_from", label: "Default \"from\" address", type: "text", default: "transportation@oriseifreight.com" },
+      { key: "email_cs_quality", label: "CS · Quality team", type: "text", default: "CS-Quality@oriseifreight.com" },
+      { key: "email_cs_parts", label: "CS · Parts team", type: "text", default: "CS-Parts@oriseifreight.com" },
+      { key: "email_cs_distribution", label: "CS · Distribution team", type: "text", default: "CS-Distribution@oriseifreight.com" },
+      { key: "email_cs_strategic", label: "CS · Strategic Accounts", type: "text", default: "CS-StrategicAccounts@oriseifreight.com" },
     ],
   },
   {
@@ -45,8 +45,8 @@ const SECTIONS = [
     icon: Database,
     title: "Integrations",
     fields: [
-      { key: "sap_s4_base", label: "SAP S/4HANA base URL", type: "text", default: "https://my-s4.tennantco.com" },
-      { key: "sharepoint_tenant_url", label: "SharePoint tenant URL", type: "text", default: "https://tennantco.sharepoint.com" },
+      { key: "sap_s4_base", label: "SAP S/4HANA base URL", type: "text", default: "https://my-s4.oriseifreight.com" },
+      { key: "sharepoint_tenant_url", label: "SharePoint tenant URL", type: "text", default: "https://oriseifreight.sharepoint.com" },
       { key: "powerbi_workspace_url", label: "Power BI workspace URL", type: "text", default: "https://app.powerbi.com/groups/me" },
     ],
   },

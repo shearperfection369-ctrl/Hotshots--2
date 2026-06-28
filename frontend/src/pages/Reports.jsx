@@ -35,7 +35,7 @@ export default function Reports() {
   const downloadReport = (fmt) => {
     const a = document.createElement("a");
     a.href = `${BACKEND_URL}/api/reports/kpi/download.${fmt}`;
-    a.download = `Tennant_KPI_Report.${fmt}`;
+    a.download = `KPI_Report.${fmt}`;
     document.body.appendChild(a); a.click(); a.remove();
     toast.success(`Generating ${fmt.toUpperCase()} report…`);
   };
@@ -360,7 +360,7 @@ export default function Reports() {
             <div className="space-y-3">
               <div>
                 <label className="text-[10px] font-mono uppercase text-cyan-400">To</label>
-                <Input value={emailForm.to} onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })} placeholder="director@tennantco.com" className="mt-1 bg-[#0B0E14] border-white/10" data-testid="email-to-input" />
+                <Input value={emailForm.to} onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })} placeholder="director@oriseifreight.com" className="mt-1 bg-[#0B0E14] border-white/10" data-testid="email-to-input" />
               </div>
               <div>
                 <label className="text-[10px] font-mono uppercase text-cyan-400">CC (optional)</label>

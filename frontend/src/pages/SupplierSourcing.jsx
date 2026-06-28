@@ -85,7 +85,7 @@ export default function SupplierSourcing() {
 
   return (
     <>
-      <Topbar title="Supplier Sourcing" subtitle="Tennant's component supply base · risk · spend · contracts" />
+      <Topbar title="Supplier Sourcing" subtitle="the platform's component supply base · risk · spend · contracts" />
       <div className="p-4 md:p-6 space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <Tile label="Total Suppliers" value={data.summary.total_suppliers || 0} Icon={Factory} accent="text-cyan-400" />

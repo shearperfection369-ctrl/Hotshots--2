@@ -238,7 +238,7 @@ export default function Webex() {
             </div>
             <div>
               <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Invitees (comma-separated emails)</label>
-              <Input value={schedForm.invitees} onChange={(e) => setSchedForm({ ...schedForm, invitees: e.target.value })} className="mt-1 bg-[#0B0E14] border-white/10" placeholder="kirk.juergins@tennantco.com, ..." />
+              <Input value={schedForm.invitees} onChange={(e) => setSchedForm({ ...schedForm, invitees: e.target.value })} className="mt-1 bg-[#0B0E14] border-white/10" placeholder="kirk.juergins@oriseifreight.com, ..." />
             </div>
             <Button onClick={schedule} className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold">SCHEDULE MEETING</Button>
           </div>

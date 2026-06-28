@@ -201,7 +201,7 @@ export default function PromoVideo() {
           </div>
         </Card>
 
-        {/* Operational Pipeline (replaces Tennant SAP flow) */}
+        {/* Operational Pipeline (replaces SAP flow) */}
         <Card className="hud-surface p-6 md:p-8">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: ORISEI_GOLD }}>Operational Architecture</div>
           <h2 className="font-display text-3xl font-bold mb-3 flex items-center gap-3">

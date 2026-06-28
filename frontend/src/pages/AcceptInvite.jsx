@@ -44,7 +44,7 @@ export default function AcceptInvite() {
         <div className="flex items-center gap-3 mb-6">
           <TennantLogo size="md" />
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-cyan-400">Tennant Companies</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-cyan-400">Orisei Freight Solutions</div>
             <div className="font-display text-lg font-bold text-white">Carrier Portal Access</div>
           </div>
         </div>
@@ -77,7 +77,7 @@ export default function AcceptInvite() {
           </Button>
         </form>
         <div className="text-[10px] font-mono text-slate-500 text-center mt-4">
-          By accepting you agree to Tennant's carrier portal terms. Access can be revoked at any time.
+          By accepting you agree to the platform's carrier portal terms. Access can be revoked at any time.
         </div>
       </Card>
     </div>

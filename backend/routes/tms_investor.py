@@ -72,7 +72,7 @@ PLUG_AND_PLAY: Dict[str, Any] = {
 
 REBRANDING_DEMO: Dict[str, Any] = {
     "brand_reel": [
-        {"name": "Tennant",     "color": "#00A4E4"},
+        {"name": "Orisei",     "color": "#0E3A6B"},
         {"name": "Walmart",     "color": "#0071CE"},
         {"name": "FedEx",       "color": "#4D148C"},
         {"name": "Caterpillar", "color": "#FFCD11"},
@@ -152,7 +152,7 @@ DURING the sales call**:
 {founder} has spent **13 years** in supply chain & logistics across all six
 modes — truckload, LTL, parcel, ocean, air, rail. International specialist
 (ocean booking lanes, customs clearance, FTAs, cross-border compliance).
-Currently Transportation Analyst at Tennant Companies. Headquartered in
+Currently Transportation Analyst (prev. Fortune-500 industrials). Headquartered in
 **Plymouth, Minnesota**.
 
 Every screen in Hot Shot TMS was prototyped on **real loads, real BOLs, real
@@ -213,7 +213,7 @@ What stays put:
 - **SOM (Y3 target)**: $12M (50 logos × $240K average ACV)
 
 ## 9. Go-to-Market
-- **Year 1**: Founder-led sales. 5 anchor logos (Tennant + 4 MN-based industrials).
+- **Year 1**: Founder-led sales. 5 anchor logos (5 MN-based industrials).
 - **Year 2**: Productize playbook. 25 logos. First sales hire.
 - **Year 3**: Scale to 50 logos. Channel partnerships with major 3PLs.
 - **Distribution wedge**: 60-second skinned demo on every prospect call.
@@ -285,7 +285,7 @@ context, document headers — reshapes around the prospect during the sales call
 - SAP/Oracle TM implementations take 6–18 months and cost $500K–$2M.
 - Mid-market shippers ($100M–$2B) are systematically priced out.
 - {founder} has spent **13 years** in supply chain & logistics across all six
-  modes. Currently Transportation Analyst at Tennant Companies. Plymouth, MN.
+  modes. Currently Transportation Analyst (prev. Fortune-500 industrials). Plymouth, MN.
 - Every screen was prototyped on real loads, real BOLs, real escalations.
 
 ## The Platform
@@ -328,7 +328,7 @@ def build_tms_investor_router(api_router: APIRouter) -> None:
                 "title": "Founder · Builder · Operator",
                 "tenure_years": 13,
                 "location": "Plymouth, Minnesota",
-                "current_role": "Transportation Analyst · Tennant Companies",
+                "current_role": "Transportation Analyst (prior)",
                 "modes": ["Truckload", "LTL", "Parcel", "Ocean", "Air", "Rail"],
                 "international_specialist": True,
                 "bio": (
@@ -338,7 +338,7 @@ def build_tms_investor_router(api_router: APIRouter) -> None:
                     "navigating ocean booking lanes, customs clearance, FTAs, and "
                     "cross-border compliance. He has worked at several major Minnesota "
                     "corporations and currently serves as a Transportation Analyst at "
-                    "Tennant Companies. Every screen in Hot Shot TMS was prototyped on "
+                    "Fortune-500 industrials. Every screen was prototyped on "
                     "real loads, real BOLs, real customer escalations."
                 ),
             },
@@ -365,7 +365,7 @@ def build_tms_investor_router(api_router: APIRouter) -> None:
                 "amount_usd": 1_500_000,
                 "valuation_cap_usd": 8_000_000,
                 "discount_pct": 20,
-                "milestone_year1": "5 anchor logos · Tennant + 4 MN industrials",
+                "milestone_year1": "5 anchor logos · 5 MN industrials",
                 "milestone_year2": "25 logos · first sales hire · productize playbook",
                 "milestone_year3": "50 logos · Series A milestone · channel partnerships",
             },

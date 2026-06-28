@@ -1,5 +1,5 @@
 """
-Tennant Companies — Transportation Management System (TMS)
+Orisei Freight Solutions — Transportation Management System (TMS)
 HUD-style command center backend
 """
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Response, WebSocket, WebSocketDisconnect, Query
@@ -56,7 +56,7 @@ client = AsyncIOMotorClient(
 )
 db = client[os.environ['DB_NAME']]
 
-app = FastAPI(title="Tennant TMS API")
+app = FastAPI(title="Orisei TMS API")
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -395,7 +395,7 @@ async def logout(request: Request, response: Response):
     return {"ok": True}
 
 # -------------------- FACILITIES --------------------
-TENNANT_FACILITIES = [
+TMS_FACILITIES = [
     {"id": "GVM", "name": "Golden Valley, MN (HQ)", "city": "Golden Valley", "state": "MN", "lat": 44.9858, "lng": -93.3499, "type": "Headquarters / Manufacturing"},
     {"id": "HOM", "name": "Holland, MI Plant", "city": "Holland", "state": "MI", "lat": 42.7875, "lng": -86.1089, "type": "Manufacturing"},
     {"id": "LVK", "name": "Louisville, KY Plant", "city": "Louisville", "state": "KY", "lat": 38.2527, "lng": -85.7585, "type": "Manufacturing"},
@@ -408,23 +408,23 @@ async def get_facilities(_: User = Depends(get_current_user)):
         # Overlay brand facilities on the canonical lat/lng grid so the map
         # still has coordinates to plot.
         out = []
-        for i, bf in enumerate(brand["facilities"][:len(TENNANT_FACILITIES)]):
-            base = dict(TENNANT_FACILITIES[i % len(TENNANT_FACILITIES)])
+        for i, bf in enumerate(brand["facilities"][:len(TMS_FACILITIES)]):
+            base = dict(TMS_FACILITIES[i % len(TMS_FACILITIES)])
             base["name"] = bf.get("name") or base["name"]
             base["city"] = (bf.get("city") or "").split(",")[0].strip() or base["city"]
             out.append(base)
-        return out or TENNANT_FACILITIES
-    return TENNANT_FACILITIES
+        return out or TMS_FACILITIES
+    return TMS_FACILITIES
 
 
 # -------------------- BRAND OVERLAY -----------------------------------------
-# When the active company brand is something other than the built-in Tennant
+# When the active company brand is something other than the built-in default
 # profile, every read endpoint runs its docs through these helpers so the
 # entire app surfaces the active brand's identity / suppliers / products /
 # facilities without re-seeding the database.
 
 async def _active_brand_doc():
-    """Returns the active brand doc, or None if Tennant default is active.
+    """Returns the active brand doc, or None if default brand is active.
     Result is intentionally NOT cached at module level because the admin
     expects the switch to take effect on the next request."""
     return await db.company_brand.find_one({"is_active": True}, {"_id": 0})
@@ -454,7 +454,7 @@ def _swap_strings(value: Any, replacements: Dict[str, str]) -> Any:
 
 
 def _overlay_shipment(s: Dict[str, Any], brand: Dict[str, Any]) -> Dict[str, Any]:
-    if not brand or brand.get("brand_id") == "tennant":
+    if not brand or brand.get("brand_id") == "orisei-freight":
         return s
     out = dict(s)
     seed = out.get("shipment_id") or out.get("reference") or ""
@@ -469,10 +469,10 @@ def _overlay_shipment(s: Dict[str, Any], brand: Dict[str, Any]) -> Dict[str, Any
         out["supplier"] = _pick(suppliers, seed + "supplier")
 
     # === Swap facility cities (origin/destination) ===
-    # Map the canonical Tennant cities to the active brand's facility cities.
+    # Map the canonical reference cities to the active brand's facility cities.
     facilities = brand.get("facilities") or []
     if facilities:
-        # Build a city/state mapping: Tennant default cities → brand cities
+        # Build a city/state mapping: default brand cities → brand cities
         tennant_cities = [
             ("Golden Valley", "MN"),
             ("Holland", "MI"),
@@ -498,15 +498,15 @@ def _overlay_shipment(s: Dict[str, Any], brand: Dict[str, Any]) -> Dict[str, Any
                         if b_state:
                             ep["state"] = b_state
 
-    # Replace "Tennant" verbiage in every string field (reference prefixes,
+    # Replace "Orisei" verbiage in every string field (reference prefixes,
     # consignee names, facility names baked into origin/destination, notes).
-    repl = {"Tennant": short, "TENN-": f"{short[:4].upper()}-"}
+    repl = {"Orisei": short, "TENN-": f"{short[:4].upper()}-"}
     out = _swap_strings(out, repl)
     return out
 
 
 def _overlay_machine(m: Dict[str, Any], brand: Dict[str, Any], i: int) -> Dict[str, Any]:
-    if not brand or brand.get("brand_id") == "tennant":
+    if not brand or brand.get("brand_id") == "orisei-freight":
         return m
     products = brand.get("sample_products") or []
     if not products:
@@ -521,7 +521,7 @@ def _overlay_machine(m: Dict[str, Any], brand: Dict[str, Any], i: int) -> Dict[s
 
 
 def _overlay_supplier(s: Dict[str, Any], brand: Dict[str, Any], i: int) -> Dict[str, Any]:
-    if not brand or brand.get("brand_id") == "tennant":
+    if not brand or brand.get("brand_id") == "orisei-freight":
         return s
     sups = brand.get("sample_suppliers") or []
     if not sups:
@@ -659,7 +659,7 @@ async def update_shipment(shipment_id: str, payload: ShipmentUpdate, user: User 
     if "origin_facility" in raw or "origin_city" in raw:
         origin = dict(existing.get("origin") or {})
         if raw.get("origin_facility"):
-            f = next((x for x in TENNANT_FACILITIES if x["id"] == raw["origin_facility"]), None)
+            f = next((x for x in TMS_FACILITIES if x["id"] == raw["origin_facility"]), None)
             if f:
                 origin = {"name": f["name"], "city": f["city"], "lat": f["lat"], "lng": f["lng"], "facility": f["id"]}
         if raw.get("origin_city"):
@@ -721,7 +721,7 @@ async def cancel_shipment(shipment_id: str, payload: Optional[ShipmentCancel] = 
 async def create_shipment(payload: ShipmentCreate, user: User = Depends(get_current_user)):
     origin = None
     if payload.origin_facility:
-        f = next((x for x in TENNANT_FACILITIES if x["id"] == payload.origin_facility), None)
+        f = next((x for x in TMS_FACILITIES if x["id"] == payload.origin_facility), None)
         if f:
             origin = {"name": f["name"], "city": f["city"], "lat": f["lat"], "lng": f["lng"], "facility": f["id"]}
     if not origin:
@@ -927,11 +927,11 @@ async def email_document(
     type_label, _ = DOC_TYPE_TITLES.get(doc["type"], (doc["type"], ""))
     pdf_url = f"{os.environ.get('PUBLIC_BASE_URL', '').rstrip('/')}/api/documents/{document_id}/pdf"
     version_note = f" (Rev {doc.get('version', 1)})" if doc.get("version", 1) > 1 else ""
-    subject = f"Tennant · {type_label}{version_note} · {doc.get('shipment_ref') or document_id}"
+    subject = f"{type_label}{version_note} · {doc.get('shipment_ref') or document_id}"
 
     data = doc.get("data") or {}
     body_lines = [
-        f"Attached is the {type_label.lower()}{version_note} for Tennant Company.",
+        f"Attached is the {type_label.lower()}{version_note} for the brokerage.",
         "",
         f"Document ID: {document_id}",
         f"Shipment:    {doc.get('shipment_ref') or '—'}",
@@ -952,7 +952,7 @@ async def email_document(
         "",
         "Thank you,",
         f"{user.name}",
-        "Tennant Companies · TMS",
+        "Orisei Freight Solutions · TMS",
     ])
     body = "\n".join(body_lines)
 
@@ -986,7 +986,7 @@ async def email_document(
 
 
 class BolFromShipment(BaseModel):
-    shipper: Optional[str] = "Tennant Company"
+    shipper: Optional[str] = "Orisei Freight Solutions"
 
 
 @api_router.post("/shipments/{shipment_id}/generate-bol", response_model=Document)
@@ -1007,11 +1007,11 @@ async def generate_bol_from_shipment(
     origin = s.get("origin", {}) or {}
     dest = s.get("destination", {}) or {}
     # Brand-aware default shipper / commodity: pull from active brand so a
-    # Pfizer-active TMS doesn't print "Tennant Company" on every BOL.
+    # Pfizer-active TMS doesn't print "Orisei Freight Solutions" on every BOL.
     brand = await _active_brand_doc()
-    brand_company = (brand or {}).get("company_name") or "Tennant Company"
+    brand_company = (brand or {}).get("company_name") or "Orisei Freight Solutions"
     brand_default_commodity = "industrial cleaning equipment"
-    if brand and brand.get("brand_id") != "tennant":
+    if brand and brand.get("brand_id") != "orisei-freight":
         # Use the first sample product as the brand's representative commodity.
         sp = (brand.get("sample_products") or [None])[0]
         if sp:
@@ -1214,7 +1214,7 @@ async def get_kpis(_: User = Depends(get_current_user)):
         })
 
     # === NETWORK-WIDE TRANSPORTATION METRICS (industry-standard) ===
-    # Every published number a Tennant exec or 3PL benchmark report cares about.
+    # Every published number an industry exec or 3PL benchmark report cares about.
     network_metrics = {
         "service_quality": [
             {"key": "on_time_pickup",       "label": "On-Time Pickup",            "value": 95.3, "unit": "%",  "target": 95,  "benchmark": 93,  "trend": +1.2, "category": "service"},
@@ -1272,11 +1272,11 @@ async def get_kpis(_: User = Depends(get_current_user)):
     }
 
     # === BRAND OVERLAY — perturb metrics deterministically per active brand ===
-    # Tennant defaults stay untouched. For any other active brand we apply a
+    # default brands stay untouched. For any other active brand we apply a
     # stable per-metric drift seeded by the brand_id so each company has its
     # own coherent KPI fingerprint (e.g. Walmart's OTIF differs from FedEx).
     brand_doc = await _active_brand_doc()
-    if brand_doc and brand_doc.get("brand_id") != "tennant":
+    if brand_doc and brand_doc.get("brand_id") != "orisei-freight":
         bseed = brand_doc.get("brand_id") or brand_doc.get("short_name") or "brand"
         def _drift(val, key, lo=-0.12, hi=0.12):
             if not isinstance(val, (int, float)) or val == 0:
@@ -1413,7 +1413,7 @@ async def get_weather(_: User = Depends(get_current_user)):
     """Real weather via Open-Meteo (no key)."""
     results = []
     async with httpx.AsyncClient(timeout=10.0) as http:
-        for f in TENNANT_FACILITIES:
+        for f in TMS_FACILITIES:
             try:
                 r = await http.get(
                     "https://api.open-meteo.com/v1/forecast",
@@ -1457,7 +1457,7 @@ MOCK_NEWS = [
     {"title": "Old Dominion posts record Q4 operating ratio of 70.1%", "source": "Logistics Management", "category": "ltl", "body": "ODFL revenue per hundredweight +5.4% YoY despite tonnage softness. Carrier credits density and absence of major service failures.", "url": "https://www.logisticsmgmt.com/odfl"},
     {"title": "XPO opens 12 new LTL service centers across the Southeast", "source": "FreightWaves", "category": "ltl", "body": "XPO completes the largest LTL terminal expansion in 30 years — adds 2.4M ft² of dock space in TN, GA, FL, SC.", "url": "https://www.freightwaves.com/xpo-expansion"},
     {"title": "Truckstop spot rates: DAT National Van down 2.1% WoW", "source": "DAT", "category": "spot-market", "body": "Linehaul rate excl. fuel sits at $1.66/mi for dry van; reefer holds at $2.04/mi as produce season starts to ramp in Florida and California.", "url": "https://www.dat.com/trendlines"},
-    {"title": "Mexico nearshoring drives 23% increase in cross-border truckload volume", "source": "JOC", "category": "cross-border", "body": "Laredo crossings up 18% YoY; Otay Mesa up 27%. Tennant's Reynosa supplier base reports 4-day average border dwell down to 32 hours.", "url": "https://www.joc.com/nearshoring"},
+    {"title": "Mexico nearshoring drives 23% increase in cross-border truckload volume", "source": "JOC", "category": "cross-border", "body": "Laredo crossings up 18% YoY; Otay Mesa up 27%. Reynosa supplier base reports 4-day average border dwell down to 32 hours.", "url": "https://www.joc.com/nearshoring"},
     {"title": "Maersk announces all-electric drayage fleet for LA/LB by 2027", "source": "American Shipper", "category": "ocean", "body": "350 Class-8 electric tractors ordered from Volvo and Daimler. Charging infrastructure in partnership with Forum Mobility.", "url": "https://www.americanshipper.com/maersk"},
     {"title": "DOT Sec'y announces $1.4B in port infrastructure grants", "source": "DOT", "category": "regulatory", "body": "20 ports receive funding; Long Beach, Houston, Norfolk top recipients. Focus on rail connectivity and zero-emission cargo handling.", "url": "https://www.transportation.gov/port-grants"},
     {"title": "Saia announces 22 new terminal openings for 2026", "source": "Transport Topics", "category": "ltl", "body": "Aggressive geographic expansion in the Pacific Northwest and New England — Saia's first OR, WA, and ME locations.", "url": "https://www.ttnews.com/saia-2026"},
@@ -1470,19 +1470,19 @@ MOCK_NEWS = [
     {"title": "FedEx Freight tests autonomous yard tractors at Memphis hub", "source": "DC Velocity", "category": "tech", "body": "Outrider partnership — 6 electric autonomous tractors handling trailer spotting and yard moves 24/7.", "url": "https://www.dcvelocity.com/fedex-outrider"},
     {"title": "Yellow Corp. terminals auction nets $1.9B for creditors", "source": "FreightWaves", "category": "ltl", "body": "ABF, Estes, XPO among biggest winners. 130 terminals sold across US — implications for LTL capacity in 2026.", "url": "https://www.freightwaves.com/yellow-auction"},
     {"title": "Class-8 truck orders soar in January — ACT Research", "source": "Truckinginfo", "category": "industry", "body": "Net Class-8 orders 32,400 units — best January since 2018. Fleets restocking ahead of EPA 2027 emissions rules.", "url": "https://www.truckinginfo.com/class-8"},
-    {"title": "Tornado warning issued for Madison County, IN — I-69 SB shut", "source": "NWS Indianapolis", "category": "weather", "body": "Severe weather expected through 4pm local; Tennant's Holland-bound carriers re-routing via I-65 to avoid the cell.", "url": "https://weather.gov/ind"},
+    {"title": "Tornado warning issued for Madison County, IN — I-69 SB shut", "source": "NWS Indianapolis", "category": "weather", "body": "Severe weather expected through 4pm local; Holland-bound carriers re-routing via I-65 to avoid the cell.", "url": "https://weather.gov/ind"},
     {"title": "Customs Modernization Act draft text circulates in House", "source": "AAEI", "category": "trade", "body": "Would consolidate CBP/PGA filings into a single enhanced ACE manifest. Industrial importers should monitor for changes to FTZ admission procedures.", "url": "https://aaei.org/cma"},
     {"title": "OOCL ULCV maintenance schedule pushes 4 transpacific calls", "source": "JOC", "category": "ocean", "body": "Three ULCVs in drydock at Singapore; affected weekly sailings PSW3 and PCC.", "url": "https://www.joc.com/oocl-schedule"},
     {"title": "Reefer rates climb 9% as Florida strawberry season opens", "source": "DAT", "category": "spot-market", "body": "Lakeland → Atlanta refrigerated lane up to $3.42/mi loaded. Expect FL-MI lanes to follow suit in 2 weeks.", "url": "https://www.dat.com/reefer"},
     {"title": "AAR weekly carloads up 3.1% — chemicals lead growth", "source": "Association of American Railroads", "category": "rail", "body": "Total US originated carloads 226,118; chemical traffic +7.4% YoY. Intermodal also strong at +5.2%.", "url": "https://www.aar.org/weekly"},
-    {"title": "Tennant adds 4 new approved LTL carriers to North American roster", "source": "Internal", "category": "internal", "body": "XPO, ODFL, Saia, Estes all complete annual qualification review. Routing guide Rev 29 reflects updated lane assignments.", "url": "/routing-guide"},
+    {"title": "Operator adds 4 new approved LTL carriers to North American roster", "source": "Internal", "category": "internal", "body": "XPO, ODFL, Saia, Estes all complete annual qualification review. Routing guide Rev 29 reflects updated lane assignments.", "url": "/routing-guide"},
     {"title": "Holland MI plant on-time inbound rate hits 96.4% for January", "source": "Internal", "category": "internal", "body": "All-time monthly record. Top 5 suppliers (Motrex, BattCo, Premier Polymers, Yazaki, Midwest Steel) all >97%.", "url": "/kpis"},
     {"title": "Hurricane Beryl recovery: Houston port back to 100% capacity", "source": "American Shipper", "category": "ocean", "body": "Backlog cleared 3 weeks after landfall — 27 vessels processed at peak vs. typical 18.", "url": "https://www.americanshipper.com/houston"},
     {"title": "USPS announces 5.9% rate hike for parcel select effective July", "source": "Parcel Industry", "category": "parcel", "body": "Heaviest impact on lightweight residential parcels; commercial PS rates up 2.7%.", "url": "https://about.usps.com/rates"},
-    {"title": "DHL Express prioritizes battery-shipping training for ground couriers", "source": "Air Cargo News", "category": "hazmat", "body": "All US-based ground handlers complete IATA DGR section II training by end of Q1. Tennant Li-ion exports unaffected.", "url": "https://www.aircargonews.net/dhl"},
+    {"title": "DHL Express prioritizes battery-shipping training for ground couriers", "source": "Air Cargo News", "category": "hazmat", "body": "All US-based ground handlers complete IATA DGR section II training by end of Q1. Li-ion battery exports unaffected.", "url": "https://www.aircargonews.net/dhl"},
     {"title": "Drayage CHASSISGATE: NACCS reports container chassis shortage easing", "source": "JOC", "category": "ocean", "body": "Long Beach pool +320 chassis week-over-week. Wait times for export bookings drop to 1.8 days from 4.2.", "url": "https://www.joc.com/chassis"},
     {"title": "Estes Express announces driver pay increase averaging $0.06/mi", "source": "CCJ", "category": "ltl", "body": "Pay hike effective Mar 15; carrier reports applicant pipeline +28% since announcement.", "url": "https://www.ccjdigital.com/estes-pay"},
-    {"title": "I-95 Cordage Park bridge replacement project shifts truck traffic", "source": "MassDOT", "category": "infra", "body": "Two-year detour begins Mar 1 — Tennant carriers serving New England should route via I-93/I-90.", "url": "https://mass.gov/i95-cordage"},
+    {"title": "I-95 Cordage Park bridge replacement project shifts truck traffic", "source": "MassDOT", "category": "infra", "body": "Two-year detour begins Mar 1 — Carriers serving New England should route via I-93/I-90.", "url": "https://mass.gov/i95-cordage"},
 ]
 
 # Drop the deprecated single mock-news + traffic; the live endpoints below
@@ -1815,7 +1815,7 @@ class PowerBIReport(BaseModel):
     id: str
     name: str
     description: Optional[str] = ""
-    workspace: Optional[str] = "Tennant"
+    workspace: Optional[str] = "Orisei"
     owner: Optional[str] = ""
     embed_url: Optional[str] = ""
     view_url: str
@@ -1887,18 +1887,18 @@ SAP_S4_BASE = os.environ.get("SAP_S4_BASE_URL", "https://my-s4.tennantco.com")
 
 def _brand_short() -> str:
     """Best-effort sync access to the active brand's short name. Returns
-    'Tennant' if unset. Used only for tenant-string substitution where an
+    'Orisei' if unset. Used only for tenant-string substitution where an
     async call would be too expensive (called in template formatters)."""
-    return "Tennant"  # sync default; async overlays do the real swap
+    return "Orisei"  # sync default; async overlays do the real swap
 
 
 async def _brand_tenant_strings() -> Dict[str, str]:
     """Returns the replacements applied to integration / SAP responses
-    when a non-Tennant brand is active. Keys are 'Tennant' fragments to be
+    when a non-Tennant brand is active. Keys are 'Orisei' fragments to be
     swapped for the brand's short_name. The empty dict means no swap (i.e.
     Tennant is active)."""
     brand = await _active_brand_doc()
-    if not brand or brand.get("brand_id") == "tennant":
+    if not brand or brand.get("brand_id") == "orisei-freight":
         return {}
     short = brand.get("short_name") or "Brand"
     slug = re.sub(r"[^a-z0-9]+", "", short.lower())[:20] or "brand"
@@ -1934,8 +1934,8 @@ async def _brand_tenant_strings() -> Dict[str, str]:
 
     repl = {
         # Word-form replacements (case-sensitive, ordered most-specific first)
-        "Tennant Company": company,
-        "Tennant Companies": company,
+        "Orisei Freight Solutions": company,
+        "Orisei Freight Solutions": company,
         "Tennant · ": f"{short} · ",
         "Tennant ": f"{short} ",
         "TENNANT": short.upper(),
@@ -1972,8 +1972,8 @@ async def _brand_tenant_strings() -> Dict[str, str]:
         "Holland": f1["city"],
         "Louisville": f2["city"],
         # Final catch-all for stray standalone references
-        "Tennant": short,
-        "tennant": slug,
+        "Orisei": short,
+        "orisei-freight": slug,
     }
     return repl
 
@@ -2690,7 +2690,7 @@ async def get_carrier_rates(_: User = Depends(get_current_user), mode: Optional[
     # brand's sample_lanes so a Walmart admin sees Walmart's lanes, not
     # Golden Valley → Dallas. Rates and carrier mix stay realistic.
     brand = await _active_brand_doc()
-    if brand and brand.get("brand_id") != "tennant":
+    if brand and brand.get("brand_id") != "orisei-freight":
         lanes = brand.get("sample_lanes") or []
         # Each lane string like "Bentonville, AR -> Dallas, TX". Split safely.
         parsed = []
@@ -3244,7 +3244,7 @@ async def list_checkins(_: User = Depends(get_current_user), shipment_id: Option
     return docs
 
 # -------------------- PDF DOCUMENT RENDERING --------------------
-TENNANT_BLUE = colors.HexColor("#00A4E4")
+TENNANT_BLUE = colors.HexColor("#0E3A6B")
 TENNANT_DARK = colors.HexColor("#0B0E14")
 
 def _doc_styles():
@@ -3268,9 +3268,9 @@ DOC_TYPE_TITLES = {
 def _header_block(doc_id: str, doc_type: str, brand: Optional[Dict[str, Any]] = None):
     styles = _doc_styles()
     title, subtitle = DOC_TYPE_TITLES.get(doc_type, (doc_type, ""))
-    company = (brand or {}).get("company_name") or "Tennant Company"
-    short = (brand or {}).get("short_name") or "TENNANT"
-    primary = (brand or {}).get("primary_color") or "#00A4E4"
+    company = (brand or {}).get("company_name") or "Orisei Freight Solutions LLC"
+    short = (brand or {}).get("short_name") or "ORISEI"
+    primary = (brand or {}).get("primary_color") or "#0E3A6B"
     rest = company.replace(short, "", 1).strip() or "COMPANY"
     header_data = [
         [
@@ -3312,7 +3312,7 @@ def _build_pdf(doc: Dict[str, Any], brand: Optional[Dict[str, Any]] = None) -> b
     elements.append(_header_block(doc["document_id"], doc["type"], brand=brand))
     elements.append(Spacer(1, 14))
 
-    company_name = (brand or {}).get("company_name") or "Tennant Company"
+    company_name = (brand or {}).get("company_name") or "Orisei Freight Solutions LLC"
     # Shipper / Consignee block
     parties_rows = [
         ["Shipper", data.get("shipper") or company_name],
@@ -3426,9 +3426,9 @@ def _build_pdf(doc: Dict[str, Any], brand: Optional[Dict[str, Any]] = None) -> b
     elif dtype == "COO":
         coo_rows = [
             ["Country of Origin", data.get("country_origin") or "USA"],
-            ["Producer", "Tennant Company"],
+            ["Producer", "Orisei Freight Solutions"],
             ["Producer Address", "10400 Clean Street, Eden Prairie, MN 55344, USA"],
-            ["Exporter", "Tennant Company"],
+            ["Exporter", "Orisei Freight Solutions"],
             ["Marks & Numbers", doc.get("shipment_ref") or "—"],
         ]
         elements.append(_kv_table(coo_rows, col_widths=[1.6 * inch, 4.0 * inch]))
@@ -3451,6 +3451,126 @@ def _build_pdf(doc: Dict[str, Any], brand: Optional[Dict[str, Any]] = None) -> b
     pdf.build(elements)
     buf.seek(0)
     return buf.getvalue()
+
+def _doc_to_branded_markdown(doc: Dict[str, Any], brand: Optional[Dict[str, Any]] = None) -> str:
+    """Translate any non-BOL document into the markdown shape consumed by
+    `build_branded_markdown_pdf` — yields a heraldic-bordered PDF with
+    azure label/value tables, ◆ section headers, and gold-banner totals
+    matching the BOL aesthetic. Used for COMMERCIAL_INVOICE, PACKING_SLIP,
+    WEIGHT_CERT, COO, and any other type.
+    """
+    company = (brand or {}).get("company_name") or "Orisei Freight Solutions LLC"
+    data = doc.get("data") or {}
+    dtype = doc.get("type") or "DOCUMENT"
+    title, subtitle = DOC_TYPE_TITLES.get(dtype, (dtype.replace("_", " "), ""))
+
+    def _safe(v: Any, fb: str = "—") -> str:
+        return str(v) if v not in (None, "", []) else fb
+
+    md: List[str] = [
+        f"# {title}",
+        f"_{subtitle}_" if subtitle else "",
+        "",
+        "## Parties",
+        f"- **Shipper**: {_safe(data.get('shipper'), company)}",
+        f"- **Consignee**: {_safe(data.get('consignee'))}",
+        f"- **Origin**: {_safe(data.get('origin'))}",
+        f"- **Destination**: {_safe(data.get('destination'))}",
+        "",
+        "## Shipment",
+        f"- **Reference**: {_safe(doc.get('shipment_ref'))}",
+        f"- **Carrier**: {_safe(data.get('carrier'))}",
+        f"- **Commodity**: {_safe(data.get('commodity'))}",
+        f"- **Pieces**: {_safe(data.get('pieces'))}",
+        f"- **Weight (lbs)**: {_safe(data.get('weight'))}",
+    ]
+    if data.get("value"):
+        md.append(f"- **Value (USD)**: ${data.get('value')}")
+    md.append("")
+
+    if dtype == "COMMERCIAL_INVOICE":
+        try:
+            qty = float(data.get("pieces") or 0)
+            total = float(data.get("value") or 0)
+            unit_price = total / qty if qty else total
+        except Exception:                                  # noqa: BLE001
+            qty, total, unit_price = 0, 0, 0
+        md += [
+            "## Invoice Lines",
+            f"- **Quantity**: {_safe(data.get('pieces'))}",
+            f"- **HS Code (suggested)**: 8479.89.94",
+            f"- **Description**: {_safe(data.get('commodity'))}",
+            f"- **Unit Price**: ${unit_price:,.2f}" if unit_price else "- **Unit Price**: —",
+            f"- **Line Total**: ${total:,.2f}" if total else "- **Line Total**: —",
+            "",
+            f"## Total · ${total:,.2f} USD" if total else "## Total · —",
+            "",
+            "## Terms",
+            "- Incoterms 2020 — **DAP** unless otherwise noted",
+            "- No commission",
+            f"- Country of Origin: {_safe(data.get('country_origin'), 'USA')}",
+        ]
+    elif dtype == "PACKING_SLIP":
+        try:
+            pcs = int(data.get("pieces") or 1)
+        except Exception:                                  # noqa: BLE001
+            pcs = 1
+        wt_per = (float(data.get("weight") or 0) / max(1, pcs)) if data.get("weight") else 0
+        md += ["## Packing Detail"]
+        for i in range(1, min(pcs, 8) + 1):
+            md.append(f"- **Carton #{i:03d}**: 1 × {_safe(data.get('commodity'))} · "
+                      f"{wt_per:,.0f} lbs · 48×40×60 in")
+    elif dtype == "WEIGHT_CERT":
+        try:
+            gross = float(data.get("weight") or 0)
+            net = gross - 14200
+        except Exception:                                  # noqa: BLE001
+            gross, net = 0, 0
+        md += [
+            "## Certified Weight",
+            f"- **Gross Weight**: {gross:,.0f} lbs" if gross else "- **Gross Weight**: —",
+            f"- **Tare Weight**: 14,200 lbs",
+            f"- **Net Weight (calc)**: {net:,.0f} lbs" if gross else "- **Net Weight (calc)**: —",
+            f"- **Scale ID**: MN-CERT-04287",
+            f"- **Operator**: {_safe(doc.get('created_by'))}",
+            f"- **Date / Time**: {_safe(doc.get('created_at'))}",
+            "",
+            "> I hereby certify that the weights shown above were obtained on a "
+            "scale certified by the State of Minnesota and accurate within "
+            "tolerance NIST Handbook 44.",
+        ]
+    elif dtype == "COO":
+        md += [
+            "## Certificate of Origin",
+            f"- **Country of Origin**: {_safe(data.get('country_origin'), 'USA')}",
+            f"- **Producer**: {company}",
+            f"- **Producer Address**: {(brand or {}).get('headquarters') or 'Minneapolis · Saint Paul, MN'}",
+            f"- **Exporter**: {company}",
+            f"- **Marks & Numbers**: {_safe(doc.get('shipment_ref'))}",
+            "",
+            "> The undersigned hereby declares that the above-mentioned goods "
+            "originate from the country shown above and meet all applicable "
+            "origin criteria. This certificate is issued in accordance with "
+            "applicable Free Trade Agreement rules of origin where claimed.",
+        ]
+    else:
+        # Generic fallback — render whatever data fields are present.
+        md.append("## Document Fields")
+        for k, v in data.items():
+            if k in {"shipper", "consignee", "origin", "destination", "carrier",
+                     "commodity", "pieces", "weight", "value", "country_origin"}:
+                continue  # already shown above
+            md.append(f"- **{str(k).replace('_', ' ').title()}**: {_safe(v)}")
+
+    md += [
+        "",
+        "## Authorized Signature",
+        "- **Signed**: ______________________________",
+        f"- **Date**: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
+        f"- **Prepared by**: {_safe(doc.get('created_by'))}",
+    ]
+    return "\n".join(md)
+
 
 @api_router.get("/documents/{document_id}/pdf")
 async def download_document_pdf(document_id: str, _: User = Depends(get_current_user)):
@@ -3505,11 +3625,27 @@ async def download_document_pdf(document_id: str, _: User = Depends(get_current_
             except Exception as e2:                                   # noqa: BLE001
                 raise HTTPException(status_code=500, detail=f"PDF render failed: {e2}")
     else:
+        # All non-BOL doc types (COMMERCIAL_INVOICE, PACKING_SLIP, WEIGHT_CERT,
+        # COO, …) — render through the branded heraldic markdown engine so
+        # they share the BOL aesthetic (gold borders, ◆ section headers,
+        # azure label/value tables, gold-banner Totals).
         try:
-            pdf_bytes = _build_pdf(doc, brand=brand)
-        except Exception as e:
-            logger.exception("PDF render failed")
-            raise HTTPException(status_code=500, detail=f"PDF render failed: {e}")
+            from routes.orisei_docs import build_branded_markdown_pdf
+            title_text, subtitle_text = DOC_TYPE_TITLES.get(
+                doc.get("type", ""), (doc.get("type", "DOCUMENT"), ""))
+            pdf_bytes = build_branded_markdown_pdf(
+                _doc_to_branded_markdown(doc, brand=brand),
+                title=title_text,
+                subtitle=subtitle_text or f"Reference {doc.get('shipment_ref') or doc['document_id']}",
+                doc_id=doc["document_id"],
+                brand=brand,
+            )
+        except Exception as e:                                       # noqa: BLE001
+            logger.exception("Branded markdown PDF render failed — falling back to legacy")
+            try:
+                pdf_bytes = _build_pdf(doc, brand=brand)
+            except Exception as e2:                                   # noqa: BLE001
+                raise HTTPException(status_code=500, detail=f"PDF render failed: {e2}")
     filename = f"{doc['type']}_{doc['document_id']}.pdf"
     # Auto-archive into the immutable Document Vault (fire-and-forget; never
     # blocks the download)
@@ -3933,7 +4069,7 @@ async def _get_rows_for_tab(tab: Dict[str, Any]) -> List[Dict[str, Any]]:
             docs = [d for d in docs if "crate" in (d.get("commodity", "").lower())] or docs[:8]
         return docs
     if kind == "quotes": return QUOTES_DATA
-    if kind == "plant_hubs": return TENNANT_FACILITIES
+    if kind == "plant_hubs": return TMS_FACILITIES
     if kind == "carriers_primary": return CARRIER_PRIMARY_DATA
     if kind == "contacts_suppliers": return SUPPLIER_CONTACTS_DATA
     if kind == "contacts_carriers": return CARRIER_CONTACTS_DATA
@@ -4432,7 +4568,7 @@ async def seed_data(force: bool = False):
     for i in range(32):
         mode = random.choice(["TL", "LTL", "Parcel", "Ocean", "Air", "Rail", "LTL", "TL"])
         carrier = random.choice(carriers_by_mode[mode])
-        origin_facility = random.choice(TENNANT_FACILITIES)
+        origin_facility = random.choice(TMS_FACILITIES)
         dest = random.choice(destinations)
         status = random.choice(statuses)
         if status in ("pending", "at_origin"):
@@ -4485,7 +4621,7 @@ async def seed_data(force: bool = False):
     # 16 inbound shipments — supplier → Tennant facility (matches uploaded screenshot)
     for i in range(16):
         sup = random.choice(suppliers)
-        plant = random.choice(TENNANT_FACILITIES)
+        plant = random.choice(TMS_FACILITIES)
         plant_short = {"GVM": "Tennant - GV", "HOM": "Tennant - HO", "LVK": "Tennant - LV"}[plant["id"]]
         carrier = random.choice(inbound_carriers)
         # Origin city depends on supplier country
@@ -4736,27 +4872,119 @@ async def seed_data(force: bool = False):
 # -------------------- NMFC REFERENCE (Tennant products) --------------------
 # Curated NMFC codes most relevant to Tennant industrial cleaning products & inbound components.
 # Source: NMFTA NMFC + standard LTL freight classes. Class is density/value/handling-based.
-TENNANT_NMFC_CODES = [
-    {"nmfc": "105820", "description": "Floor maintenance machines (scrubbers, sweepers, polishers)", "freight_class": "85", "category": "Finished Goods"},
-    {"nmfc": "105823", "description": "Vacuum cleaners, industrial (electric/battery)", "freight_class": "92.5", "category": "Finished Goods"},
-    {"nmfc": "105825", "description": "Carpet extractors / shampoo machines", "freight_class": "100", "category": "Finished Goods"},
-    {"nmfc": "60590-2", "description": "Batteries, electric storage, lead-acid (wet/AGM)", "freight_class": "60", "category": "Hazmat · Class 8"},
-    {"nmfc": "60585", "description": "Batteries, lithium-ion, packaged with equipment", "freight_class": "92.5", "category": "Hazmat · Class 9"},
-    {"nmfc": "60600", "description": "Battery chargers, electric", "freight_class": "85", "category": "Electrical"},
-    {"nmfc": "133300", "description": "Motors, electric, AC/DC, NOI", "freight_class": "85", "category": "Components"},
-    {"nmfc": "133420", "description": "Motors, electric, hermetically sealed", "freight_class": "70", "category": "Components"},
-    {"nmfc": "16030", "description": "Brushes, machine, rotary", "freight_class": "150", "category": "Consumables"},
-    {"nmfc": "16035", "description": "Brushes, sweeping, cylindrical", "freight_class": "175", "category": "Consumables"},
-    {"nmfc": "156600", "description": "Plastic articles, solution tanks (HDPE)", "freight_class": "150", "category": "Components"},
-    {"nmfc": "156605", "description": "Plastic articles, recovery tanks", "freight_class": "175", "category": "Components"},
-    {"nmfc": "44970", "description": "Frames, steel, machinery, welded", "freight_class": "70", "category": "Components"},
-    {"nmfc": "44890", "description": "Castings, iron or steel, machinery parts", "freight_class": "70", "category": "Components"},
-    {"nmfc": "70030", "description": "Wiring harnesses, automotive/industrial", "freight_class": "92.5", "category": "Components"},
-    {"nmfc": "84510", "description": "Hoses, rubber or plastic, with fittings", "freight_class": "100", "category": "Components"},
-    {"nmfc": "84580", "description": "Squeegee blades, rubber/urethane", "freight_class": "125", "category": "Consumables"},
-    {"nmfc": "49880", "description": "Pumps, electric, water/solution", "freight_class": "85", "category": "Components"},
-    {"nmfc": "189870", "description": "Tires, solid rubber, industrial", "freight_class": "85", "category": "Components"},
-    {"nmfc": "186200", "description": "Tools, hand, NOI (parts & spares)", "freight_class": "100", "category": "Parts & Spares"},
+# Comprehensive National Motor Freight Classification (NMFC) reference —
+# selected codes spanning every major commodity category so dispatchers can
+# class any load, not just industrial machinery. Sourced from the public
+# NMFC tariff (NMF 100-AY). Categories are grouped for easy navigation in
+# the BookLoad NMFC select.
+GENERIC_NMFC_CODES = [
+    # ── Food & Beverage ──────────────────────────────────────────────
+    {"nmfc": "73130", "description": "Foodstuffs, canned, in cases",                                  "freight_class": "70",  "category": "Food & Beverage"},
+    {"nmfc": "73140", "description": "Foodstuffs, dry, in bags or cartons (flour, sugar, rice)",        "freight_class": "65",  "category": "Food & Beverage"},
+    {"nmfc": "73150", "description": "Foodstuffs, frozen, in insulated cartons",                       "freight_class": "70",  "category": "Food & Beverage"},
+    {"nmfc": "73160", "description": "Beverages, non-alcoholic, in bottles/cans (palletized)",          "freight_class": "65",  "category": "Food & Beverage"},
+    {"nmfc": "73170", "description": "Beverages, alcoholic — beer, wine, spirits, palletized",          "freight_class": "70",  "category": "Food & Beverage"},
+    {"nmfc": "73180", "description": "Meat & poultry, refrigerated, in cartons",                       "freight_class": "70",  "category": "Food & Beverage"},
+    {"nmfc": "73190", "description": "Dairy products, refrigerated",                                   "freight_class": "70",  "category": "Food & Beverage"},
+    {"nmfc": "73200", "description": "Produce, fresh — fruits & vegetables, in crates",                 "freight_class": "70",  "category": "Food & Beverage"},
+    {"nmfc": "73210", "description": "Pet food / animal feed, in bags",                                "freight_class": "65",  "category": "Food & Beverage"},
+
+    # ── Apparel & Textiles ───────────────────────────────────────────
+    {"nmfc": "49880", "description": "Apparel, finished, in cartons (cotton/synthetic)",                "freight_class": "150", "category": "Apparel & Textiles"},
+    {"nmfc": "49900", "description": "Apparel, finished, fur or leather garments",                     "freight_class": "200", "category": "Apparel & Textiles"},
+    {"nmfc": "49920", "description": "Footwear, in cartons",                                           "freight_class": "150", "category": "Apparel & Textiles"},
+    {"nmfc": "49940", "description": "Textiles, woven piece goods, in bales",                          "freight_class": "100", "category": "Apparel & Textiles"},
+    {"nmfc": "49960", "description": "Yarn or thread, in cartons or cones",                            "freight_class": "100", "category": "Apparel & Textiles"},
+
+    # ── Electronics & Computers ──────────────────────────────────────
+    {"nmfc": "61700", "description": "Computers, mainframes/servers, in cartons",                      "freight_class": "92.5","category": "Electronics"},
+    {"nmfc": "61720", "description": "Computers, desktop, in retail cartons",                          "freight_class": "100", "category": "Electronics"},
+    {"nmfc": "61740", "description": "Computers, laptop/notebook, in retail cartons",                  "freight_class": "150", "category": "Electronics"},
+    {"nmfc": "61760", "description": "Electronics, consumer (TV, audio), in retail cartons",           "freight_class": "150", "category": "Electronics"},
+    {"nmfc": "61780", "description": "Electronics, components (PCBs, ICs), in cartons",                "freight_class": "175", "category": "Electronics"},
+    {"nmfc": "62110", "description": "Cables & wires, electronic, in cartons or spools",               "freight_class": "100", "category": "Electronics"},
+
+    # ── Pharmaceuticals & Medical ────────────────────────────────────
+    {"nmfc": "60000", "description": "Pharmaceuticals, in packages (non-controlled)",                  "freight_class": "85",  "category": "Pharmaceuticals & Medical"},
+    {"nmfc": "60010", "description": "Pharmaceuticals, in packages (controlled — DEA Schedule I-V)",   "freight_class": "100", "category": "Pharmaceuticals & Medical"},
+    {"nmfc": "60020", "description": "Medical instruments / devices, in cartons",                      "freight_class": "100", "category": "Pharmaceuticals & Medical"},
+    {"nmfc": "60030", "description": "Medical supplies, disposable (gloves, gowns, masks)",            "freight_class": "175", "category": "Pharmaceuticals & Medical"},
+
+    # ── Furniture & Home Goods ───────────────────────────────────────
+    {"nmfc": "94060", "description": "Furniture, household, knocked-down, in cartons",                 "freight_class": "150", "category": "Furniture & Home Goods"},
+    {"nmfc": "94070", "description": "Furniture, household, fully assembled (sofas, chairs)",          "freight_class": "250", "category": "Furniture & Home Goods"},
+    {"nmfc": "94080", "description": "Furniture, office, knocked-down, in cartons",                    "freight_class": "125", "category": "Furniture & Home Goods"},
+    {"nmfc": "94090", "description": "Mattresses, innerspring or foam, palletized",                    "freight_class": "200", "category": "Furniture & Home Goods"},
+    {"nmfc": "94100", "description": "Appliances, household (refrigerators, washers, ranges)",          "freight_class": "92.5","category": "Furniture & Home Goods"},
+
+    # ── Building & Construction ──────────────────────────────────────
+    {"nmfc": "20040", "description": "Building materials, gypsum board / drywall sheets",              "freight_class": "70",  "category": "Building & Construction"},
+    {"nmfc": "20060", "description": "Lumber, dimensional or cut, banded",                             "freight_class": "65",  "category": "Building & Construction"},
+    {"nmfc": "20080", "description": "Plywood / OSB sheets, banded",                                   "freight_class": "65",  "category": "Building & Construction"},
+    {"nmfc": "20100", "description": "Roofing materials — asphalt shingles, palletized",               "freight_class": "65",  "category": "Building & Construction"},
+    {"nmfc": "20120", "description": "Windows / doors, finished, crated",                              "freight_class": "85",  "category": "Building & Construction"},
+    {"nmfc": "20140", "description": "Tile (ceramic / porcelain), in cartons on pallets",              "freight_class": "70",  "category": "Building & Construction"},
+    {"nmfc": "20160", "description": "Concrete, precast (pipes, blocks)",                              "freight_class": "55",  "category": "Building & Construction"},
+    {"nmfc": "20180", "description": "Insulation, fiberglass batts/rolls, banded",                     "freight_class": "150", "category": "Building & Construction"},
+
+    # ── Steel, Metals & Machinery ────────────────────────────────────
+    {"nmfc": "133300", "description": "Motors, electric, AC/DC, NOI",                                  "freight_class": "85",  "category": "Machinery & Equipment"},
+    {"nmfc": "133420", "description": "Motors, electric, hermetically sealed",                         "freight_class": "70",  "category": "Machinery & Equipment"},
+    {"nmfc": "44890",  "description": "Castings, iron or steel, machinery parts",                      "freight_class": "70",  "category": "Machinery & Equipment"},
+    {"nmfc": "44970",  "description": "Frames, steel, machinery, welded",                              "freight_class": "70",  "category": "Machinery & Equipment"},
+    {"nmfc": "105820", "description": "Floor maintenance machines (scrubbers, sweepers, polishers)",    "freight_class": "85",  "category": "Machinery & Equipment"},
+    {"nmfc": "105823", "description": "Vacuum cleaners, industrial (electric/battery)",                "freight_class": "92.5","category": "Machinery & Equipment"},
+    {"nmfc": "105825", "description": "Carpet extractors / shampoo machines",                          "freight_class": "100", "category": "Machinery & Equipment"},
+    {"nmfc": "49880-1","description": "Pumps, electric, water/solution",                               "freight_class": "85",  "category": "Machinery & Equipment"},
+    {"nmfc": "133600", "description": "Generators, portable, gasoline or diesel",                       "freight_class": "85",  "category": "Machinery & Equipment"},
+    {"nmfc": "133620", "description": "Compressors, air, electric or gas",                              "freight_class": "85",  "category": "Machinery & Equipment"},
+    {"nmfc": "133700", "description": "Forklifts / pallet jacks, palletized",                          "freight_class": "70",  "category": "Machinery & Equipment"},
+    {"nmfc": "189870", "description": "Tires, solid rubber, industrial",                               "freight_class": "85",  "category": "Machinery & Equipment"},
+    {"nmfc": "189880", "description": "Tires, pneumatic, passenger/light truck",                        "freight_class": "100", "category": "Machinery & Equipment"},
+
+    # ── Metals & Raw Materials ───────────────────────────────────────
+    {"nmfc": "33060", "description": "Iron or steel, bars / rods, banded",                             "freight_class": "50",  "category": "Metals & Raw"},
+    {"nmfc": "33080", "description": "Iron or steel, sheets / plates, banded",                         "freight_class": "55",  "category": "Metals & Raw"},
+    {"nmfc": "33100", "description": "Iron or steel, structural shapes (I-beams, channel)",            "freight_class": "60",  "category": "Metals & Raw"},
+    {"nmfc": "33120", "description": "Aluminum, sheet or coil, banded",                                "freight_class": "65",  "category": "Metals & Raw"},
+    {"nmfc": "33140", "description": "Copper, wire or rod, banded",                                    "freight_class": "60",  "category": "Metals & Raw"},
+    {"nmfc": "156600","description": "Plastic articles, solution tanks (HDPE)",                        "freight_class": "150", "category": "Metals & Raw"},
+    {"nmfc": "156605","description": "Plastic articles, recovery tanks",                               "freight_class": "175", "category": "Metals & Raw"},
+    {"nmfc": "156620","description": "Plastic resin, pelletized, in bags or supersacks",               "freight_class": "55",  "category": "Metals & Raw"},
+
+    # ── Hazmat / Chemicals (Class 3 / 8 / 9) ─────────────────────────
+    {"nmfc": "60590-2","description": "Batteries, electric storage, lead-acid (wet/AGM)",              "freight_class": "60",  "category": "Hazmat · Class 8"},
+    {"nmfc": "60585",  "description": "Batteries, lithium-ion, packaged with equipment",               "freight_class": "92.5","category": "Hazmat · Class 9"},
+    {"nmfc": "60600",  "description": "Battery chargers, electric",                                    "freight_class": "85",  "category": "Electrical"},
+    {"nmfc": "27360",  "description": "Chemicals, flammable liquid n.o.s. (UN1993)",                   "freight_class": "85",  "category": "Hazmat · Class 3"},
+    {"nmfc": "27380",  "description": "Chemicals, corrosive liquid (acids/bases)",                     "freight_class": "85",  "category": "Hazmat · Class 8"},
+    {"nmfc": "27400",  "description": "Paint, in cans or pails",                                       "freight_class": "85",  "category": "Hazmat · Class 3"},
+    {"nmfc": "27420",  "description": "Adhesives, in cans or cartridges",                              "freight_class": "85",  "category": "Hazmat · Class 3"},
+
+    # ── Automotive ───────────────────────────────────────────────────
+    {"nmfc": "70000", "description": "Auto parts, NOI (palletized or crated)",                          "freight_class": "85",  "category": "Automotive"},
+    {"nmfc": "70030", "description": "Wiring harnesses, automotive/industrial",                         "freight_class": "92.5","category": "Automotive"},
+    {"nmfc": "70060", "description": "Engines / transmissions, crated",                                 "freight_class": "70",  "category": "Automotive"},
+    {"nmfc": "70080", "description": "Brake parts, in cartons",                                         "freight_class": "85",  "category": "Automotive"},
+    {"nmfc": "70100", "description": "Bumpers / body panels, plastic, in cartons",                       "freight_class": "150", "category": "Automotive"},
+
+    # ── Paper & Print ────────────────────────────────────────────────
+    {"nmfc": "151100","description": "Paper, printing or writing, in rolls",                            "freight_class": "60",  "category": "Paper & Print"},
+    {"nmfc": "151110","description": "Paper products, cartons/boxes flat-packed",                       "freight_class": "70",  "category": "Paper & Print"},
+    {"nmfc": "151120","description": "Books / catalogs, on pallets",                                    "freight_class": "65",  "category": "Paper & Print"},
+
+    # ── Consumables / Misc ──────────────────────────────────────────
+    {"nmfc": "16030", "description": "Brushes, machine, rotary",                                       "freight_class": "150", "category": "Consumables"},
+    {"nmfc": "16035", "description": "Brushes, sweeping, cylindrical",                                  "freight_class": "175", "category": "Consumables"},
+    {"nmfc": "84510", "description": "Hoses, rubber or plastic, with fittings",                         "freight_class": "100", "category": "Consumables"},
+    {"nmfc": "84580", "description": "Squeegee blades, rubber/urethane",                                "freight_class": "125", "category": "Consumables"},
+    {"nmfc": "186200","description": "Tools, hand, NOI (parts & spares)",                               "freight_class": "100", "category": "Parts & Spares"},
+
+    # ── Catch-all Freight All Kinds ──────────────────────────────────
+    {"nmfc": "FAK-50",  "description": "FAK · Freight All Kinds — class 50 (heavy, dense)",             "freight_class": "50",  "category": "FAK"},
+    {"nmfc": "FAK-85",  "description": "FAK · Freight All Kinds — class 85 (mid-density mixed)",         "freight_class": "85",  "category": "FAK"},
+    {"nmfc": "FAK-125", "description": "FAK · Freight All Kinds — class 125 (low-density mixed)",        "freight_class": "125", "category": "FAK"},
+    {"nmfc": "FAK-175", "description": "FAK · Freight All Kinds — class 175 (light bulky mixed)",        "freight_class": "175", "category": "FAK"},
 ]
 
 FREIGHT_CLASSES = ["50", "55", "60", "65", "70", "77.5", "85", "92.5", "100", "110", "125", "150", "175", "200", "250", "300", "400", "500"]
@@ -4778,7 +5006,7 @@ ACCESSORIAL_OPTIONS = [
 
 @api_router.get("/nmfc/codes")
 async def get_nmfc_codes(_: User = Depends(get_current_user)):
-    return {"codes": TENNANT_NMFC_CODES, "freight_classes": FREIGHT_CLASSES, "accessorials": ACCESSORIAL_OPTIONS}
+    return {"codes": GENERIC_NMFC_CODES, "freight_classes": FREIGHT_CLASSES, "accessorials": ACCESSORIAL_OPTIONS}
 
 # -------------------- SAP S/4HANA: Open Deliveries (for Book Load auto-fill) --------------------
 SAP_OPEN_DELIVERIES = [
@@ -4799,7 +5027,7 @@ async def sap_open_deliveries(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Not available for carrier role")
     out = list(SAP_OPEN_DELIVERIES)
     brand = await _active_brand_doc()
-    if brand and brand.get("brand_id") != "tennant":
+    if brand and brand.get("brand_id") != "orisei-freight":
         products = brand.get("sample_products") or []
         short = brand.get("short_name") or "BRAND"
         prefix = re.sub(r"[^A-Z0-9]+", "", short.upper())[:4] or "BRND"
@@ -4829,7 +5057,7 @@ async def sap_materials(_: User = Depends(get_current_user)):
         {"part_no": "TENN-TANK-SOL-HDPE-30G", "description": "Solution Tank · HDPE · 30 gal", "plant": "1030", "on_hand": 56, "open_orders": 15, "nmfc": "156600", "freight_class": "150"},
     ]
     brand = await _active_brand_doc()
-    if brand and brand.get("brand_id") != "tennant":
+    if brand and brand.get("brand_id") != "orisei-freight":
         products = brand.get("sample_products") or []
         short = brand.get("short_name") or "BRAND"
         prefix = re.sub(r"[^A-Z0-9]+", "", short.upper())[:4] or "BRND"
@@ -5273,8 +5501,8 @@ async def send_onboarding_packet(onboarding_id: str, admin: User = Depends(requi
 
     # Pull active brand so the packet reflects Orisei/Calafia (or whatever brand is active)
     brand = await _active_brand_doc() or {}
-    company = brand.get("company_name") or "Tennant Companies"
-    short = brand.get("short_name") or "Tennant"
+    company = brand.get("company_name") or "Orisei Freight Solutions"
+    short = brand.get("short_name") or "Orisei"
     contact_email = (brand.get("contact_emails") or {}).get("carriers") if isinstance(brand.get("contact_emails"), dict) else None
     if not contact_email:
         # derive a sane default from the brand's primary email domain or short name
@@ -6539,7 +6767,7 @@ async def list_machines(_: User = Depends(get_current_user), category: Optional[
     out = [{**m, "image_url": m.get("image_url") or _real_photo_or_svg(m)} for m in out]
     # Active brand overlay — swap to brand's catalog when not Tennant.
     brand = await _active_brand_doc()
-    if brand and brand.get("brand_id") != "tennant":
+    if brand and brand.get("brand_id") != "orisei-freight":
         out = [_overlay_machine(m, brand, i) if not m.get("is_custom") else m for i, m in enumerate(out)]
     return {"machines": out, "categories": TENNANT_MACHINE_CATEGORIES, "count": len(out), "catalog_label": (brand or {}).get("catalog_label") or "Machine Catalog"}
 
@@ -7321,7 +7549,7 @@ async def list_suppliers(_: User = Depends(get_current_user), country: Optional[
     all_suppliers = list(TENNANT_SUPPLIERS) + custom
     # Active brand overlay → swap supplier names when not Tennant.
     brand = await _active_brand_doc()
-    if brand and brand.get("brand_id") != "tennant":
+    if brand and brand.get("brand_id") != "orisei-freight":
         all_suppliers = [_overlay_supplier(s, brand, i) for i, s in enumerate(all_suppliers)]
     out = list(all_suppliers)
     if country:
@@ -7721,7 +7949,7 @@ async def admin_dashboard(_: User = Depends(require_role("admin"))):
 
     active_brand = await db.company_brand.find_one({"is_active": True}, {"_id": 0})
     if not active_brand:
-        active_brand = {"brand_id": "tennant", "company_name": "Tennant Companies", "short_name": "Tennant", "primary_color": "#00A4E4", "logo_letter": "T", "is_default": True}
+        active_brand = {"brand_id": "orisei-freight", "company_name": "Orisei Freight Solutions", "short_name": "Orisei", "primary_color": "#0E3A6B", "logo_letter": "T", "is_default": True}
     brand_count = await db.company_brand.count_documents({})
 
     settings_doc = await db.admin_settings.find_one({}, {"_id": 0}) or {}

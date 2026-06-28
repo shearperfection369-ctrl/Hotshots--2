@@ -50,7 +50,7 @@ const DEFAULT_COLUMNS = [
   { id: "status", label: "Status", default: true, width: 140 },
 ];
 
-const COLS_STORAGE_KEY = "tennant_shipments_cols_v1";
+const COLS_STORAGE_KEY = "tms_shipments_cols_v1";
 const loadColPrefs = () => {
   try {
     const raw = localStorage.getItem(COLS_STORAGE_KEY);

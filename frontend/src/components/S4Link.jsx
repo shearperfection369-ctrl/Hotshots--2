@@ -9,7 +9,7 @@ import { api } from "../lib/api";
  *
  * On mount the component fetches /api/sap/link-config ONCE (cached at the
  * module level) so we don't roundtrip every render. The link opens the
- * Tennant S/4 Fiori launchpad's fact-sheet for that reference type.
+ * Customer S/4 Fiori launchpad's fact-sheet for that reference type.
  *
  * Falls back to a plain <span> if the kind is unknown or value is empty.
  */

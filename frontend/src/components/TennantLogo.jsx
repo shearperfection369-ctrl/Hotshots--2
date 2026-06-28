@@ -9,7 +9,7 @@ import { useBranding } from "../lib/branding";
  */
 export const TennantLogo = ({ size = "md", className = "" }) => {
   const { brand } = useBranding();
-  const isDefault = brand?.brand_id === "tennant" || !brand?.brand_id;
+  const isDefault = brand?.brand_id === "orisei-freight" || !brand?.brand_id;
 
   // Orisei custom-asset path — uses the Queen Calafia + griffin emblem.
   if (brand?.brand_id === "orisei-freight") {
@@ -56,7 +56,7 @@ export const TennantLogo = ({ size = "md", className = "" }) => {
       height={dims.h}
       className={className}
       data-testid="brand-logo"
-      aria-label={brand?.company_name || "Tennant Company"}
+      aria-label={brand?.company_name || "Orisei Freight Solutions"}
     >
       <rect
         x={1} y={1}

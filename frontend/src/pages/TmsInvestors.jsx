@@ -647,7 +647,7 @@ export default function TmsInvestors() {
 
             <div className="mt-6 flex flex-wrap gap-2">
               <Pill Icon={MapPin} label={data.founder.location} />
-              <Pill Icon={Briefcase} label={data.founder.current_role.split(" · ")[1] || "Tennant Companies"} />
+              <Pill Icon={Briefcase} label={data.founder.current_role.split(" · ")[1] || "Orisei Freight Solutions"} />
               <Pill Icon={Globe2} label="International Specialist" />
               <Pill Icon={Award} label={`${data.founder.tenure_years}+ Years Operator`} />
             </div>

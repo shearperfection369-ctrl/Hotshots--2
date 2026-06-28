@@ -43,12 +43,12 @@ def _gen_sap_sales_orders(n: int = 24) -> List[Dict[str, Any]]:
         ("CUST-101677", "Ford F-150 Plant — Dearborn"),
     ]
     materials = [
-        ("MAT-T16AMR", "Tennant T16 AMR Ride-On Scrubber", 38500.00),
-        ("MAT-M30", "Tennant M30 Integrated Sweeper-Scrubber", 52000.00),
-        ("MAT-S30", "Tennant S30 Industrial Sweeper", 41200.00),
-        ("MAT-T7AMR", "Tennant T7 AMR Compact Robotic", 28900.00),
-        ("MAT-M17", "Tennant M17 Mid-Size Sweeper-Scrubber", 33400.00),
-        ("MAT-PARTS-BAT", "Tennant Lithium-Ion Battery Pack (Service Part)", 2150.00),
+        ("MAT-T16AMR", "T16 AMR Ride-On Scrubber", 38500.00),
+        ("MAT-M30", "M30 Integrated Sweeper-Scrubber", 52000.00),
+        ("MAT-S30", "S30 Industrial Sweeper", 41200.00),
+        ("MAT-T7AMR", "T7 AMR Compact Robotic", 28900.00),
+        ("MAT-M17", "M17 Mid-Size Sweeper-Scrubber", 33400.00),
+        ("MAT-PARTS-BAT", "Lithium-Ion Battery Pack (Service Part)", 2150.00),
     ]
     plants = [("1010", "Golden Valley, MN"), ("1020", "Holland, MI"), ("1030", "Louisville, KY")]
     statuses = ["Open", "Open", "In Production", "Released to Shipping", "Confirmed", "Partial Delivery"]
@@ -144,7 +144,7 @@ def build_sap_router(
     async def _brand_sap_config() -> Dict[str, Any]:
         cfg = dict(SAP_MOCK_CONFIG)
         brand = await active_brand_doc()
-        if brand and brand.get("brand_id") != "tennant":
+        if brand and brand.get("brand_id") != "orisei-freight":
             short = brand.get("short_name") or "Brand"
             slug = re.sub(r"[^a-z0-9]+", "", short.lower())[:20] or "brand"
             prefix = re.sub(r"[^A-Z0-9]+", "", short.upper())[:6] or "BRND"
@@ -154,7 +154,7 @@ def build_sap_router(
 
     async def _overlay_sap_records(rows: List[Dict[str, Any]], kind: str) -> List[Dict[str, Any]]:
         brand = await active_brand_doc()
-        if not brand or brand.get("brand_id") == "tennant":
+        if not brand or brand.get("brand_id") == "orisei-freight":
             return rows
         products = brand.get("sample_products") or []
         suppliers = brand.get("sample_suppliers") or []

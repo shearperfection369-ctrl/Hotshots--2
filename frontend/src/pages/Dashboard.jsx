@@ -150,7 +150,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <Topbar title="Command Center" subtitle={`${(brand?.company_name || "TENNANT COMPANIES").toUpperCase()} · TMS HUD · LIVE OPERATIONS`} />
+      <Topbar title="Command Center" subtitle={`${(brand?.company_name || "ORISEI FREIGHT SOLUTIONS").toUpperCase()} · TMS HUD · LIVE OPERATIONS`} />
       <div className="p-4 md:p-6 flex flex-col gap-5">
 
         {/* Auto NWS-style weather alert banner — polls every 60s, dismissible per alert_id */}
@@ -489,7 +489,7 @@ export default function Dashboard() {
  * the broker card so the Command tab fits above the fold:
  *  - Iframe locked to a 16:9 box no taller than the broker card was (~h-44)
  *  - Pasteable URL/ID input collapsed behind a "Change" toggle to save space
- *  - Default video: Tennant Company official trailer (mTxE3g7o4aY)
+ *  - Default video: Orisei Freight Solutions official trailer (mTxE3g7o4aY)
  *  - Persists the chosen video to localStorage so it survives page reloads
  */
 function CompactVideoTile() {
@@ -497,7 +497,7 @@ function CompactVideoTile() {
   const KEY = "tms-dashboard-video";
   const PLAYLIST_KEY = "tms-dashboard-playlist";
   const DEFAULT_PLAYLIST = [
-    { id: "mTxE3g7o4aY", title: "Tennant · Is Everywhere Trailer" },
+    { id: "mTxE3g7o4aY", title: "Brand Demo Reel" },
     { id: "5qap5aO4i9A", title: "Lofi · Study Stream" },
     { id: "jfKfPfyJRdk", title: "Lofi · Beats to Relax" },
     { id: "rQ7yA5jb5_M", title: "FedEx · Inside Look" },

@@ -14,7 +14,7 @@ import {
 import { useAuth } from "../lib/auth";
 
 /**
- * RoutingGuide page — surfaces Tennant's Domestic US / Canada / Mexico
+ * RoutingGuide page — surfaces the platform's Domestic US / Canada / Mexico
  * Inbound Routing Guide PDF (stored in GridFS) with a one-click "email to
  * customer" button that opens the user's mail client pre-filled with subject,
  * body, and a direct download link to the live PDF.
@@ -84,7 +84,7 @@ export default function RoutingGuide() {
         kind: "routing_guide",
       });
       setEmailPreview({
-        subject: `Tennant Inbound Routing Guide — ${info?.revision || ""} (Eff. ${info?.effective_date || ""})`.trim(),
+        subject: `Inbound Routing Guide — ${info?.revision || ""} (Eff. ${info?.effective_date || ""})`.trim(),
         body: `Sent to ${data.to} from ${data.from}.\n\nMessage ID: ${data.message_id}\nProvider: ${data.status === "mocked" ? "MOCKED (no email actually sent)" : "SendGrid"}\n\nTo wire real delivery, paste your SendGrid API key into backend/.env as SENDGRID_API_KEY.`,
       });
       toast.success(`Routing guide queued for ${data.to}`, {
@@ -148,7 +148,7 @@ export default function RoutingGuide() {
     <>
       <Topbar
         title="Inbound Routing Guide"
-        subtitle="Tennant Companies · Domestic US · Canada · Mexico · Puerto Rico"
+        subtitle="Orisei Freight Solutions · Domestic US · Canada · Mexico · Puerto Rico"
       />
       <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
 
@@ -239,14 +239,14 @@ export default function RoutingGuide() {
           </div>
           <ul className="mt-3 space-y-2 text-sm text-slate-300">
             <li className="flex gap-2"><span className="text-cyan-400 mt-0.5">›</span><span>Approved carriers per mode (Small Package · LTL · Full Truckload)</span></li>
-            <li className="flex gap-2"><span className="text-cyan-400 mt-0.5">›</span><span>PO number + Tennant location requirements on every BOL</span></li>
+            <li className="flex gap-2"><span className="text-cyan-400 mt-0.5">›</span><span>PO number + receiving-location requirements on every BOL</span></li>
             <li className="flex gap-2"><span className="text-cyan-400 mt-0.5">›</span><span>Country-specific instructions for USA, Canada, Mexico, Puerto Rico</span></li>
             <li className="flex gap-2"><span className="text-cyan-400 mt-0.5">›</span><span>Freight terms (Prepaid + Add · Collect · 3rd-Party)</span></li>
             <li className="flex gap-2"><span className="text-cyan-400 mt-0.5">›</span><span>Routing exceptions & escalation contacts</span></li>
           </ul>
           <div className="mt-4 p-3 rounded bg-cyan-500/[0.05] border border-cyan-500/20 text-xs text-cyan-200">
             <span className="font-mono uppercase text-[10px] tracking-wider text-cyan-400">Tip · </span>
-            Suppliers must follow this guide on every shipment where Tennant is the routing party.
+            Suppliers must follow this guide on every shipment where we are the routing party.
           </div>
         </Card>
 
@@ -325,14 +325,14 @@ export default function RoutingGuide() {
               <Input
                 value={emailForm.cc}
                 onChange={(e) => setEmailForm({ ...emailForm, cc: e.target.value })}
-                placeholder="transportation@tennantco.com"
+                placeholder="transportation@oriseifreight.com"
                 data-testid="rg-email-cc"
                 className="bg-[#11151F] border-white/10 mt-1"
               />
             </div>
             <div className="text-xs text-slate-400 leading-relaxed pt-2">
               We'll open your default mail client with a pre-written subject, body, and a direct download link
-              to the live PDF. The link works for external suppliers — no Tennant login required.
+              to the live PDF. The link works for external suppliers — no internal login required.
             </div>
           </div>
           <DialogFooter>

@@ -2,7 +2,7 @@
 
 Renders Bill of Lading (BOL), Proof of Delivery (POD), compliance forms,
 and markdown PDFs using the currently-active company brand:
-  • Embedded brand logo (Orisei → Calafia + griffin · Tennant → monogram · etc.)
+  • Embedded brand logo (Orisei → Calafia + griffin · others → monogram · etc.)
   • Brand palette derived from `primary_color` + `accent_color`
   • Brand-specific footer copy (company name, address, contact email)
   • Brand-specific doc-id prefix (`ORI-`, `TEN-`, etc.)

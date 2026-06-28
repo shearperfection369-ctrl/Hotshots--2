@@ -1556,7 +1556,7 @@ def build_brokerage_router(
         cfg = {
             "_id": "qb",
             "connected": True,
-            "company": (payload or {}).get("company") or "Tennant Brokerage LLC",
+            "company": (payload or {}).get("company") or "Orisei Brokerage LLC",
             "realm_id": f"qb-{uuid.uuid4().hex[:10]}",
             "connected_at": datetime.now(timezone.utc).isoformat(),
             "last_sync_at": None,

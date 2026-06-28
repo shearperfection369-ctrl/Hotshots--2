@@ -16,7 +16,7 @@ import TruckloadBookingSheet from "../components/TruckloadBookingSheet";
 // Per-tab column-order memory. We persist `{ [tab_id]: string[] }` of column
 // keys. On load we reconcile with the actual columns coming from the server
 // (drop missing, append new), so reordering survives schema additions.
-const COL_ORDER_KEY = "tennant_workbook_col_order_v1";
+const COL_ORDER_KEY = "workbook_col_order_v1";
 const loadColOrder = () => {
   try { return JSON.parse(localStorage.getItem(COL_ORDER_KEY) || "{}") || {}; }
   catch (e) { return {}; }

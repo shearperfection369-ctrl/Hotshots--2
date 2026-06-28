@@ -83,7 +83,7 @@ export const BRAND_DIRECTORY = [
   { name: "CMA CGM",          industry: "Shipping" },
   { name: "Hapag-Lloyd",      industry: "Shipping" },
   { name: "ONE",              industry: "Shipping" },
-  { name: "Tennant Company",  industry: "Industrial" },
+  { name: "Orisei Freight Solutions",  industry: "Industrial" },
 ];
 
 export const INDUSTRIES = [...new Set(BRAND_DIRECTORY.map((b) => b.industry))].sort();

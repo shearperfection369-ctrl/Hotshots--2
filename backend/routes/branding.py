@@ -1,13 +1,13 @@
 """routes.branding — multi-tenant brand management.
 
 Endpoints:
-  GET    /branding              · active brand (or default Tennant)
+  GET    /branding              · active brand (or default Orisei)
   GET    /branding/all          · admin: list every generated brand
   POST   /branding/generate     · admin: Claude generates full brand profile
   POST   /branding/manual       · admin: paste manual brand fields
   GET    /branding/template     · admin: blank template the UI pre-fills
   POST   /branding/activate     · admin: switch active brand
-  DELETE /branding/{brand_id}   · admin: delete (Tennant default protected)
+  DELETE /branding/{brand_id}   · admin: delete (Orisei default protected)
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def _generate_brand_logo(brand: Dict[str, Any]) -> Dict[str, str]:
     Safe to call sync — defers to PIL via the script module."""
     from pathlib import Path as _Path
     brand_id = brand.get("brand_id")
-    if not brand_id or brand_id in ("orisei", "orisei-freight", "tennant"):
+    if not brand_id or brand_id in ("orisei", "orisei-freight", "orisei-freight"):
         return {}     # hand-designed logos already exist for these
     try:
         # Import lazily so module load doesn't depend on PIL being installed
@@ -59,9 +59,9 @@ def _generate_brand_logo(brand: Dict[str, Any]) -> Dict[str, str]:
 
 
 DEFAULT_BRAND = {
-    "brand_id": "tennant",
-    "company_name": "Tennant Companies",
-    "short_name": "Tennant",
+    "brand_id": "orisei-freight",
+    "company_name": "Orisei Freight Solutions",
+    "short_name": "Orisei",
     "tagline": "Mission-control TMS · Built for the team's day",
     "industry": "Industrial cleaning equipment manufacturer",
     "headquarters": "Golden Valley, MN",
@@ -342,9 +342,9 @@ def build_branding_router(
     @router.post("/branding/activate")
     async def branding_activate(payload: BrandActivateIn, _=Depends(require_role("admin"))):
         """Switch the active brand. Pass brand_id='tennant' to restore default."""
-        if payload.brand_id == "tennant":
+        if payload.brand_id == "orisei-freight":
             await db.company_brand.update_many({}, {"$set": {"is_active": False}})
-            await _ensure_brand_erp_stub({"brand_id": "tennant", "short_name": "Tennant"})
+            await _ensure_brand_erp_stub({"brand_id": "orisei-freight", "short_name": "Orisei"})
             return {"ok": True, "brand": DEFAULT_BRAND}
         found = await db.company_brand.find_one({"brand_id": payload.brand_id})
         if not found:
@@ -358,8 +358,8 @@ def build_branding_router(
 
     @router.delete("/branding/{brand_id}")
     async def branding_delete(brand_id: str, _=Depends(require_role("admin"))):
-        """Delete a generated brand. Cannot delete the Tennant default."""
-        if brand_id == "tennant":
+        """Delete a generated brand. Cannot delete the Orisei default."""
+        if brand_id == "orisei-freight":
             raise HTTPException(400, "Cannot delete the built-in default")
         r = await db.company_brand.delete_one({"brand_id": brand_id})
         if r.deleted_count == 0:

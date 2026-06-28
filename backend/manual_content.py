@@ -252,7 +252,7 @@ SLIDES = [
         "subtitle": "Five Tennant-branded PDFs",
         "steps": [
             "Top row: 5 document-type cards — Bill of Lading, Commercial Invoice, Packing Slip, Weight Certificate, Certificate of Origin.",
-            "Click any card to open the Generate dialog. Pre-fills shipper as Tennant Company.",
+            "Click any card to open the Generate dialog. Pre-fills shipper as the brokerage.",
             "Fill shipment ref, consignee, origin, destination, carrier, commodity, pieces, weight, value.",
             "For COO: also enter Country of Origin (defaults to USA).",
             "Click 'Generate Document' — record is created and a toast offers 'Download PDF →'.",
@@ -844,7 +844,7 @@ SLIDES = [
         "steps": [
             "Drag any tile (KPI, chart, feed) to reorder the layout to match your workflow.",
             "Layouts persist server-side per user — log in from any browser and your arrangement follows.",
-            "Hit 'Reset Layout' in the page header to return to the Tennant default.",
+            "Hit 'Reset Layout' in the page header to return to the default brand.",
         ],
         "page_url": "/dashboard",
     },
@@ -875,7 +875,7 @@ SLIDES = [
             "Type any company name (Walmart, FedEx, Caterpillar, Apple, etc.) and click Generate & Activate.",
             "Claude Sonnet 4.5 (via Emergent universal key) generates the brand profile: real colors, logo letter, tagline, industry, flagship products, Tier-1 suppliers, transportation lanes.",
             "The entire app re-skins in seconds: sidebar logo, header subtitle, SAP base URL, SharePoint tenant, PowerBI workspace, carrier rate lanes, machine catalog labels.",
-            "Activate previously-generated brands with one click. Tennant default is always available to restore.",
+            "Activate previously-generated brands with one click. default brand is always available to restore.",
         ],
         "tips": ["77-company curated directory · industry-filtered chips · search-as-you-type autocomplete."],
         "page_url": "/admin",
@@ -972,7 +972,7 @@ SLIDES = [
         "subtitle": "Sidebar > About · Business Plan (also at /about)",
         "steps": [
             "Public-facing landing page with the founder bio, theme reel mockup, 8-feature grid, 9 ERP grid, business plan preview.",
-            "Founder credentials: 13 years in supply chain & logistics · all modes (TL, LTL, parcel, ocean, air, rail) · international specialist · Transportation Analyst at Tennant Companies.",
+            "Founder credentials: 13 years in supply chain & logistics · all modes (TL, LTL, parcel, ocean, air, rail) · international specialist · Transportation Analyst (prev. Fortune-500 industrials).",
             "Direct contact link: oliver@livecleans.com.",
             "Full written business plan available at /app/BUSINESS_PLAN.md.",
         ],

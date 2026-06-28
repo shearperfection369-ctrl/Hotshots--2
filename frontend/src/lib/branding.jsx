@@ -2,9 +2,9 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { api } from "./api";
 
 const DEFAULT_BRAND = {
-  brand_id: "tennant",
-  company_name: "Tennant Companies",
-  short_name: "Tennant",
+  brand_id: "orisei-freight",
+  company_name: "Orisei Freight Solutions",
+  short_name: "Orisei",
   tagline: "Mission-control TMS · Built for the team's day",
   industry: "Industrial cleaning equipment manufacturer",
   headquarters: "Golden Valley, MN",
@@ -26,7 +26,7 @@ export const BRAND_CHANGED_EVENT = "brand-changed";
 /**
  * BrandingProvider — fetches the active company brand once at app boot
  * and re-applies CSS custom properties (--brand-*) on every change so the
- * whole UI re-themes instantly. Falls back to the hard-coded Tennant brand
+ * whole UI re-themes instantly. Falls back to the hard-coded company brand
  * if the API is unreachable.
  */
 export function BrandingProvider({ children }) {

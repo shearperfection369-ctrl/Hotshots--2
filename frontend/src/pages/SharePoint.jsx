@@ -9,8 +9,8 @@ const SP_BLUE = "#03787C"; // SharePoint teal
 
 export default function SharePoint() {
   const { brand } = useBranding();
-  const shortName = brand?.short_name || "Tennant";
-  const companyName = brand?.company_name || "Tennant Companies";
+  const shortName = brand?.short_name || "Orisei";
+  const companyName = brand?.company_name || "Orisei Freight Solutions";
   const [data, setData] = useState({ sites: [], recent_files: [], tenant_url: "" });
   const loadConfig = () => {
     api.get("/integrations/sharepoint/config").then((r) => setData(r.data)).catch(() => {});
@@ -18,7 +18,7 @@ export default function SharePoint() {
   useEffect(() => { loadConfig(); }, []);
   useBrandRefresh(() => loadConfig());
   // Derive the displayable tenant host from whatever the API returns (the
-  // backend already brand-swaps this for non-Tennant brands).
+  // backend already brand-swaps this for non-company brands).
   const tenantHost = (data.tenant_url || "").replace(/^https?:\/\//, "") || `${shortName.toLowerCase()}.sharepoint.com`;
 
   return (

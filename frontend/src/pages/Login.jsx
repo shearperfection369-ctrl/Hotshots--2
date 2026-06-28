@@ -38,7 +38,7 @@ export default function Login() {
         <div className="absolute inset-0 opacity-30">
           <img
             src={TENNANT_LOGO_URL}
-            alt="Tennant equipment"
+            alt="Freight operations"
             className="w-full h-full object-cover"
           />
         </div>
@@ -50,7 +50,7 @@ export default function Login() {
             <span className="text-cyan-400">Transportation</span>
           </h1>
           <p className="text-slate-400 mt-6 leading-relaxed">
-            A unified command center for Tennant Companies. Track every load — TL, LTL, parcel, ocean, air, rail — across Louisville, Holland, and Golden Valley.
+            A unified command center for the brokerage. Track every load — TL, LTL, parcel, ocean, air, rail — from origin to delivery.
           </p>
           <div className="mt-10 grid grid-cols-3 gap-4">
             {[
@@ -79,7 +79,7 @@ export default function Login() {
           <div className="text-[10px] font-mono text-cyan-400 tracking-[0.3em] uppercase mb-3">Secure Access</div>
           <h2 className="font-display text-3xl font-bold tracking-tight">Sign in to TMS</h2>
           <p className="text-sm text-slate-400 mt-3">
-            Authorized Tennant Companies personnel only. Sign in with your Google account.
+            Authorized operations personnel only. Sign in with your Google account.
           </p>
 
           <Button
@@ -109,7 +109,7 @@ export default function Login() {
           )}
 
           <div className="mt-6 text-[11px] text-slate-500 font-mono leading-relaxed">
-            By signing in, you agree to Tennant&apos;s acceptable-use policy.
+            By signing in, you agree to the platform&apos;s acceptable-use policy.
             Sessions are encrypted and expire after 7 days of inactivity.
           </div>
 

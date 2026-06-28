@@ -29,7 +29,7 @@ const INCOTERMS = [
     risk_transfer: "At seller's premises, when goods are placed at buyer's disposal — NOT loaded.",
     buyer_pays: "Everything: loading, export clearance, freight, insurance, import duties.",
     seller_pays: "Nothing beyond making goods available at the named place.",
-    tennant_use: "Rarely used outbound — minimum seller obligation; risky for export documentation.",
+    use_case: "Rarely used outbound — minimum seller obligation; risky for export documentation.",
     insurance: "Buyer's discretion.",
   },
   {
@@ -37,7 +37,7 @@ const INCOTERMS = [
     risk_transfer: "When goods are handed to the buyer's nominated carrier at the named place.",
     buyer_pays: "Main carriage, insurance, import clearance & duties.",
     seller_pays: "Export clearance, pre-carriage to named place, loading IF named place is seller's premises.",
-    tennant_use: "Preferred for containerized exports — replaces FOB for container/ro-ro shipments.",
+    use_case: "Preferred for containerized exports — replaces FOB for container/ro-ro shipments.",
     insurance: "Buyer's discretion. (2020 update: buyer can instruct carrier to issue on-board B/L to seller.)",
   },
   {
@@ -45,7 +45,7 @@ const INCOTERMS = [
     risk_transfer: "When goods are placed alongside the vessel at the named port of shipment.",
     buyer_pays: "Loading onto vessel, freight, insurance, import.",
     seller_pays: "Delivery to quay alongside the ship, export clearance.",
-    tennant_use: "Bulk / oversized machine exports loaded by ship's tackle at the port.",
+    use_case: "Bulk / oversized machine exports loaded by ship's tackle at the port.",
     insurance: "Buyer's discretion.",
   },
   {
@@ -53,7 +53,7 @@ const INCOTERMS = [
     risk_transfer: "When goods are loaded on board the vessel at the named port of shipment.",
     buyer_pays: "Sea freight, insurance, import clearance & duties.",
     seller_pays: "Export clearance, pre-carriage, loading onto vessel.",
-    tennant_use: "Classic ocean term for non-containerized cargo. Use FCA for containers per ICC guidance.",
+    use_case: "Classic ocean term for non-containerized cargo. Use FCA for containers per ICC guidance.",
     insurance: "Buyer's discretion.",
   },
   {
@@ -61,7 +61,7 @@ const INCOTERMS = [
     risk_transfer: "When goods are on board the vessel — but seller pays main carriage.",
     buyer_pays: "Insurance, import clearance & duties, post-discharge transport.",
     seller_pays: "Export clearance, freight to named port of destination.",
-    tennant_use: "Used when buyer prefers to arrange their own marine insurance.",
+    use_case: "Used when buyer prefers to arrange their own marine insurance.",
     insurance: "Buyer's discretion (NOT required of seller).",
   },
   {
@@ -69,7 +69,7 @@ const INCOTERMS = [
     risk_transfer: "When goods are on board the vessel — seller pays freight AND minimum insurance.",
     buyer_pays: "Import clearance & duties, post-discharge transport.",
     seller_pays: "Export, freight to destination port, marine insurance (min ICC Clause C in 2020).",
-    tennant_use: "Common for ocean exports to customers who want a single landed-cost quote.",
+    use_case: "Common for ocean exports to customers who want a single landed-cost quote.",
     insurance: "Seller must provide — ICC (C) minimum coverage, 110% of contract value.",
   },
   {
@@ -77,7 +77,7 @@ const INCOTERMS = [
     risk_transfer: "When goods are handed to the first carrier — even though seller pays freight to destination.",
     buyer_pays: "Insurance, import clearance & duties, unloading at destination.",
     seller_pays: "Export, main carriage to named destination.",
-    tennant_use: "Multimodal exports (rail + ocean + truck) where seller arranges through-freight.",
+    use_case: "Multimodal exports (rail + ocean + truck) where seller arranges through-freight.",
     insurance: "Buyer's discretion (NOT required of seller).",
   },
   {
@@ -85,7 +85,7 @@ const INCOTERMS = [
     risk_transfer: "When goods are handed to the first carrier — seller pays carriage AND high-level insurance.",
     buyer_pays: "Import clearance & duties, unloading.",
     seller_pays: "Export, main carriage, insurance to ICC Clause A (all-risks, 110% of value).",
-    tennant_use: "Use when shipping high-value AMR units air freight — broad insurance protects in-transit damage.",
+    use_case: "Use when shipping high-value units air freight — broad insurance protects in-transit damage.",
     insurance: "Seller must provide — ICC (A) all-risks coverage (2020 upgrade from Clause C).",
   },
   {
@@ -93,7 +93,7 @@ const INCOTERMS = [
     risk_transfer: "On arrival at named place of destination, ready for unloading — NOT yet unloaded.",
     buyer_pays: "Unloading at destination, import clearance & duties.",
     seller_pays: "Everything up to and including arrival at named place.",
-    tennant_use: "Standard for cross-border North America (USMCA) deliveries to customer DC.",
+    use_case: "Standard for cross-border North America (USMCA) deliveries to customer DC.",
     insurance: "Seller's discretion (assumes risk to destination).",
   },
   {
@@ -101,7 +101,7 @@ const INCOTERMS = [
     risk_transfer: "On arrival at named place AND after unloading by seller.",
     buyer_pays: "Import clearance & duties only.",
     seller_pays: "All costs and risks including unloading at the named place.",
-    tennant_use: "New 2020 term (replaced DAT). Only rule requiring seller to unload — useful for crated machines.",
+    use_case: "New 2020 term (replaced DAT). Only rule requiring seller to unload — useful for crated machines.",
     insurance: "Seller's discretion (assumes risk to destination & unload).",
   },
   {
@@ -109,7 +109,7 @@ const INCOTERMS = [
     risk_transfer: "On arrival at named destination, cleared for import — maximum seller obligation.",
     buyer_pays: "Nothing beyond receiving the goods.",
     seller_pays: "Everything: export, freight, insurance, import clearance, duties, taxes.",
-    tennant_use: "Used for premium customer experience — seller handles import. Caution: requires VAT registration in many jurisdictions.",
+    use_case: "Used for premium customer experience — seller handles import. Caution: requires VAT registration in many jurisdictions.",
     insurance: "Seller's discretion (assumes full risk).",
   },
 ];
@@ -189,7 +189,7 @@ export default function TradeCompliance() {
                   <p className="text-xs text-slate-400 mb-4 max-w-3xl leading-relaxed">
                     Incoterms® rules define the responsibilities of buyer and seller for the delivery of goods —
                     who pays which costs, when risk transfers, who arranges insurance, and who clears customs.
-                    Tennant's standard outbound terms are <span className="text-cyan-300 font-mono">FCA Origin</span> for containers,
+                    the platform's standard outbound terms are <span className="text-cyan-300 font-mono">FCA Origin</span> for containers,
                     <span className="text-cyan-300 font-mono"> CIP Destination</span> for high-value air freight,
                     and <span className="text-cyan-300 font-mono">DAP/DDP</span> for North American customers.
                   </p>
@@ -221,8 +221,8 @@ export default function TradeCompliance() {
                           <IncoRow label="Buyer Pays" value={t.buyer_pays} accent="text-slate-300" />
                         </div>
                         <div className="mt-3 pt-3 border-t border-white/5 text-xs text-cyan-200/80">
-                          <span className="font-mono text-[9px] uppercase tracking-wider text-cyan-400">Tennant use · </span>
-                          {t.tennant_use}
+                          <span className="font-mono text-[9px] uppercase tracking-wider text-cyan-400">Use case · </span>
+                          {t.use_case}
                         </div>
                       </div>
                     ))}
@@ -292,7 +292,7 @@ export default function TradeCompliance() {
               programs: { label: "Trade Programs", render: () => (
                 <Card className="hud-surface p-5" id="tc-programs" data-testid="tc-programs">
                   <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Trade Programs · FTAs · FTZ · Drawback</div>
-                  <h3 className="font-display text-lg font-bold mt-0.5 mb-3">Tennant's Active Programs</h3>
+                  <h3 className="font-display text-lg font-bold mt-0.5 mb-3">the platform's Active Programs</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {data.trade_programs.map((p) => (
                       <div key={p.program} className="p-3 rounded border border-white/5 bg-white/[0.02]">
@@ -303,7 +303,7 @@ export default function TradeCompliance() {
                           </div>
                           <span className={`px-2 py-0.5 rounded text-[9px] font-mono uppercase ${p.status.includes("Expired") ? "bg-red-500/10 text-red-300 border border-red-500/30" : "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30"}`}>{p.status}</span>
                         </div>
-                        <div className="text-xs text-slate-300 mt-2">{p.tennant_use}</div>
+                        <div className="text-xs text-slate-300 mt-2">{p.use_case}</div>
                       </div>
                     ))}
                   </div>
@@ -320,7 +320,7 @@ export default function TradeCompliance() {
                         <th className="text-left py-2 px-3">List</th>
                         <th className="text-right py-2 px-3">Rate</th>
                         <th className="text-left py-2 px-3">Effective</th>
-                        <th className="text-left py-2 px-3">Tennant Exposure</th>
+                        <th className="text-left py-2 px-3">Exposure</th>
                       </tr>
                     </thead>
                     <tbody className="font-mono">
@@ -329,7 +329,7 @@ export default function TradeCompliance() {
                           <td className="py-2 px-3 text-cyan-300">{l.list}</td>
                           <td className="py-2 px-3 text-right text-red-300">+{l.rate_pct}%</td>
                           <td className="py-2 px-3 text-slate-400 text-xs">{l.effective}</td>
-                          <td className="py-2 px-3 text-slate-300 text-xs">{l.applies_to_tennant}</td>
+                          <td className="py-2 px-3 text-slate-300 text-xs">{l.applies_to_company}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -349,14 +349,14 @@ export default function TradeCompliance() {
                     <Tile label="Rate" value={`+${data.section_232.rate_pct}%`} accent="text-red-400" />
                     <Tile label="TRQ" value={data.section_232.tariff_rate_quota} accent="text-cyan-300" />
                   </div>
-                  <div className="text-sm text-slate-300 mt-3">{data.section_232.tennant_exposure}</div>
+                  <div className="text-sm text-slate-300 mt-3">{data.section_232.company_exposure}</div>
                 </Card>
               )},
 
               coo: { label: "Country of Origin", render: () => (
                 <Card className="hud-surface p-5" id="tc-coo" data-testid="tc-coo">
                   <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400">Country of Origin Rules</div>
-                  <h3 className="font-display text-lg font-bold mt-0.5 mb-3">Tennant Products · Marking · US Content %</h3>
+                  <h3 className="font-display text-lg font-bold mt-0.5 mb-3">Products · Marking · US Content %</h3>
                   <table className="w-full text-sm">
                     <thead className="text-[10px] font-mono text-cyan-400 uppercase">
                       <tr>
@@ -444,7 +444,7 @@ export default function TradeCompliance() {
                     <Tile label="Avg Clearance" value={`${data.broker_filings.average_clearance_hrs} h`} accent="text-emerald-300" />
                     <Tile label="Exam Rate" value={`${data.broker_filings.exam_rate_pct}%`} accent="text-yellow-400" />
                     <Tile label="PSC Corrections YTD" value={data.broker_filings.post_summary_corrections_ytd} accent="text-yellow-400" />
-                    <Tile label="Account #" value="TENNANT-CCM-04287" accent="text-cyan-300" />
+                    <Tile label="Account #" value="ORISEI-CCM-04287" accent="text-cyan-300" />
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="broker-contact">
@@ -452,14 +452,14 @@ export default function TradeCompliance() {
                       <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 mb-2">Account & Bond</div>
                       <BrokerRow k="POA on File" v="Active" green />
                       <BrokerRow k="Bond Type" v="Continuous · $250K" />
-                      <BrokerRow k="Account #" v="TENNANT-CCM-04287" mono />
+                      <BrokerRow k="Account #" v="ORISEI-CCM-04287" mono />
                       <BrokerRow k="ACE Portal ID" v="UPS_SCS_001" mono />
                     </div>
                     <div className="p-3 rounded border border-white/5 bg-white/[0.02]">
                       <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 mb-2">Contact (24/7)</div>
                       <BrokerRow k="Primary Contact" v="Amanda Reyes" />
                       <BrokerRow k="Phone" v="+1-800-555-2227" mono />
-                      <BrokerRow k="Email" v="tennant@ups-scs.com" mono />
+                      <BrokerRow k="Email" v="orisei@ups-scs.com" mono />
                       <BrokerRow k="Escalation" v="Sr. Trade Compliance Mgr · Joe Carlsson" />
                     </div>
                   </div>

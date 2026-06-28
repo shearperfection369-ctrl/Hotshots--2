@@ -11,8 +11,8 @@ import { useBranding } from "../lib/branding";
  */
 export default function LegalCompliance() {
   const { brand } = useBranding();
-  const companyName = brand?.company_name || "Tennant Companies";
-  const isDefault = brand?.is_default || brand?.brand_id === "tennant";
+  const companyName = brand?.company_name || "Orisei Freight Solutions";
+  const isDefault = brand?.is_default || brand?.brand_id === "orisei-freight";
 
   return (
     <Card className="hud-surface p-5" data-testid="admin-legal-compliance">
@@ -108,7 +108,7 @@ export default function LegalCompliance() {
           title="6 · Recommended Workflow"
           tone="green"
         >
-          <p>Before going live with a non-Tennant brand against real customer ERP data:</p>
+          <p>Before going live with a non-company brand against real customer ERP data:</p>
           <Bullet><strong>1.</strong> Customer signs an MSA + DPA with your organization.</Bullet>
           <Bullet><strong>2.</strong> Customer&rsquo;s IT issues a service account with read-only or scoped write permissions.</Bullet>
           <Bullet><strong>3.</strong> Customer&rsquo;s legal reviews your AI usage disclosure and trademark plan.</Bullet>

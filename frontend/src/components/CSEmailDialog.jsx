@@ -26,10 +26,10 @@ import { toast } from "sonner";
  */
 
 const TEAMS = [
-  { id: "cs_quality",      label: "CS · Quality",            email: "CS-Quality@tennantco.com" },
-  { id: "cs_parts",        label: "CS · Parts",              email: "CS-Parts@tennantco.com" },
-  { id: "cs_distribution", label: "CS · Distribution",       email: "CS-Distribution@tennantco.com" },
-  { id: "cs_strategic",    label: "CS · Strategic Accounts", email: "CS-StrategicAccounts@tennantco.com" },
+  { id: "cs_quality",      label: "CS · Quality",            email: "CS-Quality@oriseifreight.com" },
+  { id: "cs_parts",        label: "CS · Parts",              email: "CS-Parts@oriseifreight.com" },
+  { id: "cs_distribution", label: "CS · Distribution",       email: "CS-Distribution@oriseifreight.com" },
+  { id: "cs_strategic",    label: "CS · Strategic Accounts", email: "CS-StrategicAccounts@oriseifreight.com" },
 ];
 
 const REQUESTS = [
@@ -53,7 +53,7 @@ Please confirm the QN number when created.
 
 Thanks,
 ${user?.name || "Dispatch"}
-Tennant · Transportation`
+Orisei · Transportation`
     ),
   },
   {
@@ -75,7 +75,7 @@ Specifically I need:
 
 Thanks in advance,
 ${user?.name || "Dispatch"}
-Tennant · Transportation`
+Orisei · Transportation`
     ),
   },
   {
@@ -100,7 +100,7 @@ Options to consider:
 
 Please advise — thanks!
 ${user?.name || "Dispatch"}
-Tennant · Transportation`
+Orisei · Transportation`
     ),
   },
 ];
@@ -212,7 +212,7 @@ export default function CSEmailDialog({ open, onClose, prefill = {}, user = {} }
               <Input
                 value={cc}
                 onChange={(e) => setCc(e.target.value)}
-                placeholder="manager@tennantco.com"
+                placeholder="manager@oriseifreight.com"
                 data-testid="cs-email-cc"
                 className="bg-[#11151F] border-white/10 mt-1"
               />

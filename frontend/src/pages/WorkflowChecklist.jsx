@@ -17,6 +17,7 @@ import {
   Zap, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
 
 /**
  * /workflow — Orisei AI Workflow Checklist.
@@ -40,9 +41,11 @@ const HEALTH_STYLES = {
 };
 
 export default function WorkflowChecklist() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialBookedId = searchParams.get("booked_id");
   const [bookings, setBookings] = useState([]);
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(initialBookedId);
   const [checklist, setChecklist] = useState(null);
   const [loading, setLoading] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -66,7 +69,15 @@ export default function WorkflowChecklist() {
       const { data } = await api.get("/brokerage/margins");
       const list = (data?.bookings || []).filter(b => b?.booked_id);
       setBookings(list);
-      if (!selectedId && list.length) setSelectedId(list[0].booked_id);
+      // If a `?booked_id=...` URL param matches a booking, keep it selected.
+      // Otherwise default to the first row so the panel isn't empty.
+      if (!selectedId) {
+        if (list.length) setSelectedId(list[0].booked_id);
+      } else if (!list.find(b => b.booked_id === selectedId)) {
+        // The deep-linked id wasn't found — fall back to first available
+        // so the user still sees something instead of an empty pane.
+        if (list.length) setSelectedId(list[0].booked_id);
+      }
     } catch (e) {
       console.error(e);
     }

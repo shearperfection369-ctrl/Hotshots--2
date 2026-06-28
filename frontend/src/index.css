@@ -131,9 +131,9 @@ code, .font-mono, .mono {
     border: 1px solid rgba(255,255,255,0.1) !important;
 }
 
-/* Tennant brand */
-.tennant-blue { color: #00A4E4; }
-.bg-tennant-blue { background-color: #00A4E4; }
+/* company brand */
+.orisei-blue { color: #0E3A6B; }
+.bg-orisei-blue { background-color: #0E3A6B; }
 
 /* Map marker custom */
 .shipment-marker {
@@ -251,14 +251,14 @@ body.theme-solar {
 }
 
 /* ===== v2.4 new themes ===== */
-body.theme-tennant {
+body.theme-orisei {
     --tt-bg-base: #0A0E18;
     --tt-bg-surface: #131826;
-    --tt-accent: #E4002B;          /* Tennant brand red */
-    --tt-accent-300: #FF1F47;
-    --tt-accent-400: #E4002B;
-    --tt-accent-500: #B30022;
-    --tt-accent-glow: rgba(228, 0, 43, 0.30);
+    --tt-accent: #C9A24A;          /* Orisei heraldic gold */
+    --tt-accent-300: #E6CB85;
+    --tt-accent-400: #C9A24A;
+    --tt-accent-500: #9F7E36;
+    --tt-accent-glow: rgba(201, 162, 74, 0.30);
 }
 body.theme-neon {
     --tt-bg-base: #080418;

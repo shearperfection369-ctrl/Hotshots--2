@@ -10,8 +10,8 @@ const PBI_BLUE = "#0078D4";
 
 export default function PowerBI() {
   const { brand } = useBranding();
-  const shortName = brand?.short_name || "Tennant";
-  const companyName = brand?.company_name || "Tennant Companies";
+  const shortName = brand?.short_name || "Orisei";
+  const companyName = brand?.company_name || "Orisei Freight Solutions";
   const [config, setConfig] = useState(null);
   const [activeReportId, setActiveReportId] = useState(null);
   const [embedFailed, setEmbedFailed] = useState(false);

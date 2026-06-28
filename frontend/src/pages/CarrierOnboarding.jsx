@@ -36,7 +36,7 @@ const blankForm = {
 
 export default function CarrierOnboarding() {
   const { brand } = useBranding();
-  const brandShort = brand?.short_name || "Tennant";
+  const brandShort = brand?.short_name || "Orisei";
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blankForm);
@@ -221,7 +221,7 @@ export default function CarrierOnboarding() {
         <Dialog open={!!packetModal} onOpenChange={(o) => !o && setPacketModal(null)}>
           <DialogContent className="bg-[#131821] border border-cyan-500/30 text-white max-w-2xl" data-testid="packet-modal">
             <DialogHeader>
-              <DialogTitle className="font-display text-cyan-300 flex items-center gap-2"><Mail size={16} /> Tennant Onboarding Packet</DialogTitle>
+              <DialogTitle className="font-display text-cyan-300 flex items-center gap-2"><Mail size={16} /> Carrier Onboarding Packet</DialogTitle>
             </DialogHeader>
             {packetModal && (
               <div className="space-y-3">

@@ -14,7 +14,7 @@ import {
  */
 
 const BRAND_REEL = [
-  { name: "Tennant",      color: "#00A4E4" },
+  { name: "Orisei",       color: "#0E3A6B" },
   { name: "Walmart",      color: "#0071CE" },
   { name: "FedEx",        color: "#4D148C" },
   { name: "Caterpillar",  color: "#FFCD11" },
@@ -247,7 +247,7 @@ export default function About() {
               truckload, LTL, parcel, ocean, air, and rail. He specializes in <strong>international logistics</strong>,
               with deep experience navigating ocean booking lanes, customs clearance, FTAs, and cross-border compliance.
               He&rsquo;s worked at several major Minnesota corporations and currently serves as a
-              <strong className="text-cyan-300"> Transportation Analyst at Tennant Companies</strong>.
+              <strong className="text-cyan-300"> Transportation Analyst at Orisei Freight Solutions</strong>.
             </p>
             <p className="text-slate-300 mt-4 leading-relaxed">
               Who better to design a Transportation Management System than a tenured logistics professional
@@ -264,7 +264,7 @@ export default function About() {
 
             <div className="mt-6 flex flex-wrap gap-2">
               <Pill Icon={MapPin}    label="Plymouth · MN" />
-              <Pill Icon={Briefcase} label="Tennant Companies" />
+              <Pill Icon={Briefcase} label="Orisei Freight Solutions" />
               <Pill Icon={Globe2}    label="International Specialist" />
               <Pill Icon={Award}     label="13+ Years Operator" />
             </div>
@@ -283,7 +283,7 @@ export default function About() {
           <PlanCard title="The Wedge" body="60-second brand activation. Most TMS implementations take 6-18 months. Hot Shot TMS skins itself for the prospect's company DURING the sales call." />
           <PlanCard title="ARR Model" body="$24K/year base + $2K/integration + $0.10/shipment. 70% gross margin at scale, sub-$5K CAC via founder-led sales." />
           <PlanCard title="The Moat" body="Operator-built. Every feature shipped solves a real headache Oliver has lived. Software houses can't fake 13 years of muscle memory." />
-          <PlanCard title="GTM" body="Founder-led for the first 25 logos. Convert Tennant + 4 other MN-based industrials by EOY 2026. Productize playbook in 2027." />
+          <PlanCard title="GTM" body="Founder-led for the first 25 logos. Convert 5 MN-based industrials by EOY 2026. Productize playbook in 2027." />
           <PlanCard title="Vision" body="A TMS that ships pre-skinned for every Fortune 1000 logistics team. One product, 1,000 themes, zero implementation lead time." />
         </div>
         <div className="mt-10 p-6 rounded-xl border border-cyan-500/30 bg-cyan-500/[0.05] text-center">

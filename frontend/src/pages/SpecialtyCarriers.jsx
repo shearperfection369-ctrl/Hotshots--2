@@ -158,7 +158,7 @@ function CarrierCard({ c, canEdit, onEdit, onDelete }) {
 export default function SpecialtyCarriers() {
   const { brand } = useBranding();
   const { user } = useAuth();
-  const shortName = brand?.short_name || "Tennant";
+  const shortName = brand?.short_name || "Orisei";
   const canEdit = user?.role === "admin" || user?.role === "dispatcher";
   const [carriers, setCarriers] = useState([]);
   const [editing, setEditing] = useState(null);  // null=closed, "new"|carrier id when open

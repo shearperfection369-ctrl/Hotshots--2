@@ -64,7 +64,7 @@ export default function BookLoad() {
 
   const [form, setForm] = useState({
     mode: "TL",
-    carrier: "XPO Logistics",
+    carrier: "",
     origin_facility: "GVM",
     destination_city: "Dallas, TX",
     destination_lat: 32.7767,
@@ -73,7 +73,7 @@ export default function BookLoad() {
     weight_lbs: 12000,
     pieces: 6,
     pallet_count: 6,
-    commodity: "Floor scrubbers (T16AMR)",
+    commodity: "General freight",
     value_usd: 85000,
     reference: "",
     sap_delivery_no: "",
@@ -85,7 +85,7 @@ export default function BookLoad() {
     width_in: 40,
     height_in: 56,
     // NMFC / class
-    nmfc_code: "105820",
+    nmfc_code: "",
     freight_class: "85",
     // Accessorials
     liftgate_required: false,
