@@ -617,4 +617,10 @@ def build_international_router(
             headers={"Content-Disposition":
                 f'attachment; filename="SLI_{booking_id}.pdf"'})
 
+    # Mount the export/import documentation suite onto this same router so
+    # the URL prefix stays /api/international/*
+    from routes.intl_documents import attach_intl_documents_router
+    attach_intl_documents_router(router, db=db,
+        get_current_user=get_current_user, require_role=require_role)
+
     api_router.include_router(router)

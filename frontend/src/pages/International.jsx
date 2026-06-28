@@ -21,10 +21,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Ship, Train, Container, Anchor, MapPin, FileText, ArrowRight, RotateCw, Plus, AlertTriangle } from "lucide-react";
+import { Ship, Train, Container, Anchor, MapPin, FileText, ArrowRight, RotateCw, Plus, AlertTriangle, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { authedDownload } from "@/lib/authedDownload";
+import { DocumentsDrawer } from "@/components/DocumentsDrawer";
 
 const STATUS_COLORS = {
   BOOKED:          "bg-cyan-500/15 text-cyan-300 border-cyan-500/40",
@@ -110,6 +111,7 @@ function BookingsTab({ ref_, bookings, refresh }) {
   const [statusBooking, setStatusBooking] = useState(null);
   const [gateBooking, setGateBooking] = useState(null);
   const [waybillBooking, setWaybillBooking] = useState(null);
+  const [docsBooking, setDocsBooking] = useState(null);
 
   return (
     <div className="space-y-4">
@@ -177,6 +179,12 @@ function BookingsTab({ ref_, bookings, refresh }) {
                   </div>
                   <div className="flex flex-col gap-2 items-end">
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-200 h-7 text-[11px]"
+                        onClick={() => setDocsBooking(b)}
+                        data-testid={`booking-docs-${b.booking_id}`}>
+                        <ScrollText size={11} className="mr-1" />
+                        Docs ({b.documents?.length || 0})
+                      </Button>
                       <Button size="sm" variant="outline" className="border-cyan-500/30 text-cyan-200 h-7 text-[11px]"
                         onClick={() => authedDownload(`/international/container-bookings/${b.booking_id}/house-bl.pdf`,
                                                        `HouseBL_${b.booking_id}.pdf`)}
@@ -244,6 +252,12 @@ function BookingsTab({ ref_, bookings, refresh }) {
           yards={ref_.rail_yards}
           onClose={() => setWaybillBooking(null)}
           onSaved={() => { setWaybillBooking(null); refresh(); }}
+        />
+      )}
+      {docsBooking && (
+        <DocumentsDrawer
+          booking={docsBooking}
+          onClose={() => { setDocsBooking(null); refresh(); }}
         />
       )}
     </div>

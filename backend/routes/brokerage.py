@@ -498,6 +498,24 @@ class CustomerInfoIn(BaseModel):
     shipper_address: Optional[str] = Field(None, max_length=200)
 
 
+# Manual check-call lifecycle for in-transit loads. Operator logs one of
+# these statuses each time a driver phones in or pings via the driver app.
+CHECK_CALL_STATUSES = [
+    "DISPATCHED", "AT_SHIPPER", "LOADED", "IN_TRANSIT",
+    "AT_RECEIVER", "UNLOADED", "DELIVERED", "EXCEPTION",
+]
+
+
+class CheckCallIn(BaseModel):
+    """Single dispatcher / driver check-call event."""
+    status: str = Field(..., description="One of CHECK_CALL_STATUSES")
+    location: Optional[str] = Field(None, max_length=200)
+    miles_remaining: Optional[float] = Field(None, ge=0)
+    eta_iso: Optional[str] = None
+    driver_name: Optional[str] = Field(None, max_length=120)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
 class PodDeliveryIn(BaseModel):
     """Delivery details captured at the dock for POD generation."""
     delivered_at: Optional[str] = Field(None, max_length=40)         # ISO or human string
@@ -834,6 +852,49 @@ def build_brokerage_router(
         """List recent bookings ready for BOL/POD generation + customer mailing."""
         rows = await db.brokerage_bookings.find({}, {"_id": 0}).sort("booked_at", -1).to_list(200)
         return {"bookings": rows, "count": len(rows)}
+
+    # ---------- Check-Call HUD ----------
+    # Drivers/dispatchers log manual status updates while a load is in
+    # transit. Lifecycle = DISPATCHED → AT_SHIPPER → LOADED → IN_TRANSIT →
+    # AT_RECEIVER → UNLOADED → DELIVERED. Each call writes one row to
+    # `check_calls` array on the booking + advances the `transit_status`.
+
+    @router.post("/bookings/{booked_id}/check-call")
+    async def log_check_call(booked_id: str, payload: CheckCallIn,
+                              user=Depends(get_current_user)):
+        if payload.status not in CHECK_CALL_STATUSES:
+            raise HTTPException(400, f"status must be one of {CHECK_CALL_STATUSES}")
+        call = {
+            "call_id": f"CC-{uuid.uuid4().hex[:10].upper()}",
+            "at": datetime.now(timezone.utc).isoformat(),
+            "by": getattr(user, "name", "system"),
+            **payload.model_dump(),
+        }
+        r = await db.brokerage_bookings.find_one_and_update(
+            {"booked_id": booked_id},
+            {"$push": {"check_calls": call},
+              "$set": {"transit_status": payload.status,
+                        "last_check_call_at": call["at"]}},
+            return_document=True, projection={"_id": 0},
+        )
+        if not r:
+            raise HTTPException(404, "Booking not found")
+        return r
+
+    @router.get("/bookings/{booked_id}/check-calls")
+    async def list_check_calls(booked_id: str,
+                                _=Depends(get_current_user)):
+        r = await db.brokerage_bookings.find_one(
+            {"booked_id": booked_id},
+            {"_id": 0, "check_calls": 1, "transit_status": 1,
+              "last_check_call_at": 1, "booked_id": 1})
+        if not r:
+            raise HTTPException(404, "Booking not found")
+        calls = sorted(r.get("check_calls") or [], key=lambda c: c.get("at", ""), reverse=True)
+        return {"booked_id": booked_id, "transit_status": r.get("transit_status"),
+                "last_check_call_at": r.get("last_check_call_at"),
+                "calls": calls, "count": len(calls),
+                "available_statuses": CHECK_CALL_STATUSES}
 
     @router.put("/bookings/{booked_id}/customer")
     async def set_booking_customer(booked_id: str, payload: CustomerInfoIn, user=Depends(get_current_user)):

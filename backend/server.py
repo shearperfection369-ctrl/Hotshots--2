@@ -8625,6 +8625,23 @@ build_international_router(
     require_role=require_role,
 )
 
+# Mount Shipper Intake (branded fillable template + public submit)
+from routes.shipper_intake import build_shipper_intake_router  # noqa: E402
+build_shipper_intake_router(
+    api_router=api_router, db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+    send_email_fn=None,  # wire Resend via integrations later
+)
+
+# Mount Onboarding Checklist (MC/bond/API-keys walkthrough)
+from routes.onboarding_checklist import build_onboarding_router  # noqa: E402
+build_onboarding_router(
+    api_router=api_router, db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+)
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 
