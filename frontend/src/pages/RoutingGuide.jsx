@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Topbar from "../components/Topbar";
 import { api, BACKEND_URL } from "../lib/api";
+import { authedDownload } from "../lib/authedDownload";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -287,11 +288,11 @@ export default function RoutingGuide() {
                       <td className="py-2 px-3 text-slate-300 text-xs">{v.uploaded_by_name || "—"}</td>
                       <td className="py-2 px-3 text-slate-500 text-xs">{v.uploaded_at ? new Date(v.uploaded_at).toLocaleString() : "—"}</td>
                       <td className="py-2 px-3 text-center">
-                        <a
-                          href={`${BACKEND_URL}/api/routing-guide/pdf`}
-                          target="_blank" rel="noreferrer"
-                          className="text-cyan-300 hover:text-cyan-200 inline-flex items-center gap-1"
-                        ><Download size={12} /></a>
+                        <button
+                          type="button"
+                          onClick={() => authedDownload("/api/routing-guide/pdf", { filename: "Routing_Guide.pdf", inline: true })}
+                          className="text-cyan-300 hover:text-cyan-200 inline-flex items-center gap-1 cursor-pointer"
+                        ><Download size={12} /></button>
                       </td>
                     </tr>
                   ))}

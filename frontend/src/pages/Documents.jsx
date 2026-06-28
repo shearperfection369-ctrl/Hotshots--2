@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Topbar from "../components/Topbar";
 import { api, BACKEND_URL } from "../lib/api";
+import { authedDownload } from "../lib/authedDownload";
 import { useBrandRefresh } from "../lib/branding";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -88,11 +89,13 @@ export default function Documents() {
       });
       toast.success("Document generated", {
         description: (
-          <a
-            href={`${BACKEND_URL}/api/documents/${data.document_id}/pdf`}
-            target="_blank" rel="noreferrer"
-            className="text-cyan-300 underline"
-          >Download PDF →</a>
+          <button
+            type="button"
+            onClick={() => authedDownload(`/api/documents/${data.document_id}/pdf`, {
+              filename: `${data.type}_${data.document_id}.pdf`, inline: true,
+            })}
+            className="text-cyan-300 underline cursor-pointer"
+          >Download PDF →</button>
         ),
       });
       setOpen(false);
@@ -283,20 +286,24 @@ export default function Documents() {
                       </td>
                       <td className="py-2.5 px-4">
                         <div className="inline-flex items-center gap-0.5 flex-wrap justify-center">
-                          <a
-                            href={`${BACKEND_URL}/api/documents/${d.document_id}/pdf`}
-                            target="_blank" rel="noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => authedDownload(`/api/documents/${d.document_id}/pdf`, {
+                              filename: `${d.type}_${d.document_id}.pdf`, inline: true,
+                            })}
                             data-testid={`view-pdf-${d.document_id}`}
                             title="View PDF"
-                            className="p-1.5 rounded text-cyan-300 hover:bg-cyan-500/10 inline-flex items-center"
-                          ><Eye size={13} /></a>
-                          <a
-                            href={`${BACKEND_URL}/api/documents/${d.document_id}/pdf`}
-                            download
+                            className="p-1.5 rounded text-cyan-300 hover:bg-cyan-500/10 inline-flex items-center cursor-pointer"
+                          ><Eye size={13} /></button>
+                          <button
+                            type="button"
+                            onClick={() => authedDownload(`/api/documents/${d.document_id}/pdf`, {
+                              filename: `${d.type}_${d.document_id}.pdf`,
+                            })}
                             data-testid={`download-pdf-${d.document_id}`}
                             title="Download PDF"
-                            className="p-1.5 rounded text-cyan-300 hover:bg-cyan-500/10 inline-flex items-center"
-                          ><Download size={13} /></a>
+                            className="p-1.5 rounded text-cyan-300 hover:bg-cyan-500/10 inline-flex items-center cursor-pointer"
+                          ><Download size={13} /></button>
                           <button
                             onClick={() => startEmail(d)}
                             data-testid={`email-doc-${d.document_id}`}
@@ -460,14 +467,16 @@ export default function Documents() {
                 >
                   <Copy size={14} /> Copy
                 </button>
-                <a
-                  href={`${BACKEND_URL}/api/documents/${emailModal.doc.document_id}/pdf`}
-                  target="_blank" rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => authedDownload(`/api/documents/${emailModal.doc.document_id}/pdf`, {
+                    filename: `${emailModal.doc.type}_${emailModal.doc.document_id}.pdf`, inline: true,
+                  })}
                   data-testid="email-view-pdf"
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded border border-white/10 text-slate-300 hover:bg-white/5 text-xs font-mono uppercase tracking-wider"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded border border-white/10 text-slate-300 hover:bg-white/5 text-xs font-mono uppercase tracking-wider cursor-pointer"
                 >
                   <Eye size={14} /> View PDF
-                </a>
+                </button>
               </div>
             </div>
           )}
