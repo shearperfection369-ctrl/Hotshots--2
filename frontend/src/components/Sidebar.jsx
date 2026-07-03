@@ -44,6 +44,7 @@ const NAV = [
   { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher", "carrier"] },
   { to: "/fleet-routing", label: "Fleet · Routing", icon: Satellite, tid: "nav-fleet-routing", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/carrier-integrations", label: "Carrier · EDI", icon: Plug, tid: "nav-carrier-integrations", roles: ["admin", "auditor", "dispatcher"] },
+  { to: "/dispatch-autopilot", label: "Dispatch Autopilot", icon: Rocket, tid: "nav-dispatch-autopilot", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console", roles: ["admin", "dispatcher"] },
   { to: "/driver-registry", label: "Drivers & Trailers", icon: IdCard, tid: "nav-driver-registry", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/equipment", label: "Equipment · Yard", icon: TrailerIcon, tid: "nav-equipment", roles: ["admin", "auditor", "dispatcher"] },

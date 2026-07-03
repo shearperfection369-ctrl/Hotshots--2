@@ -8577,6 +8577,16 @@ build_edi_sps_router(api_router=api_router, db=db,
                      get_current_user=get_current_user,
                      require_role=require_role)
 
+from routes.dispatch_autopilot import build_dispatch_autopilot_router  # noqa: E402
+build_dispatch_autopilot_router(api_router=api_router, db=db,
+                                 get_current_user=get_current_user,
+                                 require_role=require_role)
+
+from routes.dispatch_ml import build_dispatch_ml_router  # noqa: E402
+build_dispatch_ml_router(api_router=api_router, db=db,
+                         get_current_user=get_current_user,
+                         require_role=require_role)
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,
