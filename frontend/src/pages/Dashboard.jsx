@@ -672,7 +672,7 @@ function CompactVideoTile() {
  */
 function FacilityConditions() {
   const STORAGE_KEY = "tms.extra_weather_cities.v1";
-  const GEO_ROW_KEY = "tms.user_geo_weather.v1";
+  const GEO_ROW_KEY = "tms.user_geo_weather.v2";     // v2 — v1 cache built with broken reverse-geocoder is discarded
   const [extras, setExtras] = React.useState([]);
   const [geoRow, setGeoRow] = React.useState(null);   // { id:'me', facility_name, lat, lng, temperature_f, ... }
   const [geoState, setGeoState] = React.useState("idle"); // idle|requesting|ready|denied|unsupported
@@ -690,12 +690,15 @@ function FacilityConditions() {
   }, []);
 
   const reverseGeocode = React.useCallback(async (lat, lng) => {
+    // BigDataCloud's client-side reverse geocoder is free, CORS-open, no API
+    // key required. Falls back to raw coords if the service is unreachable.
     try {
-      const url = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lng}&language=en&format=json`;
+      const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`;
       const r = await fetch(url).then((x) => x.json());
-      const h = (r.results || [])[0];
-      if (!h) return `Your location · ${lat.toFixed(2)}, ${lng.toFixed(2)}`;
-      return `${h.name}${h.admin1 ? ", " + h.admin1 : ""}`;
+      const city = r.city || r.locality || r.principalSubdivision;
+      const region = r.principalSubdivision || r.countryName;
+      if (city) return region && region !== city ? `${city}, ${region}` : city;
+      return `Your location · ${lat.toFixed(2)}, ${lng.toFixed(2)}`;
     } catch { return `Your location · ${lat.toFixed(2)}, ${lng.toFixed(2)}`; }
   }, []);
 

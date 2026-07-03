@@ -1,0 +1,33 @@
+{
+  "summary": "iter62 RETEST — reverseGeocode() rewrite (Open-Meteo /reverse → BigDataCloud) verified end-to-end. All 6 target flows PASS: (1) Denver row renders '📍 Denver, Colorado' — NOT raw '39.74, -104.99'. (2) London row renders '📍 London, England' — NOT raw coords. (3) Manual Tokyo add still works, persists to localStorage (tms.extra_weather_cities.v1) as {facility_name:'Tokyo, Tokyo', temperature_f:68.5, ...}. (4) Denied-geo state shows [data-testid=weather-empty-state] + retry button [data-testid=weather-geo-retry]. (5) WeatherAlertsBanner regression clean — 'LIVE WEATHER FEED · NWS @ YOUR LOCATION · 39.74, -104.99' + 3 Air Quality Alert cards render. (6) No red-screen error boundary; no mock strings ('Golden Valley'/'Holland MI'/'Louisville KY') anywhere in the FacilityConditions [data-testid=weather-widget] scope. GEO_ROW_KEY v1→v2 cache bump verified: setting v2 cache manually and reloading uses cached row; clearing v2 re-runs BigDataCloud reverse. Iter 61's functional gap is fully resolved.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Dashboard — global (unchanged from iter 61)",
+        "issues": [
+          "Console noise: 'Invalid language tag: en-US@posix' still emitted on every dashboard load (likely MapLibre locale). Non-blocking, cosmetic. Not in scope of iter 62 but worth cleaning up.",
+          "Note on prev-iter mock-string audit: strings 'Golden Valley' and 'Holland MI' DO appear in the dashboard body text, but they are legitimate content in unrelated widgets — [data-testid=news-ticker] ('Holland MI plant on-time inbound rate hits 96.4%…') and [data-testid=traffic-widget] ('I-394 W approach to Golden Valley (MN)'). They are NOT inside [data-testid=weather-widget], which is what the iter-60/61 audit actually cared about. No regression."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Dashboard.jsx L692-703 BigDataCloud reverseGeocode() correctly implemented; graceful fallback to 'Your location · lat, lng' on network error is preserved.",
+    "L698-700 label picking order (city → locality → principalSubdivision, appending region if different) works for both US (Denver, Colorado) and non-US (London, England) — verified live.",
+    "GEO_ROW_KEY bumped v1→v2 (L675) — good defensive move; users with the old broken '39.74, -104.99' cache will get a fresh reverse-geocode on next load.",
+    "Suggestion (non-blocking, carryover from iter 61): file is 878 lines; consider extracting FacilityConditions and CompactVideoTile into own files. Not urgent."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skip per request)", "frontend": "100% (6/6 asserted flows pass)"},
+  "test_credentials": "tms_session_token = 'test_session_admin_1' (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Playwright cleared localStorage keys tms.user_geo_weather.v1, tms.user_geo_weather.v2, tms.extra_weather_cities.v1 before each scenario; used ctx.grant_permissions(['geolocation'], origin=BASE) + ctx.set_geolocation({lat,lng}) for Denver (39.7392,-104.9903) and London (51.5074,-0.1278); ctx.clear_permissions() for denied-geo scenario; manual Tokyo add via [data-testid=weather-add-toggle] → weather-add-input → weather-add-submit.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 62 target fully resolved. FacilityConditions widget selectors confirmed: [data-testid=weather-widget] wraps the row list; row facility_name is `.truncate.text-white` inside. Add flow: [data-testid=weather-add-toggle] toggles form, then [data-testid=weather-add-input] + [data-testid=weather-add-submit]. Empty/denied state uses [data-testid=weather-empty-state] + [data-testid=weather-geo-retry]. Individual remove btns are [data-testid=weather-remove-<id>]. BigDataCloud endpoint https://api.bigdatacloud.net/data/reverse-geocode-client is CORS-open and reachable from preview env (verified live).",
+  "rca of the issue": "Iter 61 gap resolved. Old code hit https://geocoding-api.open-meteo.com/v1/reverse (404, endpoint doesn't exist). New code (Dashboard.jsx L696) hits https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=<lat>&longitude=<lng>&localityLanguage=en and picks r.city || r.locality || r.principalSubdivision, appending region if it differs. Denver → 'Denver, Colorado'. London → 'London, England'. Cache-key bump v1→v2 discards stale broken labels."
+}
