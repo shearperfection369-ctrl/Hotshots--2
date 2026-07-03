@@ -93,6 +93,7 @@ import Invoices from "@/pages/Invoices";
 import FleetRouting from "@/pages/FleetRouting";
 import CarrierIntegrations from "@/pages/CarrierIntegrations";
 import DispatchAutopilot from "@/pages/DispatchAutopilot";
+import AppErrorBoundary from "@/components/AppErrorBoundary";
 import WellnessNudges from "@/components/WellnessNudges";
 import { ThemeProvider } from "@/lib/theme";
 import { BrandingProvider } from "@/lib/branding";
@@ -226,26 +227,28 @@ function AppRouter() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <BrandingProvider>
-            <MusicProvider>
-              <DeployHealthBanner />
-              <AppRouter />
-              <MiniPlayer />
-              <WellnessNudges />
-              <Toaster
-                theme="dark"
-                position="bottom-right"
-                toastOptions={{
-                  style: { background: "#131821", border: "1px solid rgba(0,229,255,0.3)", color: "#F8FAFC" }
-                }}
-              />
-            </MusicProvider>
-          </BrandingProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <ThemeProvider>
+          <AuthProvider>
+            <BrandingProvider>
+              <MusicProvider>
+                <DeployHealthBanner />
+                <AppRouter />
+                <MiniPlayer />
+                <WellnessNudges />
+                <Toaster
+                  theme="dark"
+                  position="bottom-right"
+                  toastOptions={{
+                    style: { background: "#131821", border: "1px solid rgba(0,229,255,0.3)", color: "#F8FAFC" }
+                  }}
+                />
+              </MusicProvider>
+            </BrandingProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </AppErrorBoundary>
   );
 }

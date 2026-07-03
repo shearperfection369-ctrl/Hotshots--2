@@ -1,0 +1,38 @@
+{
+  "summary": "Verified the Leaflet 'Invalid LatLng' crash-fix on /tracking. MapView renders cleanly with real data, no LatLng pageerror, no red-screen overlay, no AppErrorBoundary triggered, and navigation between /fleet-routing, /dispatch-autopilot and /tracking is crash-free. Forced-bad-data test (Playwright route-intercept injecting 3 shipments with null/undefined current_location) confirmed the amber 'map-skipped-warning' badge renders '3 shipments · no GPS yet' and only valid markers are drawn.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "assertions_verified": [
+    "/tracking loads and data-testid='map-view' is present",
+    "data-testid='app-error-boundary' is ABSENT under normal conditions",
+    "data-testid='map-error-boundary' is ABSENT under normal conditions",
+    "NO 'Uncaught runtime errors' text or overlay iframe in DOM",
+    "NO 'Invalid LatLng' pageerror thrown during initial render or during 10s of periodic refreshes",
+    "Navigation /fleet-routing -> /dispatch-autopilot -> /tracking: none render AppErrorBoundary or red overlay",
+    "Real API returns 15 shipments with 6 lacking GPS; parent Tracking page pre-filters so MapView receives 9 valid shipments (LIVE MAP header confirms '9 shipments'); map renders 12 leaflet-marker-pane children (9 shipment markers + 3 facility diamonds)",
+    "Forced-bad-data test: injected 3 additional shipments (null current_location, {lat:null,lng:null}, and missing current_location entirely). map-skipped-warning badge appeared with text '3 shipments · no GPS yet'. Header updated to '12 shipments' but only 12 leaflet markers rendered (9 valid + 3 facilities) - the 3 bad shipments were filtered before reaching Leaflet",
+    "File inspection: MapView.jsx imports MapErrorBoundary and wraps MapViewInner in it at export (line 178-184). App.js wraps <BrowserRouter> in <AppErrorBoundary> (line 230-252). hasLatLng() helper exported at line 17"
+  ],
+  "test_report_links": [
+    "/app/test_reports/tracking_page.png",
+    "/app/test_reports/tracking_forced_bad.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Unrelated: one pre-existing pageerror 'Invalid language tag: en-US@posix' fires on every route (likely a third-party lib using Intl with a POSIX locale). Not a regression from this iteration and does NOT bubble through AppErrorBoundary (it's from a non-React async path), so it doesn't break the UI. Worth flagging for a future iteration.",
+    "MapView.jsx is clean and defensive; hasLatLng()/toLatLngPair() pattern is applied consistently to facilities, shipments (current_location), and route polyline points. Good separation of concerns.",
+    "MapErrorBoundary + AppErrorBoundary both use React classic class-component API correctly (getDerivedStateFromError + componentDidCatch) and both expose data-testid retry/reload buttons for future automated fault-injection tests."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (frontend-only per request)", "frontend": "100%"},
+  "test_credentials": "localStorage tms_session_token=test_session_admin_1 (admin)",
+  "seed_data_creation": "None persisted. Forced-bad-data test uses Playwright page.route() to intercept /api/shipments and add 3 synthetic shipments in-memory — no DB writes.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "MapView crash-fix (iter 59) is fully verified. If future iterations touch MapView/Tracking, re-run the forced-bad-data Playwright test to confirm hasLatLng() filter still holds. Note: parent Tracking.jsx already pre-filters shipments before passing to MapView, so the amber badge only fires if the parent stops pre-filtering OR if the API response contains items the parent misses — the badge is an additional safety net.",
+  "rca of the issue": "Original crash was `new LatLng(undefined, undefined)` inside react-leaflet's Marker createMarker call, triggered when a newly-booked shipment lacked current_location. Fix layered: (1) defensive hasLatLng() filter in MapView drops any shipment/facility/route point that would produce an invalid LatLng before it reaches Leaflet, (2) MapErrorBoundary wraps the Leaflet subtree so any residual Leaflet crash renders a red-tinted 'Map temporarily unavailable' fallback instead of tearing down the tree, (3) AppErrorBoundary wraps the entire BrowserRouter so any uncaught runtime error surfaces a friendly recovery card instead of CRA's 'Uncaught runtime errors' red-screen overlay. All three layers verified present and functional."
+}
