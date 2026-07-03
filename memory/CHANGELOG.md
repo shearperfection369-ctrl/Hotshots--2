@@ -4,6 +4,22 @@
 
 ---
 
+## Iter 57 · 58 — 2026-07-03 · Orisei Welcome Kit + Sidebar cleanup
+
+**Status**: ✅ 11/11 backend pytest (iter_58 retest), 100% frontend flows (iter_57.json).
+
+- **Removed** "Shipper Intake" nav entry from Sidebar. Route still exists (no breakage), just not surfaced.
+- **New backend endpoints** in `/app/backend/routes/shipper_relations.py`:
+  - `GET  /api/shipper-relations/accounts/{id}/welcome.pdf` — instant PDF download (Orisei-branded via `build_branded_markdown_pdf`).
+  - `POST /api/shipper-relations/accounts/{id}/send-welcome` — generates PDF + attaches to mocked Resend email + auto-logs an activity note (kind=email, ACT- prefix, into `shipper_activity_log`) + persists to `shipper_welcome_kits` audit table.
+  - `GET  /api/shipper-relations/accounts/{id}/welcome-history` — audit trail of kits sent.
+- **Auto-greeting**: personalized professional Orisei greeting — parses first name from contact, mentions company_name, references Orisei's TMS strengths (autopilot, aggregator, claims, QBRs), invites reply/call. Uses proper Unicode apostrophes (fixed HTML-entity leakage before ship).
+- **PDF sections** in the welcome kit: personal note → Why Orisei → Account snapshot → ROI snapshot (when annual_volume_loads > 0) → Assigned incentives → 30-day onboarding roadmap → next step CTA.
+- **Frontend**: cyan-bordered "Orisei welcome kit" card in the account detail modal (below lifecycle mover). Sender input + Preview PDF + Send welcome kit buttons. Green delivery-receipt block appears after send. Send button auto-disables when contact_email missing.
+- **Bug caught+fixed via testing agent (iter 58 retest)**: initial version wrote to `db.shipper_activities` while the 360° view reads from `db.shipper_activity_log` — fixed to use the canonical collection + `ACT-` prefix.
+
+
+
 ## Iter 55 — 2026-07-03 · Dispatch Autopilot + Full ML Integration
 
 **Status**: ✅ 26/26 backend tests pass, 100% frontend flows (iter_55.json). ML AUC 0.944, R² 0.558.
