@@ -8642,6 +8642,14 @@ build_onboarding_router(
     require_role=require_role,
 )
 
+# Mount BOC-3 Compliance (50-state process-agent tracker + renewal calendar)
+from routes.boc3_compliance import build_boc3_router  # noqa: E402
+build_boc3_router(
+    api_router=api_router, db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+)
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 

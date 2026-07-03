@@ -5,7 +5,7 @@ import {
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
   DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon,
-  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2, Trophy, Wallet, ShieldAlert, Ship
+  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2, Trophy, Wallet, ShieldAlert, Ship, Rocket
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -29,6 +29,9 @@ const NAV = [
   { to: "/brokerage-ops-kpis", label: "Ops KPIs", icon: Calculator, tid: "nav-brokerage-ops-kpis", roles: ["admin", "dispatcher"] },
   { to: "/orisei-operations", label: "Orisei Operations", icon: Building2, tid: "nav-orisei-operations", roles: ["admin", "dispatcher"] },
   { to: "/international", label: "International · Ocean/Rail", icon: Ship, tid: "nav-international", roles: ["admin", "dispatcher", "auditor"] },
+  { to: "/shipper-intake", label: "Shipper Intake", icon: Send, tid: "nav-shipper-intake", roles: ["admin", "dispatcher"] },
+  { to: "/boc3-compliance", label: "BOC-3 Compliance", icon: ShieldCheck, tid: "nav-boc3", roles: ["admin", "dispatcher", "auditor"] },
+  { to: "/onboarding-checklist", label: "Onboarding Checklist", icon: Rocket, tid: "nav-onboarding", roles: ["admin"] },
   { to: "/broker-settings", label: "Broker Settings", icon: SettingsIcon, tid: "nav-broker-settings", roles: ["admin", "dispatcher"] },
   { to: "/competitive-tms", label: "Competitive TMS", icon: Trophy, tid: "nav-competitive-tms", roles: ["admin", "dispatcher"] },
   { to: "/enterprise-tms", label: "Enterprise TMS", icon: Globe, tid: "nav-enterprise-tms", roles: ["admin", "dispatcher"] },

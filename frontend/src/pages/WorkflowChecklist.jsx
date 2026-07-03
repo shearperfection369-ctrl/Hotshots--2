@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
+import { CheckCallHud } from "@/components/CheckCallHud";
 
 /**
  * /workflow — Orisei AI Workflow Checklist.
@@ -679,6 +680,10 @@ export default function WorkflowChecklist() {
                 </div>
 
                 {/* Linked archived documents */}
+                <div className="col-span-12 mt-2 border-t border-white/5 pt-3">
+                  <CheckCallHud bookingId={selectedId} />
+                </div>
+
                 <div className="col-span-12 mt-2 border-t border-white/5 pt-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-amber-300">

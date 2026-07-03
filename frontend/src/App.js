@@ -31,6 +31,10 @@ import MarginShield from "@/pages/MarginShield";
 import BrokerageOpsKpis from "@/pages/BrokerageOpsKpis";
 import OriseiOperations from "@/pages/OriseiOperations";
 import International from "@/pages/International";
+import ShipperIntake from "@/pages/ShipperIntake";
+import PublicIntake from "@/pages/PublicIntake";
+import OnboardingChecklist from "@/pages/OnboardingChecklist";
+import Boc3Compliance from "@/pages/Boc3Compliance";
 import CustomerPortal from "@/pages/CustomerPortal";
 import CompetitiveTms from "@/pages/CompetitiveTms";
 import EnterpriseTms from "@/pages/EnterpriseTms";
@@ -125,6 +129,7 @@ function AppRouter() {
       {/* Driver mobile is auth-free */}
       <Route path="/driver" element={<DriverMobile />} />
       <Route path="/driver/:shipmentId" element={<DriverMobile />} />
+      <Route path="/i/:token" element={<PublicIntake />} />
 
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
@@ -155,6 +160,9 @@ function AppRouter() {
         <Route path="/brokerage-ops-kpis" element={<BrokerageOpsKpis />} />
         <Route path="/orisei-operations" element={<OriseiOperations />} />
         <Route path="/international" element={<International />} />
+        <Route path="/shipper-intake" element={<ShipperIntake />} />
+        <Route path="/onboarding-checklist" element={<OnboardingChecklist />} />
+        <Route path="/boc3-compliance" element={<Boc3Compliance />} />
         <Route path="/competitive-tms" element={<CompetitiveTms />} />
         <Route path="/enterprise-tms" element={<EnterpriseTms />} />
         <Route path="/research-analytics" element={<ResearchAnalytics />} />
