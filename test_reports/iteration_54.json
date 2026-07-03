@@ -1,0 +1,65 @@
+{
+  "summary": "Iter 54: Parcel Rating (FedEx+UPS OAuth + sample fallback) and SPS Commerce EDI 204/990/214/210/856 fully tested. 13/13 backend pytest tests pass and full frontend flow on /carrier-integrations works end-to-end. Sample mode is correctly the default (no creds wired). Connect endpoints flip provider.connected=true but subsequent live upstream calls 401 and gracefully fall back to sample as designed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter54_parcel_edi.py",
+    "/app/test_reports/pytest/iter54_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "parcel_rating.py:56 — ZIP delta approximation (abs(int(z1)-int(z2))*0.35) is only used when centroid missing. For test ZIPs 30301->85001 both are in ZIP_CENTROIDS, so distance 1594mi is haversine — OK.",
+    "edi_sps.py:230 _ensure_seed — called on both 204 and 856 GETs. Safe because count_documents check gates the insert_many. Non-critical: on the very first call in an empty DB this issues 2 sequential inserts (fine at current data volume).",
+    "edi_sps.py:302 _persist_outbound — record dict is inserted, but return also carries an in-memory copy that still has _id after insert_one mutates the dict. Code correctly calls record.pop('_id', None) before returning. Note: the initial dict(record) copy is inserted, and _id is set on the copy — so record itself remains clean; the pop is harmless. Code is correct.",
+    "parcel_rating.py:344 quote — records to Mongo via insert_one(dict(record)); avoids leaking _id back to caller since the response dict is separate. OK.",
+    "Two 401 console errors observed on page load — these are from an unrelated global fetch (not from any /parcel/ or /edi/ endpoint) and do not affect the iter-54 flows. Non-blocking."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter54_parcel_edi.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13)",
+    "frontend": "100%"
+  },
+  "test_credentials": "Bearer test_session_admin_1 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "EDI auto-seeded 8x sample 204 tenders + 6x sample 856 ASNs into sps_inbound_204/sps_inbound_856 collections. 990/214/210 outbound docs (7 total) persisted in sps_outbound during flow test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 54 (parcel + EDI) fully green. FedEx/UPS/SPS live keys still absent — all endpoints in sample mode by design. If next iter wires real keys, add tests that mock OAuth tokens or use recorded live-mode responses. Do NOT re-run iter 53 (aggregator margin, Samsara, Mapbox/OSRM) — those are already covered in iteration_53.json.",
+  "detailed_findings": {
+    "parcel_rating": {
+      "GET /api/parcel/provider": "PASS — {fedex:{connected:false}, ups:{connected:false}, sample_mode:true}",
+      "POST /api/parcel/quote (30301→85001, 25lb, 2pkg)": "PASS — 10 rates (5 FedEx + 5 UPS), distance_mi≈1594, sorted asc, fedex_mode='sample', ups_mode='sample'",
+      "residential surcharge": "PASS — ratio ~1.15x for residential:true vs false",
+      "POST /api/parcel/connect/fedex": "PASS — flips provider.fedex.connected → true; subsequent /quote still returns fedex_mode='sample' due to upstream 401 (correct fallback)"
+    },
+    "edi_sps": {
+      "GET /api/edi/provider": "PASS — provider='sps_commerce', connected:false, mode:'sample', supported_docs=[204,990,214,210,856]",
+      "GET /api/edi/inbound/204": "PASS — auto-seeded 8 tenders with tender_id, shipper, origin/destination (city/state/postal_code), commodity, tender_amount_usd, status='new'",
+      "GET /api/edi/inbound/856": "PASS — 6 ASNs with pallet_count, carton_count, sscc",
+      "POST /api/edi/outbound/990 (accept)": "PASS — doc_id starts with '990-', mode='sample', tender status → 'accepted'",
+      "POST /api/edi/outbound/214": "PASS — doc_id starts with '214-', status_time auto-populated on payload",
+      "POST /api/edi/outbound/210": "PASS — doc_id starts with '210-'",
+      "GET /api/edi/outbound/history": "PASS — items sorted desc by sent_at, by_kind={990:≥1, 214:≥1, 210:≥1}",
+      "POST /api/edi/connect": "PASS — ok:true; subsequent inbound/204 still mode='sample' (upstream 401 fallback)",
+      "POST /api/edi/seed-samples": "PASS — refreshes inbound tables"
+    },
+    "frontend": {
+      "/carrier-integrations route": "renders with data-testid='carrier-integrations-root'",
+      "Sidebar 'Carrier · EDI' link": "present (data-testid='nav-carrier-integrations')",
+      "5 tabs": "all render (rating, edi204, edi856, edi214, history)",
+      "Parcel Rating tab": "pre-filled 30301→85001; Get Rates → 10-row table with 5 FEDEX + 5 UPS badges",
+      "204 Tenders tab": "8 tender rows; Respond (990) → inline row with select 'Accept' → Send 990 → toast success + status flipped to ACCEPTED",
+      "214/210 tab": "both forms visible; 210 submit (INV-TEST-1, 500.25) and 214 submit both fire toast success",
+      "Audit Log tab": "3 stat cards (990:3, 214:2, 210:2) + 7 audit rows",
+      "856 tab": "6 ASN rows with pallet_count·carton_count·sscc"
+    }
+  }
+}

@@ -91,6 +91,7 @@ import DocumentArchive from "@/pages/DocumentArchive";
 import LaunchPlan from "@/pages/LaunchPlan";
 import Invoices from "@/pages/Invoices";
 import FleetRouting from "@/pages/FleetRouting";
+import CarrierIntegrations from "@/pages/CarrierIntegrations";
 import WellnessNudges from "@/components/WellnessNudges";
 import { ThemeProvider } from "@/lib/theme";
 import { BrandingProvider } from "@/lib/branding";
@@ -147,6 +148,7 @@ function AppRouter() {
         <Route path="/tracking" element={<Tracking />} />
         <Route path="/live-tracking" element={<Tracking />} />
         <Route path="/fleet-routing" element={<FleetRouting />} />
+        <Route path="/carrier-integrations" element={<CarrierIntegrations />} />
         <Route path="/hs-lookup" element={<HSLookup />} />
         <Route path="/trailers" element={<Trailers />} />
         <Route path="/integrations" element={<Integrations />} />

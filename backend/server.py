@@ -8567,6 +8567,16 @@ build_telematics_router(api_router=api_router, db=db,
                          get_current_user=get_current_user,
                          require_role=require_role)
 
+from routes.parcel_rating import build_parcel_rating_router  # noqa: E402
+build_parcel_rating_router(api_router=api_router, db=db,
+                            get_current_user=get_current_user,
+                            require_role=require_role)
+
+from routes.edi_sps import build_edi_sps_router  # noqa: E402
+build_edi_sps_router(api_router=api_router, db=db,
+                     get_current_user=get_current_user,
+                     require_role=require_role)
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,
