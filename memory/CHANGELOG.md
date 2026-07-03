@@ -4,6 +4,46 @@
 
 ---
 
+## Iter 49 — 2026-06-28 · BOC-3 compliance + Shipper Intake / Onboarding / Check-Call HUD frontends
+
+**Status**: ✅ Tested 100% backend (12/12 pytest) + 100% frontend (testing_agent iteration_49) — one duplicate-import bug auto-fixed by testing agent
+
+- **BOC-3 Compliance module** (competes with Oversize Permits Inc,
+  ComplianceIQ, Iron Bow):
+  - Backend `/app/backend/routes/boc3_compliance.py` — 51 US jurisdictions
+    (50 states + DC), 7 statuses (PENDING_FILE / FILED / ACCEPTED /
+    REJECTED / EXPIRED / RENEWAL_DUE / VOID). Endpoints:
+    `/boc3/states`, `/filings` (upsert per state), `/filings/{id}/status`
+    (advance + rejection reason + history), `/filings/{id}` DELETE (void),
+    `/calendar` (24-month grid grouped by expiry), `/alerts` (RED ≤30d,
+    YELLOW ≤60d, EXPIRED), `/coverage` (percent of 51 jurisdictions),
+    `/filings/{id}/upload` + `/file` (GridFS bucket `boc3_docs`). Auto-
+    computes `days_to_expiry` + `alert` on every list.
+  - Frontend `/boc3-compliance` — 3 tabs: **Coverage Map** (51-state grid
+    with colored status pills + days-to-renew), **Renewal Calendar**
+    (24-month grid, YELLOW/RED/EXPIRED cells per state), **Alerts**
+    (grouped by severity). Filing dialog with agent details, blanket
+    toggle, cert PDF upload/download, status + rejection reason.
+- **Shipper Intake frontend**:
+  - `/shipper-intake` admin page — list/create/email/copy-link, download
+    branded PDF template.
+  - Public `/i/:token` route (NOT behind auth) — branded hero, 4-section
+    form (Shipper/Pickup/Delivery/Freight), submit creates a
+    `pending_review` booking in the broker's Workflow inbox.
+- **Onboarding Checklist frontend** `/onboarding-checklist` — 25 items
+  across 6 groups (Legal, FMCSA Authority, Insurance, Tools, API Keys,
+  Ops). Click-to-toggle, priority badges (P0/P1/P2), progress bar,
+  deep-link to resource URLs + env_var hints for API keys.
+- **Check-Call HUD** — `<CheckCallHud>` component injected into
+  `/workflow`. 7-step lifecycle rail (DISPATCHED → AT_SHIPPER → LOADED →
+  IN_TRANSIT → AT_RECEIVER → UNLOADED → DELIVERED · + EXCEPTION), compose
+  form (status, location, miles remaining, ETA, driver, notes),
+  auto-updates the booking's `transit_status` on POST.
+
+(Sidebar entries added: `nav-shipper-intake`, `nav-boc3`, `nav-onboarding`,
+plus the existing `nav-international`. Routes registered in `App.js` — the
+public `/i/:token` route sits outside the `ProtectedRoute` wrapper.)
+
 ## Iter 48 — 2026-06-28 · Export/Import documentation suite + AES ITN capture
 
 **Status**: ✅ Tested 100% backend (18/18 pytest) + 100% frontend (testing_agent iteration_48)
