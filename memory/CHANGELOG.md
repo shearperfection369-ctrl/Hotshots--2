@@ -4,6 +4,21 @@
 
 ---
 
+## Iter 59 — 2026-07-03 · Leaflet reliability fix (Uncaught runtime crash killed)
+
+**Status**: ✅ 100% frontend (iter_59.json) — no LatLng pageerror, no red-screen, no AppErrorBoundary trigger under normal conditions. Forced-bad-data test showed graceful degradation with the amber "N shipments · no GPS yet" badge.
+
+**Root cause** (user reported red-screen crash: `Invalid LatLng object: (undefined, undefined) at createMarker → useMutableLeafletElement → useLayer`):
+`/app/frontend/src/components/MapView.jsx` was passing `[s.current_location.lat, s.current_location.lng]` straight to `<Marker>` — any shipment lacking `current_location` (a common transient state right after auto-offer/book flows create a fresh Shipment before the tracking simulator populates a location) blew up the entire React tree.
+
+**Two-layer fix**:
+1. **Defensive filtering** inside `MapView.jsx` — new `hasLatLng()` helper; `safeFacilities`, `safeShipments`, and route-polyline points all pass through it before being handed to Leaflet. Invalid rows are dropped and an amber badge (`data-testid=map-skipped-warning`) counts them.
+2. **Two React error boundaries**:
+   - `MapErrorBoundary` (`/app/frontend/src/components/MapErrorBoundary.jsx`) — wraps only the map subtree; renders a red-tinted "Map temporarily unavailable" card with a Retry button if anything still slips through.
+   - `AppErrorBoundary` (`/app/frontend/src/components/AppErrorBoundary.jsx`) — wraps the whole `<BrowserRouter>` in `App.js`; catches ANY uncaught runtime error site-wide, renders a friendly "Console recovery" card with Try again + Reload + a collapsible diagnostic pane. **No more red-screen-of-death for the user mid-shift.**
+
+
+
 ## Iter 57 · 58 — 2026-07-03 · Orisei Welcome Kit + Sidebar cleanup
 
 **Status**: ✅ 11/11 backend pytest (iter_58 retest), 100% frontend flows (iter_57.json).
