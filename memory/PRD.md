@@ -1,5 +1,7 @@
 # Tennant Companies TMS — PRD
 
+> **Iter 53 (2026-07-03) additions**: Load Aggregator now shows per-load margin $ / %, plus new Fleet · Routing console (Samsara telematics + Mapbox/OSRM directions) at `/fleet-routing`. Both new integrations degrade gracefully when API keys aren't wired. See `/app/memory/CHANGELOG.md` for full details.
+
 ## Original Problem Statement
 Build a transportation management app (TMS) tailored for Tennant Companies. Heads-up dashboard (HUD) feel tracking all shipments across all modes. Integrations/mocks for SAP S/4HANA, SharePoint, PowerBI, and carriers like UPS, FedEx, DHL. Features: 250-user RBAC, load booking, document generation (BOL, invoices), real-time map, live weather/traffic/news, instant messaging, KPI tracking, HS code lookup, trailer sizes, and a workbook-style spreadsheet view.
 

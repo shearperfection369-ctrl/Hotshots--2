@@ -4,6 +4,35 @@
 
 ---
 
+## Iter 53 — 2026-07-03 · Aggregator margin $ + Samsara telematics + Mapbox/OSRM routing
+
+**Status**: ✅ Tested 100% backend (11/11 pytest) + 100% frontend flows (iter_53.json)
+
+- **Load Aggregator — margin dollar visibility** (`/app/backend/routes/load_aggregator.py`, `/app/frontend/src/pages/BrokerageAggregatorTab.jsx`):
+  - `_normalize()` now guarantees every load row exposes `margin_usd` and `margin_pct` (uses `forecast_margin_usd` when available, otherwise derives from `rate_usd - carrier_pay_usd`).
+  - `/api/aggregator/feed` response now includes a `margin_summary` object: `total_margin_usd`, `avg_margin_usd`, `avg_margin_pct`, `high_margin_count` (>=18% loads).
+  - New sort_by options: `margin_usd`, `margin_pct`.
+  - Feed table adds a **Margin** column between Rate and RPM. $ shown color-coded (green ≥18%, amber ≥12%, red <12%). Small % below in mono grey.
+  - 4-tile summary strip renders directly above the table.
+  - BookLoadDialog updated to display live `margin_usd` + `margin_pct` from the aggregator row (fallback to derived calc for older payloads).
+- **Routing service (Mapbox → OSRM → estimate fallback)** — new file `/app/backend/routes/routing_svc.py`:
+  - Endpoints: `POST /api/routing/route`, `POST /api/routing/geocode`, `GET /api/routing/provider`, `GET /api/routing/recent`.
+  - Provider order: Mapbox Directions (if `MAPBOX_TOKEN` env), then public OSRM (`router.project-osrm.org`), then a haversine × 1.20 detour × 55 mph estimate as ultra-fallback.
+  - Geocoding: Mapbox → OSM Nominatim (public).
+  - Every request persists to `route_lookups` for audit/reuse.
+- **Telematics service (Samsara live → sample fallback)** — new file `/app/backend/routes/telematics.py`:
+  - Endpoints: `GET /api/telematics/provider|vehicles|vehicles/locations|drivers/hos|safety/events` + `POST /api/telematics/connect` (admin-only, rotates env token in-process and stores last4 in `telematics_credentials`).
+  - When `SAMSARA_API_TOKEN` is set, calls hit `https://api.samsara.com` with Bearer auth. Absent, endpoints degrade to deterministic synthetic vehicles/HOS/safety events across a real US hub map — same JSON shape either way.
+- **Fleet · Routing console** — new page `/app/frontend/src/pages/FleetRouting.jsx` mounted at `/fleet-routing` with 4 sub-tabs:
+  - Live Fleet · Route Compute · Safety Events · HOS Logs.
+  - Provider banner shows LIVE / CONNECTED · FALLBACK / SAMPLE distinctly (fix from testing agent cosmetic note).
+  - Samsara token connector card (admin-only inline) → `POST /telematics/connect`.
+  - Route compute card accepts address strings, shows Provider · Distance · Drive Time · Avg Speed tiles.
+- **Sidebar nav entry** added just below Live Tracking → "Fleet · Routing" (Satellite icon).
+- **New backend test**: `/app/backend/tests/test_iter53_routing_telematics.py` — 11 tests covering all new endpoints + margin fields + sample-mode fallbacks.
+
+
+
 ## Iter 52 — 2026-07-03 · Broken PDF links fix + Lighthouse Outreach + prior iter 50/51 tests passed
 
 **Status**: 🚧 Test pending for Lighthouse

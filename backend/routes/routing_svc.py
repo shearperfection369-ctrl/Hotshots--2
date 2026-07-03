@@ -63,8 +63,6 @@ def _haversine_m(a: Coord, b: Coord) -> float:
 async def _mapbox_geocode(address: str) -> Optional[Coord]:
     if not MAPBOX_TOKEN:
         return None
-    url = f"{MAPBOX_BASE_URL}/geocoding/v5/mapbox.places/{httpx.URL(address).path}.json"
-    # httpx.URL does not directly help here — encode manually:
     from urllib.parse import quote
     url = f"{MAPBOX_BASE_URL}/geocoding/v5/mapbox.places/{quote(address)}.json"
     try:

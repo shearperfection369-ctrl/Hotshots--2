@@ -66,6 +66,7 @@ export default function FleetRouting() {
 function FleetView() {
   const [provider, setProvider] = useState(null);
   const [locs, setLocs] = useState([]);
+  const [effectiveMode, setEffectiveMode] = useState(null);
   const [busy, setBusy] = useState(false);
   const [token, setToken] = useState("");
   const [connecting, setConnecting] = useState(false);
@@ -79,6 +80,10 @@ function FleetView() {
       ]);
       setProvider(p.data);
       setLocs(l.data.items || []);
+      // The locations endpoint returns mode="live" ONLY when the upstream
+      // call actually succeeded. Prefer that over the provider-level flag
+      // so a bogus token doesn't paint the UI "LIVE".
+      setEffectiveMode(l.data.mode || p.data.mode);
     } catch (e) {
       toast.error("Failed to load fleet");
     } finally { setBusy(false); }
@@ -100,7 +105,16 @@ function FleetView() {
 
   return (
     <div className="space-y-3">
-      <ProviderBanner provider={provider} />
+      <ProviderBanner
+        provider={
+          provider ? {
+            ...provider,
+            // True live only if the last data pull actually hit the wire.
+            mode: effectiveMode || provider.mode,
+            connected: provider.connected,
+          } : null
+        }
+      />
 
       {provider && !provider.connected && (
         <Card className="p-3 bg-amber-500/5 border-amber-500/30" data-testid="fleet-connect-card">
@@ -447,17 +461,32 @@ function HosView() {
 // ============================================================
 function ProviderBanner({ provider, label = "Samsara" }) {
   if (!provider) return null;
-  const live = provider.mode === "live" || provider.connected;
+  const trueLive = provider.mode === "live";
+  const connectedButDegraded = provider.connected && provider.mode !== "live";
+  const live = trueLive;
+  const badge = trueLive ? "LIVE" : connectedButDegraded ? "CONNECTED · FALLBACK" : "SAMPLE";
   return (
     <div className={`px-3 py-2 rounded border flex items-center gap-2 text-xs ${
       live ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-100"
+           : connectedButDegraded ? "border-amber-500/40 bg-amber-500/5 text-amber-100"
            : "border-slate-500/30 bg-slate-500/5 text-slate-300"
     }`} data-testid={`fleet-provider-banner-${label.toLowerCase()}`}>
-      {live ? <CheckCircle2 size={13} className="text-emerald-400" /> : <PlugZap size={13} className="text-slate-400" />}
+      {live ? <CheckCircle2 size={13} className="text-emerald-400" />
+        : connectedButDegraded ? <AlertTriangle size={13} className="text-amber-400" />
+        : <PlugZap size={13} className="text-slate-400" />}
       <span className="font-mono uppercase text-[10px] tracking-widest">{label}</span>
-      <Badge variant="outline" className={live ? "border-emerald-500/40 text-emerald-300" : "border-slate-500/40 text-slate-400"}>
-        {live ? "LIVE" : "SAMPLE"}
+      <Badge variant="outline" className={
+        live ? "border-emerald-500/40 text-emerald-300"
+          : connectedButDegraded ? "border-amber-500/40 text-amber-300"
+          : "border-slate-500/40 text-slate-400"
+      }>
+        {badge}
       </Badge>
+      {connectedButDegraded && !provider.hint && (
+        <span className="text-slate-400 ml-2">
+          Token accepted but upstream returned no data — showing synthetic data until Samsara responds.
+        </span>
+      )}
       {provider.hint && <span className="text-slate-400 ml-2">{provider.hint}</span>}
     </div>
   );
