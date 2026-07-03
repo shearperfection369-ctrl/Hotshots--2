@@ -8547,6 +8547,11 @@ build_claims_master_router(api_router=api_router, db=db,
                             get_current_user=get_current_user,
                             require_role=require_role)
 
+from routes.qbr_studio import build_qbr_studio_router  # noqa: E402
+build_qbr_studio_router(api_router=api_router, db=db,
+                        get_current_user=get_current_user,
+                        require_role=require_role)
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,

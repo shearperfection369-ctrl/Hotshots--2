@@ -415,6 +415,20 @@ class BookLoadIn(BaseModel):
     carrier_mc: Optional[str] = None
     driver_id: Optional[str] = None
     notes: Optional[str] = None
+    # Optional customer-facing fields (surface on tracking + workflow)
+    customer_name: Optional[str] = Field(None, max_length=200)
+    customer_email: Optional[EmailStr] = None
+    # OVERRIDES — pass when booking a load NOT from the synthetic board
+    # (e.g. a real shipper-tender that was manually entered). Any field
+    # provided here overwrites the value from the synthetic feed.
+    override_origin: Optional[str] = Field(None, max_length=200)
+    override_destination: Optional[str] = Field(None, max_length=200)
+    override_miles: Optional[float] = Field(None, ge=0)
+    override_equipment: Optional[str] = Field(None, max_length=40)
+    override_rate_usd: Optional[float] = Field(None, ge=0)
+    override_carrier_pay_usd: Optional[float] = Field(None, ge=0)
+    override_pickup_date: Optional[str] = Field(None, max_length=32)
+    override_delivery_date: Optional[str] = Field(None, max_length=32)
 
 
 class DriverIn(BaseModel):
@@ -768,33 +782,119 @@ def build_brokerage_router(
     # ============================ MARGIN TRACKER ============================
     @router.post("/loads/book")
     async def book_load(payload: BookLoadIn, user=Depends(get_current_user)):
-        """Book a load → store as a forecasted margin row."""
+        """Book a load → creates a `brokerage_bookings` row AND a matching
+        `shipments` row so the load flows straight into `/workflow` and
+        `/tracking` without any extra step.
+
+        Supports two modes:
+          • **Synthetic feed** — looks up the load on the board's generator.
+          • **Real tender** — pass `override_*` fields to book a load that
+            wasn't on the synthetic feed (e.g. a shipper called it in).
+        """
+        # Try to find the load on the synthetic feed first
         all_loads = _gen_loads_for_board(payload.board_id)
-        load = next((l for l in all_loads if l["load_id"] == payload.load_id), None)
-        if not load:
-            raise HTTPException(404, "Load not found on that board")
+        load = next((row for row in all_loads if row["load_id"] == payload.load_id), None)
+
+        # If not found and no overrides, error
+        has_overrides = any([payload.override_origin, payload.override_destination,
+                              payload.override_miles is not None, payload.override_equipment,
+                              payload.override_rate_usd is not None])
+        if not load and not has_overrides:
+            raise HTTPException(404,
+                "Load not found on that board. Pass override_* fields to book a manual/real load.")
+
+        # Resolve final values (overrides > synthetic > default)
+        base = load or {}
+        origin        = payload.override_origin       or base.get("origin", "—")
+        destination   = payload.override_destination  or base.get("destination", "—")
+        miles         = payload.override_miles         if payload.override_miles is not None else base.get("miles", 0)
+        equipment     = payload.override_equipment    or base.get("equipment", "Van")
+        rate_usd      = payload.override_rate_usd      if payload.override_rate_usd is not None else base.get("rate_usd", 0.0)
+        carrier_pay   = payload.override_carrier_pay_usd if payload.override_carrier_pay_usd is not None else base.get("carrier_pay_usd", 0.0)
+        pickup_date   = payload.override_pickup_date  or base.get("pickup_date")
+        delivery_date = payload.override_delivery_date or base.get("delivery_date")
+        margin_usd    = round((rate_usd or 0) - (carrier_pay or 0), 2)
+
+        now = datetime.now(timezone.utc).isoformat()
         doc = {
             "booked_id": f"BK-{uuid.uuid4().hex[:10].upper()}",
             "load_id": payload.load_id,
             "board_id": payload.board_id,
             "carrier_name": payload.carrier_name,
             "carrier_mc": payload.carrier_mc,
-            "origin": load["origin"],
-            "destination": load["destination"],
-            "miles": load["miles"],
-            "equipment": load["equipment"],
-            "forecast_rate_usd": load["rate_usd"],
-            "forecast_carrier_pay_usd": load["carrier_pay_usd"],
-            "forecast_margin_usd": load["forecast_margin_usd"],
+            "customer_name": payload.customer_name,
+            "customer_email": payload.customer_email,
+            "origin": origin,
+            "destination": destination,
+            "miles": miles,
+            "equipment": equipment,
+            "forecast_rate_usd": rate_usd,
+            "forecast_carrier_pay_usd": carrier_pay,
+            "forecast_margin_usd": margin_usd,
             "settled_rate_usd": None,
             "settled_carrier_pay_usd": None,
             "settled_margin_usd": None,
+            "pickup_date": pickup_date,
+            "delivery_date": delivery_date,
             "status": "booked",
-            "booked_at": datetime.now(timezone.utc).isoformat(),
+            "booked_at": now,
             "booked_by": user.user_id,
             "notes": payload.notes,
+            # PRODUCTION-READY: real bookings survive "Wipe Sample"
+            "is_sample": False,
+            # Cross-reference for tracking + workflow
+            "shipment_id": f"SH-{uuid.uuid4().hex[:10].upper()}",
         }
         await db.brokerage_bookings.insert_one(dict(doc))
+
+        # ALSO create a matching shipment row so the load auto-appears on
+        # /tracking with proper origin/destination + status. This is the
+        # single-source pipeline the operator has been asking for.
+        def _split_city_state(loc: str) -> Dict[str, str]:
+            if not loc or "," not in loc:
+                return {"city": loc or "—", "state": "", "name": loc or "—"}
+            city, _, state = loc.partition(",")
+            return {"city": city.strip(), "state": state.strip()[:4], "name": loc}
+
+        shipment = {
+            "shipment_id": doc["shipment_id"],
+            "reference": payload.load_id,
+            "booking_number": doc["booked_id"],
+            "carrier": payload.carrier_name,
+            "carrier_mc": payload.carrier_mc,
+            "mode": "TL",
+            "status": "pending",
+            "origin":      _split_city_state(origin),
+            "destination": _split_city_state(destination),
+            "current_location": _split_city_state(origin),  # starts at origin
+            "eta": delivery_date or (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()[:10],
+            "pickup_date":   pickup_date or datetime.now(timezone.utc).isoformat()[:10],
+            "delivery_date": delivery_date,
+            "weight_lbs": float(base.get("weight_lbs") or 0),
+            "pieces": int(base.get("pieces") or 1),
+            "commodity": base.get("commodity") or equipment or "General freight",
+            "value_usd": float(rate_usd or 0),
+            "consignee": payload.customer_name,
+            "supplier":  payload.customer_name,
+            "customer_rate_usd": rate_usd,
+            "carrier_rate_usd": carrier_pay,
+            "miles": miles,
+            "progress": 0.0,
+            "direction": "outbound",
+            "hazmat": bool(base.get("hazmat")),
+            "notes": payload.notes,
+            "created_at": now,
+            "updated_at": now,
+            "created_by": user.user_id,
+            "is_sample": False,
+            "_from_brokerage": True,
+        }
+        try:
+            await db.shipments.insert_one(dict(shipment))
+        except Exception as e:                                     # noqa: BLE001
+            logger.warning("Shipment row create failed for %s: %s", doc["booked_id"], e)
+
+        doc["shipment_created"] = True
         return doc
 
     @router.post("/loads/settle")

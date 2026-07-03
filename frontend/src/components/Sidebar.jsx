@@ -2,7 +2,7 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Package, PlusSquare, FileText, MapPinned,
-  Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut,
+  Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut, TrendingUp,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
   DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon,
   PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2, Trophy, Wallet, ShieldAlert, Ship, Rocket
@@ -32,6 +32,7 @@ const NAV = [
   { to: "/shipper-intake", label: "Shipper Intake", icon: Send, tid: "nav-shipper-intake", roles: ["admin", "dispatcher"] },
   { to: "/shipper-relations", label: "Shipper Relations", icon: UserPlus, tid: "nav-shipper-relations", roles: ["admin", "dispatcher"] },
   { to: "/claims-master", label: "Claims Master", icon: FileWarning, tid: "nav-claims-master", roles: ["admin", "dispatcher", "auditor"] },
+  { to: "/qbr-studio", label: "QBR Studio", icon: TrendingUp, tid: "nav-qbr-studio", roles: ["admin", "dispatcher"] },
   { to: "/boc3-compliance", label: "BOC-3 Compliance", icon: ShieldCheck, tid: "nav-boc3", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/onboarding-checklist", label: "Onboarding Checklist", icon: Rocket, tid: "nav-onboarding", roles: ["admin"] },
   { to: "/broker-settings", label: "Broker Settings", icon: SettingsIcon, tid: "nav-broker-settings", roles: ["admin", "dispatcher"] },

@@ -12,9 +12,10 @@ import {
 import {
   Truck, Layers, Pin, PinOff, Filter, RefreshCw, ShieldCheck, ShieldAlert,
   Snowflake, MapPin, DollarSign, Award, Radio, Clock, CheckCircle2, Loader2,
-  Sparkles, FileText,
+  Sparkles, FileText, PackageCheck,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 /**
  * BrokerageAggregatorTab — high-tech unified feed across every configured
@@ -38,11 +39,13 @@ const STATES = [
 ];
 
 export default function BrokerageAggregatorTab() {
+  const navigate = useNavigate();
   const [view, setView] = useState("feed"); // feed | retention | prefs | pins
   const [boards, setBoards] = useState([]);
   const [feed, setFeed] = useState(null);
   const [busy, setBusy] = useState(false);
   const [activeBoards, setActiveBoards] = useState(new Set());
+  const [bookingLoad, setBookingLoad] = useState(null);
   const [filters, setFilters] = useState({
     equipment: "",
     origin_state: "",
@@ -134,11 +137,22 @@ export default function BrokerageAggregatorTab() {
           activeBoards={activeBoards}
           setActiveBoards={setActiveBoards}
           onPinChanged={loadPins}
+          onBook={(row) => setBookingLoad(row)}
         />
       )}
       {view === "pins" && <PinsView pins={pins} onChange={loadPins} />}
       {view === "prefs" && <PrefsView onSaved={loadFeed} />}
       {view === "retention" && <RetentionView />}
+
+      <BookLoadDialog
+        load={bookingLoad}
+        onClose={() => setBookingLoad(null)}
+        onBooked={(booked) => {
+          setBookingLoad(null);
+          toast.success(`Booked · ${booked.booked_id} → routing to workflow`);
+          navigate(`/workflow?booked_id=${encodeURIComponent(booked.booked_id)}`);
+        }}
+      />
     </div>
   );
 }
@@ -146,7 +160,7 @@ export default function BrokerageAggregatorTab() {
 // ============================================================
 //                     FEED VIEW
 // ============================================================
-function FeedView({ boards, feed, busy, filters, setFilters, activeBoards, setActiveBoards, onPinChanged }) {
+function FeedView({ boards, feed, busy, filters, setFilters, activeBoards, setActiveBoards, onPinChanged, onBook }) {
   const toggleBoard = (id) => {
     setActiveBoards((prev) => {
       const n = new Set(prev);
@@ -300,7 +314,7 @@ function FeedView({ boards, feed, busy, filters, setFilters, activeBoards, setAc
               </thead>
               <tbody>
                 {items.map((r, i) => (
-                  <LoadRow key={`${r.load_id}-${i}`} row={r} board={boardById[r.board_id]} onPin={onPinChanged} />
+                  <LoadRow key={`${r.load_id}-${i}`} row={r} board={boardById[r.board_id]} onPin={onPinChanged} onBook={onBook} />
                 ))}
               </tbody>
             </table>
@@ -311,7 +325,7 @@ function FeedView({ boards, feed, busy, filters, setFilters, activeBoards, setAc
   );
 }
 
-function LoadRow({ row, board, onPin }) {
+function LoadRow({ row, board, onPin, onBook }) {
   const [pinning, setPinning] = useState(false);
   const pin = async () => {
     setPinning(true);
@@ -370,16 +384,26 @@ function LoadRow({ row, board, onPin }) {
         </div>
       </td>
       <td className="px-3 py-2 text-right">
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={pinning}
-          onClick={pin}
-          className="h-7 px-2 text-cyan-300 hover:text-cyan-100"
-          data-testid={`aggregator-pin-${row.load_id}`}
-        >
-          {pinning ? <Loader2 size={12} className="animate-spin" /> : <Pin size={12} />}
-        </Button>
+        <div className="flex items-center gap-1 justify-end">
+          <Button
+            size="sm"
+            onClick={() => onBook?.(row)}
+            className="h-7 px-2 bg-emerald-500 hover:bg-emerald-400 text-black"
+            data-testid={`aggregator-book-${row.load_id}`}
+          >
+            <PackageCheck size={12} className="mr-1" /> Book
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={pinning}
+            onClick={pin}
+            className="h-7 px-2 text-cyan-300 hover:text-cyan-100"
+            data-testid={`aggregator-pin-${row.load_id}`}
+          >
+            {pinning ? <Loader2 size={12} className="animate-spin" /> : <Pin size={12} />}
+          </Button>
+        </div>
       </td>
     </tr>
   );
@@ -722,6 +746,105 @@ function RetentionView() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ============================================================
+//                    BOOK LOAD DIALOG (aggregator → workflow)
+// ============================================================
+function BookLoadDialog({ load, onClose, onBooked }) {
+  const [form, setForm] = useState({
+    carrier_name: "", carrier_mc: "", customer_name: "", customer_email: "", notes: "",
+  });
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (load) setForm({ carrier_name: "", carrier_mc: "", customer_name: "", customer_email: "", notes: "" });
+  }, [load]);
+
+  if (!load) return null;
+
+  const submit = async () => {
+    if (!form.carrier_name.trim()) { toast.error("Carrier name required"); return; }
+    setBusy(true);
+    try {
+      const payload = {
+        load_id: load.load_id,
+        board_id: load.board_id,
+        carrier_name: form.carrier_name.trim(),
+        carrier_mc: form.carrier_mc.trim() || undefined,
+        customer_name: form.customer_name.trim() || undefined,
+        customer_email: form.customer_email.trim() || undefined,
+        notes: form.notes.trim() || undefined,
+      };
+      Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+      const { data } = await api.post("/brokerage/loads/book", payload);
+      onBooked?.(data);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to book");
+    } finally { setBusy(false); }
+  };
+
+  const margin = ((load.rate_usd || 0) - (load.carrier_pay_usd || 0)).toFixed(0);
+
+  return (
+    <Dialog open={!!load} onOpenChange={(o) => !o && onClose?.()}>
+      <DialogContent className="max-w-lg bg-slate-950 border-white/10" data-testid="aggregator-book-modal">
+        <DialogHeader>
+          <DialogTitle className="text-emerald-100 flex items-center gap-2">
+            <PackageCheck size={16} /> Book Load · {load.load_id}
+          </DialogTitle>
+          <DialogDescription className="text-slate-400 text-xs">
+            After booking, you&apos;ll auto-route to the Run-the-Load workflow. The load will also appear on the Live Tracking map.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="p-3 rounded bg-black/40 border border-white/10 text-xs space-y-1">
+          <div className="flex justify-between"><span className="text-slate-400">Lane</span><span className="text-slate-100">{load.origin} → {load.destination}</span></div>
+          <div className="flex justify-between"><span className="text-slate-400">Miles / Equipment</span><span className="text-slate-100">{load.miles} · {load.equipment}</span></div>
+          <div className="flex justify-between"><span className="text-slate-400">Rate / RPM</span><span className="text-emerald-300 font-mono">${(load.rate_usd || 0).toLocaleString()} · ${(load.rate_per_mile || 0).toFixed(2)}/mi</span></div>
+          <div className="flex justify-between"><span className="text-slate-400">Forecast margin</span><span className="text-amber-300 font-mono">${margin}</span></div>
+          <div className="flex justify-between"><span className="text-slate-400">Board</span><span className="text-cyan-300 font-mono uppercase">{load.board_name || load.board_id}</span></div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-1">Carrier Name *</div>
+            <Input value={form.carrier_name} onChange={(e) => setForm({ ...form, carrier_name: e.target.value })}
+              className="bg-black/40 border-white/10 h-8 text-xs"
+              data-testid="aggregator-book-carrier" />
+          </div>
+          <div>
+            <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-1">Carrier MC #</div>
+            <Input value={form.carrier_mc} onChange={(e) => setForm({ ...form, carrier_mc: e.target.value })}
+              className="bg-black/40 border-white/10 h-8 text-xs" placeholder="MC-123456" />
+          </div>
+          <div>
+            <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-1">Customer / Shipper</div>
+            <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
+              className="bg-black/40 border-white/10 h-8 text-xs" />
+          </div>
+          <div>
+            <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-1">Customer email</div>
+            <Input type="email" value={form.customer_email} onChange={(e) => setForm({ ...form, customer_email: e.target.value })}
+              className="bg-black/40 border-white/10 h-8 text-xs" />
+          </div>
+          <div className="col-span-2">
+            <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-1">Notes</div>
+            <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              className="bg-black/40 border-white/10 text-xs" />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={submit} disabled={busy} className="bg-emerald-500 hover:bg-emerald-400 text-black"
+            data-testid="aggregator-book-submit">
+            {busy ? <Loader2 size={13} className="animate-spin mr-1" /> : <PackageCheck size={13} className="mr-1" />}
+            Book &amp; Route to Workflow
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

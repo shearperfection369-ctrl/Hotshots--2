@@ -1,0 +1,44 @@
+{
+  "summary": "Iter51 — Full validation of (1) production-hardened /brokerage/loads/book with atomic shipments-sync + overrides, (2) full QBR Studio (shippers/period/generate/CRUD/PDF/distribute), (3) aggregator Book-Load button E2E + /workflow?booked_id=... routing, (4) /data-status new modules coverage. Backend: 19/19 pytest passing. Frontend: aggregator-book → /workflow navigation confirmed; QBR Studio 2-tab layout renders, 8-tile KPI strip, read-out cards (Volume/Revenue, OTD, Damage/Claims), narrative fields, Save Draft creates row in Drafts tab (2 total), per-row View/PDF/Send/Delete all wired.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/qbr-studio/shippers", "issue": "Shippers list includes TEST_-prefixed sample rows (TEST_Close_*, TEST_Dispute_*, TEST_Fastpay_*, TEST_Watchlist_*). No filter to hide obvious test seeds. Consider excluding rows where source='claim' AND shipper_name starts with 'TEST_' from the dropdown."},
+      {"endpoint": "/api/qbr-studio/period/{p}/{s}", "issue": "shipments match uses substring (`shipper_lc in consignee`) so a shipper called 'AR' would match 'ARKMART', 'PARR', etc. Use exact match or word-boundary to avoid cross-contamination."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "QBR Studio · Auto-Compute", "issues": ["When shipper has 0 loads in the selected period, all 8 KPI tiles show 0/$0/— but there is no explicit 'No data for this period' banner — a first-time user might think the page is broken instead of understanding the shipper has no Q1 2026 activity yet. Consider a subtle info line above the KPI grid when metrics.loads.total === 0."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter51_book_load_qbr.py",
+    "/app/test_reports/pytest/iter51_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: hide TEST_-prefixed shipper names from /qbr-studio/shippers dropdown.",
+    "OPTIONAL: exact-match consignee/supplier in _compute_metrics to prevent substring cross-matching.",
+    "OPTIONAL: 'No activity in this period' info line in QBR Studio Auto-Compute view when loads.total === 0."
+  ],
+  "critical_code_review_comments": [
+    "brokerage.book_load creates a shipment row but the mirror is inside a bare `try/except Exception: log.warning(...)` — if the shipment insert fails (e.g. duplicate shipment_id, disk full), the booking still returns `shipment_created: true` even though it isn't. Either propagate the exception (fail the whole booking) or set shipment_created=false on failure. Currently the API is lying to the client under partial-failure.",
+    "brokerage.book_load: no idempotency guard. If the client retries POST /brokerage/loads/book with the same load_id + carrier_name (e.g. network glitch), a second brokerage_bookings row + a second shipments row are created. Consider a unique-index on (load_id, carrier_name) with is_sample=false, or accept an idempotency_key.",
+    "qbr_studio._compute_metrics loads the entire brokerage_bookings, shipments, claims collections into memory and filters in Python (`find({}).to_list(5000)` then loop). This won't scale past a few thousand rows per collection. Refactor to Mongo aggregation with $match/$gte/$lt on booked_at + $regex on customer_name.",
+    "qbr_studio.distribute enqueues an outbound_emails row but does NOT actually send email (queued_at, status='queued'). The frontend/UX says 'Send' which will mislead the operator into thinking it went out. Either rename the button to 'Queue Send' or wire the Resend send with the existing key in Connections.",
+    "qbr_studio._render_qbr_pdf builds markdown and delegates to routes.orisei_docs.build_branded_markdown_pdf — good reuse. But no error handling around the PDF build; a malformed brand row (e.g. missing short_name after a bulk import) would 500 on report.pdf. Add a fallback brand={short_name:'Orisei'}.",
+    "QbrStudio.jsx is 626 lines — approaching the 700-line guideline. If a Distribution audit tab is added later, split into pages/qbr-studio/ subdirectory."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter51_book_load_qbr.py (new — 19 tests, all pass)"
+  ],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% (all requested flows + testids verified)"},
+  "test_credentials": "Bearer test_session_admin_1 (admin) per /app/memory/test_credentials.md",
+  "seed_data_creation": "Created ~4 TEST_Carrier_* brokerage_bookings + matching shipments (via synthetic and override modes), 1 QBR draft (QBR-88C1039984) via UI. Did NOT delete QBR-70CD2DE972 (preserved per brief). Pytest also creates+deletes one QBR draft per run and creates one outbound_emails row per run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iter51_book_load_qbr.py at /app/backend/tests/ covers all 4 new backend surfaces. If shipment mirror on book_load starts failing, first check that the brokerage.book_load payload includes all shipments-required fields (current_location, pieces, eta, weight_lbs, commodity, value_usd — these already asserted). For QBR Studio, the compute expects date-in-quarter — running tests in Q3 2026 for Q1 2026 shipper 'E2E Test Shipper Co' returns 0 metrics (empty state), which is correct — use YTD 2026 if you want to see the newly-created bookings reflected. To find loads for synthetic booking, hit GET /api/brokerage/boards/{board}/loads NOT /api/brokerage/loads.",
+  "rca of the issue": "No production bugs found this iteration. Two API-shape gotchas caught while writing tests: (1) synthetic feed lookup endpoint is /brokerage/boards/{board_id}/loads not /brokerage/loads, (2) /api/data-status counts docs WITHOUT is_sample flag as real (via subtraction: real = total - count({is_sample:true})) — this matches the post-fix expectation. Bookings created without customer_name still succeed; shipment mirror still writes."
+}

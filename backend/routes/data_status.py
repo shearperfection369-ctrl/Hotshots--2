@@ -50,14 +50,30 @@ TRACKED_COLLECTIONS: List[str] = [
     "specialty_carriers_custom",
     "chat_messages",
     "outbound_emails",
+    # Claims Master
+    "claims_master",
+    "claim_communications",
+    "claim_photos",
+    "claim_prevention_audits",
+    "carrier_insurance_verifications",
+    # Shipper Relations
+    "shipper_accounts",
+    "shipper_incentives",
+    "shipper_rate_cards",
+    "shipper_qbrs",
+    "shipper_tms",
+    "shipper_activity_log",
+    # Aggregator
+    "aggregator_prefs",
+    "aggregator_pins",
+    "aggregator_retention_attestations",
 ]
 
 
 async def _counts(db, name: str) -> Dict[str, int]:
     total = await db[name].count_documents({})
-    real  = await db[name].count_documents({"is_sample": False})
-    # everything else (missing flag OR is_sample True) is treated as sample
-    sample = total - real
+    sample = await db[name].count_documents({"is_sample": True})
+    real = total - sample
     return {"total": total, "real": real, "sample": sample}
 
 
