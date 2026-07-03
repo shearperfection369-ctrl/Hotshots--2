@@ -771,7 +771,7 @@ def build_shipper_relations_router(
         }
         # Auto-log the outbound greeting as an activity note on the account
         activity = {
-            "activity_id": f"AC-{uuid.uuid4().hex[:10].upper()}",
+            "activity_id": f"ACT-{uuid.uuid4().hex[:10].upper()}",
             "account_id": account_id,
             "kind": "email",
             "summary": f"Welcome kit sent · Orisei-branded PDF ({len(pdf):,} bytes) → {to_email}",
@@ -783,7 +783,7 @@ def build_shipper_relations_router(
             "created_at": _now(),
             "created_by": _actor(user),
         }
-        await db.shipper_activities.insert_one(dict(activity))
+        await db.shipper_activity_log.insert_one(dict(activity))
         # Also stash a lightweight record so future audits can find sent kits
         await db.shipper_welcome_kits.insert_one(dict({
             "kit_id": f"WK-{uuid.uuid4().hex[:10].upper()}",

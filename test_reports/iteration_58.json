@@ -1,0 +1,32 @@
+{
+  "summary": "Iter 58 targeted RETEST of the single HIGH-priority bug from iter_57.json (collection-name mismatch in send-welcome auto-activity log). All 11/11 pytest cases in test_iter57_shipper_welcome_kit.py now PASS (was 10/11). Fix confirmed live: POST /api/shipper-relations/accounts/{id}/send-welcome writes into db.shipper_activity_log with prefix 'ACT-' and the subsequent GET /accounts/{id} surfaces the activity in its activities[] array with kind='email' and summary starting 'Welcome kit sent · Orisei-branded PDF'. Direct curl-style verification on a fresh TEST_ActPrefix account showed activity_id=ACT-25ABD10C76 appearing in the 360° view immediately after send. Regression smoke on send-welcome shape (delivery.provider='resend-mock', pdf_bytes=428181, greeting_preview present) and welcome-history (WK- prefixed kit_id, items[] structure) also pass. Backend-only retest as requested; frontend not re-tested (was already 100% in iter 57).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter57_shipper_welcome_kit.py",
+    "/app/test_reports/pytest/iter58_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Fix at routes/shipper_relations.py:786 (db.shipper_activity_log.insert_one) and line 774 (ACT- prefix) is correct and consistent with log_activity() at line ~358. Verified.",
+    "Still recommended (carried over from iter 57, non-blocking): remove leftover SendWelcomeIn_inner placeholder (lines ~719-720); extract _active_brand() into backend/services/brand.py to eliminate its 4th duplicate copy across lighthouse.py/qbr_studio.py/claims_master.py/shipper_relations.py; consider caching /welcome.pdf output by (account_id, brand_id, updated_at) hash to avoid the ~0.5-1s build cost on every request."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (11/11 pytest passed)",
+    "frontend": "not re-tested (backend-only retest per request; iter 57 confirmed 100%)"
+  },
+  "test_credentials": "Bearer test_session_admin_1 (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "Test suite creates TEST_-prefixed shipper_accounts each run (TEST_Acme Widgets {u}, TEST_NoEmail Co {u}, TEST_Smoke {u}, and one extra TEST_ActPrefix {u} from the direct-curl verification). Safe to leave; cleanup query: db.shipper_accounts.deleteMany({company_name: /^TEST_/}).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter 57 is fully closed. The send-welcome auto-log bug (collection mismatch + activity_id prefix) is fixed and verified end-to-end. All iter-57 shipper welcome-kit acceptance criteria are green. If a next iteration touches shipper_relations.py, re-run /app/backend/tests/test_iter57_shipper_welcome_kit.py as a regression gate.",
+  "rca of the issue": "Previously (iter 57): send-welcome wrote to db.shipper_activities with activity_id 'AC-…'; 360° view read from db.shipper_activity_log → activity invisible. Fix applied in routes/shipper_relations.py: line 786 now writes to db.shipper_activity_log.insert_one(...) and line 774 uses activity_id prefix 'ACT-' (consistent with log_activity() helper). Retest verifies: after a POST /send-welcome, the immediately-following GET /accounts/{id} returns activities=[{activity_id:'ACT-…', kind:'email', summary:'Welcome kit sent · Orisei-branded PDF …'}], matching the acceptance criterion. No other regressions observed."
+}
