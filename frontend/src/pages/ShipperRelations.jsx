@@ -13,7 +13,7 @@ import {
   Handshake, Users, Sparkles, Gift, TrendingUp, Award, ShieldCheck, Truck,
   BadgeCheck, Fuel, Wallet, UserCheck, Clock, Star, Zap, Plug, Radio,
   Plus, RefreshCw, ChevronRight, MessageSquare, Calendar, Trash2,
-  Loader2, CheckCircle2, AlertCircle, DollarSign, Package,
+  Loader2, CheckCircle2, AlertCircle, DollarSign, Package, Mail, FileText, Send,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useBranding, useBrandRefresh } from "../lib/branding";
@@ -495,6 +495,9 @@ function AccountDetailDialog({ account, incentives, onClose, onChange }) {
   const [detail, setDetail] = useState(null);
   const [assignId, setAssignId] = useState("");
   const [activityForm, setActivityForm] = useState({ kind: "call", summary: "", outcome: "", next_step: "" });
+  const [welcomeBusy, setWelcomeBusy] = useState(false);
+  const [welcomeReceipt, setWelcomeReceipt] = useState(null);
+  const [welcomeSender, setWelcomeSender] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -544,6 +547,36 @@ function AccountDetailDialog({ account, incentives, onClose, onChange }) {
     } catch (e) { toast.error("Failed"); } finally { setBusy(false); }
   };
 
+  const sendWelcome = async () => {
+    if (!account.contact_email) { toast.error("Add a contact_email to this account first."); return; }
+    setWelcomeBusy(true);
+    setWelcomeReceipt(null);
+    try {
+      const { data } = await api.post(`/shipper-relations/accounts/${account.account_id}/send-welcome`,
+        { sender_name: welcomeSender || undefined });
+      setWelcomeReceipt(data);
+      toast.success(`Welcome kit sent to ${data.delivery.to} (mock)`);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Send failed");
+    } finally { setWelcomeBusy(false); }
+  };
+
+  const downloadWelcomePdf = () => {
+    const base = process.env.REACT_APP_BACKEND_URL || "";
+    const token = localStorage.getItem("tms_session_token") || "";
+    // Use fetch to include the auth header, then blob-download.
+    fetch(`${base}/api/shipper-relations/accounts/${account.account_id}/welcome.pdf`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((r) => r.blob()).then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `orisei_welcome_${account.account_id}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }).catch(() => toast.error("Download failed"));
+  };
+
   return (
     <Dialog open={!!account} onOpenChange={(o) => !o && onClose?.()}>
       <DialogContent className="max-w-4xl bg-slate-950 border-white/10 max-h-[90vh] overflow-y-auto"
@@ -569,6 +602,60 @@ function AccountDetailDialog({ account, incentives, onClose, onChange }) {
             </button>
           ))}
         </div>
+
+        {/* Welcome Kit — Orisei-branded PDF + mocked email */}
+        <Card className="p-3 bg-cyan-500/5 border-cyan-500/30" data-testid="shipper-welcome-card">
+          <div className="flex items-center gap-2 mb-2">
+            <Mail size={13} className="text-cyan-300" />
+            <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-300">
+              Orisei welcome kit
+            </span>
+            <span className="text-[10px] text-slate-500">
+              PDF + auto professional greeting → {account.contact_email || <span className="text-red-400">missing contact_email</span>}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              value={welcomeSender}
+              onChange={(e) => setWelcomeSender(e.target.value)}
+              placeholder="Sender name (optional — defaults to The Orisei Freight Team)"
+              className="flex-1 min-w-[240px] bg-black/40 border-white/10 h-8 text-xs"
+              data-testid="shipper-welcome-sender"
+            />
+            <Button
+              onClick={downloadWelcomePdf}
+              variant="ghost"
+              className="text-cyan-300 hover:text-cyan-100 h-8"
+              data-testid="shipper-welcome-download">
+              <FileText size={12} className="mr-1" /> Preview PDF
+            </Button>
+            <Button
+              onClick={sendWelcome}
+              disabled={welcomeBusy || !account.contact_email}
+              className="bg-cyan-500 hover:bg-cyan-400 text-black h-8"
+              data-testid="shipper-welcome-send">
+              {welcomeBusy ? <Loader2 size={12} className="animate-spin mr-1" /> : <Send size={12} className="mr-1" />}
+              Send welcome kit
+            </Button>
+          </div>
+          {welcomeReceipt && (
+            <div className="mt-3 text-[11px] text-emerald-100 border border-emerald-500/30 bg-emerald-500/5 rounded p-2 space-y-1"
+              data-testid="shipper-welcome-receipt">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-emerald-300">
+                Delivery receipt · {welcomeReceipt.delivery.provider}
+              </div>
+              <div className="text-slate-300">
+                <b>To:</b> {welcomeReceipt.delivery.to} · <b>Subject:</b> {welcomeReceipt.delivery.subject}
+              </div>
+              <div className="text-slate-400">
+                <b>Attached PDF:</b> {welcomeReceipt.delivery.attachment.filename} · {(welcomeReceipt.pdf_bytes/1024).toFixed(0)} KB
+              </div>
+              <div className="text-slate-300 whitespace-pre-wrap font-mono text-[10.5px] pt-1 border-t border-white/5">
+                {welcomeReceipt.greeting_preview}
+              </div>
+            </div>
+          )}
+        </Card>
 
         {/* Assigned incentives */}
         <Card className="p-3 bg-slate-900/60 border-white/10">

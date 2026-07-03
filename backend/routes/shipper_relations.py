@@ -50,12 +50,14 @@ Every read excludes `_id`.
 """
 from __future__ import annotations
 
+import io
 import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, EmailStr
 
 log = logging.getLogger("orisei.shipper_relations")
@@ -170,6 +172,14 @@ class TmsRegistrationIn(BaseModel):
     contact_it: Optional[str] = Field(None, max_length=120)
     status: str = Field("planned", pattern="^(planned|in_test|live|paused)$")
     notes: Optional[str] = Field(None, max_length=2000)
+
+
+class SendWelcomeIn(BaseModel):
+    sender_name: Optional[str] = Field(None, max_length=120)
+    cc: Optional[List[EmailStr]] = None
+    note_override: Optional[str] = Field(None, max_length=4000,
+        description="If provided, replaces the auto-generated greeting body")
+    subject_override: Optional[str] = Field(None, max_length=200)
 
 
 # ============================================================
@@ -570,5 +580,235 @@ def build_shipper_relations_router(
             await db.shipper_incentives.insert_one(dict(doc))
             inserted += 1
         return {"ok": True, "inserted": inserted, "existing": len(catalog) - inserted}
+
+    # ------------------------ WELCOME KIT (Orisei-branded PDF + mocked email) ------------------------
+    async def _active_brand() -> Dict[str, Any]:
+        """Match the same is_active → is_default → orisei → any fallback
+        used everywhere else (fixed in iter 56)."""
+        b = await db.company_brand.find_one({"is_active": True}, {"_id": 0})
+        if not b:
+            b = await db.company_brand.find_one({"is_default": True}, {"_id": 0})
+        if not b:
+            b = await db.company_brand.find_one(
+                {"brand_id": {"$regex": "orisei", "$options": "i"}}, {"_id": 0})
+        if not b:
+            b = await db.company_brand.find_one({}, {"_id": 0}) or {}
+        return b
+
+    def _greeting(account: Dict[str, Any], sender_name: Optional[str],
+                    brand: Dict[str, Any]) -> str:
+        """Professional Orisei greeting, personalized to the shipper."""
+        contact = account.get("contact_name") or "there"
+        company = account.get("company_name") or "your team"
+        first_name = contact.split(" ")[0] if contact and contact != "there" else "there"
+        short = brand.get("short_name") or "Orisei"
+        signer = sender_name or "The Orisei Freight Team"
+        return (
+            f"Hi {first_name},\n\n"
+            f"On behalf of everyone at {short} Freight Solutions, welcome — we’re "
+            f"delighted to have {company} exploring a partnership with us.\n\n"
+            f"The document attached walks through what makes Orisei different: a single "
+            f"purpose-built TMS covering brokerage ops, live tracking, claims, QBRs, "
+            f"international, factoring, and cash-flow — all under your own branding, "
+            f"backed by a real dispatch autopilot that shortens the time between load "
+            f"posted and truck booked from hours down to seconds.\n\n"
+            f"You’ll find a lane-level ROI snapshot, our onboarding roadmap, "
+            f"payment-term options, and the direct contact information for your "
+            f"dedicated account manager. If anything looks off, or you’d prefer a "
+            f"quick call to walk through it live, hit reply — we’ll be on it the "
+            f"same business day.\n\n"
+            f"Looking forward to earning your freight.\n\n"
+            f"Warm regards,\n"
+            f"{signer}"
+        )
+
+    def _render_welcome_pdf(account: Dict[str, Any], brand: Dict[str, Any],
+                              greeting: str, incentives: List[Dict[str, Any]]) -> bytes:
+        short = brand.get("short_name") or "Orisei"
+        company = account.get("company_name") or "Shipper"
+        contact = account.get("contact_name") or ""
+        md: List[str] = []
+        md.append(f"# Welcome to {short} Freight Solutions")
+        md.append(f"### Prepared for: {company}" + (f" · Attn: {contact}" if contact else ""))
+        md.append("")
+        # Greeting block
+        md.append("## A note from our team")
+        for line in greeting.split("\n\n"):
+            md.append(line.strip())
+            md.append("")
+        md.append("---")
+        md.append("")
+        # Executive summary
+        md.append(f"## Why {short}")
+        md.append("- **One TMS. Every workflow.** Brokerage, live tracking, claims, QBRs, international, factoring, cash-flow — all in one branded production build.")
+        md.append("- **Dispatch Autopilot.** Real-time load-matching engine with ML-scored carrier selection (accept probability + optimal rate suggestion) — cuts time-to-book from hours to seconds.")
+        md.append("- **Aggregated load boards** — DAT · Truckstop · Convoy · Uber Freight · 123Loadboard, scored and margin-flagged before you see them.")
+        md.append(f"- **Prevention-first claims desk** — 24-hr SLA, photo evidence chain, insurance verification, {short}-branded incident reports.")
+        md.append("- **Auto-computed QBRs** — pull volume/OTD/damage/spend from the TMS, distribute a shipper-facing PDF in minutes, not days.")
+        md.append("")
+        # Account snapshot
+        md.append(f"## What we know about {company}")
+        md.append(f"- **Industry:** {account.get('industry') or '—'}")
+        md.append(f"- **HQ:** {account.get('hq_city') or '—'}, {account.get('hq_state') or '—'}")
+        md.append(f"- **Annual volume:** {(account.get('annual_volume_loads') or 0):,} loads")
+        md.append(f"- **Annual revenue:** ${(account.get('annual_revenue_usd') or 0):,.0f}")
+        md.append(f"- **Primary lanes:** {', '.join(account.get('primary_lanes') or []) or '—'}")
+        md.append(f"- **Equipment focus:** {', '.join(account.get('equipment_needs') or []) or '—'}")
+        md.append(f"- **Preferred payment terms:** {(account.get('payment_terms') or 'net_30').replace('_',' ').title()}")
+        md.append(f"- **Dedicated AM:** {account.get('dedicated_am') or 'Assigning within 24 hrs'}")
+        md.append("")
+        # ROI snapshot
+        volume = int(account.get("annual_volume_loads") or 0)
+        if volume:
+            avg_rev = 2450
+            annual_rev = volume * avg_rev
+            curr_margin = annual_rev * 0.125
+            target_margin = annual_rev * 0.146
+            lift = target_margin - curr_margin
+            md.append("## Your ROI snapshot")
+            md.append(f"- **Annual revenue (est.):** ${annual_rev:,.0f}")
+            md.append("")
+            md.append("| Metric | Today | With Orisei |")
+            md.append("|---|---|---|")
+            md.append("| Gross margin % | 12.5% | 14.6% |")
+            md.append(f"| Annual gross margin | ${curr_margin:,.0f} | ${target_margin:,.0f} |")
+            md.append(f"| **Annual lift** | — | **+${lift:,.0f}** |")
+            md.append("")
+        # Incentives shortlist
+        if incentives:
+            md.append("## Incentives available to your account")
+            for inc in incentives[:6]:
+                md.append(f"- **{inc.get('name')}** — {inc.get('description') or inc.get('kind','').replace('_',' ')}")
+            md.append("")
+        # 30-day onboarding map
+        md.append("## Your 30-day onboarding roadmap")
+        md.append("| Week | Milestones |")
+        md.append("|---|---|")
+        md.append("| Week 1 | Kickoff · brand kit uploaded · seed users · workspace live |")
+        md.append("| Week 2 | Import lane list + rate cards · connect first load board · first booked load runs end-to-end |")
+        md.append("| Week 3 | Claims desk + insurance verifications live · first Orisei-branded QBR distributed |")
+        md.append("| Week 4 | Full team enabled · autopilot armed · executive health-check |")
+        md.append("")
+        # Contact block
+        md.append("## Next step")
+        md.append(f"Reply to this email or book a 15-minute walkthrough at **{short.lower()}freight.com/tour**. "
+                    "Your dedicated account manager will follow up within one business day.")
+        md.append("")
+        md.append("---")
+        md.append(f"_{short} Freight Solutions · confidential · rendered "
+                    f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}._")
+        text = "\n".join(md)
+        from routes.orisei_docs import build_branded_markdown_pdf
+        return build_branded_markdown_pdf(
+            text,
+            title=f"Welcome to {short} Freight Solutions",
+            subtitle=f"Prepared for {company}",
+            doc_id=f"WK-{uuid.uuid4().hex[:8].upper()}",
+            brand=brand,
+        )
+
+    async def _account_incentives(account_id: str) -> List[Dict[str, Any]]:
+        assignments = await db.shipper_incentive_assignments.find(
+            {"account_id": account_id}, {"_id": 0}).to_list(50)
+        if not assignments:
+            return []
+        ids = [a["incentive_id"] for a in assignments]
+        return await db.shipper_incentives.find(
+            {"incentive_id": {"$in": ids}}, {"_id": 0}).to_list(50)
+
+    class SendWelcomeIn_inner:  # noqa: F841  (kept for backward-compat symbol reference)
+        pass  # actual pydantic model is module-level SendWelcomeIn
+
+    @router.get("/accounts/{account_id}/welcome.pdf")
+    async def welcome_pdf(account_id: str, _=user_dep):
+        account = await db.shipper_accounts.find_one({"account_id": account_id}, {"_id": 0})
+        if not account:
+            raise HTTPException(404, "Account not found")
+        brand = await _active_brand()
+        incentives = await _account_incentives(account_id)
+        greeting = _greeting(account, None, brand)
+        pdf = _render_welcome_pdf(account, brand, greeting, incentives)
+        return StreamingResponse(io.BytesIO(pdf), media_type="application/pdf",
+            headers={"Content-Disposition":
+                     f'inline; filename="orisei_welcome_{account_id}.pdf"'})
+
+    @router.post("/accounts/{account_id}/send-welcome")
+    async def send_welcome(account_id: str, payload: SendWelcomeIn,
+                            user=admin_dep) -> Dict[str, Any]:
+        account = await db.shipper_accounts.find_one({"account_id": account_id}, {"_id": 0})
+        if not account:
+            raise HTTPException(404, "Account not found")
+        to_email = account.get("contact_email")
+        if not to_email:
+            raise HTTPException(422, "Account has no contact_email — add one before sending.")
+
+        brand = await _active_brand()
+        short = brand.get("short_name") or "Orisei"
+        incentives = await _account_incentives(account_id)
+        greeting = payload.note_override or _greeting(account, payload.sender_name, brand)
+        pdf = _render_welcome_pdf(account, brand, greeting, incentives)
+        subject = payload.subject_override or (
+            f"Welcome to {short} Freight Solutions — a personal note & our onboarding kit"
+        )
+        # Resend email — MOCKED (same pattern as iter 55 dispatch offers).
+        # Production JSON shape preserved so flipping to a live Resend key
+        # doesn't need code changes.
+        import base64
+        delivery = {
+            "id": f"em-mock-{uuid.uuid4().hex[:14]}",
+            "provider": "resend-mock",
+            "to": to_email,
+            "cc": [str(e) for e in (payload.cc or [])],
+            "from_": f"dispatch@{short.lower()}freight.com",
+            "subject": subject,
+            "status": "queued",
+            "attachment": {
+                "filename": f"orisei_welcome_{account_id}.pdf",
+                "size_bytes": len(pdf),
+                "content_b64_preview": base64.b64encode(pdf[:24]).decode() + "…",
+            },
+            "sent_at": _now(),
+        }
+        # Auto-log the outbound greeting as an activity note on the account
+        activity = {
+            "activity_id": f"AC-{uuid.uuid4().hex[:10].upper()}",
+            "account_id": account_id,
+            "kind": "email",
+            "summary": f"Welcome kit sent · Orisei-branded PDF ({len(pdf):,} bytes) → {to_email}",
+            "outcome": "delivered_mock",
+            "next_step": "Follow up in 2 business days",
+            "email_subject": subject,
+            "email_greeting": greeting,
+            "delivery_receipt": delivery,
+            "created_at": _now(),
+            "created_by": _actor(user),
+        }
+        await db.shipper_activities.insert_one(dict(activity))
+        # Also stash a lightweight record so future audits can find sent kits
+        await db.shipper_welcome_kits.insert_one(dict({
+            "kit_id": f"WK-{uuid.uuid4().hex[:10].upper()}",
+            "account_id": account_id,
+            "to_email": to_email,
+            "subject": subject,
+            "greeting": greeting,
+            "pdf_bytes": len(pdf),
+            "delivery": delivery,
+            "sent_at": _now(),
+            "sent_by": _actor(user),
+        }))
+        activity.pop("_id", None)
+        return {
+            "ok": True,
+            "delivery": delivery,
+            "greeting_preview": greeting[:220] + ("…" if len(greeting) > 220 else ""),
+            "activity": activity,
+            "pdf_bytes": len(pdf),
+        }
+
+    @router.get("/accounts/{account_id}/welcome-history")
+    async def welcome_history(account_id: str, _=user_dep) -> Dict[str, Any]:
+        rows = await db.shipper_welcome_kits.find(
+            {"account_id": account_id}, {"_id": 0}).sort("sent_at", -1).to_list(50)
+        return {"items": rows, "count": len(rows)}
 
     api_router.include_router(router)

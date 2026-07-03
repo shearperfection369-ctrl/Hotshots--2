@@ -29,7 +29,6 @@ const NAV = [
   { to: "/brokerage-ops-kpis", label: "Ops KPIs", icon: Calculator, tid: "nav-brokerage-ops-kpis", roles: ["admin", "dispatcher"] },
   { to: "/orisei-operations", label: "Orisei Operations", icon: Building2, tid: "nav-orisei-operations", roles: ["admin", "dispatcher"] },
   { to: "/international", label: "International · Ocean/Rail", icon: Ship, tid: "nav-international", roles: ["admin", "dispatcher", "auditor"] },
-  { to: "/shipper-intake", label: "Shipper Intake", icon: Send, tid: "nav-shipper-intake", roles: ["admin", "dispatcher"] },
   { to: "/shipper-relations", label: "Shipper Relations", icon: UserPlus, tid: "nav-shipper-relations", roles: ["admin", "dispatcher"] },
   { to: "/claims-master", label: "Claims Master", icon: FileWarning, tid: "nav-claims-master", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/qbr-studio", label: "QBR Studio", icon: TrendingUp, tid: "nav-qbr-studio", roles: ["admin", "dispatcher"] },

@@ -1,0 +1,46 @@
+{
+  "summary": "Iter 57 shipper-relations Orisei welcome-kit end-to-end verification. Backend: 10/11 pytest cases passed (91%). PDF endpoint returns Orisei-branded PDF ≥40KB, no Walmart/Bentonville leakage, contains company_name and greeting keywords. send-welcome mock delivery response shape correct (id starts em-mock-, provider=resend-mock, to, subject 'Welcome to…', status=queued, attachment{filename,size_bytes,content_b64_preview}, greeting_preview, pdf_bytes>10k). Greeting personalization verified (Hi Alex parsed from 'Alex Buyer', company mentioned, Orisei mentioned, NO HTML entities — real Unicode apostrophes). 422 returned for account without contact_email. welcome-history sorted desc with WK- prefix. ROI snapshot appears after patching annual_volume_loads=250. Regression smoke on dashboard/accounts/create/log-activity all 200. Frontend: sidebar nav-shipper-intake absent, nav-shipper-relations present. /shipper-relations loads under admin, Accounts tab → click TEST_Acme row → modal opens showing cyan-bordered 'Orisei welcome kit' card with sender input, Preview PDF & Send welcome kit buttons. Filling sender 'Alex · Orisei Dispatch' + click Send → green delivery-receipt block renders with provider=resend-mock, to=alex.buyer.*@example.com, subject 'Welcome to ORISEI Freight Solutions — a personal note & our onboarding kit', attachment 'orisei_welcome_SHP-*.pdf · 418 KB', personalized greeting preview. TEST_NoEmail account → Send button disabled=true (correct guard). Old /shipper-intake ROUTE still resolves and renders (no 404).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/shipper-relations/accounts/{id}/send-welcome  (and GET /api/shipper-relations/accounts/{id})",
+        "issue": "Collection name mismatch: send-welcome writes the auto-generated activity into db.shipper_activities (routes/shipper_relations.py:786) but the 360° account view reads from db.shipper_activity_log (routes/shipper_relations.py:301). Effect: after sending a welcome kit the follow-up GET /accounts/{id} returns activity=[] — the required auto-log is invisible to the UI's Activity Log section. Direct violation of iter-57 review requirement #6 ('After a successful send-welcome, an activity is auto-logged: GET /api/shipper-relations/accounts/{account_id} shows an activity with kind=email and summary containing Welcome kit sent'). Also related: the shipper_activities doc uses activity_id prefix 'AC-' whereas the canonical activity_log uses 'ACT-'. Fix: change line 786 from db.shipper_activities.insert_one → db.shipper_activity_log.insert_one, and 'AC-' → 'ACT-' for prefix consistency.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter57_shipper_welcome_kit.py",
+    "/app/test_reports/pytest/iter57_results.xml"
+  ],
+  "action_items": [
+    "Change db.shipper_activities.insert_one to db.shipper_activity_log.insert_one in routes/shipper_relations.py line ~786, and update activity_id prefix from 'AC-' to 'ACT-' to match log_activity() at line 358. This is the ONLY blocker for iter-57 acceptance criterion #6."
+  ],
+  "critical_code_review_comments": [
+    "routes/shipper_relations.py:786 — writes to db.shipper_activities (a new/separate collection) while every other activity log write (line 341, 364) targets db.shipper_activity_log. Two collections storing the same conceptual data is a maintenance bomb; a future dev querying 'all activities' will miss the welcome-kit sends. Also, activity_id prefixes ('AC-' vs 'ACT-') are inconsistent.",
+    "routes/shipper_relations.py:719-720 — the leftover SendWelcomeIn_inner: noqa placeholder class serves no purpose now that SendWelcomeIn is module-level. Remove to reduce noise.",
+    "routes/shipper_relations.py:585-596 — _active_brand() is the 4th duplicated copy of this helper (see iter-56 report; lighthouse.py, qbr_studio.py, claims_master.py all have identical logic). Strongly recommend extracting to backend/services/brand.py::get_active_brand(db) — the iter-56 root-cause bug was a direct consequence of this duplication.",
+    "routes/shipper_relations.py:_render_welcome_pdf — builds the markdown in-memory and calls build_branded_markdown_pdf on every request; for a 418KB output this is ~0.5-1s CPU. If /welcome.pdf gets called frequently for the same account, consider caching by (account_id, brand_id, updated_at) hash.",
+    "frontend/src/pages/ShipperRelations.jsx — Sonner toast for 'Welcome kit sent to …' was not detectable via [role=status] selector in playwright; the receipt block renders correctly so users still see feedback. Non-blocking, but toast selector consistency across the app (some use sonner, some react-hot-toast) is worth normalizing."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter57_shipper_welcome_kit.py"
+  ],
+  "success_rate": {
+    "backend": "91% (10/11 pytest passed — the 1 failure is the real collection-mismatch bug listed above)",
+    "frontend": "100% (all iter-57 acceptance criteria verified via Playwright — sidebar, modal card, send flow, disabled state, /shipper-intake still routes)"
+  },
+  "test_credentials": "Bearer test_session_admin_1 (from /app/memory/test_credentials.md). Frontend uses localStorage.tms_session_token='test_session_admin_1'.",
+  "seed_data_creation": "Created two TEST_ prefixed shipper accounts during pytest module: 'TEST_Acme Widgets {uuid}' (with contact_email + contact_name='Alex Buyer' + annual_volume_loads=120 then patched to 250) and 'TEST_NoEmail Co {uuid}' (no contact_email). Also created 'TEST_Smoke {uuid}' for create-account regression smoke. Multiple shipper_welcome_kits records were written for TEST_Acme during history-sort verification. All prefixed TEST_ for easy cleanup.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-57 backend has ONE known bug: send-welcome writes to db.shipper_activities but the 360-view reads db.shipper_activity_log — see backend_issues.critical. Re-run /app/backend/tests/test_iter57_shipper_welcome_kit.py after main agent fixes; TestActivityAutoLog::test_activity_shows_on_account_detail should turn green. All other 10 tests already pass. Frontend has zero known issues for this iteration. The pytest fixtures leave TEST_-prefixed accounts in Mongo — safe to leave (or cleanup with db.shipper_accounts.deleteMany({company_name: /^TEST_/}))."
+  ,
+  "rca of the issue": "ROOT CAUSE: In /app/backend/routes/shipper_relations.py, the send_welcome() endpoint (line 735) auto-logs the outbound email as an activity by calling `await db.shipper_activities.insert_one(...)` on line 786. However, the account 360° view endpoint (line ~285-315) reads activities via `await db.shipper_activity_log.find({...}).to_list(200)` on line 301. Two different collection names (shipper_activities vs shipper_activity_log) → the welcome-kit activity is orphaned in a collection nothing else queries. REPRODUCTION: 1) POST /api/shipper-relations/accounts/{id}/send-welcome on an account with contact_email → 200 OK, delivery receipt returned. 2) GET /api/shipper-relations/accounts/{id} → activity=[]. Expected: activity list contains one item with kind='email' and summary starting 'Welcome kit sent'. Also, the activity_id prefix used for the welcome activity is 'AC-' (line 774), inconsistent with the canonical 'ACT-' prefix used by log_activity() (line 358) and lifecycle mover (line 342). MITIGATION: change 'shipper_activities' → 'shipper_activity_log' at line 786, and 'AC-' → 'ACT-' at line 774. Zero data migration needed because the shipper_activities collection is brand-new to iter-57 and only contains test rows."
+}
