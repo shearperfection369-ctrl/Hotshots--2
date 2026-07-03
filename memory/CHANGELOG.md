@@ -4,6 +4,40 @@
 
 ---
 
+## Iter 55 — 2026-07-03 · Dispatch Autopilot + Full ML Integration
+
+**Status**: ✅ 26/26 backend tests pass, 100% frontend flows (iter_55.json). ML AUC 0.944, R² 0.558.
+
+- **Rule-based dispatch engine** (`/api/dispatch/*`) — new `/app/backend/routes/dispatch_autopilot.py`:
+  - Carrier availability matrix (CRUD + seed 10 demo carriers)
+  - Scoring engine — HARD constraints (equipment, weight, lane, insurance) + SOFT scoring (on-time, damage, rate alignment, idle boost, shipper pref, accept history) → 0–100 score with breakdown
+  - Margin engine — load rate − (carrier RPM × miles)
+  - Auto-offer to top-N qualified carriers with configurable thresholds (min_score, min_margin_usd, min_margin_pct)
+  - Offer pipeline (pending/accepted/declined/expired) with sibling-cancel on accept + 30-min expiry
+  - Autopilot tick — sweeps aggregator feed, dedupes against last-2hr offers, fires offers, all logged for ML training
+  - KPI dashboard (accept rate, avg time-to-book, margin captured, offers/hr)
+  - Twilio SMS + Resend email are MOCKED per user choice — production JSON shape preserved (sid `SM-mock-…`, id `em-mock-…`)
+- **Full ML integration** (`/api/dispatch/ml/*`) — new `/app/backend/routes/dispatch_ml.py`:
+  - **Accept classifier**: sklearn GradientBoostingClassifier on 9 features (match_score, margin_usd, margin_pct, rate_delta_per_mile, on_time, damage_rate, days_idle, historical_acceptance, miles) → P(accept)
+  - **Rate regressor**: GradientBoostingRegressor trained on accepted offers → suggested $/mi
+  - Models persisted to `/app/backend/ml_models/` (accept_clf.joblib, rate_reg.joblib, model_meta.json)
+  - Heuristic warm-start (no training required to light up)
+  - `POST /predict/{load_id}` — ranks carriers by ML expected value (accept_prob × expected_margin)
+  - `POST /explain/{load_id}` — **Claude Sonnet 4.5 rationale** via Emergent LLM key (used_llm=true confirmed in tests)
+  - Synthetic training data generator (400 deterministic rows) so the models can train from day one
+  - Auto-retrain via `POST /train` — reads live dispatch_offers + synthetic seed
+- **Frontend `/dispatch-autopilot`** — new page, **6 tabs**:
+  - Live Feed (real-time offer stream with delivery receipts + accept/decline)
+  - Carriers (CRUD grid with inline form + demo-fleet seed)
+  - Offer Pipeline (kanban Pending → Accepted / Declined / Expired)
+  - **ML Console** — new tab with model KPIs, seed/train controls, load selector, ML Predict + "Why?" (Claude explain) — TOP PICK highlighted in emerald
+  - Dashboard (KPI HUD)
+  - Autopilot Cfg (thresholds + toggle switches)
+- **Sidebar nav entry** added → "Dispatch Autopilot" (Rocket icon)
+- **Dependencies added**: scikit-learn 1.9.0, scipy 1.17.1, joblib 1.5.3, threadpoolctl 3.6.0
+
+
+
 ## Iter 53 — 2026-07-03 · Aggregator margin $ + Samsara telematics + Mapbox/OSRM routing
 
 **Status**: ✅ Tested 100% backend (11/11 pytest) + 100% frontend flows (iter_53.json)
