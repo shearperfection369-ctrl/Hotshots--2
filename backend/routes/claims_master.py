@@ -176,7 +176,19 @@ def _prev_checklist_meta() -> List[Dict[str, Any]]:
 #                       PDF (Orisei-branded)
 # ============================================================
 async def _active_brand(db) -> Dict[str, Any]:
-    b = await db.company_brand.find_one({"active": True}, {"_id": 0}) or {}
+    """Return the currently-active brand kit for Orisei-branded claim PDFs.
+
+    Fix (2026-07-03): previously queried `{"active": True}` which didn't
+    match the DB schema (`is_active`), so all claim PDFs fell through to
+    the first-inserted brand doc (Walmart). Now correctly prefers
+    is_active → is_default → orisei brand_id → any brand.
+    """
+    b = await db.company_brand.find_one({"is_active": True}, {"_id": 0})
+    if not b:
+        b = await db.company_brand.find_one({"is_default": True}, {"_id": 0})
+    if not b:
+        b = await db.company_brand.find_one(
+            {"brand_id": {"$regex": "orisei", "$options": "i"}}, {"_id": 0})
     if not b:
         b = await db.company_brand.find_one({}, {"_id": 0}) or {}
     return b

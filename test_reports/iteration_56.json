@@ -1,0 +1,35 @@
+{
+  "summary": "Iter 56 targeted bug-fix regression: Lighthouse / QBR / Claims collateral branding. All 6 lighthouse asset PDFs (product_tour, roi_calculator, spec_sheet, case_study, security_brief, onboarding_map) now render with Orisei branding — 'orisei' present, 'walmart' AND 'bentonville' absent, verified by pypdf text extraction on the HTTP response body. QBR draft PDF (real draft found in DB, /api/qbr-studio/drafts/{id}/report.pdf) and Claim report PDF (real claim in DB, /api/claims/claims/{id}/report.pdf) both branded Orisei correctly. Smoke checks on /api/qbr-studio/shippers and /api/claims/dashboard = 200. Frontend /lighthouse-outreach loads, Collateral tab shows all 6 Orisei-branded cards with no Walmart mentions, no JS pageerrors. 11/12 tests passed, 1 skipped (BrandDBState — no public brand-list endpoint exposed; branding verified indirectly via PDF text). Bug is confirmed fixed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter56_lighthouse_brand_bug.py",
+    "/app/test_reports/pytest/iter56_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "lighthouse.py:143 / qbr_studio.py:307 / claims_master.py:178 — the identical _active_brand() helper is duplicated across three modules. Recommend factoring into a single shared helper (e.g. backend/services/brand.py::get_active_brand(db)) so future schema changes to the brand collection don't require touching three files. The bug was a direct consequence of this duplication (three copies of the same wrong field name). NON-BLOCKING but a refactor candidate.",
+    "lighthouse.py:_active_brand fallback chain — the final `find_one({})` will return an arbitrary doc if no brand matches is_active/is_default/orisei-regex. In a multi-tenant deployment this could leak the wrong tenant's brand. Consider raising 404 / returning a safe default instead.",
+    "brand-collection admin API — no reachable endpoint under /api/brand/*, /api/company-brand, /api/brand-kit/active, /api/branding/active for smoke-testing which brand is active. Adding a lightweight GET /api/brand/active (returning company_name, brand_id, is_active) would help future regression tests catch this class of bug in one HTTP call instead of downloading PDFs."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter56_lighthouse_brand_bug.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 executed, 1 skipped due to no public brand-list endpoint)",
+    "frontend": "100% (page loads, all 6 collateral cards render, Orisei branding, no Walmart)"
+  },
+  "test_credentials": "Bearer test_session_admin_1 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "No new seed data. Used pre-existing QBR draft(s) and claim(s) already in Mongo from prior iterations.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 56 bug fix verified. Re-run /app/backend/tests/test_iter56_lighthouse_brand_bug.py to catch regressions on the _active_brand() field name. Note: TestBrandDBState is currently skipped because no /api/brand/active-style admin endpoint exists — if one is added later, remove the skip and assert brand_id == 'orisei-freight' / company_name contains 'Orisei'. The three _active_brand() implementations are still duplicated across lighthouse.py, qbr_studio.py, claims_master.py — future work.",
+  "rca of the issue": "ROOT CAUSE (confirmed): The three modules lighthouse.py:143, qbr_studio.py:307, claims_master.py:178 each defined an _active_brand() helper that queried `db.company_brand.find_one({'active': True})`. The actual schema field is `is_active` (never `active`), so the query missed 100% of the time. The code then fell through to `find_one({})` which returned Mongo's first-inserted doc — a stale 'Walmart' brand kit (brand_id='walmart', is_active=false). Every branded PDF (6 lighthouse assets + QBR + claim reports) therefore rendered with Walmart headers/footers. FIX (applied by main agent, verified here): field corrected to `is_active` + defensive fallback chain `is_active → is_default → brand_id regex 'orisei' → any`. REPRODUCTION for future: change the field back to `{'active': True}` and re-run this test suite — all 6 PDF parametrized cases will fail with 'walmart' in text. MITIGATION recommended: extract the shared helper into backend/services/brand.py so the fix lives in one place; expose a /api/brand/active read endpoint for cheap regression assertions."
+}

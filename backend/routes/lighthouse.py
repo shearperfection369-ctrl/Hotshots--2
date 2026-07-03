@@ -141,7 +141,24 @@ def _asset_meta(kind: str) -> Optional[Dict[str, Any]]:
 #                       PDF RENDERING (Orisei-branded)
 # ============================================================
 async def _active_brand(db) -> Dict[str, Any]:
-    b = await db.company_brand.find_one({"active": True}, {"_id": 0}) or {}
+    """Return the currently-active brand kit for Orisei-branded PDFs.
+
+    Selection order (first hit wins):
+      1. brand kit flagged `is_active: True`
+      2. brand kit flagged `is_default: True`
+      3. brand kit with `brand_id` matching orisei (any casing / variant)
+      4. any brand kit at all (last-resort fallback)
+
+    Previously this queried `{"active": True}` — which doesn't match the
+    schema (the field is `is_active`) — so it always fell through to an
+    arbitrary first-inserted brand doc (Walmart, alphabetically first).
+    """
+    b = await db.company_brand.find_one({"is_active": True}, {"_id": 0})
+    if not b:
+        b = await db.company_brand.find_one({"is_default": True}, {"_id": 0})
+    if not b:
+        b = await db.company_brand.find_one(
+            {"brand_id": {"$regex": "orisei", "$options": "i"}}, {"_id": 0})
     if not b:
         b = await db.company_brand.find_one({}, {"_id": 0}) or {}
     return b
