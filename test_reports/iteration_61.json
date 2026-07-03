@@ -1,0 +1,43 @@
+{
+  "summary": "iter61 — validated FacilityConditions widget rewrite. All 6 Playwright flows PASS: geolocation-driven Denver row renders with pin emoji + real 86° temp; no mock facility names (Golden Valley/Holland MI/Louisville KY) anywhere; manual Tokyo add works + persists in localStorage; denied-geo empty-state renders with 'Use my location' retry; WeatherAlertsBanner regression clean; no AppErrorBoundary red-screen. One functional gap discovered: Open-Meteo has NO /reverse endpoint (returns 404), so the widget's reverse-geocode always falls back to '📍 Your location · lat, lng' instead of a city label like 'Denver, Colorado'. Assertions still pass because they accept the pin emoji, but the user-facing 'reverse-geocoded city name' promised in the PR description never renders.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "FacilityConditions reverse geocoding of user's browser location",
+        "issue": "Dashboard.jsx calls https://geocoding-api.open-meteo.com/v1/reverse — Open-Meteo does NOT expose a /reverse endpoint (returns HTTP 404 {\"reason\":\"Not Found\"}). The catch falls back to '📍 Your location · <lat>, <lng>' every time, so the auto row never shows 'Denver, Colorado' / 'Tokyo, Japan' etc. Manual add (/v1/search) works fine — verified Tokyo resolved to 'Tokyo, Tokyo'.",
+        "affected_selectors": ["[data-testid=\"weather-widget\"]"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Dashboard · Facility Conditions widget",
+        "issues": [
+          "Auto (geo) row displays raw coords '📍 Your location · 39.74, -104.99' instead of a human city label because Open-Meteo /reverse endpoint doesn't exist. Suggested fix: use the /v1/search endpoint with a bounding-box query, or a real reverse-geocoding provider (Nominatim/BigDataCloud/positionstack). Nominatim public server accepts CORS: https://nominatim.openstreetmap.org/reverse?format=json&lat=..&lon=..&zoom=10 (attach a User-Agent header via referrerpolicy or use BigDataCloud's free client-side endpoint https://api.bigdatacloud.net/data/reverse-geocode-client).",
+          "Console error 'Invalid language tag: en-US@posix' emitted from a downstream component (likely MapView / MapLibre locale) on every dashboard load. Cosmetic — non-blocking but noisy in the console."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Replace https://geocoding-api.open-meteo.com/v1/reverse (doesn't exist → 404) with a real reverse-geocode. Options: (a) https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=..&longitude=..&localityLanguage=en (free, CORS-open, no key), or (b) https://nominatim.openstreetmap.org/reverse?format=json&lat=..&lon=..&zoom=10&accept-language=en (respect their fair-use policy).",
+    "Optional cleanup: silence the 'Invalid language tag: en-US@posix' console error emitted by MapView/MapLibre on every dashboard load."
+  ],
+  "critical_code_review_comments": [
+    "Dashboard.jsx L692-700 reverseGeocode() targets a non-existent Open-Meteo endpoint; the try/catch masks the 404 so the failure is silent to the user.",
+    "Dashboard.jsx L752 effect dependency `extras.map((e) => e.id).join(',')` is fine but consider `React.useMemo` if the extras list grows; currently it re-runs the interval on every keystroke to the add-input because setExtras isn't the only trigger — actually only on submit so ok.",
+    "L716 Promise.all fetches weather + reverse-geocode in parallel — good pattern. Consider caching the reverseGeocode label with the same 24h TTL used for _cachedAt so the label survives even if the network is down.",
+    "L697 fallback text 'Your location · <lat>, <lng>' now becomes the ONLY label users ever see — worth making the fallback nicer (e.g., 'Current location') since the reverse endpoint is 100% broken.",
+    "File is 875 lines — close to the 700-line threshold. Consider extracting FacilityConditions and CompactVideoTile into their own component files."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skip)", "frontend": "100% of asserted flows, but 1 silent functional gap"},
+  "test_credentials": "tms_session_token = 'test_session_admin_1' (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Playwright cleared localStorage keys tms.user_geo_weather.v1 and tms.extra_weather_cities.v1 before each scenario; added Tokyo via manual UI flow.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The 6 test spec bullets from the review_request all pass literally (pin emoji present, real temp present, no mock names, manual add persists, empty-state + retry present, no red-screen). The only follow-up is the reverse-geocode API choice: Open-Meteo has NO /reverse endpoint, so the widget shows coords instead of the city name. If main agent switches to BigDataCloud/Nominatim, re-run TEST 1 and check the row text contains 'Denver' rather than just '39.74, -104.99'. Auth: localStorage.tms_session_token='test_session_admin_1'; geo grant via ctx.grant_permissions(['geolocation'], origin=<preview_url>) + ctx.set_geolocation({lat, lng}) BEFORE navigating to /dashboard.",
+  "rca of the issue": "Root cause of the visible-but-not-city-name label: /app/frontend/src/pages/Dashboard.jsx L692-700 hits https://geocoding-api.open-meteo.com/v1/reverse which does not exist in the Open-Meteo API surface (only /v1/search does). The endpoint returns 404 JSON, the fetch().then(x=>x.json()) resolves with an error object, r.results is undefined, so [] destructuring yields undefined, and the fallback string '📍 Your location · <lat>, <lng>' is returned. Silent failure because it's inside a try/catch that returns the fallback for BOTH network errors and 'no result' cases. Mitigation: swap to https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lng}&localityLanguage=en (CORS-open, no key required) — response has city/principalSubdivision fields, e.g. {city:'Denver', principalSubdivision:'Colorado'}."
+}

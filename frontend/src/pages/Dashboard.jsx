@@ -389,7 +389,7 @@ export default function Dashboard() {
 
           <div className="lg:col-span-4 space-y-4">
             {/* Weather */}
-            <FacilityConditions weather={weather} />
+            <FacilityConditions />
 
             {/* Traffic Alerts */}
             <Card className="hud-surface p-4">
@@ -666,42 +666,90 @@ function CompactVideoTile() {
 
 
 /**
- * FacilityConditions — brand-aware weather widget.
- *   - auto-lists the active brand's facilities (re-fetched on theme switch)
- *   - admin/dispatcher can ADD ad-hoc cities to track + REMOVE any extra
- *   - extra cities persist in localStorage so they survive page reloads
+ * FacilityConditions — real-time weather widget scoped to the user's actual
+ * browser geolocation (Open-Meteo). Additional cities can be added manually
+ * and persist in localStorage across reloads. Zero mocked data.
  */
-function FacilityConditions({ weather }) {
+function FacilityConditions() {
   const STORAGE_KEY = "tms.extra_weather_cities.v1";
+  const GEO_ROW_KEY = "tms.user_geo_weather.v1";
   const [extras, setExtras] = React.useState([]);
+  const [geoRow, setGeoRow] = React.useState(null);   // { id:'me', facility_name, lat, lng, temperature_f, ... }
+  const [geoState, setGeoState] = React.useState("idle"); // idle|requesting|ready|denied|unsupported
   const [adding, setAdding] = React.useState(false);
   const [city, setCity] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
+  const fetchWeather = React.useCallback(async (lat, lng) => {
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m,weather_code,relative_humidity_2m&temperature_unit=fahrenheit&wind_speed_unit=mph`;
+      const r = await fetch(url).then((x) => x.json());
+      const d = r.current || {};
+      return { temperature_f: d.temperature_2m, humidity: d.relative_humidity_2m, wind_mph: d.wind_speed_10m, weather_code: d.weather_code };
+    } catch { return {}; }
+  }, []);
+
+  const reverseGeocode = React.useCallback(async (lat, lng) => {
+    try {
+      const url = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lng}&language=en&format=json`;
+      const r = await fetch(url).then((x) => x.json());
+      const h = (r.results || [])[0];
+      if (!h) return `Your location · ${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+      return `${h.name}${h.admin1 ? ", " + h.admin1 : ""}`;
+    } catch { return `Your location · ${lat.toFixed(2)}, ${lng.toFixed(2)}`; }
+  }, []);
+
+  const requestGeo = React.useCallback(() => {
+    if (!navigator?.geolocation) { setGeoState("unsupported"); return; }
+    // Warm start from localStorage so we don't re-prompt if a prior visit granted it.
+    try {
+      const cached = JSON.parse(localStorage.getItem(GEO_ROW_KEY) || "null");
+      if (cached && Date.now() - (cached._cachedAt || 0) < 24 * 3600 * 1000) {
+        setGeoRow(cached);
+        setGeoState("ready");
+      }
+    } catch { /* noop */ }
+    setGeoState((s) => (s === "ready" ? "ready" : "requesting"));
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        const [w, label] = await Promise.all([fetchWeather(lat, lng), reverseGeocode(lat, lng)]);
+        const row = {
+          id: "me", facility_id: "me", facility_name: `📍 ${label}`,
+          lat, lng, _cachedAt: Date.now(), ...w,
+        };
+        setGeoRow(row);
+        setGeoState("ready");
+        try { localStorage.setItem(GEO_ROW_KEY, JSON.stringify(row)); } catch { /* noop */ }
+      },
+      (err) => setGeoState(err?.code === 1 ? "denied" : "unavailable"),
+      { enableHighAccuracy: false, maximumAge: 5 * 60 * 1000, timeout: 8000 }
+    );
+  }, [fetchWeather, reverseGeocode]);
+
+  // On mount: try browser geolocation. Also load any extras.
+  React.useEffect(() => { requestGeo(); }, [requestGeo]);
   React.useEffect(() => {
     try { setExtras(JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]")); } catch { /* noop */ }
   }, []);
 
-  // Re-load every 5 minutes
+  // Refresh extras every 5 min (also refresh geo row alongside)
   React.useEffect(() => {
-    if (extras.length === 0) return;
-    refreshExtras();
-    const t = setInterval(refreshExtras, 300_000);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [extras.map((e) => e.id).join(",")]);
-
-  const refreshExtras = async () => {
-    const next = await Promise.all(extras.map(async (e) => {
-      try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${e.lat}&longitude=${e.lng}&current=temperature_2m,wind_speed_10m,weather_code,relative_humidity_2m&temperature_unit=fahrenheit&wind_speed_unit=mph`;
-        const r = await fetch(url).then((x) => x.json());
-        const d = r.current || {};
-        return { ...e, temperature_f: d.temperature_2m, humidity: d.relative_humidity_2m, wind_mph: d.wind_speed_10m, weather_code: d.weather_code };
-      } catch { return e; }
-    }));
-    setExtras(next);
-  };
+    const doRefresh = async () => {
+      if (geoRow) {
+        const w = await fetchWeather(geoRow.lat, geoRow.lng);
+        const next = { ...geoRow, ...w, _cachedAt: Date.now() };
+        setGeoRow(next);
+        try { localStorage.setItem(GEO_ROW_KEY, JSON.stringify(next)); } catch { /* noop */ }
+      }
+      if (extras.length) {
+        const next = await Promise.all(extras.map(async (e) => ({ ...e, ...(await fetchWeather(e.lat, e.lng)) })));
+        setExtras(next);
+      }
+    };
+    const id = setInterval(doRefresh, 300_000);
+    return () => clearInterval(id);
+  }, [geoRow?.lat, geoRow?.lng, extras.map((e) => e.id).join(",")]);
 
   const geocode = async (q) => {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`;
@@ -717,8 +765,9 @@ function FacilityConditions({ weather }) {
     try {
       const geo = await geocode(city.trim());
       if (!geo) { toast.error("Couldn't find that location"); return; }
+      const w = await fetchWeather(geo.lat, geo.lng);
       const id = `extra-${Date.now()}`;
-      const entry = { id, facility_id: id, facility_name: geo.label, lat: geo.lat, lng: geo.lng };
+      const entry = { id, facility_id: id, facility_name: geo.label, lat: geo.lat, lng: geo.lng, ...w };
       const next = [...extras, entry];
       setExtras(next);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -734,7 +783,7 @@ function FacilityConditions({ weather }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   };
 
-  const allRows = [...weather, ...extras];
+  const allRows = [...(geoRow ? [geoRow] : []), ...extras];
 
   return (
     <Card className="hud-surface p-4">
@@ -800,7 +849,25 @@ function FacilityConditions({ weather }) {
             </div>
           );
         })}
-        {allRows.length === 0 && <div className="text-xs text-slate-500 italic py-3 text-center">No facilities configured.</div>}
+        {allRows.length === 0 && (
+          <div className="text-xs text-slate-500 italic py-4 text-center space-y-2" data-testid="weather-empty-state">
+            {geoState === "requesting" && <div>Requesting your location…</div>}
+            {(geoState === "denied" || geoState === "unavailable") && (
+              <>
+                <div className="text-slate-400">Location access {geoState === "denied" ? "was denied" : "unavailable"}.</div>
+                <button
+                  onClick={requestGeo}
+                  data-testid="weather-geo-retry"
+                  className="text-[10px] font-mono uppercase tracking-wider px-3 py-1 bg-cyan-500 text-black font-bold rounded hover:bg-cyan-400"
+                >Use my location</button>
+                <div className="text-slate-500 text-[10px]">…or add cities manually above.</div>
+              </>
+            )}
+            {geoState === "unsupported" && <div>Your browser doesn&apos;t support geolocation. Add cities manually.</div>}
+            {geoState === "idle" && <div>No locations configured.</div>}
+            {geoState === "ready" && !geoRow && <div>Loading local conditions…</div>}
+          </div>
+        )}
       </div>
     </Card>
   );
