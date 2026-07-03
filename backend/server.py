@@ -8532,6 +8532,21 @@ build_auto_digest_router(api_router=api_router, db=db,
                           get_current_user=get_current_user,
                           require_role=require_role)
 
+from routes.load_aggregator import build_aggregator_router  # noqa: E402
+build_aggregator_router(api_router=api_router, db=db,
+                        get_current_user=get_current_user,
+                        require_role=require_role)
+
+from routes.shipper_relations import build_shipper_relations_router  # noqa: E402
+build_shipper_relations_router(api_router=api_router, db=db,
+                                get_current_user=get_current_user,
+                                require_role=require_role)
+
+from routes.claims_master import build_claims_master_router  # noqa: E402
+build_claims_master_router(api_router=api_router, db=db,
+                            get_current_user=get_current_user,
+                            require_role=require_role)
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,

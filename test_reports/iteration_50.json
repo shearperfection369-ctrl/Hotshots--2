@@ -1,0 +1,47 @@
+{
+  "summary": "Iter50 — Load Aggregator + Shipper Relations + Claims Master. Backend: 30/30 pytest passing after fixing one timezone bug in claims_master._parse. Frontend: All 3 modules render end-to-end. Aggregator (5 board pills, 60 feed rows, retention view 6 boards, pin/unpin toast), Shipper Relations (6-tab layout, 11 seeded incentives, add-account modal creates row, rate-card add present), Claims Master (6-tab layout, File Claim modal creates row → 14 total, 8 prevention checkboxes, watchlist/COI/reserve tables). One backend bug FIXED by testing agent (timezone-naive vs aware in COI status endpoint).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/aggregator/boards", "issue": "Only 2 of 5 boards (dat, truckstop) get retention_months attached because brokerage LOAD_BOARDS has ids (convoy, uberfreight, 123loadboard) that don't overlap with BOARD_RETENTION_POLICY ids (direct_edi, spot_rate, smartway, eld). Contract 'each with retention_months where policy exists' is technically satisfied, but the intended overlap is only partial. Consider aligning board ids or adding retention policies for the newer board ids."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BrokerageAggregatorTab / board pill for Uber Freight", "issue": "Board pill for 'uberfreight' uses black text (#000000 board color) on the dark-navy tab background → very low contrast, pill text is nearly invisible", "selector": "[data-testid=\"aggregator-board-uberfreight\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Brokerage · Aggregator", "issues": ["Uber Freight board pill (black on dark) is unreadable — visible in aggregator.png screenshot"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter50_aggregator_shipper_claims.py",
+    "/app/test_reports/pytest/iter50_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Align brokerage LOAD_BOARDS ids with BOARD_RETENTION_POLICY so all 5 boards surface retention_months (or add policies for convoy/uberfreight/123loadboard).",
+    "OPTIONAL: Fix Uber Freight board pill contrast — either lighten the base color, add an outline, or force white text when the pill background is near-black."
+  ],
+  "critical_code_review_comments": [
+    "claims_master._parse() FIXED: `datetime.fromisoformat('2025-01-01')` returns a tz-naive datetime, which was being subtracted from a tz-aware _now_dt() and crashing /api/claims/insurance/verifications with 500. Fix now forces tz=UTC when tzinfo is None. Same pattern is duplicated across boc3_compliance, load_aggregator retention audit, shipper_relations dashboard — audit those _parse-alike helpers for the same defensiveness.",
+    "load_aggregator._all_boards() reuses `LOAD_BOARDS` from routes.brokerage but their ids don't match BOARD_RETENTION_POLICY ids — the retention join is silently partial. Either mirror the ids or add a mapping table.",
+    "shipper_relations.create_account uses regex-anchored case-insensitive dedupe on company_name. A shipper called `Acme (v2)` will match `Acme (v2)` literally but a stray leading/trailing space or punctuation variant will NOT trigger the 409. Consider normalizing (strip, collapse whitespace, casefold) before the query.",
+    "claims_master.file_claim sets priority=high only when claim_amount_usd >= 5000 — for a broker with $50K+ common claims, a $1200 damage claim to a Fortune-100 shipper still deserves 'high'. Consider factoring shipper tier or historical NPS into the priority pick.",
+    "ShipperRelations.jsx is 1342 lines — well above the 700-line file-size guideline. Split into a directory (Tabs/Accounts.jsx, Tabs/Incentives.jsx, Tabs/RateCards.jsx, ...) for maintainability.",
+    "ClaimsMaster.jsx is 1169 lines — same file-size concern.",
+    "BrokerageAggregatorTab.jsx does not clear the persisted user prefs on unmount, so a leftover exclude_hazmat=true from a testing session filters everything to 0 rows without any visible 'filter is applied' indicator. Add a 'Filters active' banner + 'Clear filters' button.",
+    "aggregator/pin endpoint accepts any load_id + board_id combo without validating either exists — a stale pin can accumulate. Consider a soft-verification on pin insert."
+  ],
+  "updated_files": [
+    "/app/backend/routes/claims_master.py (fixed _parse tz-awareness)",
+    "/app/backend/tests/test_iter50_aggregator_shipper_claims.py (new — 30 tests, all pass)"
+  ],
+  "success_rate": {"backend": "100% (30/30)", "frontend": "100% (all requested testids + flows work)"},
+  "test_credentials": "Bearer test_session_admin_1 (admin) per /app/memory/test_credentials.md",
+  "seed_data_creation": "Created ~5 TEST_-prefixed shipper accounts (with unique 8-hex suffixes), 1 rate card (deleted after), 1 incentive (deleted after), 1 QBR, 1 TMS registration, 6+ claims (fast_pay/dispute/shipper_fault/close/watchlist scenarios), 1 photo (deleted after), 1 prevention audit (100% score), 2 COIs (1 expired + 1 current), 1 aggregator pin (via UI on DAT-520304), 1 retention attestation on 'dat' board, 1 admin aggregator_prefs record.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter50 test file at /app/backend/tests/test_iter50_aggregator_shipper_claims.py covers all three modules and can be reused as a regression suite. The _parse timezone bug is now fixed. If insurance COI ever returns 500 again, first suspect a tz-naive datetime subtraction. Aggregator UI honors persisted per-user prefs — testing agent should reset prefs (POST /api/aggregator/prefs with min_rate_per_mile:0, equipment:[]) if the feed appears empty. All e2e modal flows work: shipper-add, rate-card-add, claims-file, aggregator-pin.",
+  "rca of the issue": "COI 500 root cause: `_parse('2025-01-01')` used `datetime.fromisoformat(...)` which returns a naive datetime for date-only strings. `list_coi` then computed `(exp - _now_dt()).days` where _now_dt() is tz-aware — Python 3.11 raises TypeError. Reproduction: POST /api/claims/insurance/verifications with expiration_date='2025-01-01' → 200, then GET /api/claims/insurance/verifications → 500. Fix: force tz=UTC in _parse when tzinfo is None. Verified fix via test_insurance_coi_status now passing."
+}

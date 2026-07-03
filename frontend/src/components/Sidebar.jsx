@@ -30,6 +30,8 @@ const NAV = [
   { to: "/orisei-operations", label: "Orisei Operations", icon: Building2, tid: "nav-orisei-operations", roles: ["admin", "dispatcher"] },
   { to: "/international", label: "International · Ocean/Rail", icon: Ship, tid: "nav-international", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/shipper-intake", label: "Shipper Intake", icon: Send, tid: "nav-shipper-intake", roles: ["admin", "dispatcher"] },
+  { to: "/shipper-relations", label: "Shipper Relations", icon: UserPlus, tid: "nav-shipper-relations", roles: ["admin", "dispatcher"] },
+  { to: "/claims-master", label: "Claims Master", icon: FileWarning, tid: "nav-claims-master", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/boc3-compliance", label: "BOC-3 Compliance", icon: ShieldCheck, tid: "nav-boc3", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/onboarding-checklist", label: "Onboarding Checklist", icon: Rocket, tid: "nav-onboarding", roles: ["admin"] },
   { to: "/broker-settings", label: "Broker Settings", icon: SettingsIcon, tid: "nav-broker-settings", roles: ["admin", "dispatcher"] },

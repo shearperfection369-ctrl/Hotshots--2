@@ -14,7 +14,7 @@ import {
   Building2, Calculator, Plug, Send, CheckCircle2, AlertCircle, Loader2, Download,
   ArrowUpRight, ArrowDownRight, Zap, Receipt, FileSpreadsheet, Bot, Plus, BookOpen, Printer,
   Wallet, Server, Mail, Linkedin, Eye, Users, MapPin, Phone, Snowflake, ShieldAlert, ShieldCheck, Banknote, X,
-  PackageCheck, Stamp, Newspaper, ExternalLink, RefreshCw,
+  PackageCheck, Stamp, Newspaper, ExternalLink, RefreshCw, Layers,
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
@@ -24,6 +24,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import BrokerageAggregatorTab from "./BrokerageAggregatorTab";
 
 /**
  * Brokerage — single-page hub for the freight-brokerage operation.
@@ -31,6 +32,7 @@ import remarkGfm from "remark-gfm";
  */
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
+  { id: "aggregator", label: "Aggregator", icon: Layers },
   { id: "boards",    label: "Load Boards", icon: Truck },
   { id: "news",      label: "Industry News", icon: Newspaper },
   { id: "drivers",   label: "Drivers", icon: Users },
@@ -72,6 +74,7 @@ export default function Brokerage() {
         </div>
 
         {tab === "dashboard" && <DashboardTab dash={dash} refresh={loadDash} />}
+        {tab === "aggregator" && <BrokerageAggregatorTab />}
         {tab === "boards"    && <BoardsTab refresh={loadDash} />}
         {tab === "news"      && <NewsTab />}
         {tab === "drivers"   && <DriversTab />}

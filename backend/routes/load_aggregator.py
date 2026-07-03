@@ -28,13 +28,17 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("orisei.aggregator")
+
+
+def _tdelta_minutes(m: int) -> timedelta:
+    return timedelta(minutes=int(m or 0))
 
 
 # Data-retention reference — each entry documents what the load board
@@ -164,20 +168,34 @@ def _score_load(load: Dict[str, Any], prefs: Dict[str, Any]) -> int:
 
 
 def build_aggregator_router(
-    api_router: APIRouter, *, db,
+    *, api_router: APIRouter, db,
     get_current_user: Callable, require_role: Callable,
 ) -> None:
     router = APIRouter(prefix="/aggregator", tags=["aggregator"])
 
     async def _all_boards() -> List[Dict[str, Any]]:
-        # The brokerage module owns the primary board list — we call it via
-        # the DB so we stay decoupled. Falls back to the retention list.
-        boards = await db.brokerage_boards.find({}, {"_id": 0}).to_list(50)
-        if boards:
-            return boards
-        # Fallback to the boards enumerated in retention policy
-        return [{"id": b["board_id"], "name": b["board_name"],
-                 "color": "#0EA5E9"} for b in BOARD_RETENTION_POLICY[:4]]
+        # The brokerage module owns the primary board list — reuse it so
+        # every consumer sees the same catalog with the same colors.
+        try:
+            from routes.brokerage import LOAD_BOARDS  # type: ignore
+            return [dict(b) for b in LOAD_BOARDS]
+        except Exception:                                          # noqa: BLE001
+            return [{"id": b["board_id"], "name": b["board_name"],
+                     "color": "#0EA5E9"} for b in BOARD_RETENTION_POLICY[:4]]
+
+    def _normalize(row: Dict[str, Any]) -> Dict[str, Any]:
+        """Coerce a brokerage-style load into the aggregator's contract:
+        expose `rate_per_mile` (mirrors `rpm`) and a synthetic ISO
+        `posted_at` for sortability."""
+        rpm = row.get("rate_per_mile", row.get("rpm"))
+        if rpm is not None and "rate_per_mile" not in row:
+            row["rate_per_mile"] = rpm
+        if "posted_at" not in row:
+            mins = row.get("posted_minutes_ago") or 0
+            row["posted_at"] = (
+                datetime.now(timezone.utc) - _tdelta_minutes(mins)
+            ).isoformat()
+        return row
 
     async def _fetch_board(bid: str) -> List[Dict[str, Any]]:
         """Fetch loads from a board by reusing whatever's persisted +
@@ -186,12 +204,10 @@ def build_aggregator_router(
         try:
             rows = await db.brokerage_loads.find(
                 {"board_id": bid}, {"_id": 0}).to_list(50)
-            if rows:
-                return rows
-            # Fallback: generate a small pool using the same seeding logic
-            # via the brokerage module (avoids empty aggregator on cold start).
-            from routes.brokerage import _gen_loads_for_board  # type: ignore
-            return _gen_loads_for_board(bid, count=12)
+            if not rows:
+                from routes.brokerage import _gen_loads_for_board  # type: ignore
+                rows = _gen_loads_for_board(bid, count=12)
+            return [_normalize(dict(r)) for r in rows]
         except Exception as e:                                    # noqa: BLE001
             logger.warning("Board fetch failed for %s: %s", bid, e)
             return []
