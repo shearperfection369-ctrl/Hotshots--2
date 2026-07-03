@@ -35,6 +35,8 @@ import ShipperIntake from "@/pages/ShipperIntake";
 import ShipperRelations from "@/pages/ShipperRelations";
 import ClaimsMaster from "@/pages/ClaimsMaster";
 import QbrStudio from "@/pages/QbrStudio";
+import LighthouseOutreach from "@/pages/LighthouseOutreach";
+import PublicTour from "@/pages/PublicTour";
 import PublicIntake from "@/pages/PublicIntake";
 import OnboardingChecklist from "@/pages/OnboardingChecklist";
 import Boc3Compliance from "@/pages/Boc3Compliance";
@@ -133,6 +135,7 @@ function AppRouter() {
       <Route path="/driver" element={<DriverMobile />} />
       <Route path="/driver/:shipmentId" element={<DriverMobile />} />
       <Route path="/i/:token" element={<PublicIntake />} />
+      <Route path="/tour" element={<PublicTour />} />
 
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
@@ -167,6 +170,7 @@ function AppRouter() {
         <Route path="/shipper-relations" element={<ShipperRelations />} />
         <Route path="/claims-master" element={<ClaimsMaster />} />
         <Route path="/qbr-studio" element={<QbrStudio />} />
+        <Route path="/lighthouse-outreach" element={<LighthouseOutreach />} />
         <Route path="/onboarding-checklist" element={<OnboardingChecklist />} />
         <Route path="/boc3-compliance" element={<Boc3Compliance />} />
         <Route path="/competitive-tms" element={<CompetitiveTms />} />

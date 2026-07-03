@@ -67,6 +67,11 @@ TRACKED_COLLECTIONS: List[str] = [
     "aggregator_prefs",
     "aggregator_pins",
     "aggregator_retention_attestations",
+    # QBR Studio
+    "qbr_drafts",
+    # Lighthouse Outreach
+    "lighthouse_prospects",
+    "lighthouse_touches",
 ]
 
 

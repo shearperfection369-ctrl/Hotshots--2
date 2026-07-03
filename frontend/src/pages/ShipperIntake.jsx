@@ -123,7 +123,7 @@ export default function ShipperIntake() {
                         <Mail size={11} className="mr-1" /> Email
                       </Button>
                       <Button size="sm" variant="outline" className="h-7 text-[11px] border-cyan-500/40 text-cyan-200"
-                        onClick={() => authedDownload(`/intake/requests/${r.request_id}/pdf`, `Intake_${r.request_id}.pdf`)}
+                        onClick={() => authedDownload(`/api/intake/requests/${r.request_id}/pdf`, { filename: `Intake_${r.request_id}.pdf` })}
                         data-testid={`intake-pdf-${r.request_id}`}>
                         <FileText size={11} className="mr-1" /> PDF
                       </Button>

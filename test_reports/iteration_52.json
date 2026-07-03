@@ -1,0 +1,41 @@
+{
+  "summary": "Iter52 — verified (1) Lighthouse Outreach module (backend + admin UI + public /tour) and (2) three authedDownload regressions on /shipper-intake, /boc3-compliance, /international. Backend: 11/11 pytest pass (dashboard, prospects full lifecycle including all 6 stages + all 8 touch kinds, dup 409, 6 asset PDFs each %PDF-magic + >5KB, auto-touch on asset download with prospect_id, public /tour no-auth 200, public interest create + idempotent re-submit, intake submit_url uses PUBLIC_FRONTEND_URL, HouseBL+SLI PDFs, BOC-3 file route wired). Frontend: /lighthouse-outreach renders 4 tabs, prospects add/detail modal with all 6 stage movers + touch log + 6 collateral buttons work end-to-end; /tour loads in incognito-clean localStorage state and successfully POSTs interest without auth; shipper-intake PDF button downloads a valid 428KB PDF and all rendered submit URLs use the preview host (no orisei.example.com placeholder).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Public /tour vs authenticated /lighthouse-outreach", "issues": ["Brand short_name inconsistency: the public tour endpoint returns the brand marked active in company_brand (currently 'Walmart · Save Money. Live Better.'), while the authenticated topbar/header shows 'Orisei · Lighthouse Outreach' (uses the useBranding provider's cached/scoped brand). Prospects visiting /tour see 'Walmart Freight Solutions LLC' in the footer — cosmetic but confusing for a TMS-buyer-facing landing page. Root cause: multiple rows in company_brand have active=true, so _active_brand returns whichever Mongo picks. Consider enforcing single-active constraint or biasing to short_name=='Orisei'."]},
+      {"screen": "/lighthouse-outreach · Prospects detail modal", "issues": ["'Send collateral' buttons open the PDF in a new tab and toast 'Delivered · touch logged', but do NOT actually send anything (no email is dispatched). The label 'Send' is misleading — recommend renaming to 'Preview & Log' or 'Open PDF + Log Touch' to match observed behavior."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter52_lighthouse.py",
+    "/app/test_reports/pytest/iter52_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL / cosmetic: dedupe company_brand.active=true so /tour and admin topbar show the same brand short_name (currently Walmart on /tour, Orisei on admin).",
+    "OPTIONAL / UX: rename Lighthouse 'Send collateral' → 'Preview & log touch' since it opens in a new tab rather than actually emailing the prospect.",
+    "OPTIONAL / hardening: the create_prospect dup-check regex is not escaped — a company_name containing regex metacharacters ('.', '(', etc.) could bypass the 409 or explode. Use re.escape or Mongo $eq with $options:'i' via collation."
+  ],
+  "critical_code_review_comments": [
+    "routes/lighthouse.py:340 — dup detection uses `$regex: f'^{payload.company_name}$'` with no escape. A user submitting `Acme.*` would match every company. Wrap with re.escape() or use collation-insensitive $eq.",
+    "routes/lighthouse.py:423 — /assets/{kind}.pdf endpoint autodownloads a 'download' touch even if prospect_id is a valid ID but does NOT belong to any active/legitimate outreach session. There's no rate-limit; a caller could pass any prospect_id and pollute the touch log. Consider tying the auto-touch to the caller (only log if the caller is admin/dispatcher — already gated by user_dep, so OK — but no check that prospect belongs to the actor's tenant).",
+    "LighthouseOutreach.jsx:442 downloadAsset() manually re-implements authedDownload (fetch + Bearer + blob URL). Reuse the shared authedDownload helper to avoid drift and get built-in error/toast handling.",
+    "PublicTour.jsx:35 — form submission catches all errors as generic 'Submission failed'. If backend returns 422 (validation), the visitor gets no clue what field is wrong. Surface response.json().detail into the toast.",
+    "LighthouseOutreach.jsx PublicTab.copyLink() uses `window.location.origin` — during embedded/iframe previews (e.g. some admin panels) origin could be wrong. Prefer BACKEND_URL replacement or a backend-served /api/lighthouse/config that returns the canonical public URL.",
+    "routes/lighthouse.py:_render_asset_pdf allocates 200+ line markdown blob and stringifies dates inline. Fine for now but consider caching the six baseline PDFs (no prospect_id) — every call rebuilds them.",
+    "The public interest endpoint auto-creates a 'website'-sourced prospect but ignores the utm_source/utm_campaign from the POST body — bug: fields are declared in the payload model but the create branch overwrites `source: 'website'` unconditionally and only stores utm_source/utm_campaign. Should either respect payload.source or drop it from the model.",
+    "LighthouseOutreach.jsx is 706 lines — approaching the 700-line guideline. Command Deck, Prospects, Assets, Public tabs are all internal — split into pages/lighthouse/ subdirectory when the next feature lands."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter52_lighthouse.py (new — 11 tests, all pass)"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% (all requested flows + all testids verified)"},
+  "test_credentials": "Bearer test_session_admin_1 (admin) per /app/memory/test_credentials.md",
+  "seed_data_creation": "During tests created + deleted several TEST_LH_*, TEST_LH_ASSET_*, TEST_LH_PUB_*, and TEST_UI_LH_* prospects (cleanup verified). Preserved seed prospect 'LH-20C41A772E' (Beacon Logistics) was NOT deleted — test only checked existence and passes whether present (200) or absent (404).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter52 covers the Lighthouse Outreach module + branded download regressions. test_iter52_lighthouse.py at /app/backend/tests/ can be used as regression tests going forward. Two visible-but-cosmetic issues remain: (1) brand name inconsistency between /tour ('Walmart') and admin ('Orisei') — root cause is duplicate active=true rows in company_brand; (2) 'Send collateral' button labelled 'Send' but actually only opens PDF + logs a download touch (no email actually leaves the system). Neither blocks any requested functionality. Public /tour form POST logs 'Failed to load resource: 401' in console — those are the SPA's normal auth-required calls (branding, /me, etc.) firing before the router recognizes /tour as a public route; the actual /tour page still renders successfully. Confirmed by clearing localStorage and re-submitting the form successfully.",
+  "rca of the issue": "No production bugs found — all requested regressions verified fixed. The authedDownload signature+path fixes are correct: ShipperIntake.jsx L126, Boc3Compliance.jsx L363, and International.jsx L189/195 all now call authedDownload('/api/…', {filename: …}) — matches the helper's (path, options) signature and hits the /api-prefixed routes that pass through the ingress. Backend PUBLIC_FRONTEND_URL properly propagates into intake submit_url (no orisei.example.com in any of the 4 existing intake rows)."
+}

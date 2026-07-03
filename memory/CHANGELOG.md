@@ -4,6 +4,24 @@
 
 ---
 
+## Iter 52 — 2026-07-03 · Broken PDF links fix + Lighthouse Outreach + prior iter 50/51 tests passed
+
+**Status**: 🚧 Test pending for Lighthouse
+
+- **Fixed broken PDF downloads/links** in three tabs:
+  - `ShipperIntake.jsx` — was calling `authedDownload("/intake/…", "filename.pdf")`; fixed to `authedDownload("/api/intake/…", { filename })`
+  - `Boc3Compliance.jsx` — same bug pattern with `/boc3/…/file`; fixed with `/api/` prefix + options object
+  - `International.jsx` — House BL + SLI PDFs; same fix
+  - Added `PUBLIC_FRONTEND_URL` to `backend/.env` so `/i/:token` submit URLs resolve to the real preview host instead of the placeholder `orisei.example.com`
+- **Lighthouse Outreach module** — prospect→customer funnel for TMS BUYERS:
+  - Backend `/app/backend/routes/lighthouse.py` — six-stage lifecycle (curious → engaged → demo_scheduled → trial → won | lost), 6 Orisei-branded collateral kinds (product tour, ROI calculator, spec sheet, case study, security brief, 30-day onboarding map). Endpoints:
+    - Auth: `/lighthouse/dashboard`, `/prospects` (CRUD), `/prospects/{id}/stage`, `/prospects/{id}/touch`, `/assets/catalog`, `/assets/{kind}.pdf`
+    - **Public (no auth):** `/lighthouse/public/tour` (payload for landing page), `/lighthouse/public/interest` (form submit → creates CURIOUS prospect + touch)
+  - Frontend `/lighthouse-outreach` — 4 tabs: Command Deck (5-KPI strip + funnel bars), Prospects (CRUD + detail with stage mover + touch log + send-collateral grid that auto-logs downloads as touches), Collateral (previews), Public Landing (share `/tour` link)
+  - Public frontend `/tour` — professional landing page with hero, value pillars, module catalog, interest form (submits without auth, lands as CURIOUS prospect)
+- **Prior iterations validated** (iter 50 + iter 51 both passed via testing_agent_v3_fork): Aggregator Book button + workflow/tracking sync, Shipper Relations CRM, Claims Master, QBR Studio all green.
+
+
 ## Iter 49 — 2026-06-28 · BOC-3 compliance + Shipper Intake / Onboarding / Check-Call HUD frontends
 
 **Status**: ✅ Tested 100% backend (12/12 pytest) + 100% frontend (testing_agent iteration_49) — one duplicate-import bug auto-fixed by testing agent

@@ -186,14 +186,14 @@ function BookingsTab({ ref_, bookings, refresh }) {
                         Docs ({b.documents?.length || 0})
                       </Button>
                       <Button size="sm" variant="outline" className="border-cyan-500/30 text-cyan-200 h-7 text-[11px]"
-                        onClick={() => authedDownload(`/international/container-bookings/${b.booking_id}/house-bl.pdf`,
-                                                       `HouseBL_${b.booking_id}.pdf`)}
+                        onClick={() => authedDownload(`/api/international/container-bookings/${b.booking_id}/house-bl.pdf`,
+                                                       { filename: `HouseBL_${b.booking_id}.pdf` })}
                         data-testid={`booking-bl-${b.booking_id}`}>
                         <FileText size={11} className="mr-1" /> House BL
                       </Button>
                       <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-200 h-7 text-[11px]"
-                        onClick={() => authedDownload(`/international/container-bookings/${b.booking_id}/sli.pdf`,
-                                                       `SLI_${b.booking_id}.pdf`)}
+                        onClick={() => authedDownload(`/api/international/container-bookings/${b.booking_id}/sli.pdf`,
+                                                       { filename: `SLI_${b.booking_id}.pdf` })}
                         data-testid={`booking-sli-${b.booking_id}`}>
                         <FileText size={11} className="mr-1" /> SLI
                       </Button>

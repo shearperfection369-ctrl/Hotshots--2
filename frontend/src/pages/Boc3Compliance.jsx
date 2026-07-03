@@ -360,7 +360,7 @@ function FilingDialog({ state, existing, statuses, onClose, onSaved }) {
               <div className="flex items-center gap-2">
                 {existing.cert_file_id ? (
                   <Button size="sm" variant="outline" className="border-cyan-500/40 text-cyan-200 h-8 text-xs"
-                    onClick={() => authedDownload(`/boc3/filings/${existing.filing_id}/file`, existing.cert_filename || "boc3_cert.pdf")}
+                    onClick={() => authedDownload(`/api/boc3/filings/${existing.filing_id}/file`, { filename: existing.cert_filename || "boc3_cert.pdf" })}
                     data-testid="boc3-cert-download">
                     <FileText size={12} className="mr-1" /> Download {existing.cert_filename}
                   </Button>
