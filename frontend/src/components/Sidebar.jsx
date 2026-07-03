@@ -5,7 +5,7 @@ import {
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut, TrendingUp, Lightbulb,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
   DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon,
-  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2, Trophy, Wallet, ShieldAlert, Ship, Rocket
+  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2, Trophy, Wallet, ShieldAlert, Ship, Rocket, Satellite
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -42,6 +42,7 @@ const NAV = [
   { to: "/research-analytics", label: "Research & Analytics", icon: PieChart, tid: "nav-research-analytics", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/gtm-assets", label: "GTM Marketing", icon: Sparkles, tid: "nav-gtm-assets", roles: ["admin"] },
   { to: "/tracking", label: "Live Tracking", icon: MapPinned, tid: "nav-tracking", roles: ["admin", "auditor", "dispatcher", "carrier"] },
+  { to: "/fleet-routing", label: "Fleet · Routing", icon: Satellite, tid: "nav-fleet-routing", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/driver-console", label: "Driver Console", icon: Smartphone, tid: "nav-driver-console", roles: ["admin", "dispatcher"] },
   { to: "/driver-registry", label: "Drivers & Trailers", icon: IdCard, tid: "nav-driver-registry", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/equipment", label: "Equipment · Yard", icon: TrailerIcon, tid: "nav-equipment", roles: ["admin", "auditor", "dispatcher"] },

@@ -26,6 +26,8 @@ import { useNavigate } from "react-router-dom";
  */
 const SORTS = [
   { id: "score",         label: "Best Match"   },
+  { id: "margin_usd",    label: "Margin $ ↑"   },
+  { id: "margin_pct",    label: "Margin % ↑"   },
   { id: "rate_per_mile", label: "RPM ↑"        },
   { id: "rate_usd",      label: "Rate USD"     },
   { id: "posted_at",     label: "Freshness"    },
@@ -288,6 +290,14 @@ function FeedView({ boards, feed, busy, filters, setFilters, activeBoards, setAc
           </span>
           <span className="text-[10px] font-mono text-slate-500">Cross-listed loads are merged (see &quot;also on&quot;)</span>
         </div>
+        {feed?.margin_summary && items.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border-b border-white/10 bg-black/30" data-testid="aggregator-margin-summary">
+            <MarginTile label="Total Margin"    value={`$${(feed.margin_summary.total_margin_usd || 0).toLocaleString(undefined, {maximumFractionDigits: 0})}`} color="#10B981" testid="margin-total" />
+            <MarginTile label="Avg Margin / Load" value={`$${(feed.margin_summary.avg_margin_usd || 0).toLocaleString(undefined, {maximumFractionDigits: 0})}`} color="#22D3EE" testid="margin-avg" />
+            <MarginTile label="Avg Margin %"    value={`${(feed.margin_summary.avg_margin_pct || 0).toFixed(1)}%`} color="#F59E0B" testid="margin-avg-pct" />
+            <MarginTile label="High-Margin (≥18%)" value={feed.margin_summary.high_margin_count || 0} color="#A78BFA" testid="margin-high-count" />
+          </div>
+        )}
         {busy && !items.length && (
           <div className="p-8 text-center text-xs text-slate-500">
             <Loader2 size={16} className="animate-spin inline mr-2" /> Polling every board…
@@ -305,6 +315,7 @@ function FeedView({ boards, feed, busy, filters, setFilters, activeBoards, setAc
                   <th className="px-3 py-2 text-left">Lane</th>
                   <th className="px-3 py-2 text-left">Equipment</th>
                   <th className="px-3 py-2 text-right">Rate</th>
+                  <th className="px-3 py-2 text-right">Margin</th>
                   <th className="px-3 py-2 text-right">RPM</th>
                   <th className="px-3 py-2 text-right">Miles</th>
                   <th className="px-3 py-2 text-left">Fresh</th>
@@ -372,6 +383,23 @@ function LoadRow({ row, board, onPin, onBook }) {
         )}
       </td>
       <td className="px-3 py-2 text-right text-emerald-300 font-mono">${(row.rate_usd || 0).toLocaleString()}</td>
+      <td className="px-3 py-2 text-right" data-testid={`aggregator-margin-${row.load_id}`}>
+        {row.margin_usd != null ? (
+          <div className="inline-flex flex-col items-end">
+            <span
+              className="font-mono font-semibold text-[12px]"
+              style={{ color: (row.margin_pct || 0) >= 18 ? "#10B981" : (row.margin_pct || 0) >= 12 ? "#F59E0B" : "#F87171" }}
+            >
+              ${Number(row.margin_usd).toLocaleString(undefined, {maximumFractionDigits: 0})}
+            </span>
+            {row.margin_pct != null && (
+              <span className="text-[9px] font-mono text-slate-500">
+                {Number(row.margin_pct).toFixed(1)}%
+              </span>
+            )}
+          </div>
+        ) : <span className="text-slate-600 font-mono">—</span>}
+      </td>
       <td className="px-3 py-2 text-right text-slate-200 font-mono">${(row.rate_per_mile || 0).toFixed(2)}</td>
       <td className="px-3 py-2 text-right text-slate-400 font-mono">{row.miles || "—"}</td>
       <td className="px-3 py-2 text-slate-400 font-mono"><Clock size={10} className="inline mr-1" />{fresh}</td>
@@ -784,7 +812,14 @@ function BookLoadDialog({ load, onClose, onBooked }) {
     } finally { setBusy(false); }
   };
 
-  const margin = ((load.rate_usd || 0) - (load.carrier_pay_usd || 0)).toFixed(0);
+  const margin = load.margin_usd != null
+    ? Number(load.margin_usd).toFixed(0)
+    : ((load.rate_usd || 0) - (load.carrier_pay_usd || 0)).toFixed(0);
+  const marginPct = load.margin_pct != null
+    ? Number(load.margin_pct).toFixed(1)
+    : ((load.rate_usd || 0) > 0
+        ? (((load.rate_usd - (load.carrier_pay_usd || 0)) / load.rate_usd) * 100).toFixed(1)
+        : "—");
 
   return (
     <Dialog open={!!load} onOpenChange={(o) => !o && onClose?.()}>
@@ -802,7 +837,7 @@ function BookLoadDialog({ load, onClose, onBooked }) {
           <div className="flex justify-between"><span className="text-slate-400">Lane</span><span className="text-slate-100">{load.origin} → {load.destination}</span></div>
           <div className="flex justify-between"><span className="text-slate-400">Miles / Equipment</span><span className="text-slate-100">{load.miles} · {load.equipment}</span></div>
           <div className="flex justify-between"><span className="text-slate-400">Rate / RPM</span><span className="text-emerald-300 font-mono">${(load.rate_usd || 0).toLocaleString()} · ${(load.rate_per_mile || 0).toFixed(2)}/mi</span></div>
-          <div className="flex justify-between"><span className="text-slate-400">Forecast margin</span><span className="text-amber-300 font-mono">${margin}</span></div>
+          <div className="flex justify-between"><span className="text-slate-400">Forecast margin</span><span className="text-amber-300 font-mono">${margin} <span className="text-slate-500">· {marginPct}%</span></span></div>
           <div className="flex justify-between"><span className="text-slate-400">Board</span><span className="text-cyan-300 font-mono uppercase">{load.board_name || load.board_id}</span></div>
         </div>
 
@@ -875,5 +910,21 @@ function StatTile({ label, value, color, icon: Icon }) {
       </div>
       <div className="text-2xl font-mono mt-1" style={{ color }}>{value}</div>
     </Card>
+  );
+}
+function MarginTile({ label, value, color, testid }) {
+  return (
+    <div
+      className="px-4 py-2.5 border-r border-white/5 last:border-r-0 flex items-center justify-between gap-3"
+      data-testid={`aggregator-${testid}`}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <DollarSign size={12} style={{ color }} />
+        <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 truncate">
+          {label}
+        </span>
+      </div>
+      <span className="font-mono text-sm font-semibold" style={{ color }}>{value}</span>
+    </div>
   );
 }

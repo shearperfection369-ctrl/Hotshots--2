@@ -185,8 +185,9 @@ def build_aggregator_router(
 
     def _normalize(row: Dict[str, Any]) -> Dict[str, Any]:
         """Coerce a brokerage-style load into the aggregator's contract:
-        expose `rate_per_mile` (mirrors `rpm`) and a synthetic ISO
-        `posted_at` for sortability."""
+        expose `rate_per_mile` (mirrors `rpm`), guarantee `margin_usd` /
+        `margin_pct` (derived from carrier_pay when a board doesn't post
+        them directly), and a synthetic ISO `posted_at` for sortability."""
         rpm = row.get("rate_per_mile", row.get("rpm"))
         if rpm is not None and "rate_per_mile" not in row:
             row["rate_per_mile"] = rpm
@@ -195,6 +196,20 @@ def build_aggregator_router(
             row["posted_at"] = (
                 datetime.now(timezone.utc) - _tdelta_minutes(mins)
             ).isoformat()
+        # Broker margin — every load in the aggregator surfaces the
+        # forecast $ margin and %. If the source board didn't provide
+        # them, derive from rate_usd - carrier_pay_usd.
+        rate = float(row.get("rate_usd") or 0)
+        cpay = row.get("carrier_pay_usd")
+        margin_usd = row.get("margin_usd")
+        if margin_usd is None:
+            margin_usd = row.get("forecast_margin_usd")
+        if margin_usd is None and cpay is not None:
+            margin_usd = round(rate - float(cpay), 2)
+        if margin_usd is not None:
+            row["margin_usd"] = round(float(margin_usd), 2)
+            if not row.get("margin_pct") and rate > 0:
+                row["margin_pct"] = round((float(margin_usd) / rate) * 100, 1)
         return row
 
     async def _fetch_board(bid: str) -> List[Dict[str, Any]]:
@@ -232,7 +247,7 @@ def build_aggregator_router(
                     max_weight_lbs: Optional[float] = None,
                     exclude_hazmat: bool = False,
                     boards_csv: Optional[str] = None,
-                    sort_by: str = Query("score", enum=["score", "posted_at", "rate_per_mile", "rate_usd"]),
+                    sort_by: str = Query("score", enum=["score", "posted_at", "rate_per_mile", "rate_usd", "margin_usd", "margin_pct"]),
                     limit: int = Query(200, ge=1, le=500),
                     user=Depends(get_current_user)) -> Dict[str, Any]:
         """Unified feed across every configured board with client-supplied
@@ -307,6 +322,8 @@ def build_aggregator_router(
             "posted_at": lambda x: x.get("posted_at") or "",
             "rate_per_mile": lambda x: -(x.get("rate_per_mile") or 0),
             "rate_usd": lambda x: -(x.get("rate_usd") or 0),
+            "margin_usd": lambda x: -(x.get("margin_usd") or 0),
+            "margin_pct": lambda x: -(x.get("margin_pct") or 0),
         }[sort_by]
         deduped.sort(key=key_fn)
 
@@ -315,6 +332,16 @@ def build_aggregator_router(
             "total": len(deduped),
             "boards_polled": board_ids,
             "applied_prefs": merged,
+            "margin_summary": {
+                "total_margin_usd": round(sum(float(r.get("margin_usd") or 0) for r in deduped), 2),
+                "avg_margin_usd": round(
+                    (sum(float(r.get("margin_usd") or 0) for r in deduped) / len(deduped))
+                    if deduped else 0, 2),
+                "avg_margin_pct": round(
+                    (sum(float(r.get("margin_pct") or 0) for r in deduped) / len(deduped))
+                    if deduped else 0, 1),
+                "high_margin_count": sum(1 for r in deduped if (r.get("margin_pct") or 0) >= 18),
+            },
         }
 
     @router.get("/prefs")
