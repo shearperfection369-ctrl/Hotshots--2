@@ -182,26 +182,63 @@ def build_weather_router(
     router = APIRouter()
 
     @router.get("/weather/alerts")
-    async def weather_alerts_endpoint(user=Depends(get_current_user)):
-        """Real-time weather advisories — live NWS feed with brand mock fallback."""
-        cfg = await db.weather_alert_locations.find_one({"user_id": user.user_id}, {"_id": 0})
-        if not cfg or not cfg.get("locations"):
-            brand = await active_brand_doc()
-            seeded = await _seed_alert_locations_from_brand(brand)
-            await db.weather_alert_locations.update_one(
-                {"user_id": user.user_id},
-                {"$set": {"user_id": user.user_id, "locations": seeded,
-                          "updated_at": datetime.now(timezone.utc).isoformat()}},
-                upsert=True,
-            )
-            locations = seeded
-        else:
-            locations = cfg.get("locations") or []
+    async def weather_alerts_endpoint(
+        lat: Optional[float] = None,
+        lng: Optional[float] = None,
+        label: Optional[str] = None,
+        user=Depends(get_current_user),
+    ):
+        """Real-time weather advisories from api.weather.gov (US NWS).
 
-        live = await _fetch_live_nws_alerts(locations)
-        if live:
-            return await brand_swap(live)
-        return await brand_swap(mock_weather_alerts)
+        Three modes (in priority order):
+          1. `?lat=&lng=` passed by the frontend from `navigator.geolocation`
+             → live NWS lookup for that exact point, no mock, no seed.
+          2. User has already saved monitored locations via
+             POST /weather/alert-locations → fetch alerts for each.
+          3. No location known → return an empty payload with
+             `needs_location: true` so the FE can prompt for geolocation.
+
+        NO mock/synthetic fallback is served anymore. If NWS returns zero
+        active alerts, the response is an empty list with `no_active_alerts:
+        true` — the FE renders a clean "all clear" state.
+        """
+        # 1. Explicit lat/lng from the caller's browser
+        if lat is not None and lng is not None:
+            live = await _fetch_live_nws_alerts([{
+                "label": label or f"Your location ({lat:.3f}, {lng:.3f})",
+                "lat": lat, "lng": lng, "country": "US",
+            }])
+            return {
+                "items": await brand_swap(live),
+                "count": len(live),
+                "no_active_alerts": len(live) == 0,
+                "resolved_from": "browser_geolocation",
+                "needs_location": False,
+            }
+
+        # 2. Previously-saved monitored locations
+        cfg = await db.weather_alert_locations.find_one(
+            {"user_id": user.user_id}, {"_id": 0})
+        locations = (cfg or {}).get("locations") or []
+        if locations:
+            live = await _fetch_live_nws_alerts(locations)
+            return {
+                "items": await brand_swap(live),
+                "count": len(live),
+                "no_active_alerts": len(live) == 0,
+                "resolved_from": "saved_locations",
+                "locations_monitored": len(locations),
+                "needs_location": False,
+            }
+
+        # 3. No location known — ask the browser for one
+        return {
+            "items": [],
+            "count": 0,
+            "no_active_alerts": False,
+            "needs_location": True,
+            "resolved_from": None,
+        }
 
     @router.get("/weather/alert-locations")
     async def get_weather_alert_locations(user=Depends(get_current_user)):

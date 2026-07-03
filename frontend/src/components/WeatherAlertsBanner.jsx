@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -6,20 +6,26 @@ import { Input } from "../components/ui/input";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "../components/ui/dialog";
-import { AlertTriangle, X, ExternalLink, Settings, MapPin, Plus, Loader2, Radio } from "lucide-react";
+import { AlertTriangle, X, ExternalLink, Settings, MapPin, Plus, Loader2, Radio, CheckCircle2, Navigation } from "lucide-react";
 import { toast } from "sonner";
 import { useBrandRefresh } from "../lib/branding";
 
 /**
- * WeatherAlertsBanner — polls `/api/weather/alerts` every 60s and surfaces
- * NWS-style watches/warnings at the top of the page.
+ * WeatherAlertsBanner — real-time NWS alerts scoped to the user's actual
+ * browser geolocation. NO mock/synthetic fallback.
  *
- * Backend pulls **real, live alerts from api.weather.gov** for each
- * user-monitored location (US only). Falls back to brand mock alerts when
- * no live alerts are active. Admin can edit the location list via the gear
- * icon on the banner.
+ * Flow:
+ *   1. On mount, ask `navigator.geolocation.getCurrentPosition()` for
+ *      real coords. Cache in localStorage (24h) so we don't re-prompt.
+ *   2. GET /api/weather/alerts?lat=…&lng=… → live api.weather.gov feed.
+ *   3. If NWS returns zero active alerts → show a clean "all clear" pill.
+ *   4. If the user denies geolocation → show a "Grant location access"
+ *      prompt with a button that retries the browser API.
+ *   5. Poll every 60s; auto-refetch on active-brand swap.
  */
 const DISMISS_KEY = "tms-weather-alerts-dismissed";
+const GEO_KEY = "tms-weather-geo";                    // {lat,lng,label,cachedAt}
+const GEO_TTL_MS = 24 * 60 * 60 * 1000;               // 24h
 const POLL_MS = 60 * 1000;
 
 const SEVERITY = {
@@ -36,34 +42,93 @@ const setDismissed = (set) => {
   try { sessionStorage.setItem(DISMISS_KEY, JSON.stringify([...set])); }
   catch { /* noop */ }
 };
+const readCachedGeo = () => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GEO_KEY) || "null");
+    if (!raw || !raw.cachedAt || Date.now() - raw.cachedAt > GEO_TTL_MS) return null;
+    if (typeof raw.lat !== "number" || typeof raw.lng !== "number") return null;
+    return raw;
+  } catch { return null; }
+};
+const writeCachedGeo = (geo) => {
+  try { localStorage.setItem(GEO_KEY, JSON.stringify({ ...geo, cachedAt: Date.now() })); }
+  catch { /* noop */ }
+};
 
 export default function WeatherAlertsBanner() {
   const [alerts, setAlerts] = useState([]);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [dismissedTick, setDismissedTick] = useState(0);
   const [configOpen, setConfigOpen] = useState(false);
+  const [geo, setGeo] = useState(() => readCachedGeo());
+  const [geoState, setGeoState] = useState(geo ? "ready" : "idle");   // idle | requesting | denied | unsupported | ready
+  const [meta, setMeta] = useState(null);   // { no_active_alerts, resolved_from, needs_location, count }
+  const geoRef = useRef(geo);
+  geoRef.current = geo;
 
-  const load = async () => {
+  // Ask the browser for real coords.  We treat prior localStorage cache as
+  // a fast path; if the user hasn't granted access yet, prompt them.
+  const requestGeo = useCallback((forcePrompt = false) => {
+    if (!navigator?.geolocation) { setGeoState("unsupported"); return; }
+    if (!forcePrompt) {
+      const cached = readCachedGeo();
+      if (cached) { setGeo(cached); setGeoState("ready"); return; }
+    }
+    setGeoState("requesting");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const g = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        };
+        writeCachedGeo(g);
+        setGeo(g);
+        setGeoState("ready");
+      },
+      (err) => {
+        // 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
+        if (err?.code === 1) setGeoState("denied");
+        else setGeoState("unavailable");
+      },
+      { enableHighAccuracy: false, maximumAge: 5 * 60 * 1000, timeout: 8000 }
+    );
+  }, []);
+
+  const load = useCallback(async () => {
     try {
-      const { data } = await api.get("/weather/alerts");
-      setAlerts(data || []);
+      const g = geoRef.current;
+      const url = g
+        ? `/weather/alerts?lat=${g.lat}&lng=${g.lng}`
+        : "/weather/alerts";
+      const { data } = await api.get(url);
+      // Backend now always returns { items, count, no_active_alerts, needs_location, ... }
+      // Preserve backward compatibility if a proxy ever returns a bare list.
+      const items = Array.isArray(data) ? data : (data?.items || []);
+      const nextMeta = Array.isArray(data)
+        ? { count: items.length, no_active_alerts: items.length === 0 }
+        : data;
+      setAlerts(items);
+      setMeta(nextMeta);
       setLastUpdated(new Date());
     } catch { /* noop */ }
-  };
+  }, []);
+
+  // On mount: try cached geo, fall through to browser prompt.
+  useEffect(() => { requestGeo(false); }, [requestGeo]);
+
+  // Whenever geo changes, immediately reload.
   useEffect(() => {
     load();
     const id = setInterval(load, POLL_MS);
     return () => clearInterval(id);
-  }, []);
-  // Re-fetch when admin switches the active brand so the alert locations
-  // re-seed from the new brand's facilities.
+  }, [load, geo]);
+
   useBrandRefresh(() => load());
 
   const dismissed = getDismissed();
   const visible = alerts.filter((a) => !dismissed.has(a.alert_id));
 
-  // If nothing is visible we still want to render the configure-gear so
-  // admins know where to manage their monitored locations.
   const sevRank = { high: 0, moderate: 1, low: 2 };
   const sorted = [...visible].sort((a, b) => (sevRank[a.severity] || 9) - (sevRank[b.severity] || 9)).slice(0, 3);
 
@@ -78,15 +143,22 @@ export default function WeatherAlertsBanner() {
     <div className="px-4 md:px-6 pt-3 space-y-2" data-testid="weather-alerts-banner">
       {/* Header row — Live indicator + config gear */}
       <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1 text-emerald-300">
-            <Radio size={10} className="animate-pulse" /> LIVE WEATHER FEED
+            <Radio size={10} className="animate-pulse" /> LIVE WEATHER FEED · NWS
           </span>
+          {geoState === "ready" && geo && (
+            <span className="text-slate-500 inline-flex items-center gap-1">
+              <MapPin size={9} /> your location · {geo.lat.toFixed(2)}, {geo.lng.toFixed(2)}
+            </span>
+          )}
           {lastUpdated && (
             <span className="text-slate-500">· updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
           )}
-          {sorted.some((a) => a.live) && (
-            <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[9px]">NWS live</span>
+          {sorted.length === 0 && meta?.no_active_alerts && geoState === "ready" && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[9px]" data-testid="weather-all-clear">
+              <CheckCircle2 size={9} /> ALL CLEAR
+            </span>
           )}
         </div>
         <button
@@ -94,9 +166,51 @@ export default function WeatherAlertsBanner() {
           data-testid="weather-alerts-config-btn"
           className="inline-flex items-center gap-1 text-slate-400 hover:text-cyan-300 transition"
         >
-          <Settings size={10} /> Configure Locations
+          <Settings size={10} /> Locations
         </button>
       </div>
+
+      {/* Geolocation prompt states */}
+      {geoState !== "ready" && sorted.length === 0 && (
+        <Card
+          data-testid="weather-geo-prompt"
+          className="p-3 bg-slate-900/60 border-white/10 flex items-center justify-between gap-3"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Navigation size={14} className="text-cyan-300 shrink-0" />
+            <div className="text-xs text-slate-200">
+              {geoState === "requesting" && (
+                <><b>Requesting your location…</b> click Allow in the browser prompt to see NWS alerts for your area.</>
+              )}
+              {geoState === "denied" && (
+                <><b>Location access blocked.</b> Enable it in your browser settings, or add locations manually via <span className="text-cyan-300">Locations →</span>.</>
+              )}
+              {geoState === "unavailable" && (
+                <><b>Couldn&apos;t determine your location.</b> Try again, or add a monitored location manually.</>
+              )}
+              {geoState === "unsupported" && (
+                <><b>Your browser doesn&apos;t support geolocation.</b> Add locations manually.</>
+              )}
+              {geoState === "idle" && (
+                <><b>Real-time NWS weather alerts for your area.</b> Grant location access to start.</>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            {(geoState === "idle" || geoState === "denied" || geoState === "unavailable") && (
+              <Button size="sm" onClick={() => requestGeo(true)}
+                data-testid="weather-geo-grant-btn"
+                className="bg-cyan-500 hover:bg-cyan-400 text-black h-7">
+                <Navigation size={11} className="mr-1" /> Use my location
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => setConfigOpen(true)}
+              className="text-slate-300 h-7">
+              Add manually
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {sorted.map((a) => {
         const sev = SEVERITY[a.severity] || SEVERITY.low;
