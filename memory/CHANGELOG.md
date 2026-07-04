@@ -4,6 +4,31 @@
 
 ---
 
+## Iter 60 · 61 · 62 — 2026-07-03 · Real geolocation-driven weather (mock removal)
+
+**Status**: ✅ 7/7 backend + 6/6 frontend across three iterations (iter_60/61/62.json). Zero mocked strings in weather widgets.
+
+**User bug**: screenshot showed the top-of-page "LIVE WEATHER FEED" banner still hard-coding old Tennant-era facility mocks (Golden Valley MN, Holland MI, Louisville KY). User demanded real weather scoped to their actual browser location.
+
+**Fix (backend)** — `/app/backend/routes/weather.py`:
+- GET `/api/weather/alerts` now accepts optional `?lat=&lng=` query params from the browser's `navigator.geolocation.getCurrentPosition()`.
+- Removed the mock/synthetic fallback entirely. Response shape: `{items, count, no_active_alerts, needs_location, resolved_from}`.
+- Priority: browser_geolocation → saved user locations → `needs_location: true` (never a fake row).
+- Real NWS calls: verified Denver → 3 real Air-Quality Alerts from NWS Denver; Miami → 0 with clean "all clear" state.
+
+**Fix (frontend banner)** — `/app/frontend/src/components/WeatherAlertsBanner.jsx`:
+- Full rewrite of the geolocation flow: cached to `localStorage.tms-weather-geo` for 24h, five distinct empty states (idle/requesting/denied/unavailable/unsupported/all-clear), Grant-location CTA button.
+
+**Fix (Dashboard Facility Conditions widget)** — `/app/frontend/src/pages/Dashboard.jsx`:
+- Ripped out the `weather` prop that fed the widget mock brand facilities.
+- Rewrote `FacilityConditions` to auto-populate a "📍 <your city>" row from `navigator.geolocation` on mount, hitting Open-Meteo `/v1/forecast` for real conditions and BigDataCloud `/reverse-geocode-client` for a human city label (Denver, Colorado / London, England / Tokyo, Japan verified in tests).
+- localStorage key bumped v1 → v2 to invalidate stale cache from broken reverse-geocoder.
+- Extra cities can still be added manually via the existing Open-Meteo geocode search — no API key needed anywhere.
+
+**Bug caught + fixed via testing agent (iter 62)**: Open-Meteo has NO `/v1/reverse` endpoint (404). Swapped to BigDataCloud (free, CORS-open, no key).
+
+
+
 ## Iter 59 — 2026-07-03 · Leaflet reliability fix (Uncaught runtime crash killed)
 
 **Status**: ✅ 100% frontend (iter_59.json) — no LatLng pageerror, no red-screen, no AppErrorBoundary trigger under normal conditions. Forced-bad-data test showed graceful degradation with the amber "N shipments · no GPS yet" badge.
