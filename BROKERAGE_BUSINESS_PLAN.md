@@ -1,22 +1,24 @@
 # Orisei Freight Solutions LLC
-## Freight Brokerage Business Plan · 2026
+## Freight Brokerage Business Plan · 2026 · v2.0 — Partnership Edition
 
-**Founder & Principal Broker:** Oliver Cummins
+**Co-Founders & Principal Owners (50/50):** Oliver Cummins · Daniel W. Karsor
 **Headquarters:** Minneapolis · Saint Paul · Minnesota
-**Legal Form:** Single-member LLC (MN) · S-Corp election in Year 2
+**Legal Form:** Two-member, member-managed LLC (MN Chapter 322C) · S-Corp election in Year 2
 **Authority:** US DOT · MC# (Property Broker) · BOC-3 · BMC-84 $75,000 Surety
-**Contact:** oliver@oriseifreight.com · (612) 555-0117
+**Contact:** oliver@oriseifreight.com · daniel@oriseifreight.com · (612) 555-0117
+**Launch Capital:** $10,000 partner cash infusion (Daniel W. Karsor)
 **Plan Horizon:** 2026 – 2029 (3-year operating window)
 
 ---
 
 ## 0 · Document Purpose
 
-This is the **operating business plan** for Orisei Freight Solutions LLC — a Minnesota-domiciled, owner-operated freight brokerage launching in Q2 2026. It is designed to:
+This is the **operating business plan** for Orisei Freight Solutions LLC — a Minnesota-domiciled, partner-operated freight brokerage launching in Q2 2026. Version 2.0 reflects the admission of **Daniel W. Karsor** as an equal 50/50 co-founder and the recapitalization of the launch plan around his **$10,000 cash infusion**. It is designed to:
 
-1. Anchor the founder's first 36 months of decisions.
+1. Anchor the partners' first 36 months of decisions.
 2. Serve as a lender-ready / SBA-ready financial narrative.
 3. Document every step required to **legally activate property-broker authority** in the United States and convert it into recurring brokered freight revenue.
+4. Memorialize the **50/50 partnership structure** governed by the companion *Minnesota Member-Controlled LLC Partnership Agreement* (available in the Command Deck alongside this plan).
 
 If you are reading this inside the **Orisei Brokerage Command Deck** (the in-app Business Plan tab), the financial figures here are the same baseline the Dashboard tab projects forward against actual booked margins.
 
@@ -24,13 +26,18 @@ If you are reading this inside the **Orisei Brokerage Command Deck** (the in-app
 
 ## 1 · Executive Summary
 
-Orisei Freight Solutions LLC is a **bootstrap, owner-operated property freight brokerage** based in the Twin Cities (Minneapolis–Saint Paul) with statewide Minnesota reach and a national lane network. Orisei matches **vetted motor carriers** to **shipper freight** across truckload (TL), less-than-truckload (LTL), reefer, flatbed, expedited, and intermodal modes — earning a margin on every load brokered.
+Orisei Freight Solutions LLC is a **lean, partner-operated property freight brokerage** based in the Twin Cities (Minneapolis–Saint Paul) with statewide Minnesota reach and a national lane network. Orisei matches **vetted motor carriers** to **shipper freight** across truckload (TL), less-than-truckload (LTL), reefer, flatbed, expedited, and intermodal modes — earning a margin on every load brokered.
 
 The freight-brokerage market in the United States is **~$95B (2025) and growing 5–7% CAGR**, driven by shipper appetite for asset-light fulfillment and the structural decline of in-house traffic departments at mid-market manufacturers. Minnesota's industrial mix — food & beverage, agriculture, fabricated metals, medical devices, and big-box retail distribution — produces **predictable, lane-dense outbound and inbound freight** that an operator-built brokerage can profitably book from day one.
 
-**The founder advantage.** Orisei is built by Oliver Cummins, a 13-year supply-chain and logistics practitioner who has personally tendered, tracked, escalated, and audited freight across all six modes for major Minnesota industrials. The brokerage launches with the operator's playbook — not the salesperson's — and ships with the **Orisei Brokerage Command Deck**, a proprietary internal TMS that aggregates DAT, Truckstop, Convoy, Uber Freight, and 123Loadboard postings; matches them against a real-time margin model; and books, settles, invoices, and reconciles loads to QuickBooks Online.
+**The partnership advantage.** Orisei is now built by two complementary founders:
 
-**Financial highlights (bootstrap solo-agent baseline).**
+- **Oliver Cummins** — a 13-year supply-chain and logistics practitioner who has personally tendered, tracked, escalated, and audited freight across all six modes for major Minnesota industrials. He runs operations, carrier vetting, pricing, and the shipper book.
+- **Daniel W. Karsor** — a Brooklyn Park, MN entrepreneur and **software developer** who owns and operates a barbershop and a podcast studio. Originally from West Africa, Daniel brings proven multi-business ownership, hands-on engineering capability to co-develop the **Orisei Brokerage Command Deck**, an in-house media engine for brand content, and deep roots in Minnesota's West African diaspora business community — one of the most entrepreneurial owner-operator carrier communities in the Upper Midwest.
+
+The brokerage launches with the operator's playbook AND the builder's toolkit — and ships with the **Orisei Brokerage Command Deck**, a proprietary internal TMS that aggregates DAT, Truckstop, Convoy, Uber Freight, and 123Loadboard postings; matches them against a real-time margin model; and books, settles, invoices, and reconciles loads to QuickBooks Online.
+
+**Financial highlights ($10K lean-launch, two-partner baseline).**
 
 | | Year 1 | Year 2 | Year 3 |
 | --- | ---: | ---: | ---: |
@@ -39,23 +46,22 @@ The freight-brokerage market in the United States is **~$95B (2025) and growing 
 | Carrier pay (75–85%) | $349,920 | $810,540 | $1,478,400 |
 | Gross margin | **$82,080** | **$215,460** | **$441,600** |
 | Gross margin % | 19.0% | 21.0% | 23.0% |
-| Operating expenses | $46,200 | $96,400 | $172,800 |
-| Owner draw / payroll | $30,000 | $90,000 | $180,000 |
-| **Net cash to owner** | **$35,880** | **$209,060** | **$448,800** |
+| Operating expenses (lean) | $22,510 | $79,030 | $131,800 |
+| Partner draws (combined) | $30,000 | $90,000 | $180,000 |
+| **Net cash to partners (50/50 split)** | **$57,490** | **$125,383** | **$223,200** |
+| **Per-partner share** | **$28,745** | **$62,692** | **$111,600** |
 
-**The ask.** Orisei requires **$28,500 of bootstrap capital** to clear regulatory and software costs through the first 90 days. There is no outside-investor ask in Year 1 — Orisei is designed to be **cash-flow positive by month 7** on owner-financed launch capital.
+**The capitalization.** Orisei launches on **$10,000 of partner capital**, contributed in cash by Daniel W. Karsor, matched by Oliver Cummins' assignment of the Orisei Brokerage Command Deck intellectual property, his pre-formation regulatory work, and his full-time operating commitment. There is **no outside-investor ask** — Orisei is designed to be **cash-flow positive by Month 5** on the lean launch budget, with the factoring line carrying working-capital load from Day 28.
 
 ---
 
-## 2 · Founder · Oliver Cummins
+## 2 · The Founders
 
-**Title:** Founder · Principal Broker · Designated Process Agent Liaison
+### 2.1 · Oliver Cummins — Co-Founder · Principal Broker · Operations
 
 Oliver Cummins has spent **13 years in supply chain & logistics** across all modes — truckload, LTL, parcel, ocean, air, and rail — with a specialization in **international logistics**, including ocean booking lanes, customs clearance, free-trade-agreement (FTA) navigation, and cross-border compliance. He has held high-level logistics roles at multiple major Minnesota corporations and currently serves as a **Transportation Analyst at Tennant Companies** (Golden Valley, MN) — the global leader in industrial cleaning equipment.
 
 > "Most brokerages are run by salespeople who learned the trade from a script. I've personally chased a short-shipped pallet at midnight, fought a customs broker over an HS code, and rebuilt a tender lane after a carrier defaulted on a Friday afternoon. I know exactly what shippers wish their broker would do — and I built Orisei to do all of it on the first call." *— Oliver Cummins*
-
-**Founder credentials at a glance.**
 
 | Dimension | Detail |
 | --- | --- |
@@ -64,9 +70,44 @@ Oliver Cummins has spent **13 years in supply chain & logistics** across all mod
 | International specialization | Customs clearance · FTA · USMCA · §301/§232 · drawback · port-of-entry strategy |
 | Current role | Transportation Analyst · Tennant Companies (active until brokerage hits 60-load month) |
 | Geography | Minneapolis, MN · Statewide network · National lane coverage |
-| Tech | Operator of the proprietary LiveCleans TMS · author of the Orisei Brokerage Command Deck |
+| Contribution to LLC | Command Deck IP · operating playbook · full-time brokerage operations · pre-formation regulatory work |
+| Ownership | **50%** |
 
-**Why Oliver as broker.** A property freight broker is, fundamentally, a *risk underwriter* — pricing a lane, vetting a carrier, and standing between the shipper's promise and the carrier's truck. Thirteen years of doing that work on the shipper side means Oliver can quote a lane in 90 seconds, smell a fraudulent MC, and de-escalate a detention dispute without calling a manager. That is the **moat**.
+### 2.2 · Daniel W. Karsor — Co-Founder · Technology, Brand & Capital
+
+Daniel W. Karsor is a **serial small-business owner and software developer** based in **Brooklyn Park, Minnesota**. Originally from **West Africa**, Daniel immigrated to Minnesota and built two profitable community businesses from the ground up — a **barbershop** and a **podcast / media production studio** — both of which he continues to own and operate. He is contributing the partnership's **$10,000 launch capital** and takes an equal 50% stake in Orisei Freight Solutions LLC.
+
+> "I've built businesses where the margin lives or dies on showing up every single day — a barber chair doesn't earn if it's empty, and a studio doesn't earn if the mic is off. Freight is the same discipline at a bigger scale. Oliver knows the lanes; I know how to build the machine and tell the story. Together we don't need anyone's permission to grow." *— Daniel W. Karsor*
+
+| Dimension | Detail |
+| --- | --- |
+| Base | Brooklyn Park, Minnesota |
+| Businesses owned | Barbershop (Brooklyn Park) · Podcast & media production studio (Brooklyn Park) |
+| Heritage | West African — deep ties to Minnesota's West African diaspora business community |
+| Technical skillset | Software developer — full-stack; co-develops & maintains the Orisei Brokerage Command Deck |
+| Capital contribution | **$10,000 cash** (100% of launch capital) |
+| Ownership | **50%** |
+
+**What Daniel unlocks for Orisei:**
+
+1. **Capital.** The full $10,000 lean-launch budget — no debt, no outside equity, no bank dependency at launch.
+2. **Engineering redundancy.** Two developers on the proprietary TMS instead of one. The Command Deck — Orisei's single biggest competitive moat — now has a maintainer whose day job is writing software.
+3. **Media & brand engine.** The podcast studio becomes Orisei's in-house content factory: a freight-market podcast, shipper-facing lane-intelligence video briefs, and carrier-recruitment content — at zero marginal production cost.
+4. **Carrier-community pipeline.** Minnesota's West African diaspora (Liberian, Ghanaian, Nigerian, and Sierra Leonean communities concentrated in Brooklyn Park / Brooklyn Center) is one of the most active owner-operator trucking communities in the Upper Midwest. Daniel's standing in that community is a direct, trust-based carrier-recruitment channel no incumbent brokerage can replicate.
+5. **Entrepreneurial pattern-matching.** Daniel has already done payroll, leases, licensing, insurance, and customer retention across two service businesses. He knows what "week 6 when the excitement wears off" feels like — and how to push through it.
+
+### 2.3 · Division of responsibilities
+
+| Domain | Oliver Cummins | Daniel W. Karsor |
+| --- | --- | --- |
+| Shipper sales & pricing | **Lead** | Support |
+| Carrier sourcing & vetting | **Lead** | Support (diaspora carrier channel) |
+| Load operations & dispatch | **Lead** | Backup / after-hours |
+| Command Deck development | Support | **Lead** |
+| Brand, content & marketing | Support | **Lead** (podcast studio) |
+| Finance, banking & capital | Joint | Joint |
+| Compliance calendar | **Lead** | Support |
+| Major decisions (>$2,500, hiring, debt, new lanes) | **Unanimous — both partners** | **Unanimous — both partners** |
 
 ---
 
@@ -76,16 +117,19 @@ Oliver Cummins has spent **13 years in supply chain & logistics** across all mod
 | --- | --- |
 | Legal name | Orisei Freight Solutions LLC |
 | State of formation | Minnesota |
-| Filing date target | 2026-03-15 |
+| Structure | Two-member, member-managed LLC · 50/50 · governed by MN Statutes Chapter 322C |
+| Members | Oliver Cummins (50%) · Daniel W. Karsor (50%) |
+| Filing date target | 2026-03-15 (amendment adding second member filed with MN SOS) |
 | Registered agent | Northwest Registered Agent (MN) |
 | FEIN | Applied for week 1 |
 | MC Authority class | Property Broker — Motor Carrier (49 CFR §371) |
 | Surety bond | BMC-84 · $75,000 (FMCSA-mandated) |
 | Process agents | BOC-3 (nationwide via filing service) |
-| Office | Home office Y1 → Co-working in Loring Park (Mpls) Y2 → Dedicated office Y3 |
-| Banking | Choice Financial (MN) — operating + savings + factoring sweep |
-| Accounting | QuickBooks Online (Plus) · CPA on retainer (1099 & MN state filings) |
+| Office | Home offices Y1 (Mpls + Brooklyn Park) → Co-working Y2 → Dedicated office Y3 |
+| Banking | Choice Financial (MN) — operating + savings + factoring sweep · dual-signer over $2,500 |
+| Accounting | QuickBooks Online · CPA on retainer (1065 partnership return, K-1s, MN state filings) |
 | Insurance | $1M general liability · $100k contingent cargo · $1M E&O (broker's liability) |
+| Governing agreement | Minnesota Member-Controlled LLC Partnership Agreement (50/50) — executed by both members |
 
 ---
 
@@ -101,7 +145,8 @@ Oliver Cummins has spent **13 years in supply chain & logistics** across all mod
 2. **Carrier respect.** Drivers and dispatchers are our supply chain. Quick-pay, fair detention, no double-brokering — ever.
 3. **Shipper transparency.** Every load comes with a tracked timeline, a named broker, and a real margin disclosure on quarterly business reviews.
 4. **Compliance first.** Bonds, BOC-3s, COI verifications, and 1099s ship before they're due.
-5. **Document the trade.** Every workflow lives in the Orisei Command Deck so the business survives the founder's vacation.
+5. **Document the trade.** Every workflow lives in the Orisei Command Deck so the business survives either founder's vacation.
+6. **Partnership discipline.** Every dollar over $2,500 gets two signatures. Every quarter gets a partner review. Every disagreement gets resolved by the deadlock procedure — never by silence.
 
 ---
 
@@ -112,7 +157,7 @@ Oliver Cummins has spent **13 years in supply chain & logistics** across all mod
 - **TAM (US property brokerage):** ~$95B 2025 · ~$115B by 2028 (Armstrong & Associates).
 - **Fragmentation:** Top 25 brokerages control ~45% of TAM. The long tail — single-agent and sub-$10M shops — collectively brokers more freight than the top 5 combined.
 - **Margin band:** Industry settled gross margin averages **14–16%**. Operator-built brokerages with disciplined carrier vetting and lane discipline run **18–24%**.
-- **Tailwinds:** Shipper appetite for asset-light fulfillment; structural retirement of internal traffic teams; freight-tech maturity allowing 1-person shops to operate like 10-person ones.
+- **Tailwinds:** Shipper appetite for asset-light fulfillment; structural retirement of internal traffic teams; freight-tech maturity allowing 2-person shops to operate like 10-person ones.
 - **Headwinds:** Cyclical capacity gluts (2023–2024 trough); fraud & double-brokering surge; FMCSA enforcement tightening (BMC-84 enforcement, BOC-3 reverification).
 
 ### 5.2 · Minnesota & Twin Cities micro-market
@@ -161,11 +206,12 @@ Minnesota generates **~125M outbound freight tons annually** and consumes a near
 
 **Value-added services (no extra fee, used as a competitive wedge):**
 
-- 24/7 named-broker phone tree (no offshore call centers).
+- 24/7 named-broker phone tree — two partners, no offshore call centers.
 - Real-time tracking via Orisei Command Deck (eLogs + macropoint + manual driver pings).
-- Carrier vetting in **<30 minutes** (RMIS + Carrier411 + manual MC review).
+- Carrier vetting in **<30 minutes** (Carrier411 + FMCSA SAFER + manual MC review).
 - Quarterly business reviews with margin transparency for top 5 customers.
 - Compliance assistance for shipper-side documents (BOLs, COIs, customs paperwork for cross-border).
+- **Orisei Freight Brief** — a weekly lane-intelligence podcast + email recorded at Daniel's studio, syndicated to shipper and carrier audiences.
 
 ---
 
@@ -176,10 +222,10 @@ Minnesota generates **~125M outbound freight tons annually** and consumes a near
 | **C.H. Robinson** (Eden Prairie, MN) | Scale, Navisphere TMS, capacity | Personal accountability — no rep churn |
 | **Coyote Logistics** | Capacity, UPS backing | Real broker on the phone, not a queue |
 | **Echo Global** | Tech, LTL discounts | Margin honesty + faster onboarding (24h vs 2 wks) |
-| **Local single-agent shops** | Relationships | Operator-built tech stack + 13-year founder résumé |
+| **Local single-agent shops** | Relationships | Two-founder redundancy + operator-built tech stack |
 | **Digital brokers (Uber Freight, Convoy)** | App UX, instant quotes | Human escalation; complex / nonstandard freight |
 
-**Orisei's defensible wedge.** A **shipper-side operator résumé + a homegrown TMS + a Minnesota address** is a combination C.H. Robinson cannot fake, single-agent shops cannot match, and Uber Freight cannot replicate. The pitch: *"You used to do this in-house. I'll be your in-house traffic team for half the price."*
+**Orisei's defensible wedge.** A **shipper-side operator résumé + a homegrown TMS with two engineers + an in-house media studio + a trust-based diaspora carrier network + a Minnesota address** is a combination C.H. Robinson cannot fake, single-agent shops cannot match, and Uber Freight cannot replicate. The pitch: *"You used to do this in-house. We'll be your in-house traffic team for half the price."*
 
 ---
 
@@ -187,18 +233,19 @@ Minnesota generates **~125M outbound freight tons annually** and consumes a near
 
 ### 8.1 · Positioning
 
-> **"Operator-built freight brokerage. Headquartered in Minneapolis. 13 years on the shipper side. Answers the phone."**
+> **"Operator-built freight brokerage. Two founders. Headquartered in Minneapolis. 13 years on the shipper side. Answers the phone."**
 
 ### 8.2 · Year-1 customer acquisition plan (target: 8 active accounts)
 
 | Channel | Activity | Target output | Cost (Y1) |
 | --- | --- | ---: | ---: |
 | **Founder warm network** | 60 1:1 outreaches to former colleagues across MN industrials | 4 accounts | $0 |
-| **Cold outbound (Apollo/Clay)** | 200 ICP-matched Logistics Managers / quarter | 2 accounts | $1,800 |
+| **Diaspora carrier & shipper referrals** | Daniel's Brooklyn Park business network → owner-operators + freight-adjacent businesses | 1 account + 10 carriers | $0 |
+| **Orisei Freight Brief podcast** | Weekly freight-market show recorded at Daniel's studio | Inbound pipeline + credibility | $0 (owned studio) |
+| **Cold outbound** | 100 ICP-matched Logistics Managers / quarter | 1 account | $500 |
 | **LinkedIn thought leadership** | 2 posts/week on lane intelligence + freight market | Inbound DMs | $0 |
-| **MN industry events** | MN Trucking Assoc · CSCMP MN Roundtable · MMTA expo | 1 account + carriers | $2,400 |
-| **Carrier-side word of mouth** | Reliable broker → carriers refer shippers | 1 account | $0 |
-| **SEO / Google Business Profile** | "Minneapolis freight broker" geo-ranked content | Lead funnel for Y2 | $1,200 |
+| **MN industry events** | MN Trucking Assoc · CSCMP MN Roundtable | 1 account + carriers | $350 |
+| **SEO / Google Business Profile** | "Minneapolis freight broker" geo-ranked content | Lead funnel for Y2 | $150 |
 
 **Sales motion.**
 
@@ -210,50 +257,50 @@ Minnesota generates **~125M outbound freight tons annually** and consumes a near
 
 ### 8.3 · Brand assets
 
-- **Identity:** Orisei blue / steel-gray / white. Logo: stylized chevron mark + wordmark.
+- **Identity:** Orisei blue / gold / white. Logo: heraldic mark + wordmark.
 - **Website:** oriseifreight.com — single landing page + carrier portal + shipper login (Orisei Command Deck embedded SSO).
-- **Collateral:** One-page services PDF, lane intelligence weekly email, founder LinkedIn.
+- **Collateral:** One-page services PDF, lane intelligence weekly email, brochure-format business plan, founder LinkedIn ×2.
+- **Media:** Orisei Freight Brief podcast (produced at Daniel's Brooklyn Park studio).
 
 ---
 
 ## 9 · Operations Plan
 
-### 9.1 · Daily workflow (single broker / single agent)
+### 9.1 · Daily workflow (two-partner coverage)
 
-| Time | Activity |
-| --- | --- |
-| 06:00 – 07:00 | Review overnight load tenders, posted loads, market deltas |
-| 07:00 – 09:00 | Carrier dispatch + macropoint check-in + driver text confirmations |
-| 09:00 – 12:00 | Shipper calls · quoting · book new loads via Orisei Command Deck (DAT/Truckstop/Convoy/Uber/123) |
-| 12:00 – 13:00 | Lunch + LinkedIn engagement |
-| 13:00 – 15:00 | Carrier sourcing · vetting (RMIS + Carrier411) · rate negotiation |
-| 15:00 – 17:00 | Settlement, invoicing, QuickBooks sync, claims |
-| 17:00 – 19:00 | Active load tracking · BOL collection · POD reconciliation |
-| On-call | 24/7 dispatch escalations (auto-route to founder cell) |
+| Time | Activity | Lead |
+| --- | --- | --- |
+| 06:00 – 07:00 | Review overnight load tenders, posted loads, market deltas | Oliver |
+| 07:00 – 09:00 | Carrier dispatch + macropoint check-in + driver text confirmations | Oliver |
+| 09:00 – 12:00 | Shipper calls · quoting · book new loads via Command Deck | Oliver |
+| 12:00 – 13:00 | Content block: podcast / LinkedIn / lane brief production | Daniel |
+| 13:00 – 15:00 | Carrier sourcing · vetting · rate negotiation | Oliver + Daniel (diaspora channel) |
+| 15:00 – 17:00 | Settlement, invoicing, QuickBooks sync, claims | Oliver |
+| 17:00 – 19:00 | Active load tracking · BOL collection · POD reconciliation | Split |
+| Evenings | Command Deck development sprint | Daniel |
+| On-call | 24/7 dispatch escalations (rotating weekly between partners) | Rotating |
 
-### 9.2 · Tech stack (Year 1)
+### 9.2 · Tech stack (Year 1 — lean $10K budget)
 
 | Tool | Purpose | Annual cost |
 | --- | --- | ---: |
-| **Orisei Brokerage Command Deck** (proprietary) | TMS · load boards · margin tracker · invoicing · forms | $0 (built) |
-| **DAT One Power** | Primary load board | $3,348 |
-| **Truckstop Premium** | Secondary board · credit scores · BookIt Now | $2,388 |
-| **Convoy / Uber Freight / 123Loadboard** | Digital posting + matching | $1,440 combined |
-| **RMIS** | Carrier onboarding + insurance verification | $1,200 |
-| **Carrier411** | Carrier safety + fraud screening | $720 |
-| **QuickBooks Online Plus** | Accounting / invoicing | $1,080 |
-| **Macropoint / Project44** | Tracking telemetry | $1,800 |
-| **HubSpot Starter** | CRM + sales sequences | $1,500 |
+| **Orisei Brokerage Command Deck** (proprietary) | TMS · load boards · margin tracker · invoicing · forms | $0 (built & co-maintained in-house) |
+| **DAT One** (starter tier) | Primary load board | $1,800 |
+| **123Loadboard** | Secondary digital posting | $420 |
+| **Carrier411** (basic) + FMCSA SAFER | Carrier safety + fraud screening | $720 |
+| **QuickBooks Online Simple Start** | Accounting / invoicing | $360 |
 | **Google Workspace** | Email, calendar, drive | $216 |
-| **Zoom Phone + business cell** | Customer + carrier comms | $480 |
-| **TOTAL TECH STACK Y1** | | **$14,172** |
+| **Business phone (VoIP)** | Customer + carrier comms | $240 |
+| **TOTAL TECH STACK Y1** | | **$3,756** |
+
+> Truckstop Premium, RMIS, Macropoint, and HubSpot are deliberately **deferred to Month 4+**, funded out of operating margin — not launch capital. The Command Deck covers tracking, CRM, and forms in the interim.
 
 ### 9.3 · Carrier vetting standards
 
 Orisei's carrier approval gate — **mandatory before any load is dispatched**:
 
 1. **Active MC + DOT authority** (FMCSA SAFER current).
-2. **Operating authority age ≥ 90 days** (or Orisei compensating control — direct dispatcher reference).
+2. **Operating authority age ≥ 90 days** (or Orisei compensating control — direct dispatcher reference; diaspora-network references documented in the Command Deck).
 3. **Auto-liability ≥ $1M, Cargo ≥ $100K** verified COI on file.
 4. **No "Unsatisfactory" safety rating; no out-of-service ratio > 35%.**
 5. **Carrier411 alert check** (double-brokering, fraud, identity theft).
@@ -264,45 +311,81 @@ Orisei's carrier approval gate — **mandatory before any load is dispatched**:
 
 | Item | Frequency | Owner |
 | --- | --- | --- |
-| BMC-84 surety bond renewal | Annual | Founder |
-| UCR registration | Annual (Jan–Dec window) | Founder |
-| BOC-3 process agent reverification | When state added/removed | Founder |
-| MC authority renewal (biennial update) | Even years | Founder |
+| BMC-84 surety bond renewal | Annual | Oliver |
+| UCR registration | Annual (Jan–Dec window) | Oliver |
+| BOC-3 process agent reverification | When state added/removed | Oliver |
+| MC authority renewal (biennial update) | Even years | Oliver |
 | 1099-NEC issuance to carriers | Annual (Jan 31) | CPA |
+| Form 1065 + K-1s (partnership return) | Annual (Mar 15) | CPA |
 | MN sales tax / no-nexus check | Quarterly | CPA |
-| Orisei E&O + GL policy renewal | Annual | Founder |
-| Customer COI delivery | Per-customer onboarding + annual | Founder |
+| Orisei E&O + GL policy renewal | Annual | Daniel |
+| Customer COI delivery | Per-customer onboarding + annual | Oliver |
+| Quarterly partner review (capital accounts, draws, KPIs) | Quarterly | Both |
 
 ---
 
 ## 10 · Financial Plan
 
-### 10.1 · Startup costs (cash deployed before first load brokered)
+### 10.1 · Capitalization — the $10,000 partner infusion
 
-| Line item | One-time | Recurring (annualized) |
-| --- | ---: | ---: |
-| LLC formation + MN registration | $310 | — |
-| FEIN | $0 | — |
-| Registered agent (MN) | $125 | $125 |
-| MC authority filing (FMCSA OP-1FF) | $300 | — |
-| BMC-84 surety bond ($75K · 1.5% premium for new entity) | — | $1,125 |
-| BOC-3 process agent filing | $40 | — |
-| UCR | — | $59 |
-| Commercial GL + Cargo + E&O package | — | $4,200 |
-| QuickBooks Online (annual prepay) | — | $1,080 |
-| DAT One Power + Truckstop Premium | — | $5,736 |
-| Digital boards (Convoy/Uber/123) | — | $1,440 |
-| RMIS + Carrier411 | — | $1,920 |
-| Macropoint / tracking | — | $1,800 |
-| Domain + Workspace + Zoom + cell | $40 | $696 |
-| Branding (logo + 1-page site) | $1,500 | — |
-| Legal (master broker/carrier agreement template review) | $1,800 | — |
-| CPA engagement (Y1 retainer setup) | $1,200 | — |
-| Working capital buffer (carrier quick-pay float, 30-day) | — | $8,000 |
-| **Cash required pre-launch** | **$5,315** | + $26,181 spread over Y1 |
-| **Recommended bootstrap reserve** | | **~$28,500** |
+| Member | Contribution | Value | Ownership |
+| --- | --- | ---: | ---: |
+| Daniel W. Karsor | Cash | **$10,000** | 50% |
+| Oliver Cummins | Orisei Command Deck IP assignment + pre-formation regulatory work + full-time operating commitment | Agreed-value in-kind | 50% |
+| **Total launch capital (cash)** | | **$10,000** | 100% |
 
-### 10.2 · Revenue model
+### 10.2 · Use of Funds — where the $10,000 goes
+
+| Category | Line item | Amount |
+| --- | --- | ---: |
+| **1 · Regulatory & Authority — $3,316** | MN LLC amendment (add member) + operating agreement filing | $155 |
+| | Registered agent (MN, annual) | $125 |
+| | FMCSA OP-1FF broker authority filing | $300 |
+| | BMC-84 $75,000 surety bond premium (new-entity rate, financed annual) | $1,250 |
+| | BOC-3 process agent filing (nationwide) | $40 |
+| | UCR registration | $46 |
+| | Insurance down payment — $1M GL · $100K contingent cargo · $1M E&O (balance financed monthly) | $1,400 |
+| **2 · Technology (lean stack) — $1,310** | DAT One starter (first 3 months) | $450 |
+| | QuickBooks Online Simple Start (annual prepay) | $360 |
+| | Carrier411 basic + screening tools | $240 |
+| | Domain + Google Workspace + VoIP phone | $260 |
+| **3 · Marketing & Brand — $500** | Website hosting + landing page launch | $150 |
+| | Outreach tooling + LinkedIn campaigns | $200 |
+| | Print collateral + brochure production | $150 |
+| **4 · Legal & Professional — $500** | Attorney review: partnership agreement + master broker/carrier agreement templates | $500 |
+| **5 · Working Capital Float — $3,200** | Carrier quick-pay float (bridges carrier net-terms before shipper receivables land, pre-factoring) | $3,200 |
+| **6 · Owner Launch Runway Reserve — $1,174** | 90-day partner cushion — covers phone, fuel, software renewals, and surprise fees so no partner injects unplanned cash in the first quarter | $1,174 |
+| **TOTAL** | | **$10,000** |
+
+**Deployment discipline.**
+
+- Categories 1–4 ($5,626) deploy in **Weeks 1–3** (pre-authority).
+- Category 5 ($3,200) is **untouchable until the first load is booked** — it exists solely to quick-pay carriers before receivables arrive.
+- Category 6 ($1,174) is the **launch runway reserve** — it is released only by unanimous partner consent, and any unused balance rolls into working capital at Day 90.
+- Every disbursement over $500 requires both partners' sign-off in the Command Deck cash-flow tab.
+
+### 10.3 · Owner Launch Runway — the 12-month execution ladder
+
+The launch runway is tracked live in the **Command Deck → Launch Runway tab**, where each milestone auto-computes actuals from real bookings, invoices, and collections.
+
+| Phase | Window | Milestone | Target |
+| --- | --- | --- | --- |
+| **1 · First shippers** | Week 1–2 | Cold-call 5 qualified shippers (anchor: SUPERVALU + 2 A/B-credit accounts) | 5 calls |
+| | Week 1–2 | Close 3 shippers | 3 accounts |
+| | Week 1–2 | Sign shipper agreements (Net 7 / 10 / 14) | 3 agreements |
+| **2 · Invoice book** | Week 3–4 | Run 20 real loads, invoiced & PODs filed | 20 invoices · $18,000 |
+| | Week 3–4 | Collect shipper payments & deposit | $18,000 banked |
+| **3 · Factoring** | Day 15 | Apply: Rapid Finance + On The Spot Factoring | 2 applications |
+| | Day 21 | Negotiate 3.75% fee · 85% advance · $50K line | Terms locked |
+| | Day 28 | Factoring live · UCC-1 filed | Line active |
+| **4 · Scale** | Month 2 | $40K invoiced · factor 80% · pay carriers $26K · keep $6K margin | $40K volume |
+| | Month 3–6 | 5–10 shippers · $80–120K weekly invoice volume · factor fee to 3.5% | 5–10 accounts |
+| **5 · The win** | Month 12 | 20+ shippers · $200K/week invoiced | 20 accounts |
+| | Month 12 | $50–80K cumulative margin · business credit established | $50K+ margin |
+
+> **Why the runway matters to the $10K budget:** the plan never requires more cash than the $3,200 float because factoring (Phase 3, live by Day 28) takes over working-capital duty. The $10K is a **bridge to the factoring line**, not the fuel for the whole year.
+
+### 10.4 · Revenue model
 
 > Revenue per load = **Linehaul × markup** where markup is set at the lane's spot-DAT benchmark ±10%.
 > Orisei tracks **margin %**, not flat fees.
@@ -314,7 +397,7 @@ Orisei's carrier approval gate — **mandatory before any load is dispatched**:
 - Avg loads / week (ramp): Mo1–3 = 4 · Mo4–6 = 8 · Mo7–9 = 12 · Mo10–12 = 16
 - Total Y1 loads ≈ **480** → Revenue ≈ **$432K** → Gross margin ≈ **$82K**
 
-### 10.3 · 3-Year P&L (bootstrap solo-agent baseline)
+### 10.5 · 3-Year P&L (lean two-partner baseline)
 
 | Line | Y1 (2026) | Y2 (2027) | Y3 (2028) |
 | --- | ---: | ---: | ---: |
@@ -322,58 +405,81 @@ Orisei's carrier approval gate — **mandatory before any load is dispatched**:
 | &nbsp;&nbsp;Brokered freight revenue | $432,000 | $1,026,000 | $1,920,000 |
 | **COGS** | | | |
 | &nbsp;&nbsp;Carrier pay | $349,920 | $810,540 | $1,478,400 |
-| &nbsp;&nbsp;Quick-pay factoring fee (3% on 25% of loads) | $1,080 | $3,847 | $7,200 |
+| &nbsp;&nbsp;Factoring fee (3.75% on 60% of loads Y1) | $2,080 | $3,847 | $7,200 |
 | **Gross profit** | **$80,000** | **$211,613** | **$434,400** |
 | **Gross margin %** | **18.5%** | **20.6%** | **22.6%** |
 | **Operating expenses** | | | |
-| &nbsp;&nbsp;Load boards & data | $9,924 | $11,200 | $13,500 |
-| &nbsp;&nbsp;Insurance (GL, Cargo, E&O) | $4,200 | $5,400 | $7,200 |
-| &nbsp;&nbsp;Bond renewal | $1,125 | $1,200 | $1,300 |
-| &nbsp;&nbsp;CRM, accounting, tracking SaaS | $4,476 | $7,200 | $9,600 |
+| &nbsp;&nbsp;Load boards & data (lean → scaling) | $3,600 | $11,200 | $13,500 |
+| &nbsp;&nbsp;Insurance (GL, Cargo, E&O — financed) | $4,200 | $5,400 | $7,200 |
+| &nbsp;&nbsp;Bond renewal | $1,250 | $1,200 | $1,300 |
+| &nbsp;&nbsp;Accounting, tracking & SaaS | $1,800 | $7,200 | $9,600 |
 | &nbsp;&nbsp;Office / co-working | $0 | $4,800 | $14,400 |
-| &nbsp;&nbsp;Legal & accounting | $4,800 | $9,600 | $14,400 |
-| &nbsp;&nbsp;Marketing & events | $5,400 | $14,400 | $24,000 |
+| &nbsp;&nbsp;Legal & accounting (1065 + K-1s) | $2,400 | $9,600 | $14,400 |
+| &nbsp;&nbsp;Marketing & events (studio-leveraged) | $2,400 | $14,400 | $24,000 |
 | &nbsp;&nbsp;Phone / internet / Workspace | $1,200 | $1,500 | $1,800 |
-| &nbsp;&nbsp;Travel & customer visits | $3,000 | $9,000 | $18,000 |
+| &nbsp;&nbsp;Travel & customer visits | $1,500 | $9,000 | $18,000 |
 | &nbsp;&nbsp;Bad debt reserve (0.5% of revenue) | $2,160 | $5,130 | $9,600 |
-| &nbsp;&nbsp;Misc / 10% contingency | $4,200 | $9,600 | $18,000 |
-| **Total OpEx** | **$40,485** | **$79,030** | **$131,800** |
-| **EBITDA before owner pay** | **$39,515** | **$132,583** | **$302,600** |
-| Owner draw / W-2 (S-Corp Y2+) | $30,000 | $90,000 | $180,000 |
-| Payroll taxes (employer-side) | $0 | $7,200 | $14,400 |
+| &nbsp;&nbsp;Misc / contingency | $2,000 | $9,600 | $18,000 |
+| **Total OpEx** | **$22,510** | **$79,030** | **$131,800** |
+| **EBITDA before partner pay** | **$57,490** | **$132,583** | **$302,600** |
+| Partner draws (combined, 50/50) | $30,000 | $90,000 | $180,000 |
+| Payroll taxes (employer-side, S-Corp Y2+) | $0 | $7,200 | $14,400 |
 | Hire: 1 carrier-sales agent (Y3) | $0 | $0 | $65,000 |
-| **Net income** | **$9,515** | **$35,383** | **$43,200** |
-| **Net cash to owner (draw + net)** | **$39,515** | **$125,383** | **$223,200** |
+| **Net income** | **$27,490** | **$35,383** | **$43,200** |
+| **Net cash to partners (draws + net, combined)** | **$57,490** | **$125,383** | **$223,200** |
+| **Per-partner share (50/50)** | **$28,745** | **$62,692** | **$111,600** |
 
-> **Note on owner compensation.** Year 1 is intentionally under-drawn to bank reserves and prove cash discipline. Year 2 elects S-Corp status and splits comp into reasonable salary + distributions to reduce SE tax. Year 3 funds the first hire.
+> **Note on partner compensation.** Year 1 draws are intentionally modest ($1,250/partner/month) to bank reserves and prove cash discipline. Both partners retain outside income streams in Y1 (Oliver: Tennant W-2 · Daniel: barbershop + studio), which is what makes the lean draw viable. Year 2 elects S-Corp status and splits comp into reasonable salary + distributions. Year 3 funds the first hire.
 
-### 10.4 · Cash flow & break-even
+### 10.6 · Cash flow & break-even
 
-- **Break-even loads / month:** ~24 loads at $171 avg margin = $4,100 to cover Y1 OpEx & owner pay run-rate. Target hit by **Month 5**.
-- **Working capital pressure point:** Carrier net-30 payments owed before shipper net-45 receivables arrive. Mitigation: **OTR Capital factoring line** on flagged loads only (25% of book), plus 30-day quick-pay reserve.
-- **Cash-flow positive month:** **Month 7** (Aug 2026) per pipeline ramp.
-- **Funded entirely by founder.** No outside investor in Y1.
+- **Break-even loads / month:** ~11 loads at $171 avg margin ≈ $1,900/mo covers the lean Y1 OpEx run-rate. Target hit by **Month 2**; full run-rate incl. draws covered by **Month 5**.
+- **Working capital pressure point:** Carrier net-30 payments owed before shipper net-45 receivables arrive. Mitigation: the **$3,200 quick-pay float** bridges Weeks 1–4; the **factoring line (live Day 28)** carries everything after.
+- **Cash-flow positive month:** **Month 5** per pipeline ramp — two months earlier than the solo plan, because the lean stack cut Y1 OpEx by $18K.
+- **Funded entirely by the partnership.** No outside investor.
 
-### 10.5 · Funding strategy
+### 10.7 · Funding strategy
 
 | Source | Amount | Timing | Purpose |
 | --- | ---: | --- | --- |
-| Founder savings | $28,500 | Pre-launch | Startup costs + 30-day float |
-| OTR Capital factoring line | up to $50K available | From Mo3 | Carrier quick-pay on flagged lanes only |
+| Daniel W. Karsor — partner capital | **$10,000** | Pre-launch | Full launch budget per Use of Funds (§10.2) |
+| Oliver Cummins — in-kind | Command Deck IP + operating commitment | Pre-launch | Technology platform + operations |
+| Factoring line (Rapid Finance / On The Spot) | up to $50K available | Day 28 | Carrier quick-pay on factored invoices |
 | Choice Bank LOC (post 12mo) | $25K | Mo13 | Seasonal swing (Q4 retail surge) |
 | SBA 7(a) micro (optional) | $50K | Mo18 | Hire #1 / office buildout |
-| Outside equity | **None** | — | Orisei stays owner-controlled |
+| Outside equity | **None** | — | Orisei stays partner-controlled, 50/50 |
 
 ---
 
-## 11 · Risk Analysis & Mitigation
+## 11 · Partnership Structure & Governance
+
+The partnership is governed by the **Minnesota Member-Controlled LLC Partnership Agreement** (executed copy stored in the Command Deck Document Vault). Key terms:
+
+| Provision | Term |
+| --- | --- |
+| Ownership | 50% Oliver Cummins · 50% Daniel W. Karsor |
+| Management | Member-managed; day-to-day per division of responsibilities (§2.3) |
+| Major decisions | Unanimous consent: spending >$2,500, debt, hiring, new equity, lane/market exits, IP licensing |
+| Profit & loss allocation | 50/50 per capital-account rules |
+| Distributions | Quarterly, by unanimous consent, after tax-reserve set-aside |
+| Deadlock | 30-day negotiation → mediation (Hennepin County) → buy-sell "shotgun" procedure |
+| Transfer restrictions | No transfer without right of first refusal to the other member |
+| Death / disability | Cross-purchase buyout at appraised fair value, 24-month note |
+| Non-compete | Neither member brokers freight outside the LLC during membership + 18 months |
+| Governing law | Minnesota Statutes Chapter 322C |
+
+---
+
+## 12 · Risk Analysis & Mitigation
 
 | Risk | Likelihood | Impact | Mitigation |
 | --- | --- | --- | --- |
-| **Carrier double-brokering / fraud** | High | High | Mandatory Carrier411 + RMIS + bank-callback; no email-only banking changes |
-| **Customer non-payment / slow pay** | Med | High | Credit pre-check on Truckstop · invoice factoring line on flagged accounts · 0.5% bad-debt reserve |
+| **Carrier double-brokering / fraud** | High | High | Mandatory Carrier411 + SAFER + bank-callback; no email-only banking changes |
+| **Customer non-payment / slow pay** | Med | High | Credit pre-check · factoring line from Day 28 · 0.5% bad-debt reserve |
+| **$10K budget overrun** | Med | High | Dual-signoff over $500 · deferred tech stack · $1,174 runway reserve · weekly cash review |
 | **Spot market downturn (capacity glut)** | Med | Med | Diversify shipper base; pursue contracted lanes over spot in Y2 |
-| **Founder bandwidth (single-agent ceiling)** | High | Med | Orisei Command Deck automation; Y3 hire of carrier-sales agent |
+| **Partner bandwidth (both have outside businesses Y1)** | High | Med | Division of responsibilities §2.3 · rotating on-call · Command Deck automation |
+| **Partner dispute / deadlock** | Low | High | Written agreement with mediation + buy-sell procedure; quarterly partner reviews |
 | **FMCSA enforcement (bond / BOC-3 lapse)** | Low | Catastrophic | Compliance calendar in Command Deck; auto-renewal alerts |
 | **Cargo claim / E&O liability** | Med | High | $100K contingent cargo + $1M E&O; written carrier liability flow-through |
 | **Concentration risk (top customer > 30%)** | Med | High | Hard cap: no single customer >25% of revenue by Mo18 |
@@ -381,7 +487,7 @@ Orisei's carrier approval gate — **mandatory before any load is dispatched**:
 
 ---
 
-## 12 · Key Performance Indicators (KPIs)
+## 13 · Key Performance Indicators (KPIs)
 
 KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab**. Targets:
 
@@ -396,51 +502,52 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 | Customer retention | ≥ 85% | ≥ 90% | ≥ 92% |
 | Top-customer concentration | < 35% | < 30% | < 25% |
 | Cash on hand (days OpEx) | ≥ 30 | ≥ 60 | ≥ 90 |
+| Launch-capital burn vs. §10.2 plan | ≤ 100% | — | — |
 
 ---
 
-## 13 · Step-by-Step Entry Plan
+## 14 · Step-by-Step Entry Plan
 
 ### Phase 0 · Pre-launch (T-90 days → T-1 day · Jan – Mar 2026)
 
 | Step | Action | Owner | Done when |
 | --- | --- | --- | --- |
-| 0.1 | Form Orisei Freight Solutions LLC in Minnesota (Articles of Organization + Operating Agreement) | Founder | MN SOS confirmation |
-| 0.2 | Apply for FEIN with IRS | Founder | EIN letter received |
-| 0.3 | Open business checking + savings + credit card with Choice Financial | Founder | Accounts active |
-| 0.4 | File **OP-1FF** with FMCSA (broker authority application, $300) | Founder | MC# pending |
-| 0.5 | Purchase **BMC-84 $75,000 surety bond** | Founder | Bond filed with FMCSA |
-| 0.6 | File **BOC-3** process agent designation (nationwide) | Filing service | BOC-3 stamped |
-| 0.7 | Pay **UCR** registration | Founder | UCR active |
-| 0.8 | Bind insurance: $1M GL · $100K contingent cargo · $1M E&O · cyber rider | Founder | Certificates received |
-| 0.9 | Engage CPA + corporate counsel; execute Master Broker/Carrier Agreement template | Founder | Templates signed |
-| 0.10 | Subscribe DAT Power, Truckstop Premium, RMIS, Carrier411, QuickBooks, Macropoint | Founder | Logins live |
-| 0.11 | Configure **Orisei Brokerage Command Deck** (theme, integrations, accounting tab, compliance vault) | Founder | Live load board feed |
-| 0.12 | Build domain · email · 1-page website · LinkedIn company page | Founder | oriseifreight.com live |
-| 0.13 | Run 60-name warm outreach list; book 12 discovery calls for week 1 | Founder | Calls booked |
-| 0.14 | Pre-onboard **15 carriers** through RMIS so the day-1 capacity bench exists | Founder | 15 approved carriers |
+| 0.1 | File MN amendment adding Daniel W. Karsor as 50% member; execute Partnership Agreement | Both | MN SOS confirmation + signed agreement |
+| 0.2 | Daniel wires $10,000 capital contribution to LLC operating account | Daniel | Deposit confirmed |
+| 0.3 | Apply for FEIN with IRS (partnership classification) | Oliver | EIN letter received |
+| 0.4 | Open business checking + savings with Choice Financial; dual-signer >$2,500 | Both | Accounts active |
+| 0.5 | File **OP-1FF** with FMCSA (broker authority application, $300) | Oliver | MC# pending |
+| 0.6 | Purchase **BMC-84 $75,000 surety bond** | Oliver | Bond filed with FMCSA |
+| 0.7 | File **BOC-3** process agent designation (nationwide) | Filing service | BOC-3 stamped |
+| 0.8 | Pay **UCR** registration | Oliver | UCR active |
+| 0.9 | Bind insurance: $1M GL · $100K contingent cargo · $1M E&O (down payment + monthly) | Daniel | Certificates received |
+| 0.10 | Engage CPA + counsel; attorney review of partnership + broker/carrier agreements | Both | Templates signed |
+| 0.11 | Subscribe lean stack: DAT One, 123Loadboard, Carrier411, QuickBooks | Daniel | Logins live |
+| 0.12 | Configure **Orisei Brokerage Command Deck** (theme, integrations, accounting tab, compliance vault) | Daniel | Live load board feed |
+| 0.13 | Build domain · email · 1-page website · LinkedIn company page · record podcast episode 1 | Daniel | oriseifreight.com live |
+| 0.14 | Run 60-name warm outreach list; book 12 discovery calls for week 1 | Oliver | Calls booked |
+| 0.15 | Pre-onboard **15 carriers** (incl. diaspora-network owner-operators) | Both | 15 approved carriers |
 
 **Gate:** Orisei does not post a load to any board until **MC authority is active** (typically 21 days after OP-1FF + bond + BOC-3 are all on file).
 
 ### Phase 1 · Launch (Month 1 – Month 3 · Apr – Jun 2026)
 
-- **Mo1:** First load brokered (target: Mo1 day 5). Goal: 16 loads · $2,700 gross margin · 100% claim-free.
-- **Mo2:** Onboard customer #2 from warm list. Add reefer lane. Goal: 24 loads · $4,100 GM.
-- **Mo3:** First quarterly business review with anchor customer. Goal: 32 loads · $5,500 GM. Pull factoring line live.
+- **Mo1:** Execute Launch Runway Phases 1–3 (§10.3). First load brokered target: Mo1 day 5. Goal: 16 loads · $2,700 gross margin · 100% claim-free.
+- **Mo2:** Factoring live. Onboard customer #4. Add reefer lane. Goal: 24 loads · $4,100 GM.
+- **Mo3:** First quarterly business review with anchor customer + first quarterly partner review. Goal: 32 loads · $5,500 GM.
 
 ### Phase 2 · Stabilize (Month 4 – Month 6 · Jul – Sep 2026)
 
 - Goal: 40 loads/mo · $6,800 GM/mo · 4 active customers.
-- Introduce **lane intelligence weekly email** (35 ICP recipients).
+- Fund deferred tech (Truckstop, RMIS, Macropoint) from operating margin.
+- Launch **lane intelligence weekly email** (35 ICP recipients) + weekly podcast cadence.
 - Attend **MN Trucking Association mid-year meeting**.
-- Open **OTR factoring line** for quick-pay carriers.
-- Engage MN events: **CSCMP Twin Cities chapter** + **MMTA**.
 
 ### Phase 3 · Scale (Month 7 – Month 12 · Oct 2026 – Mar 2027)
 
 - Goal: 60+ loads/mo by Mo12 · $11K GM/mo · 8 active customers · Q4 retail surge captured.
 - Apply **S-Corp tax election** effective Jan 1, 2027.
-- Begin documenting **SOPs** in Orisei Command Deck (carrier vetting, billing, claims).
+- Document **SOPs** in Command Deck (carrier vetting, billing, claims).
 - Hire **part-time night-dispatch contractor** for 24/7 coverage.
 
 ### Phase 4 · Expand (Year 2 · 2027)
@@ -448,55 +555,59 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 - Open **co-working office** in Loring Park (Mpls).
 - Hire **first W-2 carrier-sales agent** late Q3.
 - Add **intermodal lanes** via BNSF ramp partnerships.
+- Explore **West Africa trade-lane advisory** (ocean export forwarding referrals) leveraging Daniel's network + Oliver's international specialization.
 - Target: 21 loads/wk · $18K GM/wk · 14 active customers.
 
 ### Phase 5 · Institutionalize (Year 3 · 2028)
 
 - Dedicated office (1,200 sq ft) in North Loop or Bloomington.
-- Headcount: founder + 1 sales agent + 1 ops/dispatch + 1 part-time AR.
+- Headcount: 2 founders + 1 sales agent + 1 ops/dispatch + 1 part-time AR.
 - **Orisei Command Deck** licensed to 2 sister brokerages (optional revenue stream).
 - 37+ loads/wk · $441K gross margin year · open conversation on potential sale, merger, or roll-up.
 
 ---
 
-## 14 · Long-Term Vision & Exit Options
+## 15 · Long-Term Vision & Exit Options
 
 By the end of Year 3, Orisei Freight Solutions has three realistic strategic paths:
 
-1. **Continue & compound** — stay solo-founder-controlled, grow to 8-person shop, hit $5M revenue by Y5. Highest long-term EV, lowest velocity.
-2. **Strategic sale** — exit to a regional consolidator (RXO, Hub Group, Coyote) at ~3.5–5× EBITDA. Expected sale band at end Y3: **$1.0M – $1.5M cash + earnout**.
-3. **Tech-licensing pivot** — package the **Orisei Brokerage Command Deck** as a SaaS offering for other single-agent brokerages. Pricing target: **$499/mo/seat**.
+1. **Continue & compound** — stay 50/50 partner-controlled, grow to 8-person shop, hit $5M revenue by Y5. Highest long-term EV, lowest velocity.
+2. **Strategic sale** — exit to a regional consolidator (RXO, Hub Group, Coyote) at ~3.5–5× EBITDA. Expected sale band at end Y3: **$1.0M – $1.5M cash + earnout**, split 50/50.
+3. **Tech-licensing pivot** — package the **Orisei Brokerage Command Deck** as a SaaS offering for other single-agent brokerages, engineered by Daniel. Pricing target: **$499/mo/seat**.
 
-The founder will revisit this decision tree at the end of every fiscal year.
+The partners will revisit this decision tree at the end of every fiscal year.
 
 ---
 
-## 15 · Appendix
+## 16 · Appendix
 
-### 15.1 · Glossary
+### 16.1 · Glossary
 
 - **MC#** — Motor Carrier number; FMCSA-issued broker authority identifier.
 - **BMC-84** — Surety bond satisfying 49 USC §13906; $75,000 required for property brokers.
 - **BOC-3** — Designation of process agents in every state where the broker arranges freight.
 - **OP-1FF** — FMCSA form for broker authority application.
-- **RMIS** — Registry Monitoring Insurance Services; standard COI repository.
 - **Carrier411** — Public-record carrier-vetting service used to screen fraud and double-brokering.
 - **DSO** — Days Sales Outstanding; A/R turn metric.
 - **Quick-pay** — Carrier-side accelerated payment in exchange for a discount, often 1.5–3%.
+- **Chapter 322C** — Minnesota Revised Uniform Limited Liability Company Act, governing the LLC.
+- **K-1** — IRS Schedule K-1; each member's share of partnership income reported annually.
 
-### 15.2 · Regulatory references
+### 16.2 · Regulatory references
 
 - 49 CFR Part 371 — Broker regulations.
 - 49 USC §13906 — Surety bond requirement.
 - 49 CFR §366 — BOC-3 process-agent rules.
 - FMCSA SMS — Safety Measurement System for carrier vetting.
+- Minn. Stat. Ch. 322C — Minnesota Revised Uniform LLC Act.
 
-### 15.3 · Document control
+### 16.3 · Document control
 
 | Version | Date | Author | Note |
 | --- | --- | --- | --- |
 | 1.0 | 2026-02-14 | Oliver Cummins | Initial plan rendered into Orisei Brokerage Command Deck. |
+| 2.0 | 2026-06 | Oliver Cummins · Daniel W. Karsor | Partnership Edition — Daniel W. Karsor admitted as 50/50 co-founder; recapitalized around $10,000 partner infusion; lean use-of-funds; owner launch runway integrated; partnership governance added. |
 
 ---
 
-*Orisei Freight Solutions LLC · Operator-built freight brokerage · Minneapolis · Saint Paul · Minnesota · oliver@oriseifreight.com · (612) 555-0117*
+*Orisei Freight Solutions LLC · Partner-built freight brokerage · Minneapolis · Saint Paul · Brooklyn Park · Minnesota · oliver@oriseifreight.com · daniel@oriseifreight.com · (612) 555-0117*

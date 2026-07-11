@@ -4,6 +4,32 @@
 
 ---
 
+## 2026-06 (June) · Iteration 63 — Business Plan v2.0 Partnership Edition
+- **Business Plan amended** (`/app/BROKERAGE_BUSINESS_PLAN.md` → v2.0): Daniel W. Karsor
+  added as 50/50 co-founder & principal owner (Brooklyn Park MN; barbershop + podcast
+  studio owner; West African heritage; software developer). Financials recapitalized
+  around his **$10,000 cash infusion** (lean launch: Y1 OpEx $22.5K, cash-flow positive
+  Mo5, per-partner Y1 share $28,745). New §10.2 Use-of-Funds breakdown (6 categories
+  summing to $10,000 incl. $1,174 Owner Launch Runway Reserve) + §10.3 Owner Launch
+  Runway ladder (mirrors Launch Runway tab phases) + §11 Partnership Governance.
+- **MN 50/50 Partnership Agreement** (`/app/PARTNERSHIP_AGREEMENT.md`): full
+  member-controlled LLC agreement under Minn. Stat. Ch. 322C — capital contributions,
+  50/50 allocations, unanimous-consent major decisions, deadlock/shotgun buy-sell,
+  ROFR, death/disability buyout, non-compete carve-outs for both members' outside
+  businesses, IP assignment, signature + notary blocks.
+  Endpoints: `GET /api/brokerage/partnership-agreement` (md) + `/pdf` (branded PDF).
+- **Colorful brochure PDF** (`/app/backend/routes/plan_brochure.py`): 6-page
+  magazine-style canvas-drawn brochure (cover, at-a-glance stat cards, founder panels,
+  use-of-funds bars, launch-runway timeline, 3-year financial spread).
+  Endpoint: `GET /api/brokerage/business-plan/brochure.pdf`.
+- **Frontend** (`Brokerage.jsx` BusinessPlanTab): new "Brochure PDF"
+  (`business-plan-brochure-btn`) and "Partnership Agreement"
+  (`partnership-agreement-btn`) download buttons.
+- Tested: all 4 endpoints curl 200 via preview URL; brochure pages visually verified
+  (fitz render); Business Plan tab screenshot confirms Karsor/$10K content + buttons.
+
+---
+
 ## Iter 60 · 61 · 62 — 2026-07-03 · Real geolocation-driven weather (mock removal)
 
 **Status**: ✅ 7/7 backend + 6/6 frontend across three iterations (iter_60/61/62.json). Zero mocked strings in weather widgets.

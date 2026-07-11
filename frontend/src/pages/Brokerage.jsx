@@ -771,14 +771,51 @@ function AITab() {
 // ============================================================
 function BusinessPlanTab() {
   const [showPitch, setShowPitch] = useState(false);
+  const [busyDoc, setBusyDoc] = useState(null);
+
+  const downloadPdf = async (key, url, filename) => {
+    setBusyDoc(key);
+    try {
+      const res = await api.get(url, { responseType: "blob" });
+      const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = blobUrl; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); window.URL.revokeObjectURL(blobUrl);
+      toast.success(`${filename} downloaded`);
+    } catch {
+      toast.error("PDF download failed");
+    } finally {
+      setBusyDoc(null);
+    }
+  };
+
   const extraActions = (
-    <Button
-      onClick={() => setShowPitch(true)}
-      data-testid="business-plan-email-investor-btn"
-      className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase tracking-wider"
-    >
-      <Mail size={13} className="mr-1.5" /> Email to Investor
-    </Button>
+    <>
+      <Button
+        onClick={() => downloadPdf("brochure", "/brokerage/business-plan/brochure.pdf", "Orisei_Business_Plan_Brochure.pdf")}
+        disabled={busyDoc === "brochure"}
+        data-testid="business-plan-brochure-btn"
+        className="bg-amber-500 hover:bg-amber-400 text-black font-bold font-mono text-[11px] uppercase tracking-wider"
+      >
+        {busyDoc === "brochure" ? <Loader2 size={13} className="mr-1.5 animate-spin" /> : <Sparkles size={13} className="mr-1.5" />} Brochure PDF
+      </Button>
+      <Button
+        onClick={() => downloadPdf("agreement", "/brokerage/partnership-agreement/pdf", "Orisei_Partnership_Agreement.pdf")}
+        disabled={busyDoc === "agreement"}
+        data-testid="partnership-agreement-btn"
+        className="bg-white/5 border border-white/10 hover:border-amber-400/40 hover:text-amber-200 text-slate-300 font-mono text-[11px] uppercase tracking-wider"
+      >
+        {busyDoc === "agreement" ? <Loader2 size={13} className="mr-1.5 animate-spin" /> : <Stamp size={13} className="mr-1.5" />} Partnership Agreement
+      </Button>
+      <Button
+        onClick={() => setShowPitch(true)}
+        data-testid="business-plan-email-investor-btn"
+        className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase tracking-wider"
+      >
+        <Mail size={13} className="mr-1.5" /> Email to Investor
+      </Button>
+    </>
   );
   return (
     <>

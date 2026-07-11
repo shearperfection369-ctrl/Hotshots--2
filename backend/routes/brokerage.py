@@ -2152,6 +2152,39 @@ def build_brokerage_router(
         """Return the step-by-step home-office self-hosting plan markdown."""
         return _read_doc("HOME_OFFICE_SETUP.md", "Home office setup document not found")
 
+    @router.get("/partnership-agreement")
+    async def partnership_agreement(_=Depends(get_current_user)):
+        """Return the MN 50/50 partnership agreement markdown."""
+        return _read_doc("PARTNERSHIP_AGREEMENT.md", "Partnership agreement document not found")
+
+    @router.get("/partnership-agreement/pdf")
+    async def partnership_agreement_pdf(_=Depends(get_current_user)):
+        """Branded PDF of the MN 50/50 partnership agreement."""
+        doc = _read_doc("PARTNERSHIP_AGREEMENT.md", "Partnership agreement document not found")
+        brand = await _active_brand(db)
+        company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+        pdf_bytes = build_branded_markdown_pdf(
+            doc["markdown"], title="Partnership Agreement",
+            subtitle="Member-Controlled LLC · State of Minnesota · 50/50",
+            brand=brand,
+        )
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{company.replace(" ", "_")}_Partnership_Agreement.pdf"'},
+        )
+
+    @router.get("/business-plan/brochure.pdf")
+    async def business_plan_brochure(_=Depends(get_current_user)):
+        """Colorful brochure-style PDF of the business plan."""
+        from .plan_brochure import build_plan_brochure_pdf
+        pdf_bytes = build_plan_brochure_pdf()
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="Orisei_Business_Plan_Brochure.pdf"'},
+        )
+
     # ---- Branded PDF downloads of the markdown documents ----
     @router.get("/business-plan/pdf")
     async def business_plan_pdf(_=Depends(get_current_user)):
