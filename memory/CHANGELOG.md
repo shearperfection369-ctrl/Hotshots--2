@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-06 (June) · Iteration 64 — Real News & Traffic on Dashboard
+- **/api/news de-mocked**: now serves real RSS headlines via `routes.freight_news.fetch_all_news()`
+  (Transport Topics, Land Line, CCJ, Trucking Dive, Trucking Info) with true relative
+  timestamps. Removed the 40-item `MOCK_NEWS` corpus from `server.py`.
+- **/api/traffic de-mocked**: new `routes/traffic_live.py` pulls real active roadwork /
+  lane-closure incidents from public state-DOT **WZDx feeds** (no API keys): WI, IA, IN,
+  MO, KY, NY, WA, UT, ID, DE, LA. Geo-based — accepts `?lat=&lng=`, picks the 3 nearest
+  state feeds, filters active events within 250 mi, dedupes segments, ranks
+  severity+distance, caches 10 min. Removed the 25-item `MOCK_TRAFFIC` corpus.
+  NOTE: MnDOT's own feed (mn.carsprogram.org) blocks cloud IPs — Twin Cities users see
+  adjacent WI/IA/MO corridors (real I-94/I-35 data).
+- **Dashboard.jsx**: traffic widget now shows distance (mi) + impact type + agency,
+  links to the state 511 site, has an empty state (`traffic-empty`); news items link
+  out to the article; `/traffic` call reuses the weather banner's cached geolocation
+  (`tms-weather-geo`).
+- Tested: curl (30 real WI incidents at MSP coords; real RSS headlines) + dashboard
+  DOM screenshot confirms no "Holland MI plant" / "I-394" mock strings remain.
+
+---
+
 ## 2026-06 (June) · Iteration 63 — Business Plan v2.0 Partnership Edition
 - **Business Plan amended** (`/app/BROKERAGE_BUSINESS_PLAN.md` → v2.0): Daniel W. Karsor
   added as 50/50 co-founder & principal owner (Brooklyn Park MN; barbershop + podcast

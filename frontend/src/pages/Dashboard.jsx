@@ -84,10 +84,19 @@ export default function Dashboard() {
   useBrandRefresh(() => loadAll());
 
   async function loadAll() {
+    // Reuse the geolocation cached by the weather banner so traffic incidents
+    // are pulled from the real state-DOT feeds nearest the user.
+    let trafficUrl = "/traffic";
+    try {
+      const g = JSON.parse(localStorage.getItem("tms-weather-geo") || "null");
+      if (g && typeof g.lat === "number" && typeof g.lng === "number") {
+        trafficUrl = `/traffic?lat=${g.lat}&lng=${g.lng}`;
+      }
+    } catch { /* fall back to HQ default */ }
     try {
       const [k, s, f, w, n, t, m] = await Promise.all([
         api.get("/kpis"), api.get("/shipments"), api.get("/facilities"),
-        api.get("/weather"), api.get("/news"), api.get("/traffic"),
+        api.get("/weather"), api.get("/news"), api.get(trafficUrl),
         api.get("/sap/materials"),
       ]);
       setKpis(k.data); setShipments(s.data); setFacilities(f.data);
@@ -254,7 +263,8 @@ export default function Dashboard() {
             </div>
             <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
               {news.map((n, i) => (
-                <div key={i} className="p-2.5 rounded border border-white/5 bg-white/[0.02] hover:border-cyan-500/30 transition-colors">
+                <a key={i} href={n.url} target="_blank" rel="noreferrer"
+                   className="block p-2.5 rounded border border-white/5 bg-white/[0.02] hover:border-cyan-500/30 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-wider">{n.source} · {n.category}</div>
@@ -262,7 +272,7 @@ export default function Dashboard() {
                     </div>
                     <span className="text-[10px] font-mono text-slate-500 shrink-0">{n.time}</span>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           </Card>
@@ -398,14 +408,20 @@ export default function Dashboard() {
                 <AlertTriangle size={14} className="text-yellow-400" />
               </div>
               <div className="space-y-2 max-h-64 overflow-y-auto" data-testid="traffic-widget">
+                {traffic.length === 0 && (
+                  <div className="text-[11px] font-mono text-slate-500 p-2" data-testid="traffic-empty">
+                    No active incidents reported by nearby state-DOT feeds.
+                  </div>
+                )}
                 {traffic.map((t, i) => (
-                  <div key={i} className="p-2.5 rounded border border-white/5 bg-white/[0.02]">
+                  <a key={i} href={t.source_url} target="_blank" rel="noreferrer"
+                     className="block p-2.5 rounded border border-white/5 bg-white/[0.02] hover:border-yellow-500/30 transition-colors">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-white truncate flex-1">{t.location}</span>
-                      <span className={`text-[10px] font-mono uppercase ml-2 ${t.severity === 'high' ? 'text-red-400' : t.severity === 'moderate' ? 'text-yellow-400' : 'text-slate-400'}`}>+{t.delay_min}m</span>
+                      <span className={`text-[10px] font-mono uppercase ml-2 ${t.severity === 'high' ? 'text-red-400' : t.severity === 'moderate' ? 'text-yellow-400' : 'text-slate-400'}`}>{t.distance_mi} mi</span>
                     </div>
-                    <div className="text-[10px] font-mono text-slate-500 mt-0.5">{t.type}</div>
-                  </div>
+                    <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate">{t.type} · {t.agency}</div>
+                  </a>
                 ))}
               </div>
             </Card>

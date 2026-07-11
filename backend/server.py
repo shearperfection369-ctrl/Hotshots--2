@@ -1439,51 +1439,6 @@ async def get_weather(_: User = Depends(get_current_user)):
                 results.append({"facility_id": f["id"], "facility_name": f["name"], "error": str(e)})
     return results
 
-MOCK_NEWS = [
-    # 40+ rotating items. published_minutes_ago is randomized fresh on every
-    # /api/news fetch to simulate a live ticker for the dispatch team.
-    {"title": "Diesel prices ease 4¢ as Midwest refineries return from turnarounds", "source": "FreightWaves", "category": "fuel", "body": "EIA weekly diesel average drops to $3.78/gal — first decline in five weeks. PADD 2 (Midwest) led the pull-down at -6.2¢, easing some pressure on FSC schedules for Q1 freight.", "url": "https://www.freightwaves.com/news/diesel"},
-    {"title": "Port of Long Beach reports 8% volume increase YoY for January", "source": "JOC", "category": "ocean", "body": "TEU throughput at Long Beach hit 952,600 in January, up from 881,700 a year ago. POLB attributes the gain to early front-loading ahead of Lunar New Year and ongoing strength in furniture and appliance categories.", "url": "https://www.joc.com/port-news"},
-    {"title": "FMCSA proposes HOS exemption for short-haul drivers under 150 air-mile radius", "source": "Transport Topics", "category": "regulatory", "body": "Proposed rule would lengthen the short-haul exception from 14 to 16 hours and remove the 11-hour driving cap for qualifying intrastate runs.", "url": "https://www.fmcsa.dot.gov/proposed-rule"},
-    {"title": "UPS adds 12 new electric ground-support tugs in Louisville hub", "source": "DC Velocity", "category": "carrier", "body": "Worldport's electrification program now covers 28% of ground-support equipment; UPS targets 40% by year-end.", "url": "https://www.dcvelocity.com/ups-electric"},
-    {"title": "Severe winter weather forecast for Upper Midwest mid-week", "source": "Weather.gov", "category": "weather", "body": "NWS Twin Cities issues Winter Storm Watch for 14 counties Wed–Thu — 6–10\" snow forecast for Golden Valley corridor; carriers urged to pre-route freight.", "url": "https://weather.gov/mpx"},
-    {"title": "USTR opens Section 301 four-year review on Chinese components", "source": "Reuters", "category": "trade", "body": "Public comment period opens Mar 1 — affects HTS chapters 84/85/87 including motors, batteries, and electronic controllers commonly used by industrial OEMs.", "url": "https://ustr.gov/section-301-review"},
-    {"title": "Kuehne+Nagel expands North America air freight network with two new gateways", "source": "Air Cargo News", "category": "carrier", "body": "K+N adds Atlanta (ATL) and Dallas (DFW) gateways and 4 weekly 777F rotations from Frankfurt — designed to cut transit by 1–2 days on cross-Atlantic industrial freight.", "url": "https://www.aircargonews.net/kn-expansion"},
-    {"title": "ELD malfunction reports rise 15% in Q4 — FMCSA notice", "source": "CDLLife", "category": "regulatory", "body": "FMCSA issues guidance reminding fleets to keep paper backup logs for 8 days when ELDs fail. Affected device vendors named in notice.", "url": "https://cdllife.com/eld-malfunction"},
-
-    {"title": "Hapag-Lloyd raises GRI on US import lanes by $300/FFE effective Mar 1", "source": "JOC", "category": "ocean", "body": "Targets all-water Asia → USEC routes. Negotiated NAC contracts unaffected — spot market shippers should expect immediate impact.", "url": "https://www.hapag-lloyd.com/news"},
-    {"title": "BNSF announces $1.2B capex plan for Southern Transcon corridor", "source": "Railway Age", "category": "rail", "body": "Investments target additional double-track between Belen NM and Amarillo TX, plus Pasadena CA intermodal terminal expansion to handle larger intermodal volumes.", "url": "https://www.railwayage.com/bnsf-capex"},
-    {"title": "CSX completes Howard Street Tunnel clearance project in Baltimore", "source": "Trains Magazine", "category": "rail", "body": "Double-stack clearance now operational from Mid-Atlantic ports inland — expected to remove ~120 truck moves/day off I-95 corridor.", "url": "https://trn.trains.com/csx-tunnel"},
-    {"title": "Old Dominion posts record Q4 operating ratio of 70.1%", "source": "Logistics Management", "category": "ltl", "body": "ODFL revenue per hundredweight +5.4% YoY despite tonnage softness. Carrier credits density and absence of major service failures.", "url": "https://www.logisticsmgmt.com/odfl"},
-    {"title": "XPO opens 12 new LTL service centers across the Southeast", "source": "FreightWaves", "category": "ltl", "body": "XPO completes the largest LTL terminal expansion in 30 years — adds 2.4M ft² of dock space in TN, GA, FL, SC.", "url": "https://www.freightwaves.com/xpo-expansion"},
-    {"title": "Truckstop spot rates: DAT National Van down 2.1% WoW", "source": "DAT", "category": "spot-market", "body": "Linehaul rate excl. fuel sits at $1.66/mi for dry van; reefer holds at $2.04/mi as produce season starts to ramp in Florida and California.", "url": "https://www.dat.com/trendlines"},
-    {"title": "Mexico nearshoring drives 23% increase in cross-border truckload volume", "source": "JOC", "category": "cross-border", "body": "Laredo crossings up 18% YoY; Otay Mesa up 27%. Reynosa supplier base reports 4-day average border dwell down to 32 hours.", "url": "https://www.joc.com/nearshoring"},
-    {"title": "Maersk announces all-electric drayage fleet for LA/LB by 2027", "source": "American Shipper", "category": "ocean", "body": "350 Class-8 electric tractors ordered from Volvo and Daimler. Charging infrastructure in partnership with Forum Mobility.", "url": "https://www.americanshipper.com/maersk"},
-    {"title": "DOT Sec'y announces $1.4B in port infrastructure grants", "source": "DOT", "category": "regulatory", "body": "20 ports receive funding; Long Beach, Houston, Norfolk top recipients. Focus on rail connectivity and zero-emission cargo handling.", "url": "https://www.transportation.gov/port-grants"},
-    {"title": "Saia announces 22 new terminal openings for 2026", "source": "Transport Topics", "category": "ltl", "body": "Aggressive geographic expansion in the Pacific Northwest and New England — Saia's first OR, WA, and ME locations.", "url": "https://www.ttnews.com/saia-2026"},
-    {"title": "Knight-Swift posts mixed Q4 — truckload margin compresses, logistics gains", "source": "Knight-Swift IR", "category": "carrier", "body": "Trucking segment OR 92.3% (-180bps YoY); Logistics 95.8% (+90bps). Net revenue up 4.2%.", "url": "https://knight-transportation.com/ir"},
-    {"title": "Schneider deploys 65 Freightliner eCascadia tractors in CA", "source": "FleetOwner", "category": "sustainability", "body": "Largest single OEM order to date — supporting California Advanced Clean Fleets compliance.", "url": "https://www.fleetowner.com/schneider-ev"},
-    {"title": "C.H. Robinson rolls out Procure IQ AI for spot procurement", "source": "Transport Topics", "category": "tech", "body": "AI-driven carrier match and pricing — claims to cut tender-to-cover time from 4 hours to 22 minutes on average.", "url": "https://www.chrobinson.com/procure-iq"},
-    {"title": "Suez Canal traffic improves 12% as Red Sea attacks de-escalate", "source": "Lloyd's List", "category": "ocean", "body": "Daily transits average 56, up from 50 at the start of the month. Capacity still 38% below pre-conflict baseline.", "url": "https://lloydslist.maritimeintelligence.informa.com/suez"},
-    {"title": "EU CBAM phase-2 compliance deadline approaches for steel imports", "source": "Reuters", "category": "trade", "body": "EU importers face quarterly reporting from April; non-compliance fines €50/ton CO₂ embedded. Industrial OEMs sourcing iron/steel from non-EU mills should validate emission documentation.", "url": "https://reuters.com/cbam"},
-    {"title": "Werner Enterprises closes Q4 with $0.58 EPS, beats by $0.04", "source": "SeekingAlpha", "category": "carrier", "body": "Dedicated segment showed strongest performance; one-way TL still under pressure from soft spot rates.", "url": "https://seekingalpha.com/werner-q4"},
-    {"title": "FedEx Freight tests autonomous yard tractors at Memphis hub", "source": "DC Velocity", "category": "tech", "body": "Outrider partnership — 6 electric autonomous tractors handling trailer spotting and yard moves 24/7.", "url": "https://www.dcvelocity.com/fedex-outrider"},
-    {"title": "Yellow Corp. terminals auction nets $1.9B for creditors", "source": "FreightWaves", "category": "ltl", "body": "ABF, Estes, XPO among biggest winners. 130 terminals sold across US — implications for LTL capacity in 2026.", "url": "https://www.freightwaves.com/yellow-auction"},
-    {"title": "Class-8 truck orders soar in January — ACT Research", "source": "Truckinginfo", "category": "industry", "body": "Net Class-8 orders 32,400 units — best January since 2018. Fleets restocking ahead of EPA 2027 emissions rules.", "url": "https://www.truckinginfo.com/class-8"},
-    {"title": "Tornado warning issued for Madison County, IN — I-69 SB shut", "source": "NWS Indianapolis", "category": "weather", "body": "Severe weather expected through 4pm local; Holland-bound carriers re-routing via I-65 to avoid the cell.", "url": "https://weather.gov/ind"},
-    {"title": "Customs Modernization Act draft text circulates in House", "source": "AAEI", "category": "trade", "body": "Would consolidate CBP/PGA filings into a single enhanced ACE manifest. Industrial importers should monitor for changes to FTZ admission procedures.", "url": "https://aaei.org/cma"},
-    {"title": "OOCL ULCV maintenance schedule pushes 4 transpacific calls", "source": "JOC", "category": "ocean", "body": "Three ULCVs in drydock at Singapore; affected weekly sailings PSW3 and PCC.", "url": "https://www.joc.com/oocl-schedule"},
-    {"title": "Reefer rates climb 9% as Florida strawberry season opens", "source": "DAT", "category": "spot-market", "body": "Lakeland → Atlanta refrigerated lane up to $3.42/mi loaded. Expect FL-MI lanes to follow suit in 2 weeks.", "url": "https://www.dat.com/reefer"},
-    {"title": "AAR weekly carloads up 3.1% — chemicals lead growth", "source": "Association of American Railroads", "category": "rail", "body": "Total US originated carloads 226,118; chemical traffic +7.4% YoY. Intermodal also strong at +5.2%.", "url": "https://www.aar.org/weekly"},
-    {"title": "Operator adds 4 new approved LTL carriers to North American roster", "source": "Internal", "category": "internal", "body": "XPO, ODFL, Saia, Estes all complete annual qualification review. Routing guide Rev 29 reflects updated lane assignments.", "url": "/routing-guide"},
-    {"title": "Holland MI plant on-time inbound rate hits 96.4% for January", "source": "Internal", "category": "internal", "body": "All-time monthly record. Top 5 suppliers (Motrex, BattCo, Premier Polymers, Yazaki, Midwest Steel) all >97%.", "url": "/kpis"},
-    {"title": "Hurricane Beryl recovery: Houston port back to 100% capacity", "source": "American Shipper", "category": "ocean", "body": "Backlog cleared 3 weeks after landfall — 27 vessels processed at peak vs. typical 18.", "url": "https://www.americanshipper.com/houston"},
-    {"title": "USPS announces 5.9% rate hike for parcel select effective July", "source": "Parcel Industry", "category": "parcel", "body": "Heaviest impact on lightweight residential parcels; commercial PS rates up 2.7%.", "url": "https://about.usps.com/rates"},
-    {"title": "DHL Express prioritizes battery-shipping training for ground couriers", "source": "Air Cargo News", "category": "hazmat", "body": "All US-based ground handlers complete IATA DGR section II training by end of Q1. Li-ion battery exports unaffected.", "url": "https://www.aircargonews.net/dhl"},
-    {"title": "Drayage CHASSISGATE: NACCS reports container chassis shortage easing", "source": "JOC", "category": "ocean", "body": "Long Beach pool +320 chassis week-over-week. Wait times for export bookings drop to 1.8 days from 4.2.", "url": "https://www.joc.com/chassis"},
-    {"title": "Estes Express announces driver pay increase averaging $0.06/mi", "source": "CCJ", "category": "ltl", "body": "Pay hike effective Mar 15; carrier reports applicant pipeline +28% since announcement.", "url": "https://www.ccjdigital.com/estes-pay"},
-    {"title": "I-95 Cordage Park bridge replacement project shifts truck traffic", "source": "MassDOT", "category": "infra", "body": "Two-year detour begins Mar 1 — Carriers serving New England should route via I-93/I-90.", "url": "https://mass.gov/i95-cordage"},
-]
 
 # Drop the deprecated single mock-news + traffic; the live endpoints below
 # generate fresh timestamps on every call so the dispatch team sees the
@@ -1500,202 +1455,54 @@ def _mins_ago_to_label(m: int) -> str:
 
 @api_router.get("/news")
 async def get_news(category: Optional[str] = None, limit: int = 40, _: User = Depends(get_current_user)):
-    """Live news feed. Every fetch reshuffles 'minutes ago' values within
-    each item's natural window so the ticker visibly advances each poll.
-    The dispatch team rotates through the full 40-item corpus instead of
-    the prior 8-item loop."""
-    pool = MOCK_NEWS
+    """Real industry headlines aggregated from public RSS feeds (Transport
+    Topics, Land Line, CCJ, Trucking Dive, ...) via routes.freight_news."""
+    from routes.freight_news import fetch_all_news
+    items = await fetch_all_news()
     if category and category != "all":
-        pool = [n for n in pool if n.get("category") == category]
-    rnd = _random.Random()
+        items = [n for n in items if (n.get("category") or "").lower() == category.lower()]
+    now = datetime.now(timezone.utc)
     out = []
-    for i, n in enumerate(pool):
-        # Spread mins between 0 and 360 so the feed feels live but coherent.
-        mins = rnd.randint(0, 360) + i  # slight bias keeps ordering varied
-        out.append({**n, "minutes_ago": mins, "time": _mins_ago_to_label(mins),
-                    "published_at": (datetime.now(timezone.utc) - timedelta(minutes=mins)).isoformat()})
-    out.sort(key=lambda x: x["minutes_ago"])
-    return await _brand_swap(out[:limit])
+    for n in items[:limit]:
+        mins = 0
+        pub = None
+        try:
+            pub = datetime.fromisoformat((n.get("published") or "").replace("Z", "+00:00"))
+            if pub.tzinfo is None:
+                pub = pub.replace(tzinfo=timezone.utc)
+            mins = max(0, int((now - pub).total_seconds() // 60))
+        except ValueError:
+            pass
+        out.append({
+            "title": n.get("title"),
+            "source": n.get("source"),
+            "category": (n.get("category") or "industry").lower(),
+            "body": n.get("summary"),
+            "url": n.get("url"),
+            "minutes_ago": mins,
+            "time": _mins_ago_to_label(mins),
+            "published_at": n.get("published"),
+        })
+    return out
 
 
-# 25 traffic incidents with rich detail — agency, lanes closed, source URL,
-# expected clear-time, photos optional. Each fetch shuffles severity-weighted
-# ordering and updates "minutes-ago" so the panel feels live.
-MOCK_TRAFFIC = [
-    {"location": "I-94 EB at Mile 215 (MI)", "highway": "I-94", "direction": "EB",
-     "type": "Crash", "severity": "moderate", "delay_min": 25,
-     "lat": 42.65, "lng": -86.10, "lanes_closed": "2 of 3 EB",
-     "agency": "MI State Police", "eta_clear_min": 45,
-     "description": "Multi-vehicle crash at MM 215. Right two lanes blocked. Expect significant backups eastbound from Stevensville.",
-     "source_url": "https://www.michigan.gov/traffic", "near_facility": "Tennant Holland MI"},
-    {"location": "I-65 N at Louisville Spaghetti Junction (KY)", "highway": "I-65", "direction": "NB",
-     "type": "Construction", "severity": "low", "delay_min": 12,
-     "lat": 38.26, "lng": -85.75, "lanes_closed": "1 of 4 NB (shoulder work)",
-     "agency": "KYTC", "eta_clear_min": 240,
-     "description": "Ongoing bridge deck rehabilitation. Right shoulder closed 9pm–5am. Normal flow elsewhere.",
-     "source_url": "https://goky.ky.gov", "near_facility": "Tennant Louisville KY"},
-    {"location": "I-394 W approach to Golden Valley (MN)", "highway": "I-394", "direction": "WB",
-     "type": "Weather · Snow", "severity": "high", "delay_min": 40,
-     "lat": 44.98, "lng": -93.35, "lanes_closed": "Reduced visibility — all lanes open",
-     "agency": "MNDOT", "eta_clear_min": 90,
-     "description": "Heavy snowfall with blowing snow reducing visibility to under 1/4 mile. MNDOT advising essential travel only. Tennant HQ inbound LTL recommend delay.",
-     "source_url": "https://511mn.org", "near_facility": "Tennant HQ — Golden Valley MN"},
-    {"location": "I-80 EB Ohio Turnpike Mile 161 (OH)", "highway": "I-80", "direction": "EB",
-     "type": "Stalled vehicle", "severity": "low", "delay_min": 8,
-     "lat": 41.36, "lng": -82.22, "lanes_closed": "Right shoulder",
-     "agency": "Ohio Turnpike", "eta_clear_min": 20,
-     "description": "Disabled tractor-trailer in right shoulder. State patrol on scene. Minor rubbernecking delays.",
-     "source_url": "https://www.ohioturnpike.org/traffic"},
-    {"location": "I-71 N Cincinnati (OH)", "highway": "I-71", "direction": "NB",
-     "type": "Congestion", "severity": "moderate", "delay_min": 18,
-     "lat": 39.16, "lng": -84.45, "lanes_closed": "—",
-     "agency": "OHGO", "eta_clear_min": 60,
-     "description": "Volume-related slowdowns building from MM 1 to MM 8. Expect 25-35 mph through downtown.",
-     "source_url": "https://ohgo.com"},
-
-    {"location": "I-5 SB at Tejon Pass (CA)", "highway": "I-5", "direction": "SB",
-     "type": "Weather · Snow & Ice", "severity": "high", "delay_min": 75,
-     "lat": 34.80, "lng": -118.86, "lanes_closed": "Chains required for big rigs",
-     "agency": "Caltrans D7", "eta_clear_min": 180,
-     "description": "Chain controls in effect for vehicles over 6,000 lbs. Two truck spinouts at MM 195 cleared. Use US-101 alternate.",
-     "source_url": "https://quickmap.dot.ca.gov"},
-    {"location": "I-90 EB Cleveland (OH)", "highway": "I-90", "direction": "EB",
-     "type": "Accident with injury", "severity": "high", "delay_min": 50,
-     "lat": 41.49, "lng": -81.69, "lanes_closed": "All EB lanes — detour at W 25th",
-     "agency": "Ohio State Patrol", "eta_clear_min": 75,
-     "description": "Serious injury crash. EB I-90 closed from Innerbelt through Bridge Ave. Use Detour via I-490/I-77.",
-     "source_url": "https://ohgo.com"},
-    {"location": "I-70 WB Columbus (OH)", "highway": "I-70", "direction": "WB",
-     "type": "HazMat spill", "severity": "high", "delay_min": 120,
-     "lat": 39.96, "lng": -83.02, "lanes_closed": "All WB lanes — full closure",
-     "agency": "Columbus Fire HAZMAT", "eta_clear_min": 240,
-     "description": "Class 3 flammable liquid spill from overturned tanker at MM 99. Full WB closure. Detour via I-670/I-71.",
-     "source_url": "https://ohgo.com"},
-    {"location": "I-285 EB Atlanta Perimeter (GA)", "highway": "I-285", "direction": "EB",
-     "type": "Congestion", "severity": "moderate", "delay_min": 28,
-     "lat": 33.78, "lng": -84.31, "lanes_closed": "—",
-     "agency": "GDOT NaviGAtor", "eta_clear_min": 60,
-     "description": "Typical PM peak congestion building. Slow from Roswell Rd to I-85.",
-     "source_url": "https://www.511ga.org"},
-    {"location": "I-405 SB LA Sepulveda Pass (CA)", "highway": "I-405", "direction": "SB",
-     "type": "Construction", "severity": "moderate", "delay_min": 32,
-     "lat": 34.08, "lng": -118.47, "lanes_closed": "1 of 5 SB (night work)",
-     "agency": "Caltrans D7", "eta_clear_min": 180,
-     "description": "Nightly lane closure for pavement repair. Expect heavy delays through Sepulveda Pass overnight.",
-     "source_url": "https://quickmap.dot.ca.gov"},
-
-    {"location": "I-40 EB Memphis (TN)", "highway": "I-40", "direction": "EB",
-     "type": "Bridge inspection", "severity": "low", "delay_min": 15,
-     "lat": 35.15, "lng": -90.06, "lanes_closed": "1 of 3 EB",
-     "agency": "TDOT", "eta_clear_min": 120,
-     "description": "Routine inspection at Hernando de Soto Bridge. Reduced to 2 lanes.",
-     "source_url": "https://smartway.tn.gov"},
-    {"location": "I-25 SB Denver (CO)", "highway": "I-25", "direction": "SB",
-     "type": "Congestion", "severity": "high", "delay_min": 45,
-     "lat": 39.74, "lng": -104.99, "lanes_closed": "—",
-     "agency": "CDOT", "eta_clear_min": 75,
-     "description": "Mousetrap interchange backup extending 6 miles into northern Denver. Inbound from Wyoming significantly delayed.",
-     "source_url": "https://www.cotrip.org"},
-    {"location": "I-35 NB Dallas (TX)", "highway": "I-35", "direction": "NB",
-     "type": "Crash · injury", "severity": "moderate", "delay_min": 35,
-     "lat": 32.78, "lng": -96.81, "lanes_closed": "2 of 5 NB",
-     "agency": "TxDOT", "eta_clear_min": 60,
-     "description": "Three-vehicle collision near Reunion Tower. Left two lanes closed.",
-     "source_url": "https://drivetexas.org"},
-    {"location": "I-75 SB Detroit (MI)", "highway": "I-75", "direction": "SB",
-     "type": "Pothole repair", "severity": "low", "delay_min": 10,
-     "lat": 42.34, "lng": -83.04, "lanes_closed": "Right lane",
-     "agency": "MDOT", "eta_clear_min": 60,
-     "description": "Emergency pothole repair. Right lane closed near Mack Ave.",
-     "source_url": "https://mdotjboss.state.mi.us"},
-    {"location": "Holland Tunnel NJ inbound (NJ/NY)", "highway": "I-78", "direction": "EB",
-     "type": "Congestion", "severity": "high", "delay_min": 55,
-     "lat": 40.72, "lng": -74.04, "lanes_closed": "—",
-     "agency": "PANYNJ", "eta_clear_min": 120,
-     "description": "Heavy congestion building from NJ Turnpike Exit 14C. Cross-Hudson freight should use Lincoln or GWB.",
-     "source_url": "https://www.panynj.gov/bridges-tunnels"},
-
-    {"location": "I-15 NB Provo (UT)", "highway": "I-15", "direction": "NB",
-     "type": "Wildfire smoke", "severity": "moderate", "delay_min": 20,
-     "lat": 40.23, "lng": -111.66, "lanes_closed": "Reduced visibility — all open",
-     "agency": "UDOT", "eta_clear_min": 240,
-     "description": "Heavy smoke from Spanish Fork Canyon fire. Visibility under 1 mile in places. Drive with headlights on.",
-     "source_url": "https://www.udottraffic.utah.gov"},
-    {"location": "I-10 WB Phoenix (AZ)", "highway": "I-10", "direction": "WB",
-     "type": "Crash", "severity": "moderate", "delay_min": 30,
-     "lat": 33.45, "lng": -112.07, "lanes_closed": "1 of 4 WB",
-     "agency": "ADOT", "eta_clear_min": 45,
-     "description": "Single-vehicle rollover near 7th St. Right lane closed.",
-     "source_url": "https://az511.gov"},
-    {"location": "I-77 SB Charlotte (NC)", "highway": "I-77", "direction": "SB",
-     "type": "Congestion", "severity": "high", "delay_min": 38,
-     "lat": 35.23, "lng": -80.84, "lanes_closed": "—",
-     "agency": "NCDOT TIMS", "eta_clear_min": 90,
-     "description": "Volume + earlier crash at MM 11 — backups extending into Cornelius. Average speed 18 mph.",
-     "source_url": "https://drivenc.gov"},
-    {"location": "I-91 NB Hartford (CT)", "highway": "I-91", "direction": "NB",
-     "type": "Crash", "severity": "moderate", "delay_min": 22,
-     "lat": 41.76, "lng": -72.67, "lanes_closed": "1 of 3 NB",
-     "agency": "CT DOT", "eta_clear_min": 35,
-     "description": "Two-vehicle crash near Exit 33. Right lane closed.",
-     "source_url": "https://cttravelsmart.org"},
-    {"location": "I-275 EB Tampa (FL)", "highway": "I-275", "direction": "EB",
-     "type": "Disabled truck", "severity": "low", "delay_min": 18,
-     "lat": 27.97, "lng": -82.54, "lanes_closed": "Right shoulder + lane 1",
-     "agency": "FDOT FL511", "eta_clear_min": 30,
-     "description": "Tractor with mechanical issue blocking right lane. Towing en route.",
-     "source_url": "https://fl511.com"},
-
-    {"location": "I-84 EB Snoqualmie Pass (WA)", "highway": "I-84", "direction": "EB",
-     "type": "Weather · Snow", "severity": "high", "delay_min": 90,
-     "lat": 47.39, "lng": -121.41, "lanes_closed": "Traction tires required",
-     "agency": "WSDOT", "eta_clear_min": 240,
-     "description": "Pass conditions deteriorating rapidly. Traction tires required; chains advised. Mountain prepared closure possible.",
-     "source_url": "https://wsdot.com/Travel/Real-time"},
-    {"location": "I-44 WB Tulsa (OK)", "highway": "I-44", "direction": "WB",
-     "type": "Construction", "severity": "low", "delay_min": 14,
-     "lat": 36.15, "lng": -95.99, "lanes_closed": "1 of 3 WB",
-     "agency": "OK 511", "eta_clear_min": 180,
-     "description": "Resurfacing project — center lane reduction. Carriers building reliable +15 min buffer.",
-     "source_url": "https://oklahoma.gov/odot"},
-    {"location": "I-280 NB Bay Area (CA)", "highway": "I-280", "direction": "NB",
-     "type": "Sigalert · Crash", "severity": "high", "delay_min": 65,
-     "lat": 37.78, "lng": -122.39, "lanes_closed": "3 of 4 NB",
-     "agency": "CHP", "eta_clear_min": 90,
-     "description": "Multi-vehicle crash with injuries. SIG-Alert issued; expect 1+ hour delay.",
-     "source_url": "https://quickmap.dot.ca.gov"},
-    {"location": "I-526 EB Charleston (SC)", "highway": "I-526", "direction": "EB",
-     "type": "Bridge maintenance", "severity": "low", "delay_min": 9,
-     "lat": 32.83, "lng": -79.96, "lanes_closed": "1 of 2 EB",
-     "agency": "SCDOT", "eta_clear_min": 120,
-     "description": "Routine bridge work over Wando River. Minor delay.",
-     "source_url": "https://511sc.org"},
-    {"location": "I-29 SB Sioux City (IA)", "highway": "I-29", "direction": "SB",
-     "type": "Weather · Wind", "severity": "moderate", "delay_min": 25,
-     "lat": 42.50, "lng": -96.40, "lanes_closed": "Wind advisory for high-profile vehicles",
-     "agency": "Iowa 511", "eta_clear_min": 180,
-     "description": "Sustained 35 mph winds with gusts to 55 mph. High-profile / empty trailer warning in effect.",
-     "source_url": "https://511ia.org"},
-]
 
 
 @api_router.get("/traffic")
-async def get_traffic(severity: Optional[str] = None, _: User = Depends(get_current_user)):
-    """Live traffic. Each fetch rotates 'reported_minutes_ago' so dispatchers
-    see the panel as continuously updating, plus enriches every record with
-    a synthetic `reported_at` ISO timestamp."""
-    rnd = _random.Random()
-    out = []
-    for inc in MOCK_TRAFFIC:
-        if severity and inc.get("severity") != severity:
-            continue
-        mins = rnd.randint(0, 90)
-        out.append({**inc, "minutes_ago": mins, "reported_at_label": _mins_ago_to_label(mins),
-                    "reported_at": (datetime.now(timezone.utc) - timedelta(minutes=mins)).isoformat()})
-    # Severity-weighted sort: high first, then most recent
-    sev_rank = {"high": 0, "moderate": 1, "low": 2}
-    out.sort(key=lambda x: (sev_rank.get(x.get("severity"), 9), x["minutes_ago"]))
-    return await _brand_swap(out)
+async def get_traffic(lat: Optional[float] = None, lng: Optional[float] = None,
+                      radius_mi: float = 250, severity: Optional[str] = None,
+                      _: User = Depends(get_current_user)):
+    """Real active roadwork / lane-closure incidents from public state-DOT
+    WZDx feeds, filtered around the caller's browser location (defaults to
+    Twin Cities HQ when no coordinates are passed)."""
+    from routes.traffic_live import get_live_incidents
+    incidents = await get_live_incidents(
+        lat if lat is not None else 44.9778,
+        lng if lng is not None else -93.2650,
+        radius_mi=radius_mi)
+    if severity:
+        incidents = [i for i in incidents if i.get("severity") == severity]
+    return incidents
 
 
 # -------------------- WEATHER ALERTS (NWS-style, MOCKED but realistic) --------------------
