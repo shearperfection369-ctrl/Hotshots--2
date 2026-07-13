@@ -2185,6 +2185,17 @@ def build_brokerage_router(
             headers={"Content-Disposition": 'attachment; filename="Orisei_Business_Plan_Brochure.pdf"'},
         )
 
+    @router.get("/carrier-brochure.pdf")
+    async def carrier_brochure(_=Depends(get_current_user)):
+        """Colorful carrier-facing brochure: platform capabilities + integration."""
+        from .carrier_brochure import build_carrier_brochure_pdf
+        pdf_bytes = build_carrier_brochure_pdf()
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="Orisei_Carrier_Partner_Brochure.pdf"'},
+        )
+
     # ---- Branded PDF downloads of the markdown documents ----
     @router.get("/business-plan/pdf")
     async def business_plan_pdf(_=Depends(get_current_user)):

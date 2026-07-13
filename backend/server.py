@@ -8399,6 +8399,16 @@ build_load_hunter_router(api_router=api_router, db=db,
                          get_current_user=get_current_user,
                          require_role=require_role)
 
+from routes.ltl_rate_cards import build_ltl_rate_router  # noqa: E402
+build_ltl_rate_router(api_router=api_router, db=db,
+                      get_current_user=get_current_user,
+                      require_role=require_role)
+
+from routes.ar_aging import build_ar_router  # noqa: E402
+build_ar_router(api_router=api_router, db=db,
+                get_current_user=get_current_user,
+                require_role=require_role)
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,

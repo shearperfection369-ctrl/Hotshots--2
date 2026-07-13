@@ -8,6 +8,7 @@ import {
   TrendingUp, DollarSign, Activity, Clock, Truck, MapPin,
   Award, BarChart3, RefreshCw, Download,
 } from "lucide-react";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
 
 const REACT_APP_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const WINDOW_OPTIONS = [
@@ -79,6 +80,36 @@ export default function BrokerageOpsKpis() {
           <BigKpi v={`${h.fill_rate_pct || 0}%`} k="Fill Rate" sub={`${h.delivered_loads || 0} of ${h.total_loads || 0} loads`} icon={Activity} testId="kpi-fill" />
           <BigKpi v={`${h.on_time_pct || 0}%`} k="On-Time %" sub="1-hr grace · delivered loads" icon={Clock} testId="kpi-otp" />
         </div>
+
+        {/* MARGIN BY DAY */}
+        <Card className="hud-surface p-5" data-testid="daily-margin-chart">
+          <h2 className="font-display text-xl font-bold flex items-center gap-2 mb-1">
+            <TrendingUp size={18} className="text-emerald-400" /> Margin By Day
+          </h2>
+          <p className="text-xs text-slate-400 mb-4">Daily gross margin across the selected window.</p>
+          {(data?.daily || []).length === 0 ? (
+            <div className="text-xs font-mono text-slate-500 py-6 text-center">No daily data in this window.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={data.daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="marginFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#34d399" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#34d399" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={{ fill: "#64748b", fontSize: 9, fontFamily: "monospace" }}
+                       tickFormatter={(d) => d.slice(5)} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: "#64748b", fontSize: 9, fontFamily: "monospace" }}
+                       tickFormatter={(v) => `$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`} width={52} />
+                <Tooltip contentStyle={{ background: "#0b1320", border: "1px solid rgba(255,255,255,0.1)", fontSize: 11, fontFamily: "monospace" }}
+                         formatter={(v, name) => [`$${Number(v).toLocaleString()}`, name === "margin_usd" ? "Margin" : "Revenue"]} />
+                <Area type="monotone" dataKey="revenue_usd" stroke="#22d3ee" strokeWidth={1} fill="none" strokeDasharray="4 3" />
+                <Area type="monotone" dataKey="margin_usd" stroke="#34d399" strokeWidth={2} fill="url(#marginFill)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
 
         {/* LANE BREAKDOWN */}
         <Card className="hud-surface p-5" data-testid="lane-breakdown">

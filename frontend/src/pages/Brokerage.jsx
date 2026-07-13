@@ -14,7 +14,7 @@ import {
   Building2, Calculator, Plug, Send, CheckCircle2, AlertCircle, Loader2, Download,
   ArrowUpRight, ArrowDownRight, Zap, Receipt, FileSpreadsheet, Bot, Plus, BookOpen, Printer,
   Wallet, Server, Mail, Linkedin, Eye, Users, MapPin, Phone, Snowflake, ShieldAlert, ShieldCheck, Banknote, X,
-  PackageCheck, Stamp, Newspaper, ExternalLink, RefreshCw, Layers, Crosshair,
+  PackageCheck, Stamp, Newspaper, ExternalLink, RefreshCw, Layers, Crosshair, Percent,
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
@@ -26,6 +26,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import BrokerageAggregatorTab from "./BrokerageAggregatorTab";
 import LoadHunterTab from "./LoadHunterTab";
+import LtlRateCardsTab from "./LtlRateCardsTab";
+import { ARAgingPanel } from "../components/ARAgingPanel";
 
 /**
  * Brokerage — single-page hub for the freight-brokerage operation.
@@ -34,6 +36,8 @@ import LoadHunterTab from "./LoadHunterTab";
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
   { id: "aggregator", label: "Aggregator", icon: Layers },
+  { id: "hunter",    label: "AI Hunter", icon: Crosshair },
+  { id: "ltl",       label: "LTL Rates", icon: Percent },
   { id: "boards",    label: "Load Boards", icon: Truck },
   { id: "news",      label: "Industry News", icon: Newspaper },
   { id: "drivers",   label: "Drivers", icon: Users },
@@ -77,6 +81,7 @@ export default function Brokerage() {
         {tab === "dashboard" && <DashboardTab dash={dash} refresh={loadDash} />}
         {tab === "aggregator" && <BrokerageAggregatorTab />}
         {tab === "hunter"     && <LoadHunterTab />}
+        {tab === "ltl"        && <LtlRateCardsTab />}
         {tab === "boards"    && <BoardsTab refresh={loadDash} />}
         {tab === "news"      && <NewsTab />}
         {tab === "drivers"   && <DriversTab />}
@@ -453,6 +458,8 @@ function AccountingTab({ refresh }) {
         <Kpi label="Operating Exp." value={pnl ? `$${fmt(pnl.operating_expenses_usd)}` : "—"} icon={Receipt} accent="text-orange-300" />
         <Kpi label="Net Income"     value={pnl ? `$${fmt(pnl.net_income_usd)}` : "—"} icon={ArrowUpRight} accent={pnl?.net_income_usd >= 0 ? "text-emerald-300" : "text-red-300"} />
       </div>
+
+      <ARAgingPanel />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="hud-surface p-4">
@@ -1578,9 +1585,24 @@ function DriversTab() {
           <h3 className="font-display text-xl font-black">Carrier Driver Management</h3>
           <div className="text-[10px] font-mono text-slate-500 mt-1">Track CDL, MedCard, HOS hours, and load assignments.</div>
         </div>
-        <Button data-testid="add-driver-btn" onClick={() => setShowAdd(true)} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase">
-          <Plus size={13} className="mr-1.5" /> Add Driver
-        </Button>
+        <div className="flex gap-2">
+          <Button data-testid="carrier-brochure-btn" onClick={async () => {
+            try {
+              const res = await api.get("/brokerage/carrier-brochure.pdf", { responseType: "blob" });
+              const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+              const a = document.createElement("a");
+              a.href = url; a.download = "Orisei_Carrier_Partner_Brochure.pdf";
+              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+              window.URL.revokeObjectURL(url);
+              toast.success("Carrier brochure downloaded");
+            } catch { toast.error("Brochure download failed"); }
+          }} className="bg-amber-500 hover:bg-amber-400 text-black font-bold font-mono text-[11px] uppercase">
+            <Sparkles size={13} className="mr-1.5" /> Carrier Brochure
+          </Button>
+          <Button data-testid="add-driver-btn" onClick={() => setShowAdd(true)} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase">
+            <Plus size={13} className="mr-1.5" /> Add Driver
+          </Button>
+        </div>
       </Card>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3" data-testid="drivers-kpi">
         <Kpi label="Total"          value={data.kpi.total || 0}          accent="text-cyan-300"    icon={Users} />
@@ -2389,8 +2411,3 @@ function CatPill({ active, onClick, children, tid }) {
     </button>
   );
 }
-
-utton>
-  );
-}
-

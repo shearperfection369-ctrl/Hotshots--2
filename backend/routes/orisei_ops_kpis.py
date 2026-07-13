@@ -139,6 +139,35 @@ def build_orisei_ops_router(
             })
         lane_rows.sort(key=lambda r: r["loads"], reverse=True)
 
+        # ---------------- DAILY MARGIN TREND ----------------
+        daily_map: Dict[str, Dict[str, float]] = defaultdict(
+            lambda: {"loads": 0.0, "revenue": 0.0, "carrier_cost": 0.0})
+        for b in recent:
+            dt = _safe_dt(b.get("created_at") or b.get("booked_at"))
+            if not dt:
+                continue
+            day = dt.date().isoformat()
+            agg = daily_map[day]
+            agg["loads"] += 1
+            agg["revenue"] += float(b.get("customer_rate_usd") or b.get("forecast_rate_usd")
+                                    or b.get("rate_usd") or 0)
+            agg["carrier_cost"] += float(b.get("carrier_rate_usd")
+                                         or b.get("forecast_carrier_pay_usd") or 0)
+        daily_rows: List[Dict[str, Any]] = []
+        day_cursor = cutoff.date()
+        end_day = datetime.now(timezone.utc).date()
+        while day_cursor <= end_day:
+            key = day_cursor.isoformat()
+            agg = daily_map.get(key, {"loads": 0, "revenue": 0.0, "carrier_cost": 0.0})
+            margin = agg["revenue"] - agg["carrier_cost"]
+            daily_rows.append({
+                "date": key, "loads": int(agg["loads"]),
+                "revenue_usd": round(agg["revenue"], 2),
+                "margin_usd": round(margin, 2),
+                "margin_pct": round(margin / agg["revenue"] * 100, 1) if agg["revenue"] else 0.0,
+            })
+            day_cursor += timedelta(days=1)
+
         # ---------------- CARRIER SCORECARD ----------------
         cmap: Dict[str, Dict[str, float]] = defaultdict(
             lambda: {"loads": 0.0, "revenue": 0.0, "carrier_cost": 0.0,
@@ -195,6 +224,7 @@ def build_orisei_ops_router(
             },
             "lanes": lane_rows[:25],
             "carriers": carrier_rows[:25],
+            "daily": daily_rows,
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
