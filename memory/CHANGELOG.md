@@ -4,6 +4,40 @@
 
 ---
 
+## 2026-06/07 · Iterations 63 — AI Load Hunter · LTL Rate Cards · AR Engine · Carrier Brochure
+- **AI Load Hunter** (`routes/load_hunter.py`, `LoadHunterTab.jsx`, Brokerage "AI Hunter" tab):
+  autonomous load selection — scans all boards in one pass (~20ms), scores on 6 weighted
+  components (margin %, shipper reliability, lane profitability, fuel economics, detention
+  risk, driver match) with modes balanced/high_margin/high_volume/custom; shipper risk
+  registry (`db.shipper_risk`) auto-rejects risky freight unless margin overrides; carrier
+  pre-match reuses `dispatch_autopilot._score` (`db.dispatch_carriers`, note: `is_active`
+  field); review queue + one-click book AND full auto-book under $ cap / score floor /
+  daily max; full audit trail + compliance policy endpoint; 45s frontend auto-scan loop.
+  Endpoints: /api/load-hunter/{scan,winners,config,risk,audit,compliance,stats}.
+- **LTL Rate Card engine** (`routes/ltl_rate_cards.py`, `LtlRateCardsTab.jsx`, "LTL Rates"
+  tab): negotiated cards for R+L/SAIA/Dayton/ODFL/XPO/Estes (discount %, FSC %, min charge),
+  zone-based CWT rating with NMFC class multipliers + weight breaks + accessorials,
+  multi-carrier ranked quotes with suggested sell + margin math, inline card editing,
+  quote history. Endpoints: /api/ltl/{cards,quote,quotes}.
+- **AR Aging & Collections** (`routes/ar_aging.py`, `components/ARAgingPanel.jsx` in the
+  Accounting tab): 30/60/90+ buckets, per-customer rollups with flags
+  (watch/escalate/credit_hold), idempotent auto-invoice from delivered/settled bookings,
+  sync-risk pushes 61+ day past-due shippers into the Hunter's risk registry, payment
+  reminders (dunning log; email pending Resend key), mark-paid.
+  Endpoints: /api/ar/{aging,auto-invoice/run,sync-risk,invoices/{id}/mark-paid,invoices/{id}/remind,dunning}.
+- **Margin by day**: `daily` series added to /api/brokerage/ops-kpis + AreaChart on
+  BrokerageOpsKpis page.
+- **Carrier brochure**: 6-page colorful PDF (`routes/carrier_brochure.py`, reuses
+  plan_brochure helpers) — value prop, platform, integration (ELD/EDI/API/no-tech),
+  load lifecycle, payment options. GET /api/brokerage/carrier-brochure.pdf; download
+  button in Drivers tab.
+- Tested: testing agent iter63 — 18/18 backend, 5/5 frontend flows, 100%.
+- Also this session: Business Plan v2.0 Partnership Edition (Daniel W. Karsor 50/50,
+  $10K use of funds), MN partnership agreement PDF, business-plan brochure PDF,
+  real News/Traffic feeds on Dashboard (WZDx + RSS).
+
+---
+
 ## 2026-06 (June) · Iteration 64 — Real News & Traffic on Dashboard
 - **/api/news de-mocked**: now serves real RSS headlines via `routes.freight_news.fetch_all_news()`
   (Transport Topics, Land Line, CCJ, Trucking Dive, Trucking Info) with true relative
