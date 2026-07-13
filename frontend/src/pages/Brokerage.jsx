@@ -14,7 +14,7 @@ import {
   Building2, Calculator, Plug, Send, CheckCircle2, AlertCircle, Loader2, Download,
   ArrowUpRight, ArrowDownRight, Zap, Receipt, FileSpreadsheet, Bot, Plus, BookOpen, Printer,
   Wallet, Server, Mail, Linkedin, Eye, Users, MapPin, Phone, Snowflake, ShieldAlert, ShieldCheck, Banknote, X,
-  PackageCheck, Stamp, Newspaper, ExternalLink, RefreshCw, Layers,
+  PackageCheck, Stamp, Newspaper, ExternalLink, RefreshCw, Layers, Crosshair,
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import BrokerageAggregatorTab from "./BrokerageAggregatorTab";
+import LoadHunterTab from "./LoadHunterTab";
 
 /**
  * Brokerage — single-page hub for the freight-brokerage operation.
@@ -75,6 +76,7 @@ export default function Brokerage() {
 
         {tab === "dashboard" && <DashboardTab dash={dash} refresh={loadDash} />}
         {tab === "aggregator" && <BrokerageAggregatorTab />}
+        {tab === "hunter"     && <LoadHunterTab />}
         {tab === "boards"    && <BoardsTab refresh={loadDash} />}
         {tab === "news"      && <NewsTab />}
         {tab === "drivers"   && <DriversTab />}
@@ -2385,6 +2387,10 @@ function CatPill({ active, onClick, children, tid }) {
     >
       {children}
     </button>
+  );
+}
+
+utton>
   );
 }
 

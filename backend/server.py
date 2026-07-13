@@ -8394,6 +8394,11 @@ build_dispatch_ml_router(api_router=api_router, db=db,
                          get_current_user=get_current_user,
                          require_role=require_role)
 
+from routes.load_hunter import build_load_hunter_router  # noqa: E402
+build_load_hunter_router(api_router=api_router, db=db,
+                         get_current_user=get_current_user,
+                         require_role=require_role)
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,
