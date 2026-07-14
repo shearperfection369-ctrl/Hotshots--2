@@ -81,6 +81,9 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import Brokerage from "@/pages/Brokerage";
 import OperationSandbox from "@/pages/OperationSandbox";
 import LiveOps from "@/pages/LiveOps";
+import RevenueEngine from "@/pages/RevenueEngine";
+import GetQuote from "@/pages/GetQuote";
+import CarrierLoadboard from "@/pages/CarrierLoadboard";
 import SpecialtyCarriers from "@/pages/SpecialtyCarriers";
 import DriverRegistry from "@/pages/DriverRegistry";
 import WorkflowChecklist from "@/pages/WorkflowChecklist";
@@ -142,6 +145,8 @@ function AppRouter() {
       <Route path="/driver/:shipmentId" element={<DriverMobile />} />
       <Route path="/i/:token" element={<PublicIntake />} />
       <Route path="/tour" element={<PublicTour />} />
+      <Route path="/get-quote" element={<GetQuote />} />
+      <Route path="/carriers/loadboard" element={<CarrierLoadboard />} />
 
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
@@ -150,6 +155,7 @@ function AppRouter() {
         <Route path="/brokerage" element={<Brokerage />} />
         <Route path="/sandbox" element={<OperationSandbox />} />
         <Route path="/live-ops" element={<LiveOps />} />
+        <Route path="/revenue" element={<RevenueEngine />} />
         <Route path="/documents" element={<Documents />} />
         <Route path="/tracking" element={<Tracking />} />
         <Route path="/live-tracking" element={<Tracking />} />

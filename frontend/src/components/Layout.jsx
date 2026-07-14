@@ -2,6 +2,7 @@ import React from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import DataStatusBanner from "./DataStatusBanner";
+import OpsAlertOverlay from "./OpsAlertOverlay";
 
 export default function Layout() {
   return (
@@ -11,6 +12,7 @@ export default function Layout() {
         <DataStatusBanner />
         <Outlet />
       </main>
+      <OpsAlertOverlay />
     </div>
   );
 }

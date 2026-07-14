@@ -1,0 +1,46 @@
+{
+  "summary": "iter64 — Backend + Frontend verification of the Revenue Stack (Instant Quote, Prospects, Book-It-Now Marketplace, QuickPay), AI Load Sentinel, and Sandbox market-realism upgrade. Discovered and fixed a CRITICAL FastAPI/pydantic bug: `from __future__ import annotations` at the top of routes/revenue_engine.py and routes/ops_alerts.py caused every POST endpoint whose body was a locally-defined BaseModel (QuoteIn, ProspectIn, MktLoadIn, BookIn, PublicQuoteIn — no /alerts payloads used locally) to be misinterpreted as a QUERY parameter, so every business POST returned 422 'Field required · loc: query.payload'. Removing the two `from __future__ import annotations` lines fixed the schema resolution (the locally-declared BaseModel subclasses are not visible in module namespace during get_type_hints, so FastAPI could not identify them as body models). After the fix, ALL 26 pytest cases pass (100%): headhaul lane (LA→Detroit lane_mult 1.129), backhaul lane (Miami→Chicago lane_mult 0.845, headhaul='backhaul'), AI email→quote parse (equipment=Reefer), PDF (>10KB, %PDF), send-quote queued_awaiting_key + queue row, quote 'won' auto-posts ML- load, public loadboard hides sell_usd+margin_usd, public book creates confirm_code + BK-MKT brokerage_bookings row + ratecon.pdf (200 with code / 403 with wrong code), public /quote (Dallas→Atlanta $2,724 all-in) + 422 for 'Nowhere', prospects manual/CSV/AI-generate/AI-sequence, QuickPay fee=3.5%*carrier_rate + 409 duplicate + mark-paid, dashboard aggregation, alerts test with LLM ai_brief, scan/ack/resolve/settings roundtrip, sim market object (lane_mult+seasonal_mult+headhaul) on new sim loads. Frontend Playwright: /revenue KPI bar (5 quotes, 100% win, $10,676 revenue, 10 prospects, 1/1 board), all 4 tabs switch, manual quote Seattle→Denver created, quote-won-* auto-posts to marketplace, /get-quote Dallas→Atlanta shows $2,723.79 all-in rate card, /carriers/loadboard public with 1 open ML- book flow completes and shows confirm code 600E7E07, /dashboard sentinel-popup renders with AI action brief text + resolve button turns green (API call resolves alert AL-45E360 to 'resolved' in db.ops_alerts), sentinel-fab opens sentinel-panel with email input, test-btn, and 3 open alerts listed (carrier vetting × 2 + hunter risk-reject Kraft Heinz).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/alerts", "issue": "Returns `open` count but no /api/alerts?status= filter — must fetch all 200 and filter client-side. Not blocking."},
+      {"endpoint": "POST /api/revenue/prospects/{id}/sequence", "issue": "Response first_touch mirrors queue result but only for touch 1 with day==0 — if AI returns touches with day>0 for the first, no first_touch is returned. Rare edge, guarded by prompt."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter64_revenue_sentinel.py",
+    "/app/test_reports/pytest/iter64_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL cleanup: consider moving all locally-defined BaseModel classes (QuoteIn, ProspectIn, MktLoadIn, BookIn, PublicQuoteIn in revenue_engine.py) to module-level, so `from __future__ import annotations` could be safely re-added later without breaking FastAPI body-param inference.",
+    "OPTIONAL: Add `on_event('startup')` guard in ops_alerts._ensure_loop so the 180s sweep starts even before the first /api/alerts/scan call (currently only starts on first call — verified working, minor improvement)."
+  ],
+  "critical_code_review_comments": [
+    "FIXED (this iteration): `from __future__ import annotations` broke FastAPI body-model detection for all Pydantic BaseModel classes defined INSIDE build_revenue_router / build_ops_alerts_router. FastAPI internally calls typing.get_type_hints(endpoint_fn) which cannot resolve function-scoped forward references from module globals → falls back to Query param. Fix: removed the two `from __future__ import annotations` lines. Consider moving models to module level long-term.",
+    "revenue_engine.py (807 lines) — EXCEEDS 700-line threshold. Consider splitting per engine (quotes / prospects / marketplace / quickpay) into 4 files. Non-blocking.",
+    "revenue_engine.py public_book — MC number normalization strips 'MC-'/'MC' but also uppercases digits; regex `\\d{5,8}` after strip is correct. Wrong-code ratecon returns 403 as expected.",
+    "revenue_engine.py set_quote_status — auto-posts marketplace load with sell_usd BUT the response strips `sell_usd` from `marketplace_load` object returned (good, matches privacy invariant for public loadboard); however the DB record still contains sell_usd (needed for spread calc / margin_usd) and the public GET properly excludes it via projection. Correct as designed.",
+    "ops_alerts.py fingerprint dedupe (`type:ref`) prevents duplicate open alerts across scans — verified by firing /alerts/test 4 times: only new ones get new alert_id; resolved ones stay resolved.",
+    "ops_alerts.py _ai_briefs handles LLM failure gracefully with a fallback brief string — good defensive coding.",
+    "OpsAlertOverlay.jsx — sentinel-fab z-index 9998, popup z-index 9999. When popup is open, FAB is behind backdrop. Users can either resolve/ack/dismiss (X btn) to close popup and reach FAB. Working as designed.",
+    "sim_week.py _gen_load — `market` object with lane_mult, seasonal_mult, headhaul added correctly. Verified on multiple sim ticks.",
+    "Resend / Twilio / FMCSA / DAT / Truckstop are MOCKED / queued behavior — expected per review_request. All statuses 'queued_awaiting_key' are treated as PASS.",
+    "Public endpoints (/api/public/revenue/*) correctly accept requests WITHOUT Authorization header — verified with plain requests.get/post."
+  ],
+  "updated_files": [
+    "/app/backend/routes/revenue_engine.py (removed line 14: `from __future__ import annotations` — fixed body-schema bug)",
+    "/app/backend/routes/ops_alerts.py (removed line 10: `from __future__ import annotations` — same fix, precautionary since /alerts endpoints only use Dict[str, Any] payloads, but future-proofs any new BaseModel added inside the closure)",
+    "/app/backend/tests/test_iter64_revenue_sentinel.py (new — 26 test cases, 100% pass)"
+  ],
+  "success_rate": {"backend": "100% (26/26 pytest)", "frontend": "100% (all 4 flows: revenue page, get-quote, loadboard, sentinel popup+panel)"},
+  "test_credentials": "Authorization: Bearer test_session_admin_1 (admin) — from /app/memory/test_credentials.md. Frontend: localStorage.tms_session_token='test_session_admin_1'. Public endpoints tested with NO auth headers.",
+  "seed_data_creation": "Test run created: 5 revenue quotes (Q-*), 10 prospects (P-*, from manual + CSV + AI-generate), 2 marketplace loads (ML-6979A5 Dallas→Atlanta from 'won' quote, ML-3EE921 Los Angeles→Detroit from headhaul-won test), 2 marketplace_bookings (booked via public flow with MC-654321 TEST_Carrier UI and MC-123456 TEST_Carrier LLC), 2 brokerage_bookings rows (BK-MKT*, source='marketplace', is_sample=false), 1 quickpay_request approved+marked paid (3.5% fee tier), 4 test critical alerts (AL-* — 3 resolved + 1 marked resolved via UI). Sandbox: /api/sim/reset + /api/sim/start + 3 ticks generated a fresh sim with 'market' objects on loads. All test data is prefixed TEST_ / marketplace-sourced and safe to delete.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bug watch: If anyone re-adds `from __future__ import annotations` to routes/revenue_engine.py or routes/ops_alerts.py, every POST with a locally-defined BaseModel body will 422 with 'loc:[query,payload]'. Root cause is FastAPI using typing.get_type_hints() which cannot resolve function-scoped BaseModel subclasses. Fix is to remove that import OR move all local `class XIn(BaseModel)` to module level. Response shape gotchas: /api/revenue/quotes/{id}/status with status='won' returns `marketplace_load` with sell_usd STRIPPED (good), but full record in db.marketplace_loads has sell_usd + margin_usd. /api/public/revenue/loadboard hides both. Book endpoint /api/public/revenue/loadboard/{mkt_id}/book — MC number regex accepts 5-8 digits, strips 'MC-'/'MC' prefix. Marketplace booking creates BK-MKT* row in brokerage_bookings with source='marketplace' (needed for QuickPay eligibility). QuickPay tiers: same_day=3.5%, two_day=2.5%, five_day=1.5%. Sentinel popup shows only alerts with severity in ['high','critical'] AND status=='open' AND not-seen-in-sessionStorage; if an existing critical open alert lives in db.ops_alerts, it will show on every page load. Use /api/alerts/{id}/resolve or the X (sentinel-dismiss-btn) to clear."
+}

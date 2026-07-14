@@ -21,6 +21,7 @@ const NAV = [
   { to: "/brokerage", label: "Brokerage · Accounting", icon: Calculator, tid: "nav-brokerage", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/sandbox", label: "Operation Sandbox", icon: FlaskConical, tid: "nav-sandbox", roles: ["admin", "dispatcher"] },
   { to: "/live-ops", label: "Live Ops Command", icon: Activity, tid: "nav-live-ops", roles: ["admin", "dispatcher"] },
+  { to: "/revenue", label: "Revenue Engine", icon: TrendingUp, tid: "nav-revenue", roles: ["admin", "dispatcher"] },
   { to: "/invoices", label: "Invoices", icon: Receipt, tid: "nav-invoices", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/workflow", label: "Workflow · Run-the-Load", icon: Activity, tid: "nav-workflow", roles: ["admin", "dispatcher"] },
   { to: "/factoring", label: "Factoring & ABL", icon: DollarSign, tid: "nav-factoring", roles: ["admin", "dispatcher"] },

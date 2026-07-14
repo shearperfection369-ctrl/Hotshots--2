@@ -1820,3 +1820,43 @@ kit of the app. I just tried to generate a quote and could not."
   suggestion chips). Added "Avg Loads/Day" KPI stat to sandbox scoreboard.
 - Verified via curl: /sim/ask returned grounded lane-margin answer; /sim/analyze
   returned full 5.7k-char post-mortem; screenshots confirmed both pages render.
+
+---
+
+## 2026-06 (fork, cont.): Misalignment Detector — COMPLETE
+
+### What it does (Layer 4.5 of the Alignment stack)
+Tracks every human verdict (book/dismiss) against the AI Load Hunter's stance and
+retrains scoring weights from revealed preferences — making the intuitive
+"I disagree with the AI" loop explicit.
+
+### Backend (routes/load_hunter.py additions)
+- `db.hunter_decisions` ledger: every book/dismiss records score, components,
+  weights snapshot, ai_stance (strong_approve ≥ auto-book min / surface), and
+  divergence classification: `override_approve` (booked what AI was lukewarm on,
+  mag = ab_min − score), `override_reject` (dismissed what AI liked,
+  mag = score − min_score); mag < 8 = aligned. Backfills once from hunter_winners.
+- `GET /api/load-hunter/misalignment` — agreement rate (last 20), divergence
+  counts, per-factor signed pressure, current vs proposed weights + deltas,
+  divergence ledger, retrain history.
+- `POST /api/load-hunter/misalignment/retrain` — gradient nudge: override_approve
+  boosts factors that scored HIGH on human-booked loads; override_reject penalizes
+  factors that misled the AI. lr=0.06, clamp [0.05,0.45], renormalized. Requires
+  ≥5 divergent decisions (409 otherwise). Writes custom_weights + hunter_audit
+  "weights_retrained" (source misalignment_detector) + db.alignment_retrains.
+- Sentinel hookup (ops_alerts.py): raises HIGH "misalignment" alert when ≥35% of
+  last 20 decisions diverge (min 5 decisions).
+
+### Frontend
+- `components/MisalignmentMonitor.jsx` rendered in LoadHunterTab under the
+  Alignment Guardian: agreement gauge, decisions/divergence stats, weight-drift
+  bars (green = undervalued by AI, red = misleading), divergence ledger
+  ("You DISMISSED Target DC (AI scored 91)"), Retrain button + history.
+
+### Verified
+- Booked 3 low-score + dismissed 3 high-score winners via API → correct
+  classification (1 override_reject, mild ones aligned), agreement 83.3%.
+- Synthetic 5-divergence retrain test: weights moved margin_pct −0.044 →
+  shipper_reliability/driver_match +0.02 each (correct direction, sum 1.0);
+  gating 409 verified; test data cleaned, config restored to balanced.
+- Screenshot: monitor renders in Brokerage → AI Hunter tab.

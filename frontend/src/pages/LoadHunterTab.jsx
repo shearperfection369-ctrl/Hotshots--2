@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import { MisalignmentMonitor } from "../components/MisalignmentMonitor";
 
 const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }));
 
@@ -384,6 +385,9 @@ export default function LoadHunterTab() {
 
       {/* Alignment Guardian */}
       <AlignmentGuardian />
+
+      {/* Misalignment Detector */}
+      <MisalignmentMonitor />
 
       {/* Winners queue */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3" data-testid="hunter-winners-grid">

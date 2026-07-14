@@ -503,16 +503,20 @@ def build_load_hunter_router(
                       "booked_at": _now_iso()}})
         await _audit("manual_book", w["load"], {"score": w["score"],
                                                  "booked_id": booking["booked_id"]})
+        await _record_decision(w, "book", getattr(user, "user_id", None))
         return {"ok": True, "booked_id": booking["booked_id"],
                 "shipment_id": booking["shipment_id"]}
 
     @router.post("/winners/{winner_id}/dismiss")
-    async def dismiss_winner(winner_id: str, _=Depends(get_current_user)) -> Dict[str, Any]:
+    async def dismiss_winner(winner_id: str, user=Depends(get_current_user)) -> Dict[str, Any]:
+        w = await db.hunter_winners.find_one({"winner_id": winner_id}, {"_id": 0})
         r = await db.hunter_winners.update_one(
             {"winner_id": winner_id}, {"$set": {"status": "dismissed",
                                                  "dismissed_at": _now_iso()}})
         if not r.matched_count:
             raise HTTPException(404, "Winner not found")
+        if w:
+            await _record_decision(w, "dismiss", getattr(user, "user_id", None))
         return {"ok": True}
 
     # ---------------------------------------------------------------- config
@@ -761,6 +765,125 @@ def build_load_hunter_router(
             "load_id": None, "shipper": None, "lane": None,
             "weights": clean, "approved_by": getattr(user, "user_id", None)})
         return {"ok": True, "mode": "custom", "custom_weights": clean}
+
+    # ------------------------------------------------ misalignment detector
+    W_KEYS = list(WEIGHT_PRESETS["balanced"])
+
+    async def _record_decision(w: Dict[str, Any], human_action: str,
+                               user_id: Optional[str]) -> Dict[str, Any]:
+        """Log every human verdict against the AI's stance — the divergence ledger."""
+        cfg = await _config()
+        ab_min = int((cfg.get("auto_book") or {}).get("min_score", 85))
+        surface_min = int(cfg.get("min_score", 70))
+        score = int(w.get("score") or 0)
+        ai_stance = "strong_approve" if score >= ab_min else "surface"
+        if human_action == "book":
+            mag = max(0, ab_min - score)
+            dtype = "override_approve" if mag >= 8 else "aligned"
+        else:
+            mag = max(0, score - surface_min)
+            dtype = "override_reject" if mag >= 8 else "aligned"
+        load = w.get("load") or {}
+        doc = {
+            "decision_id": str(uuid.uuid4()), "at": _now_iso(),
+            "winner_id": w.get("winner_id"), "human_action": human_action,
+            "ai_stance": ai_stance, "score": score,
+            "divergence": dtype, "divergence_mag": mag,
+            "components": w.get("components") or {}, "weights": w.get("weights") or {},
+            "shipper": load.get("shipper"), "equipment": load.get("equipment"),
+            "lane": f"{load.get('origin') or '?'} → {load.get('destination') or '?'}",
+            "margin_pct": load.get("margin_pct"), "by": user_id,
+        }
+        await db.hunter_decisions.insert_one(dict(doc))
+        return doc
+
+    async def _backfill_decisions() -> int:
+        if await db.hunter_decisions.count_documents({}) > 0:
+            return 0
+        n = 0
+        async for w in db.hunter_winners.find(
+                {"status": {"$in": ["booked", "dismissed"]}}, {"_id": 0}):
+            await _record_decision(w, "book" if w["status"] == "booked" else "dismiss", "backfill")
+            n += 1
+        return n
+
+    async def _misalignment_analysis() -> Dict[str, Any]:
+        await _backfill_decisions()
+        decisions = await db.hunter_decisions.find({}, {"_id": 0}).sort("at", -1).to_list(300)
+        window = decisions[:20]
+        divergent = [d for d in decisions if d["divergence"] != "aligned"]
+        win_div = sum(1 for d in window if d["divergence"] != "aligned")
+        agreement_rate = round((1 - win_div / len(window)) * 100, 1) if window else 100.0
+        cfg = await _config()
+        w = _weights_for(cfg)
+        pressure = {k: 0.0 for k in W_KEYS}
+        for d in divergent[:100]:
+            comps = d.get("components") or {}
+            if not comps:
+                continue
+            mean_c = sum(float(comps.get(k, 50)) for k in W_KEYS) / len(W_KEYS)
+            mag_n = min(1.0, d["divergence_mag"] / 30.0)
+            sign = 1.0 if d["divergence"] == "override_approve" else -1.0
+            for k in W_KEYS:
+                pressure[k] += sign * mag_n * (float(comps.get(k, mean_c)) - mean_c) / 100.0
+        lr = 0.06
+        raw = {k: min(0.45, max(0.05, w.get(k, 1 / 6) + lr * pressure[k])) for k in W_KEYS}
+        total = sum(raw.values()) or 1.0
+        proposed = {k: round(v / total, 3) for k, v in raw.items()}
+        retrains = await db.alignment_retrains.find({}, {"_id": 0}).sort("at", -1).to_list(10)
+        return {
+            "decisions_total": len(decisions),
+            "window_size": len(window), "window_divergent": win_div,
+            "agreement_rate": agreement_rate,
+            "divergence": {
+                "override_approve": sum(1 for d in divergent if d["divergence"] == "override_approve"),
+                "override_reject": sum(1 for d in divergent if d["divergence"] == "override_reject"),
+                "avg_magnitude": round(sum(d["divergence_mag"] for d in divergent) / len(divergent), 1) if divergent else 0,
+            },
+            "factor_pressure": {k: round(pressure[k], 4) for k in W_KEYS},
+            "current_weights": {k: round(w.get(k, 0), 3) for k in W_KEYS},
+            "proposed_weights": proposed,
+            "deltas": {k: round(proposed[k] - w.get(k, 0), 3) for k in W_KEYS},
+            "recent_divergent": divergent[:12],
+            "retrain_history": retrains,
+            "min_divergent_required": 5,
+            "can_retrain": len(divergent) >= 5,
+            "explain": {
+                "override_approve": "You booked loads the AI was lukewarm on — factors that scored HIGH on those loads gain weight (you trust them more than the AI does).",
+                "override_reject": "You dismissed loads the AI recommended — factors that scored HIGH on those loads lose weight (they misled the AI).",
+            },
+        }
+
+    @router.get("/misalignment")
+    async def misalignment_report(_=Depends(get_current_user)) -> Dict[str, Any]:
+        return await _misalignment_analysis()
+
+    @router.post("/misalignment/retrain")
+    async def misalignment_retrain(user=Depends(require_role("admin", "dispatcher"))) -> Dict[str, Any]:
+        """Explicit divergence-driven retrain: nudge weights toward YOUR revealed preferences."""
+        rep = await _misalignment_analysis()
+        if not rep["can_retrain"]:
+            raise HTTPException(409, f"Need at least {rep['min_divergent_required']} divergent decisions to retrain "
+                                     f"— you have {rep['divergence']['override_approve'] + rep['divergence']['override_reject']}")
+        before = rep["current_weights"]
+        after = rep["proposed_weights"]
+        await db.hunter_config.update_one(
+            {"_id": "default"},
+            {"$set": {"mode": "custom", "custom_weights": after,
+                      "updated_at": _now_iso(), "updated_by": getattr(user, "user_id", None)}},
+            upsert=True)
+        await db.hunter_audit.insert_one({
+            "id": str(uuid.uuid4()), "at": _now_iso(), "action": "weights_retrained",
+            "load_id": None, "shipper": None, "lane": None, "weights": after,
+            "source": "misalignment_detector",
+            "approved_by": getattr(user, "user_id", None)})
+        record = {"at": _now_iso(), "by": getattr(user, "user_id", None),
+                  "source": "misalignment_detector", "before": before, "after": after,
+                  "deltas": rep["deltas"], "agreement_rate": rep["agreement_rate"],
+                  "decisions_used": rep["divergence"]["override_approve"] + rep["divergence"]["override_reject"]}
+        await db.alignment_retrains.insert_one(dict(record))
+        record.pop("_id", None)
+        return {"ok": True, **record}
 
     api_router.include_router(router)
     logger.info("AI Load Hunter router registered (/api/load-hunter)")
