@@ -22,6 +22,11 @@ const STATUS_COLOR = {
   factored: "text-purple-300", paid: "text-emerald-300",
 };
 
+const MKT_BADGE = {
+  headhaul: { label: "HH", cls: "text-red-300 border-red-500/30", title: "Headhaul — hot lane, rates priced up, margin compressed" },
+  backhaul: { label: "BH", cls: "text-sky-300 border-sky-500/30", title: "Backhaul — cheap lane, rates discounted, margin widened" },
+};
+
 const truckIcon = (exc) => L.divIcon({
   className: "",
   html: `<div style="background:${exc ? "#ef4444" : "#22d3ee"};border:2px solid #0b1320;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px ${exc ? "#ef444488" : "#22d3ee88"}"><span style="font-size:8px">🚛</span></div>`,
