@@ -44,8 +44,9 @@ function LaunchScreen({ onStart, busy }) {
       <FlaskConical size={42} className="mx-auto text-cyan-400 mb-3" />
       <h2 className="font-display text-3xl font-black">Operation Sandbox</h2>
       <p className="text-sm text-slate-400 mt-2 max-w-xl mx-auto">
-        Run a full brokerage week against a 36-carrier nationwide sample network. Real load-board economics,
-        current FSC (${"0.41"}/mi @ DOE $3.68), live GPS movement, AI matching &amp; triage, BOL/POD/invoicing,
+        Run a full brokerage week against a 36-carrier nationwide sample network. Real load-board economics —
+        regional lane imbalance (headhaul/backhaul pricing), monthly seasonality curves,
+        current FSC (${"0.41"}/mi @ DOE $3.68) — live GPS movement, AI matching &amp; triage, BOL/POD/invoicing,
         factoring, and a running P&amp;L. Every load is marked <span className="text-yellow-300 font-mono">SAMPLE</span>.
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 text-left">
@@ -333,6 +334,7 @@ export default function OperationSandbox() {
                             {l.origin.name} → {l.dest.name}<br />
                             {l.carrier?.name} · {l.carrier?.driver}<br />
                             {Math.round(l.progress * 100)}% · ${fmt(l.sell_usd)} · margin ${fmt(l.margin_usd)}
+                            {l.market && <><br />{l.market.headhaul} · lane ×{l.market.lane_mult} · season ×{l.market.seasonal_mult}</>}
                             {l.exception && <><br /><span style={{ color: "#ef4444" }}>⚠ {l.exception.title}</span></>}
                           </div>
                         </Popup>
@@ -423,6 +425,12 @@ export default function OperationSandbox() {
                     <div key={l.load_id} className="text-[10px] font-mono p-1.5 rounded bg-white/[0.02] flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <span className="text-slate-200">{l.load_id}</span>
+                        {MKT_BADGE[l.market?.headhaul] && (
+                          <span title={MKT_BADGE[l.market.headhaul].title}
+                            className={`ml-1 text-[8px] border rounded px-1 ${MKT_BADGE[l.market.headhaul].cls}`}>
+                            {MKT_BADGE[l.market.headhaul].label}
+                          </span>
+                        )}
                         <span className="text-slate-500"> {l.origin.name.split(",")[0]}→{l.dest.name.split(",")[0]}</span>
                         {l.booked_id && (l.status !== "posted") && (
                           <span className="ml-1">

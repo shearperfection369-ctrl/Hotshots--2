@@ -107,6 +107,66 @@ CARRIER_FLEET: List[Dict[str, Any]] = [
     {"name": "Bluegrass Motor Lines",  "base": "Louisville, KY",  "equipment": ["Van", "Flatbed"], "otp": 94},
 ]
 
+# ------------------------------------------------- market realism: lane imbalance
+REGION_OF: Dict[str, str] = {
+    "Los Angeles, CA": "west", "Ontario, CA": "west", "Oakland, CA": "west",
+    "Portland, OR": "pnw", "Seattle, WA": "pnw",
+    "Denver, CO": "mountain", "Salt Lake City, UT": "mountain", "Albuquerque, NM": "mountain",
+    "Phoenix, AZ": "southwest",
+    "Dallas, TX": "south_central", "Houston, TX": "south_central",
+    "San Antonio, TX": "south_central", "Laredo, TX": "south_central",
+    "Oklahoma City, OK": "south_central",
+    "Chicago, IL": "midwest", "Milwaukee, WI": "midwest", "Indianapolis, IN": "midwest",
+    "Columbus, OH": "midwest", "Detroit, MI": "midwest", "St. Louis, MO": "midwest",
+    "Louisville, KY": "midwest",
+    "Minneapolis, MN": "plains", "Duluth, MN": "plains", "Fargo, ND": "plains",
+    "Des Moines, IA": "plains", "Omaha, NE": "plains", "Kansas City, MO": "plains",
+    "Atlanta, GA": "southeast", "Charlotte, NC": "southeast", "Memphis, TN": "southeast",
+    "Nashville, TN": "southeast",
+    "Jacksonville, FL": "florida", "Miami, FL": "florida",
+    "Newark, NJ": "northeast", "Harrisburg, PA": "northeast", "Boston, MA": "northeast",
+}
+
+# out = strength of outbound (headhaul) demand · in = strength of inbound demand.
+# Mirrors real DAT market behavior: CA outbound hot / inbound soft, FL inbound hot /
+# outbound cheap backhaul, NE hard to leave cheap, Denver backhaul-poor, Midwest balanced.
+REGION_MARKET: Dict[str, Dict[str, float]] = {
+    "west":          {"out": 1.15, "in": 0.90},
+    "pnw":           {"out": 0.97, "in": 1.05},
+    "mountain":      {"out": 0.87, "in": 1.07},
+    "southwest":     {"out": 0.94, "in": 1.03},
+    "south_central": {"out": 1.04, "in": 0.98},
+    "midwest":       {"out": 1.03, "in": 1.00},
+    "plains":        {"out": 0.97, "in": 1.02},
+    "southeast":     {"out": 1.02, "in": 0.99},
+    "florida":       {"out": 0.80, "in": 1.18},
+    "northeast":     {"out": 0.86, "in": 1.08},
+}
+
+def _lane_multiplier(origin: str, dest: str) -> float:
+    o = REGION_MARKET[REGION_OF[origin]]
+    d = REGION_MARKET[REGION_OF[dest]]
+    return round(max(0.72, min(1.38, o["out"] * d["in"])), 3)
+
+# ------------------------------------------------- market realism: seasonality
+# Monthly national rate curves per equipment (Jan..Dec), indexed to 1.00 annual avg.
+# Van: Q4 retail peak, Jan/Feb soft. Reefer: produce season May-Jul + holiday peak.
+# Flatbed: construction season Apr-Sep, dead in winter.
+SEASONAL_CURVE: Dict[str, List[float]] = {
+    "Van":     [0.93, 0.94, 0.97, 0.99, 1.01, 1.02, 1.00, 1.00, 1.02, 1.05, 1.08, 1.10],
+    "Reefer":  [0.94, 0.95, 0.98, 1.02, 1.08, 1.12, 1.10, 1.04, 1.02, 1.04, 1.10, 1.12],
+    "Flatbed": [0.90, 0.92, 1.00, 1.06, 1.08, 1.08, 1.06, 1.05, 1.03, 1.00, 0.95, 0.90],
+}
+
+# Regional produce surges layered on reefer: FL spring produce, CA summer produce.
+PRODUCE_SURGE = {"florida": {4: 1.12, 5: 1.14, 6: 1.08}, "west": {5: 1.06, 6: 1.10, 7: 1.08}}
+
+def _seasonal_multiplier(month: int, equipment: str, origin_region: str) -> float:
+    m = SEASONAL_CURVE[equipment][month - 1]
+    if equipment == "Reefer":
+        m *= PRODUCE_SURGE.get(origin_region, {}).get(month, 1.0)
+    return round(m, 3)
+
 FIRST = ["Marcus", "Dwayne", "Elena", "Sam", "Kofi", "Tina", "Jorge", "Pete", "Angela",
          "Ray", "Deb", "Hassan", "Vlad", "Cherise", "Bobby", "Ana", "Duke", "Lamar"]
 LAST = ["Johnson", "Okafor", "Reyes", "Nguyen", "Kowalski", "Sesay", "Thompson", "Diaz",
@@ -193,13 +253,20 @@ def build_sim_router(*, api_router: APIRouter, db,
         equipment = rnd.choices(["Van", "Reefer", "Flatbed"], weights=[58, 26, 16])[0]
         rpm = {"Van": rnd.uniform(1.95, 2.55), "Reefer": rnd.uniform(2.35, 3.05),
                "Flatbed": rnd.uniform(2.25, 2.90)}[equipment]
+        clock = datetime.fromisoformat(sim["sim_clock"])
+        o_region, d_region = REGION_OF[origin], REGION_OF[dest]
+        lane_mult = _lane_multiplier(origin, dest)
+        seas_mult = _seasonal_multiplier(clock.month, equipment, o_region)
+        rpm = rpm * lane_mult * seas_mult
+        headhaul = "headhaul" if lane_mult >= 1.08 else "backhaul" if lane_mult <= 0.92 else "balanced"
         linehaul = round(rpm * miles, 2)
         fsc = round(FSC_PER_MILE * miles, 2)
         carrier_pay = round(linehaul + fsc, 2)
-        margin_pct = rnd.uniform(0.13, 0.22)
+        # brokers compress margin on hot headhauls, widen it on backhauls
+        margin_pct = {"headhaul": rnd.uniform(0.10, 0.17), "backhaul": rnd.uniform(0.15, 0.25),
+                      "balanced": rnd.uniform(0.13, 0.22)}[headhaul]
         sell = round(carrier_pay / (1 - margin_pct), 2)
         shipper, terms = rnd.choice(SHIPPERS)
-        clock = datetime.fromisoformat(sim["sim_clock"])
         pickup = clock + timedelta(hours=rnd.uniform(2, 14))
         return {
             "load_id": f"SMPL-{uuid.uuid4().hex[:6].upper()}",
@@ -216,6 +283,8 @@ def build_sim_router(*, api_router: APIRouter, db,
             "margin_usd": round(sell - carrier_pay, 2),
             "margin_pct": round(margin_pct * 100, 1),
             "rpm_all_in": round(sell / miles, 2),
+            "market": {"lane_mult": lane_mult, "seasonal_mult": seas_mult,
+                       "headhaul": headhaul, "o_region": o_region, "d_region": d_region},
             "pickup_appt": _iso(pickup),
             "delivery_appt": _iso(pickup + timedelta(hours=miles / EFFECTIVE_MPH + 6)),
             "position": {"lat": o[0], "lng": o[1]}, "progress": 0.0,
@@ -612,6 +681,16 @@ def build_sim_router(*, api_router: APIRouter, db,
         exc = await db.sim_events.count_documents({"sim_id": sim["sim_id"], "type": "exception"})
         top_lanes = sorted(lanes.items(), key=lambda x: -x[1]["margin"])[:6]
         top_carr = sorted(cmap.items(), key=lambda x: -x[1]["margin"])[:6]
+        hh = [l for l in loads if (l.get("market") or {}).get("headhaul") == "headhaul"]
+        bh = [l for l in loads if (l.get("market") or {}).get("headhaul") == "backhaul"]
+        def _avg_mpct(rows): return round(sum(r["margin_pct"] for r in rows) / len(rows), 1) if rows else 0
+        market_line = (
+            f"Market model: regional lane-imbalance + seasonality active. "
+            f"Headhaul loads {len(hh)} (avg margin {_avg_mpct(hh)}%), "
+            f"backhaul loads {len(bh)} (avg margin {_avg_mpct(bh)}%), balanced {len(loads) - len(hh) - len(bh)}. "
+            f"Hot outbound: CA, Midwest. Hot inbound: FL, Northeast, Mountain. Backhaul-cheap: outbound FL/NE/Denver. "
+            f"Seasonality month={_now().month} (reefer produce season May-Jul, van Q4 peak, flatbed Apr-Sep construction).\n"
+        )
         net = led.get("revenue", 0) - led.get("carrier_pay", 0) - led.get("factoring_fees", 0) - led.get("exception_costs", 0)
         return (
             f"SIM WEEK RESULTS ({sim['sim_id']}, {sim['duration_days']} days, DOE diesel ${sim['doe_diesel']}, FSC ${sim['fsc_per_mile']}/mi):\n"
@@ -621,6 +700,7 @@ def build_sim_router(*, api_router: APIRouter, db,
             f"({round(net/max(led.get('revenue',1),1)*100,1)}%). Cash collected ${led.get('cash_collected',0):,.0f}, AR outstanding ${led.get('revenue',0)-led.get('cash_collected',0):,.0f}.\n"
             f"Daily P&L: {sim.get('daily')}\n"
             f"Exceptions fired: {exc}.\n"
+            f"{market_line}"
             f"Top lanes by margin: {[(k, v['loads'], round(v['margin'])) for k, v in top_lanes]}\n"
             f"Top carriers by margin: {[(k, v['loads'], round(v['margin'])) for k, v in top_carr]}\n"
         )
