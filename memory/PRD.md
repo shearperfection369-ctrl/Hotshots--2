@@ -1799,3 +1799,24 @@ kit of the app. I just tried to generate a quote and could not."
 - `/api/shipper-outreach/pdf` (Capability / Welcome / Agreement / Bio / Onboarding) ✅
 - `/api/upwork-portfolio/pdf` ✅
 
+
+---
+
+## 2026-06 (fork): Live Ops Command + Sandbox Deep AI Analysis — COMPLETE
+
+### Live Ops Command (`/live-ops`)
+- Production mirror of Operation Sandbox driven by REAL data (`is_sample` excluded).
+- Backend: `routes/live_ops.py` → `GET /api/live-ops/state` (already existed, now consumed).
+- Frontend: new `pages/LiveOps.jsx` + route in App.js + Sidebar nav "Live Ops Command"
+  (admin/dispatcher). KPI bar (today loads/revenue/margin, avg loads/day, 7-day totals,
+  in-transit, AR outstanding/past due, cash collected), dark Leaflet map of real
+  in-transit shipments, unified activity feed (bookings + invoices + Hunter audit),
+  AR triage panel, Margin-by-day + Loads-by-day real charts. Auto-refresh 15s.
+
+### Sandbox Deep AI Analysis (OperationSandbox.jsx)
+- New `AiAnalysisPanel`: "Deep AI Post-Mortem" card → POST /api/sim/analyze
+  (Claude sonnet-4-5 via Emergent key, markdown report persisted in sim_state.analysis)
+  + "Ask The Analyst" chat → POST /api/sim/ask (grounded Q&A, history in db.sim_qa,
+  suggestion chips). Added "Avg Loads/Day" KPI stat to sandbox scoreboard.
+- Verified via curl: /sim/ask returned grounded lane-margin answer; /sim/analyze
+  returned full 5.7k-char post-mortem; screenshots confirmed both pages render.

@@ -80,6 +80,7 @@ import AdminSettings from "@/pages/AdminSettings";
 import AdminDashboard from "@/pages/AdminDashboard";
 import Brokerage from "@/pages/Brokerage";
 import OperationSandbox from "@/pages/OperationSandbox";
+import LiveOps from "@/pages/LiveOps";
 import SpecialtyCarriers from "@/pages/SpecialtyCarriers";
 import DriverRegistry from "@/pages/DriverRegistry";
 import WorkflowChecklist from "@/pages/WorkflowChecklist";
@@ -148,6 +149,7 @@ function AppRouter() {
         <Route path="/book-load" element={<BookLoad />} />
         <Route path="/brokerage" element={<Brokerage />} />
         <Route path="/sandbox" element={<OperationSandbox />} />
+        <Route path="/live-ops" element={<LiveOps />} />
         <Route path="/documents" element={<Documents />} />
         <Route path="/tracking" element={<Tracking />} />
         <Route path="/live-tracking" element={<Tracking />} />

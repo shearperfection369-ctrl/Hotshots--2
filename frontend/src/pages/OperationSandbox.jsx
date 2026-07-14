@@ -8,9 +8,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 import {
   FlaskConical, Rocket, Pause, Play, RotateCcw, Loader2, Truck, DollarSign,
-  ShieldAlert, FileDown, Trophy, Zap, CheckCircle2,
+  ShieldAlert, FileDown, Trophy, Zap, CheckCircle2, Brain, Send,
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 
@@ -75,6 +76,120 @@ function LaunchScreen({ onStart, busy }) {
         Launch The Week
       </Button>
     </Card>
+  );
+}
+
+function AiAnalysisPanel({ analysis }) {
+  const [analyzing, setAnalyzing] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [qa, setQa] = useState([]);
+  const [report, setReport] = useState(analysis || null);
+  const chatEndRef = useRef(null);
+
+  useEffect(() => { if (analysis && !report) setReport(analysis); }, [analysis, report]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [qa]);
+
+  const runAnalysis = async () => {
+    setAnalyzing(true);
+    try {
+      const { data } = await api.post("/sim/analyze");
+      setReport(data.analysis);
+      toast.success("🧠 Deep analysis complete");
+    } catch (e) { toast.error(e?.response?.data?.detail || "Analysis failed"); }
+    finally { setAnalyzing(false); }
+  };
+
+  const ask = async () => {
+    const q = question.trim();
+    if (!q || asking) return;
+    setAsking(true);
+    setQa((prev) => [...prev, { q, a: null }]);
+    setQuestion("");
+    try {
+      const { data } = await api.post("/sim/ask", { question: q });
+      setQa((prev) => prev.map((x, i) => (i === prev.length - 1 ? { ...x, a: data.answer } : x)));
+    } catch (e) {
+      setQa((prev) => prev.map((x, i) => (i === prev.length - 1 ? { ...x, a: `⚠ ${e?.response?.data?.detail || "Failed to answer"}` } : x)));
+    } finally { setAsking(false); }
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="sim-ai-section">
+      <Card className="hud-surface p-4" data-testid="sim-ai-analysis">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-purple-300 flex items-center gap-1.5">
+            <Brain size={12} /> Deep AI Post-Mortem
+          </div>
+          <Button size="sm" onClick={runAnalysis} disabled={analyzing} data-testid="sim-analyze-btn"
+            className="bg-purple-500/20 border border-purple-500/40 text-purple-200 font-mono text-[10px] uppercase hover:bg-purple-500/30">
+            {analyzing ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Brain size={12} className="mr-1" />}
+            {report ? "Re-Analyze Week" : "Analyze The Week"}
+          </Button>
+        </div>
+        {analyzing && !report && (
+          <div className="text-[11px] font-mono text-slate-500 py-8 text-center">
+            Claude is reviewing every load, lane, carrier, and dollar…
+          </div>
+        )}
+        {!report && !analyzing && (
+          <div className="text-[11px] font-mono text-slate-500 py-8 text-center">
+            Run the analysis to get a full operations post-mortem: what worked, what leaked money, and 5 moves for next week.
+          </div>
+        )}
+        {report && (
+          <div className="prose prose-invert prose-sm max-w-none max-h-80 overflow-y-auto text-[12px] leading-relaxed [&_h2]:text-purple-300 [&_h2]:text-sm [&_h2]:font-mono [&_h2]:uppercase [&_h2]:tracking-wider [&_li]:my-0.5"
+            data-testid="sim-analysis-report">
+            <ReactMarkdown>{report}</ReactMarkdown>
+          </div>
+        )}
+      </Card>
+
+      <Card className="hud-surface p-4 flex flex-col" data-testid="sim-ai-chat">
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300 flex items-center gap-1.5 mb-2">
+          <Zap size={12} /> Ask The Analyst
+        </div>
+        <div className="flex-1 space-y-2 max-h-72 overflow-y-auto mb-3" data-testid="sim-chat-history">
+          {qa.length === 0 && (
+            <div className="text-[10px] font-mono text-slate-500 space-y-1.5 pt-2">
+              <div>Grounded in this week's actual numbers. Try:</div>
+              {["Which lane made the most margin and why?", "Where did we leak money on exceptions?",
+                "Which carrier should get more freight next week?", "Why was margin low on the worst day?"].map((s) => (
+                <button key={s} onClick={() => setQuestion(s)} data-testid="sim-chat-suggestion"
+                  className="block text-left text-cyan-400/80 hover:text-cyan-300 border border-white/5 rounded px-2 py-1 w-full">
+                  → {s}
+                </button>
+              ))}
+            </div>
+          )}
+          {qa.map((item, i) => (
+            <div key={i} className="space-y-1.5">
+              <div className="text-[11px] font-mono text-cyan-200 bg-cyan-500/[0.06] border border-cyan-500/20 rounded p-2 ml-6">{item.q}</div>
+              {item.a === null ? (
+                <div className="text-[11px] font-mono text-slate-500 p-2 flex items-center gap-1.5 mr-6">
+                  <Loader2 size={11} className="animate-spin" /> thinking…
+                </div>
+              ) : (
+                <div className="text-[11px] text-slate-300 bg-white/[0.03] border border-white/10 rounded p-2 mr-6 prose prose-invert prose-sm max-w-none [&_p]:my-1">
+                  <ReactMarkdown>{item.a}</ReactMarkdown>
+                </div>
+              )}
+            </div>
+          ))}
+          <div ref={chatEndRef} />
+        </div>
+        <div className="flex gap-2">
+          <input value={question} onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && ask()} data-testid="sim-chat-input"
+            placeholder="Ask anything about this week's operation…"
+            className="flex-1 h-9 rounded bg-slate-950 border border-white/10 font-mono text-[11px] px-3 text-slate-200 placeholder:text-slate-600" />
+          <Button size="sm" onClick={ask} disabled={asking || !question.trim()} data-testid="sim-chat-send-btn"
+            className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold h-9">
+            {asking ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+          </Button>
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -194,6 +309,7 @@ export default function OperationSandbox() {
                 <Stat label="AR Outstanding" value={`$${fmt(ledger.outstanding_ar)}`} accent="text-orange-300" />
                 <Stat label="Factoring Fees" value={`$${fmt(ledger.factoring_fees)}`} accent="text-purple-300" />
                 <Stat label="Loads" value={`${kpis.delivered || 0}/${kpis.total_loads || 0}`} accent="text-cyan-300" tid="sim-kpi-loads" />
+                <Stat label="Avg Loads/Day" value={kpis.avg_daily_loads ?? "—"} accent="text-cyan-300" tid="sim-kpi-avg-daily" />
                 <Stat label="In Transit" value={kpis.active_transit || 0} accent="text-emerald-300" />
                 <Stat label="On-Time" value={`${kpis.on_time_pct ?? 100}%`} accent="text-emerald-300" />
                 <Stat label="FSC / DOE" value={`$${sim.fsc_per_mile}/mi`} accent="text-slate-300" />
@@ -323,6 +439,8 @@ export default function OperationSandbox() {
                 </div>
               </Card>
             </div>
+
+            <AiAnalysisPanel analysis={state?.analysis} />
           </>
         )}
       </div>

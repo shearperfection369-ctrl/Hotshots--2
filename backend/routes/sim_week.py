@@ -558,6 +558,8 @@ def build_sim_router(*, api_router: APIRouter, db,
             by_status[l["status"]] = by_status.get(l["status"], 0) + 1
         delivered = [l for l in loads if l["status"] in ("delivered", "invoiced", "factored", "paid")]
         otp = round(sum(1 for l in delivered if l.get("on_time")) / len(delivered) * 100, 1) if delivered else 100.0
+        booked_n = sum(1 for l in loads if l["status"] != "posted")
+        avg_daily = round(booked_n / max(1, sim["sim_day"]), 1)
         # carrier leaderboard
         cmap: Dict[str, Dict[str, Any]] = {}
         for l in loads:
@@ -580,10 +582,107 @@ def build_sim_router(*, api_router: APIRouter, db,
                        "outstanding_ar": round(ledger.get("revenue", 0) - ledger.get("cash_collected", 0), 2)},
             "kpis": {"total_loads": len(loads), "delivered": len(delivered),
                      "active_transit": by_status.get("in_transit", 0),
-                     "on_time_pct": otp, "by_status": by_status},
+                     "on_time_pct": otp, "by_status": by_status,
+                     "booked": booked_n, "avg_daily_loads": avg_daily},
             "loads": sorted(loads, key=lambda x: x.get("posted_at", ""), reverse=True),
             "events": events, "triage": triage, "leaderboard": leaderboard,
+            "analysis": sim.get("analysis"),
         }
+
+    async def _sim_summary_text(sim: Dict[str, Any]) -> str:
+        loads = await db.sim_loads.find({"sim_id": sim["sim_id"]}, {"_id": 0}).to_list(500)
+        led = sim["ledger"]
+        delivered = [l for l in loads if l["status"] in ("delivered", "invoiced", "factored", "paid")]
+        otp = round(sum(1 for l in delivered if l.get("on_time")) / len(delivered) * 100, 1) if delivered else 100.0
+        lanes: Dict[str, Dict[str, float]] = {}
+        cmap: Dict[str, Dict[str, float]] = {}
+        exc = 0
+        for l in loads:
+            key = f"{l['origin']['name']} → {l['dest']['name']}"
+            la = lanes.setdefault(key, {"loads": 0, "margin": 0.0})
+            la["loads"] += 1
+            if l["status"] in ("invoiced", "factored", "paid", "delivered"):
+                la["margin"] += l["margin_usd"]
+            if l.get("carrier"):
+                c = cmap.setdefault(l["carrier"]["name"], {"loads": 0, "margin": 0.0})
+                c["loads"] += 1
+                c["margin"] += l["margin_usd"] if l["status"] in ("invoiced", "factored", "paid", "delivered") else 0
+            if l.get("exception") or "resolved" in str(l.get("timeline", [])):
+                pass
+        exc = await db.sim_events.count_documents({"sim_id": sim["sim_id"], "type": "exception"})
+        top_lanes = sorted(lanes.items(), key=lambda x: -x[1]["margin"])[:6]
+        top_carr = sorted(cmap.items(), key=lambda x: -x[1]["margin"])[:6]
+        net = led.get("revenue", 0) - led.get("carrier_pay", 0) - led.get("factoring_fees", 0) - led.get("exception_costs", 0)
+        return (
+            f"SIM WEEK RESULTS ({sim['sim_id']}, {sim['duration_days']} days, DOE diesel ${sim['doe_diesel']}, FSC ${sim['fsc_per_mile']}/mi):\n"
+            f"Loads: {len(loads)} total, {len(delivered)} delivered, avg {round(sum(1 for l in loads if l['status']!='posted')/max(1,sim['duration_days']),1)}/day. On-time {otp}%.\n"
+            f"Money: revenue ${led.get('revenue',0):,.0f} · carrier pay ${led.get('carrier_pay',0):,.0f} · FSC billed ${led.get('fsc_billed',0):,.0f} · "
+            f"factoring fees ${led.get('factoring_fees',0):,.0f} · detention billed ${led.get('detention_billed',0):,.0f} · exception costs ${led.get('exception_costs',0):,.0f} · NET MARGIN ${net:,.0f} "
+            f"({round(net/max(led.get('revenue',1),1)*100,1)}%). Cash collected ${led.get('cash_collected',0):,.0f}, AR outstanding ${led.get('revenue',0)-led.get('cash_collected',0):,.0f}.\n"
+            f"Daily P&L: {sim.get('daily')}\n"
+            f"Exceptions fired: {exc}.\n"
+            f"Top lanes by margin: {[(k, v['loads'], round(v['margin'])) for k, v in top_lanes]}\n"
+            f"Top carriers by margin: {[(k, v['loads'], round(v['margin'])) for k, v in top_carr]}\n"
+        )
+
+    @router.post("/analyze")
+    async def analyze(user=Depends(get_current_user)) -> Dict[str, Any]:
+        """Deep AI post-mortem of the sim week (Claude via Emergent key)."""
+        sim = await _active_sim()
+        if not sim:
+            raise HTTPException(404, "No simulation found — run a week first")
+        import os
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        summary = await _sim_summary_text(sim)
+        try:
+            chat = LlmChat(
+                api_key=os.environ.get("EMERGENT_LLM_KEY"),
+                session_id=f"sim-analyze-{sim['sim_id']}",
+                system_message=(
+                    "You are an elite freight brokerage operations analyst reviewing a simulated "
+                    "operating week for Orisei Freight Solutions. Produce a sharp, actionable "
+                    "post-mortem in markdown with sections: ## Verdict (one paragraph), "
+                    "## What Worked, ## What Leaked Money, ## Lane & Carrier Strategy, "
+                    "## Risk & Exceptions, ## 5 Moves For Next Week. Use the actual numbers. "
+                    "Be direct — this operator wants truth, not cheerleading."),
+            ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+            reply = await chat.send_message(UserMessage(text=summary))
+        except Exception as e:
+            raise HTTPException(502, f"AI provider error: {e}")
+        await db.sim_state.update_one({"sim_id": sim["sim_id"]},
+                                      {"$set": {"analysis": reply, "analyzed_at": _iso(_now())}})
+        return {"ok": True, "analysis": reply}
+
+    @router.post("/ask")
+    async def ask(payload: Dict[str, Any], user=Depends(get_current_user)) -> Dict[str, Any]:
+        """Interactive Q&A about the sim week, grounded in the actual results."""
+        question = (payload.get("question") or "").strip()
+        if not question:
+            raise HTTPException(400, "question required")
+        sim = await _active_sim()
+        if not sim:
+            raise HTTPException(404, "No simulation found")
+        import os
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        summary = await _sim_summary_text(sim)
+        history = await db.sim_qa.find({"sim_id": sim["sim_id"]}, {"_id": 0}).sort("at", -1).to_list(6)
+        hist_txt = "\n".join(f"Q: {h['q']}\nA: {h['a'][:400]}" for h in reversed(history))
+        try:
+            chat = LlmChat(
+                api_key=os.environ.get("EMERGENT_LLM_KEY"),
+                session_id=f"sim-qa-{sim['sim_id']}",
+                system_message=(
+                    "You are the AI operations analyst for Orisei Freight Solutions, answering "
+                    "questions about a simulated brokerage week. Ground every answer in the data "
+                    "below. Be concise (under 180 words), numeric, and direct.\n\n"
+                    f"{summary}\n\nPrior Q&A:\n{hist_txt}"),
+            ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+            reply = await chat.send_message(UserMessage(text=question))
+        except Exception as e:
+            raise HTTPException(502, f"AI provider error: {e}")
+        await db.sim_qa.insert_one({"sim_id": sim["sim_id"], "q": question, "a": reply,
+                                    "at": _iso(_now()), "by": getattr(user, "user_id", None)})
+        return {"ok": True, "question": question, "answer": reply}
 
     @router.post("/triage/{load_id}/resolve")
     async def resolve_triage(load_id: str, user=Depends(get_current_user)) -> Dict[str, Any]:
