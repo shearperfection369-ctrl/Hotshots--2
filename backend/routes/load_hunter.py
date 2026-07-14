@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -63,6 +63,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "scan_interval_sec": 45,
     "auto_book": {"enabled": False, "max_rate_usd": 2500.0, "min_score": 85, "max_per_day": 10},
     "risk": {"min_payment_score": 60, "override_margin_pct": 22.0},
+    "alignment": {
+        "weekly_volume_target": 20,        # anti cherry-picking floor
+        "min_avg_margin_pct": 12.0,        # anti race-to-the-bottom floor
+        "max_shipper_share_pct": 30.0,     # concentration guardrail
+        "max_carrier_share_pct": 35.0,     # anti carrier-starvation guardrail
+        "max_risk_override_share_pct": 15.0,
+        "min_confidence_autobook": 70,     # Layer-3 gate: no low-confidence auto-books
+    },
 }
 
 FUEL_COST_PER_MILE = {"Van": 0.58, "Reefer": 0.68, "Flatbed": 0.62, "Step Deck": 0.62, "Power Only": 0.52}
@@ -112,6 +120,45 @@ class ConfigIn(BaseModel):
     auto_book_max_per_day: Optional[int] = Field(None, ge=0, le=100)
     risk_min_payment_score: Optional[int] = Field(None, ge=0, le=100)
     risk_override_margin_pct: Optional[float] = Field(None, ge=0, le=100)
+
+
+class AlignmentIn(BaseModel):
+    weekly_volume_target: Optional[int] = Field(None, ge=1, le=500)
+    min_avg_margin_pct: Optional[float] = Field(None, ge=0, le=50)
+    max_shipper_share_pct: Optional[float] = Field(None, ge=5, le=100)
+    max_carrier_share_pct: Optional[float] = Field(None, ge=5, le=100)
+    max_risk_override_share_pct: Optional[float] = Field(None, ge=0, le=100)
+    min_confidence_autobook: Optional[int] = Field(None, ge=0, le=100)
+
+
+def _reasoning_trace(comps: Dict[str, float], weights: Dict[str, float]) -> Dict[str, Any]:
+    """Layer 2: inspectable 'why' — factor contributions sorted, top reason."""
+    contribs = sorted(
+        ({"factor": k, "score": comps[k], "weight": round(weights.get(k, 0), 3),
+          "contribution": round(comps[k] * weights.get(k, 0), 1)} for k in comps),
+        key=lambda x: -x["contribution"])
+    top = contribs[0]
+    weak = min(contribs, key=lambda x: x["score"])
+    return {
+        "contributions": contribs,
+        "top_reason": f"Driven by {top['factor'].replace('_', ' ')} ({top['score']:.0f}/100 × w{top['weight']})",
+        "weakest_signal": f"Weakest: {weak['factor'].replace('_', ' ')} at {weak['score']:.0f}/100",
+    }
+
+
+def _confidence(load: Dict[str, Any], risk: Optional[Dict[str, Any]],
+                lane_known: bool, carrier_qualified: bool, override: bool) -> Dict[str, Any]:
+    """Data-completeness confidence: the agent must know less ≠ act more."""
+    c, notes = 100, []
+    if not risk:
+        c -= 20; notes.append("shipper not in risk registry (-20)")
+    if not lane_known:
+        c -= 10; notes.append("no lane history — RPM benchmark used (-10)")
+    if not carrier_qualified:
+        c -= 40; notes.append("no qualified carrier on roster (-40)")
+    if override:
+        c -= 25; notes.append("risk override in play (-25)")
+    return {"confidence": max(0, c), "notes": notes}
 
 
 class RiskIn(BaseModel):
@@ -377,20 +424,28 @@ def build_load_hunter_router(
             score = int(round(sum(comps[k] * weights.get(k, 0) for k in comps)))
             if score < int(cfg.get("min_score", 70)):
                 continue
+            ost = (load.get("origin") or "")[-2:].upper()
+            dst = (load.get("destination") or "")[-2:].upper()
+            conf = _confidence(load, risk, f"{ost}-{dst}" in lane_hist,
+                               best["qualified"], gate["override"])
             winner = {
                 "winner_id": f"HW-{uuid.uuid4().hex[:8].upper()}",
                 "load_id": load.get("load_id"), "board_id": load.get("board_id"),
                 "score": score, "components": comps, "weights": weights,
+                "reasoning": _reasoning_trace(comps, weights),
+                "confidence": conf["confidence"], "confidence_notes": conf["notes"],
                 "risk_override": gate["override"], "risk_reasons": gate["reasons"],
                 "best_carrier": best, "load": load,
                 "is_new": load.get("load_id") not in seen_ids,
                 "status": "surfaced", "surfaced_at": _now_iso(),
             }
-            # Auto-book path
+            # Auto-book path — Layer 3 gate: score + $ cap + clean risk + confidence
             ab = cfg["auto_book"]
+            align = cfg.get("alignment", DEFAULT_CONFIG["alignment"])
             if (ab.get("enabled") and score >= int(ab.get("min_score", 85))
                     and float(load.get("rate_usd") or 0) <= float(ab.get("max_rate_usd", 0))
                     and best["qualified"] and not gate["override"]
+                    and conf["confidence"] >= int(align.get("min_confidence_autobook", 70))
                     and auto_booked_today + len(auto_booked_now) < int(ab.get("max_per_day", 10))):
                 booking = await _book_winner(winner, getattr(user, "user_id", "hunter"), auto=True)
                 winner["status"] = "auto_booked"
@@ -546,6 +601,166 @@ def build_load_hunter_router(
             "avg_winner_margin_usd": round(sum(margins) / len(margins), 2) if margins else 0,
             "pipeline_margin_usd": round(sum(margins), 2),
         }
+
+    # -------------------------------------------------- alignment guardian
+    @router.get("/alignment")
+    async def alignment(_=Depends(get_current_user)) -> Dict[str, Any]:
+        """Misalignment monitors over the last 7 days of hunter bookings:
+        cherry-picking, carrier starvation, shipper concentration, risk drift."""
+        cfg = await _config()
+        a = cfg.get("alignment", DEFAULT_CONFIG["alignment"])
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        rows = await db.brokerage_bookings.find(
+            {"source": "ai_load_hunter", "booked_at": {"$gte": cutoff}},
+            {"_id": 0}).to_list(1000)
+        n = len(rows)
+        rev = sum(float(b.get("forecast_rate_usd") or 0) for b in rows)
+        margin = sum(float(b.get("forecast_margin_usd") or 0) for b in rows)
+        avg_margin_pct = round(margin / rev * 100, 1) if rev else 0.0
+        ship_rev: Dict[str, float] = {}
+        carr_ct: Dict[str, int] = {}
+        overrides = 0
+        for b in rows:
+            ship_rev[b.get("customer_name") or "?"] = ship_rev.get(b.get("customer_name") or "?", 0) + float(b.get("forecast_rate_usd") or 0)
+            carr_ct[b.get("carrier_name") or "?"] = carr_ct.get(b.get("carrier_name") or "?", 0) + 1
+            if "risk" in (b.get("notes") or "").lower() and "override" in (b.get("notes") or "").lower():
+                overrides += 1
+        top_ship = max(ship_rev.items(), key=lambda x: x[1]) if ship_rev else (None, 0)
+        top_carr = max(carr_ct.items(), key=lambda x: x[1]) if carr_ct else (None, 0)
+        ship_share = round(top_ship[1] / rev * 100, 1) if rev else 0.0
+        carr_share = round(top_carr[1] / n * 100, 1) if n else 0.0
+        override_share = round(overrides / n * 100, 1) if n else 0.0
+
+        alerts: List[Dict[str, Any]] = []
+        if n < int(a["weekly_volume_target"]) and avg_margin_pct > float(a["min_avg_margin_pct"]) + 6:
+            alerts.append({"type": "cherry_picking", "severity": "warn",
+                           "message": f"Volume {n}/{a['weekly_volume_target']} this week while avg margin runs hot ({avg_margin_pct}%) — the agent may be cherry-picking margin and starving throughput.",
+                           "recommendation": "Switch to High-Volume mode or lower min_score to protect carrier relationships and weekly cash."})
+        if rev and avg_margin_pct < float(a["min_avg_margin_pct"]):
+            alerts.append({"type": "margin_erosion", "severity": "error",
+                           "message": f"Avg booked margin {avg_margin_pct}% is below the {a['min_avg_margin_pct']}% floor — the agent is chasing volume at the expense of profit.",
+                           "recommendation": "Switch to High-Margin mode or raise min_score."})
+        if ship_share > float(a["max_shipper_share_pct"]):
+            alerts.append({"type": "shipper_concentration", "severity": "warn",
+                           "message": f"{top_ship[0]} is {ship_share}% of booked revenue (cap {a['max_shipper_share_pct']}%) — one dispute or credit hold now threatens the whole book.",
+                           "recommendation": "Diversify: temporarily deprioritize this shipper's loads."})
+        if n >= 5 and carr_share > float(a["max_carrier_share_pct"]):
+            alerts.append({"type": "carrier_starvation", "severity": "warn",
+                           "message": f"{top_carr[0]} is taking {carr_share}% of loads (cap {a['max_carrier_share_pct']}%) — the rest of the roster is being starved and will stop answering.",
+                           "recommendation": "Spread freight: the driver_match component will re-rank once relationship scores update via the feedback loop."})
+        if override_share > float(a["max_risk_override_share_pct"]):
+            alerts.append({"type": "risk_drift", "severity": "error",
+                           "message": f"{override_share}% of bookings used a risk override (cap {a['max_risk_override_share_pct']}%) — margin targets are pulling the agent toward sketchy shippers.",
+                           "recommendation": "Raise override_margin_pct or lower margin weight — chargebacks eat those margins."})
+        return {
+            "layers": [
+                {"layer": 1, "name": "Perception", "status": "active", "detail": "Boards normalized into one schema · component scores stored with every decision."},
+                {"layer": 2, "name": "Reasoning", "status": "active", "detail": "Weighted preference function · full reasoning trace + confidence on every winner."},
+                {"layer": 3, "name": "Action", "status": "active", "detail": f"Human-in-the-loop queue · auto-book gated by score, $ cap, clean risk AND confidence ≥ {a['min_confidence_autobook']}."},
+                {"layer": 4, "name": "Feedback", "status": "active", "detail": "Outcome loop: actual vs forecast margin, payment behavior, carrier performance → human-approved weight retraining."},
+            ],
+            "window_days": 7, "bookings": n, "revenue_usd": round(rev, 2),
+            "avg_margin_pct": avg_margin_pct,
+            "top_shipper": {"name": top_ship[0], "share_pct": ship_share},
+            "top_carrier": {"name": top_carr[0], "share_pct": carr_share},
+            "risk_override_share_pct": override_share,
+            "targets": a, "alerts": alerts, "aligned": len(alerts) == 0,
+        }
+
+    @router.post("/alignment/config")
+    async def set_alignment(payload: AlignmentIn,
+                            user=Depends(require_role("admin", "dispatcher"))) -> Dict[str, Any]:
+        cfg = await _config()
+        a = cfg.get("alignment", dict(DEFAULT_CONFIG["alignment"]))
+        for k, v in payload.model_dump().items():
+            if v is not None:
+                a[k] = v
+        await db.hunter_config.update_one({"_id": "default"},
+                                          {"$set": {"alignment": a, "updated_at": _now_iso()}},
+                                          upsert=True)
+        return {"ok": True, "alignment": a}
+
+    @router.post("/feedback/run")
+    async def feedback_run(user=Depends(require_role("admin", "dispatcher"))) -> Dict[str, Any]:
+        """Layer 4: learn from outcomes. Compares forecast vs settled margin,
+        reads invoice payment behavior, scores carrier performance — then
+        proposes (never silently applies) weight adjustments."""
+        bookings = await db.brokerage_bookings.find(
+            {"status": {"$in": ["delivered", "settled"]}}, {"_id": 0}).to_list(2000)
+        inv_status: Dict[str, str] = {}
+        async for inv in db.brokerage_invoices.find({}, {"_id": 0, "customer_name": 1, "status": 1, "due_at": 1, "paid_at": 1}):
+            cust = inv.get("customer_name") or "?"
+            late = (inv.get("status") != "paid" and inv.get("due_at") and inv["due_at"] < _now_iso())
+            if late:
+                inv_status[cust] = "late"
+            elif cust not in inv_status:
+                inv_status[cust] = inv.get("status") or "issued"
+        carr: Dict[str, Dict[str, Any]] = {}
+        variances: List[float] = []
+        late_shippers: set = set()
+        for b in bookings:
+            f = float(b.get("forecast_margin_usd") or 0)
+            s = b.get("settled_margin_usd")
+            if s is not None and f:
+                variances.append((float(s) - f) / abs(f) * 100)
+            cust = b.get("customer_name") or "?"
+            if inv_status.get(cust) == "late":
+                late_shippers.add(cust)
+            name = b.get("carrier_name") or "?"
+            c = carr.setdefault(name, {"carrier_name": name, "loads": 0, "margin_usd": 0.0})
+            c["loads"] += 1
+            c["margin_usd"] += float(b.get("settled_margin_usd") or b.get("forecast_margin_usd") or 0)
+        for name, c in carr.items():
+            score = min(100, 55 + c["loads"] * 5 + (10 if c["margin_usd"] > 0 else -15))
+            c["relationship_score"] = score
+            await db.carrier_relationship.update_one(
+                {"carrier_name": name},
+                {"$set": {**c, "updated_at": _now_iso()}}, upsert=True)
+        avg_var = round(sum(variances) / len(variances), 1) if variances else None
+        suggestions: List[Dict[str, Any]] = []
+        cfg = await _config()
+        w = _weights_for(cfg)
+        if late_shippers:
+            suggestions.append({
+                "id": "up_shipper_reliability",
+                "reason": f"{len(late_shippers)} shipper(s) paying late ({', '.join(list(late_shippers)[:3])}) — the agent under-weights payment behavior.",
+                "change": "shipper_reliability weight +0.05 (margin −0.05)",
+                "weights": {**w, "shipper_reliability": round(w.get("shipper_reliability", .15) + .05, 3),
+                            "margin_pct": round(max(0.05, w.get("margin_pct", .25) - .05), 3)}})
+        if avg_var is not None and avg_var < -8:
+            suggestions.append({
+                "id": "up_detention_risk",
+                "reason": f"Settled margins run {avg_var}% below forecast — hidden costs (detention, lumpers) are eating the plan.",
+                "change": "detention_risk weight +0.05 (fuel −0.05)",
+                "weights": {**w, "detention_risk": round(w.get("detention_risk", .10) + .05, 3),
+                            "fuel_economics": round(max(0.05, w.get("fuel_economics", .15) - .05), 3)}})
+        result = {"ok": True, "bookings_analyzed": len(bookings),
+                  "carriers_scored": len(carr), "late_paying_shippers": sorted(late_shippers),
+                  "avg_margin_variance_pct": avg_var, "suggestions": suggestions,
+                  "note": "Suggestions are NEVER auto-applied — approve one to retrain the weights.",
+                  "ran_at": _now_iso(), "ran_by": getattr(user, "user_id", None)}
+        await db.hunter_feedback_runs.insert_one(dict(result))
+        return result
+
+    @router.post("/feedback/apply")
+    async def feedback_apply(payload: Dict[str, Any],
+                             user=Depends(require_role("admin", "dispatcher"))) -> Dict[str, Any]:
+        """Human approves a suggestion → weights become the new custom profile."""
+        weights = payload.get("weights") or {}
+        allowed = set(WEIGHT_PRESETS["balanced"])
+        clean = {k: max(0.0, float(v)) for k, v in weights.items() if k in allowed}
+        if len(clean) != len(allowed):
+            raise HTTPException(400, "Suggestion must include all six weight components")
+        await db.hunter_config.update_one(
+            {"_id": "default"},
+            {"$set": {"mode": "custom", "custom_weights": clean,
+                      "updated_at": _now_iso(), "updated_by": getattr(user, "user_id", None)}},
+            upsert=True)
+        await db.hunter_audit.insert_one({
+            "id": str(uuid.uuid4()), "at": _now_iso(), "action": "weights_retrained",
+            "load_id": None, "shipper": None, "lane": None,
+            "weights": clean, "approved_by": getattr(user, "user_id", None)})
+        return {"ok": True, "mode": "custom", "custom_weights": clean}
 
     api_router.include_router(router)
     logger.info("AI Load Hunter router registered (/api/load-hunter)")

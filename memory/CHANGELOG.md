@@ -4,6 +4,34 @@
 
 ---
 
+## 2026-07 · Iterations 64-65 — Operation Sandbox · Field Manual · Alignment Guardian
+- **Operation Sandbox** (`routes/sim_week.py`, `pages/OperationSandbox.jsx`, route `/sandbox`,
+  sidebar nav-sandbox): full-fidelity week simulation — 36 nationwide sample carriers,
+  current FSC (DOE $3.68 → $0.41/mi), time-compressed clock (default 1 sim day ≈ 2 real
+  min, frontend ticks POST /api/sim/tick every 3.5s), AI matching/booking, live GPS
+  movement on dark Leaflet map, detention/breakdown/weather exceptions with AI triage,
+  POD→auto-invoice→factoring (85%/3.75%)→shipper payment, live ledger + daily P&L +
+  carrier leaderboard. Bookings/shipments/invoices mirrored into real collections
+  (is_sample + sim_id) so BOL/POD PDFs and main tracking map work. Verified full week:
+  $98.8K revenue, $12.7K net margin, 11 loads fully closed. /api/sim/reset purges all.
+- **Command Deck Field Manual** (`routes/platform_manual.py`): 7-page colorful brochure
+  manual — platform map, carrier integration steps, daily loop, Hunter guide, docs &
+  money, Sandbox instructions. GET /api/brokerage/platform-manual.pdf (+ button on
+  Sandbox page).
+- **Alignment Guardian** (load_hunter.py + LoadHunterTab.jsx): 4-layer reasoning
+  architecture against agentic misalignment. L2: reasoning trace (factor contributions,
+  top/weakest signal) + data-completeness confidence on every winner. L3: auto-book now
+  additionally gated on confidence ≥ threshold. Monitors (GET /api/load-hunter/alignment):
+  cherry-picking, margin erosion, shipper concentration, carrier starvation, risk-override
+  drift — with recommendations; targets configurable (POST /alignment/config). L4 feedback
+  loop (POST /feedback/run): settled-vs-forecast margin variance, late-payer detection,
+  carrier relationship scoring (db.carrier_relationship) → weight suggestions that are
+  NEVER auto-applied (human approves via POST /feedback/apply → audit-logged retrain).
+- LESSON: never batch multiple search_replace edits to the SAME file in one parallel
+  call — edits clobber each other (hit twice: Brokerage.jsx tabs, LoadHunterTab import).
+
+---
+
 ## 2026-06/07 · Iterations 63 — AI Load Hunter · LTL Rate Cards · AR Engine · Carrier Brochure
 - **AI Load Hunter** (`routes/load_hunter.py`, `LoadHunterTab.jsx`, Brokerage "AI Hunter" tab):
   autonomous load selection — scans all boards in one pass (~20ms), scores on 6 weighted

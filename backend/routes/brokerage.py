@@ -2196,6 +2196,17 @@ def build_brokerage_router(
             headers={"Content-Disposition": 'attachment; filename="Orisei_Carrier_Partner_Brochure.pdf"'},
         )
 
+    @router.get("/platform-manual.pdf")
+    async def platform_manual(_=Depends(get_current_user)):
+        """Colorful field-manual brochure for the entire platform."""
+        from .platform_manual import build_platform_manual_pdf
+        pdf_bytes = build_platform_manual_pdf()
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="Orisei_Command_Deck_Field_Manual.pdf"'},
+        )
+
     # ---- Branded PDF downloads of the markdown documents ----
     @router.get("/business-plan/pdf")
     async def business_plan_pdf(_=Depends(get_current_user)):

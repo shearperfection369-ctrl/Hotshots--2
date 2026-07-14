@@ -6,6 +6,7 @@ import { Switch } from "../components/ui/switch";
 import {
   Crosshair, Zap, ShieldAlert, ShieldCheck, Truck, Loader2, CheckCircle2,
   XCircle, RefreshCw, Scale, TrendingUp, Layers, ScrollText, Sparkles,
+  Compass, Repeat,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { toast } from "sonner";
@@ -86,10 +87,16 @@ function WinnerCard({ w, onBook, onDismiss, busy }) {
         <div className="text-right shrink-0">
           <div className={`font-mono font-black text-2xl ${w.score >= 85 ? "text-emerald-400" : "text-cyan-300"}`}>{w.score}</div>
           <div className="text-[9px] font-mono text-slate-500 uppercase">AI Score</div>
+          <div className={`text-[10px] font-mono mt-0.5 ${w.confidence >= 70 ? "text-emerald-300" : "text-yellow-300"}`}>conf {w.confidence ?? "—"}</div>
           <div className="font-mono text-emerald-300 text-sm mt-1">${fmt(l.margin_usd)}</div>
           <div className="text-[9px] font-mono text-slate-500">{l.margin_pct?.toFixed?.(1)}% margin</div>
         </div>
       </div>
+      {w.reasoning?.top_reason && (
+        <div className="text-[9px] font-mono text-slate-500 mt-1.5 border-l-2 border-cyan-500/30 pl-2" data-testid="winner-reasoning">
+          {w.reasoning.top_reason} · {w.reasoning.weakest_signal}
+        </div>
+      )}
       {!auto && w.status === "surfaced" && (
         <div className="flex gap-2 mt-3">
           <Button size="sm" disabled={busy} onClick={() => onBook(w)}
@@ -102,6 +109,119 @@ function WinnerCard({ w, onBook, onDismiss, busy }) {
             className="border border-white/10 text-slate-400 font-mono text-[10px] uppercase">
             <XCircle size={12} className="mr-1" /> Dismiss
           </Button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function AlignmentGuardian() {
+  const [data, setData] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  const [busy, setBusy] = useState(null);
+
+  const load = useCallback(() => api.get("/load-hunter/alignment").then(({ data: d }) => setData(d)).catch(() => {}), []);
+  useEffect(() => { load(); }, [load]);
+
+  const runFeedback = async () => {
+    setBusy("fb");
+    try {
+      const { data: d } = await api.post("/load-hunter/feedback/run");
+      setFeedback(d);
+      toast.success(`Feedback loop: ${d.bookings_analyzed} outcomes analyzed · ${d.suggestions.length} suggestion(s)`);
+    } catch (e) { toast.error(e?.response?.data?.detail || "Feedback run failed"); }
+    finally { setBusy(null); }
+  };
+  const applySuggestion = async (s) => {
+    setBusy(s.id);
+    try {
+      await api.post("/load-hunter/feedback/apply", { weights: s.weights });
+      toast.success("Weights retrained — Hunter now runs your approved custom profile");
+      setFeedback((f) => ({ ...f, suggestions: f.suggestions.filter((x) => x.id !== s.id) }));
+    } catch (e) { toast.error(e?.response?.data?.detail || "Apply failed"); }
+    finally { setBusy(null); }
+  };
+
+  return (
+    <Card className="hud-surface p-4" data-testid="alignment-guardian">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-300 flex items-center gap-1.5">
+          <Compass size={12} /> Alignment Guardian · 4-Layer Reasoning
+        </div>
+        <div className="flex items-center gap-2">
+          {data && (
+            <span className={`text-[9px] font-mono px-2 py-0.5 rounded uppercase ${data.aligned ? "bg-emerald-500/15 text-emerald-300" : "bg-yellow-500/20 text-yellow-300"}`}
+                  data-testid="alignment-status">
+              {data.aligned ? "Aligned" : `${data.alerts.length} Alert${data.alerts.length > 1 ? "s" : ""}`}
+            </span>
+          )}
+          <button onClick={runFeedback} disabled={busy === "fb"} data-testid="feedback-run-btn"
+            className="text-[9px] font-mono uppercase text-slate-300 border border-white/10 hover:border-emerald-400/40 rounded px-2 py-1 flex items-center gap-1">
+            {busy === "fb" ? <Loader2 size={10} className="animate-spin" /> : <Repeat size={10} />} Run Feedback Loop
+          </button>
+        </div>
+      </div>
+
+      {/* Layer strip */}
+      <div className="grid grid-cols-4 gap-1.5 mb-3" data-testid="alignment-layers">
+        {(data?.layers || []).map((l) => (
+          <div key={l.layer} className="p-1.5 rounded border border-white/5 bg-white/[0.02]" title={l.detail}>
+            <div className="text-[9px] font-mono text-cyan-300 uppercase">L{l.layer} · {l.name}</div>
+            <div className="text-[8px] font-mono text-slate-500 truncate">{l.detail}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Monitors */}
+      {data && (
+        <div className="flex flex-wrap gap-2 text-[9px] font-mono text-slate-400 mb-2" data-testid="alignment-monitors">
+          <span>7d bookings <b className="text-slate-200">{data.bookings}</b>/{data.targets.weekly_volume_target}</span>
+          <span>· avg margin <b className={data.avg_margin_pct >= data.targets.min_avg_margin_pct ? "text-emerald-300" : "text-red-300"}>{data.avg_margin_pct}%</b></span>
+          <span>· top shipper <b className="text-slate-200">{data.top_shipper.share_pct}%</b></span>
+          <span>· top carrier <b className="text-slate-200">{data.top_carrier.share_pct}%</b></span>
+          <span>· risk overrides <b className="text-slate-200">{data.risk_override_share_pct}%</b></span>
+        </div>
+      )}
+
+      {/* Alerts */}
+      <div className="space-y-1.5">
+        {(data?.alerts || []).map((a) => (
+          <div key={a.type} className={`p-2 rounded border text-[10px] font-mono ${a.severity === "error" ? "border-red-500/30 bg-red-500/[0.05] text-red-200" : "border-yellow-500/25 bg-yellow-500/[0.04] text-yellow-200"}`}
+               data-testid={`alignment-alert-${a.type}`}>
+            <b className="uppercase">{a.type.replace(/_/g, " ")}</b> — {a.message}
+            <div className="text-slate-400 mt-0.5">→ {a.recommendation}</div>
+          </div>
+        ))}
+        {data?.aligned && (
+          <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1.5">
+            <ShieldCheck size={12} className="text-emerald-400" /> No misalignment detected — volume, margin, concentration, and risk drift all inside targets.
+          </div>
+        )}
+      </div>
+
+      {/* Feedback suggestions */}
+      {feedback && (
+        <div className="mt-3 pt-3 border-t border-white/5" data-testid="feedback-results">
+          <div className="text-[9px] font-mono text-slate-500 mb-1.5">
+            L4 FEEDBACK · {feedback.bookings_analyzed} outcomes · {feedback.carriers_scored} carriers scored
+            {feedback.avg_margin_variance_pct != null && <> · margin variance {feedback.avg_margin_variance_pct}%</>}
+            {feedback.late_paying_shippers.length > 0 && <> · late payers: {feedback.late_paying_shippers.join(", ")}</>}
+          </div>
+          {feedback.suggestions.length === 0 ? (
+            <div className="text-[10px] font-mono text-emerald-300">No weight changes recommended — current profile matches observed outcomes.</div>
+          ) : feedback.suggestions.map((s) => (
+            <div key={s.id} className="p-2 rounded border border-cyan-500/20 bg-cyan-500/[0.04] mb-1.5">
+              <div className="text-[10px] font-mono text-slate-200">{s.reason}</div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-[9px] font-mono text-cyan-300">{s.change}</span>
+                <button onClick={() => applySuggestion(s)} disabled={busy === s.id}
+                  data-testid={`feedback-apply-${s.id}`}
+                  className="text-[9px] font-mono uppercase text-emerald-300 border border-emerald-500/30 rounded px-2 py-0.5 hover:bg-emerald-500/10">
+                  Approve & Retrain
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </Card>
@@ -261,6 +381,9 @@ export default function LoadHunterTab() {
           </div>
         )}
       </Card>
+
+      {/* Alignment Guardian */}
+      <AlignmentGuardian />
 
       {/* Winners queue */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3" data-testid="hunter-winners-grid">
