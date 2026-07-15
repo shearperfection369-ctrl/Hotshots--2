@@ -256,7 +256,7 @@ def _page_founders(c: Canvas, page: int, total: int):
             "13 years in supply chain & logistics across TL, LTL, parcel, ocean, air, and rail.",
             "International specialist: customs, FTA / USMCA, port-of-entry strategy.",
             "Author of the Orisei Brokerage Command Deck — the firm's proprietary TMS.",
-            "Contributes $10,000 capital + the Command Deck IP + full-time operations.",
+            "Contributes $10,000 capital — PAID IN FULL in-kind: designed & built the Command Deck, structured the business, and paid all Company expenses to date.",
             "Sole salaried member per the Partnership Agreement (§3.5).",
         ],
         "\u201cI've chased a short-shipped pallet at midnight and rebuilt a tender lane after a "

@@ -13,7 +13,7 @@
 
 ## 0 · Document Purpose
 
-This is the **operating business plan** for Orisei Freight Solutions LLC — a Minnesota-domiciled, partner-operated freight brokerage launching in Q2 2026. Version 3.0 reflects the admission of **Daniel W. Karsor** and **Doug Graham** as equal one-third members and the recapitalization of the launch plan around **$30,000 of member capital — $10,000 committed by each member** (received to date: Karsor $2,500 · Graham $300, per official receipts ORI-RCT-0001/0002; balances due per the Phase 0 funding schedule). It is designed to:
+This is the **operating business plan** for Orisei Freight Solutions LLC — a Minnesota-domiciled, partner-operated freight brokerage launching in Q2 2026. Version 3.0 reflects the admission of **Daniel W. Karsor** and **Doug Graham** as equal one-third members and the recapitalization of the launch plan around **$30,000 of member capital — $10,000 committed by each member** (received to date: Cummins $10,000 paid in full in-kind — software, structuring, expenses-to-date · Karsor $2,500 · Graham $300, per official receipts ORI-RCT-0001/0002/0003; cash balances due per the Phase 0 funding schedule). It is designed to:
 
 1. Anchor the partners' first 36 months of decisions.
 2. Serve as a lender-ready / SBA-ready financial narrative.
@@ -52,7 +52,7 @@ The brokerage launches with the operator's playbook, the builder's toolkit, AND 
 | **Net cash to members (equal thirds)** | **$57,490** | **$125,383** | **$223,200** |
 | **Per-member share (⅓)** | **$19,163** | **$41,794** | **$74,400** |
 
-**The capitalization.** Orisei launches on **$30,000 of member capital — $10,000 committed in cash by each of the three members**. Oliver Cummins additionally assigns the Orisei Brokerage Command Deck intellectual property, pre-formation regulatory work, and his full-time operating commitment; Doug Graham additionally contributes 12 years of owner/operator expertise as the Company's carrier-side advisor. There is **no outside-investor ask** — Orisei is designed to be **cash-flow positive by Month 5** on the lean launch budget, with the factoring line carrying working-capital load from Day 28.
+**The capitalization.** Orisei launches on **$30,000 of member capital — $10,000 committed in cash by each of the three members**. Oliver Cummins' $10,000 is **paid in full in-kind** — the design and development of the Orisei Brokerage Command Deck, the structuring and formation of the business, and payment of all Company expenses to date from personal funds (receipt ORI-RCT-0003); Doug Graham additionally contributes 12 years of owner/operator expertise as the Company's carrier-side advisor. There is **no outside-investor ask** — Orisei is designed to be **cash-flow positive by Month 5** on the lean launch budget, with the factoring line carrying working-capital load from Day 28.
 
 ---
 
@@ -352,7 +352,7 @@ Orisei's carrier approval gate — **mandatory before any load is dispatched**:
 
 | Member | Contribution | Value | Ownership |
 | --- | --- | ---: | ---: |
-| Oliver Cummins | Cash commitment + Orisei Command Deck IP assignment + pre-formation regulatory work + full-time operating commitment | **$10,000** + agreed-value in-kind | 33⅓% |
+| Oliver Cummins | **$10,000 — PAID IN FULL in-kind** (receipt ORI-RCT-0003): software design & development of the Command Deck, business structuring & formation, and payment of all Company expenses to date | **$10,000** | 33⅓% |
 | Daniel W. Karsor | Cash commitment ($2,500 received — ORI-RCT-0001) | **$10,000** | 33⅓% |
 | Doug Graham | Cash commitment ($300 received — ORI-RCT-0002) + 12-yr owner/operator expertise in-kind | **$10,000** | 33⅓% |
 | **Total launch capital (cash)** | | **$30,000** | 100% |
@@ -468,10 +468,10 @@ The launch runway is tracked live in the **Command Deck → Launch Runway tab**,
 
 | Source | Amount | Timing | Purpose |
 | --- | ---: | --- | --- |
-| Oliver Cummins — member capital | **$10,000** | Pre-launch | Launch budget per Use of Funds (§10.2) |
+| Oliver Cummins — member capital | **$10,000 — PAID IN FULL in-kind** (ORI-RCT-0003: software, structuring, expenses-to-date) | Received | Platform + formation + pre-launch expenses |
 | Daniel W. Karsor — member capital | **$10,000** ($2,500 received · ORI-RCT-0001) | Pre-launch | Launch budget per Use of Funds (§10.2) |
 | Doug Graham — member capital | **$10,000** ($300 received · ORI-RCT-0002) | Pre-launch | Launch budget per Use of Funds (§10.2) |
-| Oliver Cummins — in-kind | Command Deck IP + operating commitment | Pre-launch | Technology platform + operations |
+
 | Doug Graham — in-kind | 12-yr owner/operator expertise · carrier network | Pre-launch | Capacity & carrier relations |
 | Factoring line (Rapid Finance / On The Spot) | up to $50K available | Day 28 | Carrier quick-pay on factored invoices |
 | Choice Bank LOC (post 12mo) | $25K | Mo13 | Seasonal swing (Q4 retail surge) |
@@ -544,7 +544,7 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 | Step | Action | Owner | Done when |
 | --- | --- | --- | --- |
 | 0.1 | File MN amendment adding Daniel W. Karsor & Doug Graham as equal members; execute + **notarize** Partnership Agreement | All three | MN SOS confirmation + notarized agreement |
-| 0.2 | Each member funds their **$10,000 capital commitment** to the LLC operating account (received to date: Daniel $2,500 · Doug $300 — receipts ORI-RCT-0001/0002; balances due by T-30) | All three | $30,000 deposited · receipts issued |
+| 0.2 | Each member satisfies their **$10,000 capital commitment** (Oliver: PAID IN FULL in-kind — ORI-RCT-0003 · Daniel: $2,500 received, balance by T-30 · Doug: $300 received, balance by T-30) | All three | Commitments satisfied · receipts issued |
 | 0.3 | Apply for FEIN with IRS (partnership classification) | Oliver | EIN letter received |
 | 0.4 | Open business checking + savings with Choice Financial; dual-signer >$2,500 | Both | Accounts active |
 | 0.5 | File **OP-1FF** with FMCSA (broker authority application, $300) | Oliver | MC# pending |

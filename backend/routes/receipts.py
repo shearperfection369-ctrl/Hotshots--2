@@ -135,6 +135,12 @@ def build_receipts_router(*, api_router: APIRouter, db,
              "credited_to": "Member capital account — D. Graham (33⅓% interest)",
              "notes": "Accompanies in-kind contribution: 12 years CDL owner/operator expertise (§2.5).",
              "received_at": now, "issued_by_name": "Oliver Cummins — Operator / Principal Broker"},
+            {"receipt_no": "ORI-RCT-0003", "received_from": "Oliver Cummins",
+             "amount_usd": 10000.00, "method": "In-kind — agreed value (unanimous consent)",
+             "purpose": "Capital contribution — commitment PAID IN FULL in-kind (Agreement §2.4)",
+             "credited_to": "Member capital account — O. Cummins (33⅓% interest)",
+             "notes": "Software design & development of the Orisei Command Deck, business structuring & formation work, and payment of all Company expenses to date from personal funds.",
+             "received_at": now, "issued_by_name": "Oliver Cummins — Operator / Principal Broker"},
         ]
         for s in seeds:
             await db.capital_receipts.update_one({"receipt_no": s["receipt_no"]},
