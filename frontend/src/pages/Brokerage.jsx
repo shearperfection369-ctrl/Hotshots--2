@@ -16,9 +16,11 @@ import {
   Wallet, Server, Mail, Linkedin, Eye, Users, MapPin, Phone, Snowflake, ShieldAlert, ShieldCheck, Banknote, X,
   PackageCheck, Stamp, Newspaper, ExternalLink, RefreshCw, Layers, Crosshair, Percent,
 } from "lucide-react";
+import { Landmark } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
 import { ReceiptsDialog } from "../components/ReceiptsDialog";
+import { CapitalAccountsDialog } from "../components/CapitalAccountsDialog";
 import { CarrierCombobox } from "../components/CarrierCombobox";
 import { CustomerCombobox } from "../components/CustomerCombobox";
 import { useNavigate } from "react-router-dom";
@@ -782,6 +784,7 @@ function AITab() {
 function BusinessPlanTab() {
   const [showPitch, setShowPitch] = useState(false);
   const [showReceipts, setShowReceipts] = useState(false);
+  const [showCapital, setShowCapital] = useState(false);
   const [busyDoc, setBusyDoc] = useState(null);
 
   const downloadPdf = async (key, url, filename) => {
@@ -827,6 +830,13 @@ function BusinessPlanTab() {
         <Receipt size={13} className="mr-1.5" /> Receipts
       </Button>
       <Button
+        onClick={() => setShowCapital(true)}
+        data-testid="capital-accounts-open-btn"
+        className="bg-white/5 border border-white/10 hover:border-emerald-400/40 hover:text-emerald-200 text-slate-300 font-mono text-[11px] uppercase tracking-wider"
+      >
+        <Landmark size={13} className="mr-1.5" /> Capital Accounts
+      </Button>
+      <Button
         onClick={() => setShowPitch(true)}
         data-testid="business-plan-email-investor-btn"
         className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase tracking-wider"
@@ -847,6 +857,7 @@ function BusinessPlanTab() {
       />
       <InvestorPitchDialog open={showPitch} onClose={() => setShowPitch(false)} />
       <ReceiptsDialog open={showReceipts} onOpenChange={setShowReceipts} />
+      <CapitalAccountsDialog open={showCapital} onOpenChange={setShowCapital} />
     </>
   );
 }

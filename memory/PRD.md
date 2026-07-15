@@ -1888,3 +1888,34 @@ retrains scoring weights from revealed preferences — making the intuitive
 ### Known inconsistency (offer to fix)
 - BUSINESS_PLAN.md + plan_brochure.py still describe 50/50 two-founder / $10,000
   Karsor structure — needs update to 3-member $2,800 actuals if user confirms.
+
+---
+
+## 2026-07 (fork, cont.): Business Plan v3.0 + Capital Accounts Ledger — COMPLETE
+
+### Business Plan v3.0 (BROKERAGE_BUSINESS_PLAN.md — 41 targeted edits)
+- Doug Graham added as third equal member (new §2.3 bio, roles matrix column,
+  three-founder positioning). Recapitalized: $30,000 launch — $10,000 committed per
+  member (received: Karsor $2,500 · Graham $300). Use of Funds expanded to $30K
+  ($14K quick-pay float, $6K growth reserve, $4,374 runway). Per-member P&L thirds
+  ($19,163 / $41,794 / $74,400). Compensation note = operator-only salary + 10%
+  holdback. v3.0 revision-history row appended.
+- plan_brochure.py: "Three Founders, One Machine" 3-panel page, $30K funds page,
+  governance card, per-member share rows, cover line.
+- PARTNERSHIP_AGREEMENT.md Art II: $10,000 commitment per member w/ received-to-date
+  table. All PDFs verified via pypdf text extraction.
+
+### Capital Accounts Ledger (/api/capital — in routes/receipts.py)
+- GET /api/capital/accounts: per-member commitment/paid-in/remaining/holdbacks/
+  withdrawals/balance (contributions computed from capital receipts; holdbacks &
+  withdrawals from db.capital_ledger).
+- POST /api/capital/entries {member, entry_type: contribution|holdback|withdrawal,
+  amount_usd}: contributions auto-issue an official receipt; withdrawals blocked
+  above member balance (409, Agreement §3.4). Verified via curl (overdraw guard OK).
+- UI: CapitalAccountsDialog.jsx — 3 member cards + entry form + ledger, opened via
+  "Capital Accounts" button on Brokerage → Business Plan toolbar
+  (data-testid capital-accounts-open-btn). Screenshot verified.
+
+### Partnership agreement location (user asked)
+- UI: Brokerage → Business Plan tab → "Partnership Agreement" button (branded PDF)
+- API: GET /api/brokerage/partnership-agreement(.pdf) · Source: /app/PARTNERSHIP_AGREEMENT.md

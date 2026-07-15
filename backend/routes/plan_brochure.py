@@ -162,7 +162,7 @@ def _cover(c: Canvas):
     c.rect(W / 2 - 1, 214, 2, 52, fill=1, stroke=0)
     c.setFont("Helvetica-Bold", 10.5)
     c.setFillColor(GOLD_LIGHT)
-    c.drawCentredString(W / 2, 204, "Launched on a $10,000 partner capital infusion")
+    c.drawCentredString(W / 2, 204, "Launched on $30,000 of member capital — $10,000 from each of three founders")
 
     c.setFont("Helvetica", 8.5)
     c.setFillColor(colors.HexColor("#7E96B8"))
@@ -246,18 +246,18 @@ def _founder_panel(c: Canvas, x: float, y: float, w: float, h: float,
 def _page_founders(c: Canvas, page: int, total: int):
     c.setFillColor(PAPER)
     c.rect(0, 0, W, H, fill=1, stroke=0)
-    _page_head(c, "The Partnership", "Two Founders, One Machine", CORAL)
-    pw = (W - 80 - 16) / 2
+    _page_head(c, "The Partnership", "Three Founders, One Machine", CORAL)
+    pw = (W - 80 - 32) / 3
     ph = H - 260
     _founder_panel(
         c, 40, 130, pw, ph, AZURE,
-        "Oliver Cummins", "Co-Founder · Principal Broker · Operations · 50%",
+        "Oliver Cummins", "Co-Founder · Principal Broker · Operator · 33⅓%",
         [
             "13 years in supply chain & logistics across TL, LTL, parcel, ocean, air, and rail.",
-            "International specialist: customs clearance, FTA / USMCA, port-of-entry strategy.",
-            "Transportation Analyst at Tennant Companies (Golden Valley, MN).",
+            "International specialist: customs, FTA / USMCA, port-of-entry strategy.",
             "Author of the Orisei Brokerage Command Deck — the firm's proprietary TMS.",
-            "Contributes the Command Deck IP, the operating playbook, and full-time operations.",
+            "Contributes $10,000 capital + the Command Deck IP + full-time operations.",
+            "Sole salaried member per the Partnership Agreement (§3.5).",
         ],
         "\u201cI've chased a short-shipped pallet at midnight and rebuilt a tender lane after a "
         "carrier defaulted on a Friday. I built Orisei to do what shippers wish their broker "
@@ -265,16 +265,29 @@ def _page_founders(c: Canvas, page: int, total: int):
     )
     _founder_panel(
         c, 40 + pw + 16, 130, pw, ph, TEAL,
-        "Daniel W. Karsor", "Co-Founder · Technology, Brand & Capital · 50%",
+        "Daniel W. Karsor", "Co-Founder · Technology, Brand & Capital · 33⅓%",
         [
-            "Serial entrepreneur in Brooklyn Park, MN — owns a barbershop and a podcast / media studio.",
+            "Serial entrepreneur in Brooklyn Park, MN — barbershop + podcast / media studio.",
             "Software developer — co-develops and maintains the Orisei Command Deck.",
-            "Originally from West Africa; deep roots in Minnesota's diaspora business community — a direct owner-operator carrier pipeline.",
-            "Contributes the full $10,000 launch capital — no debt, no outside equity.",
-            "Turns the podcast studio into Orisei's in-house media engine (Orisei Freight Brief).",
+            "Deep roots in Minnesota's West African diaspora business community — a direct owner-operator carrier pipeline.",
+            "Contributes $10,000 capital ($2,500 received · ORI-RCT-0001).",
+            "Turns the podcast studio into Orisei's in-house media engine.",
         ],
         "\u201cA barber chair doesn't earn if it's empty. Freight is the same discipline at a "
         "bigger scale. Oliver knows the lanes; I build the machine and tell the story.\u201d",
+    )
+    _founder_panel(
+        c, 40 + (pw + 16) * 2, 130, pw, ph, FOREST,
+        "Doug Graham", "Co-Founder · Capacity & Carrier Relations · 33⅓%",
+        [
+            "CDL Class A owner/operator — 12 years over-the-road experience.",
+            "Vets carriers with a driver's instinct: equipment, HOS, rate honesty.",
+            "Working network of owner-operators and small fleets built on the road.",
+            "Contributes $10,000 capital ($300 received · ORI-RCT-0002) + in-kind expertise.",
+            "Keeps Orisei's buy rates honest on both sides of every load.",
+        ],
+        "\u201cBrokers who've never been in the truck guess at what carriers will take. "
+        "I don't guess. I know what that lane pays and who will actually show up.\u201d",
     )
     _footer(c, page, total)
     c.showPage()
@@ -283,19 +296,21 @@ def _page_founders(c: Canvas, page: int, total: int):
 def _page_funds(c: Canvas, page: int, total: int):
     c.setFillColor(PAPER)
     c.rect(0, 0, W, H, fill=1, stroke=0)
-    _page_head(c, "Capitalization", "Use of Funds — The $10,000 Infusion", GOLD)
+    _page_head(c, "Capitalization", "Use of Funds — $30,000 · $10,000 Per Member", GOLD)
     cats = [
+        ("Working Capital / Quick-Pay Float", 14000, TEAL,
+         "Carrier quick-pay bridge until factoring is live — also seeds the in-house QuickPay spread program"),
+        ("Growth & Contingency Reserve", 6000, PLUM,
+         "Growth & Continued Operations Account — shipper acquisition, deferred tech, true contingency"),
+        ("Owner Launch Runway Reserve", 4374, FOREST,
+         "90-day member cushion — released only by unanimous consent"),
         ("Regulatory & Authority", 3316, AZURE,
          "LLC amendment · FMCSA OP-1FF · BMC-84 bond · BOC-3 · UCR · insurance down payment"),
-        ("Working Capital Float", 3200, TEAL,
-         "Carrier quick-pay bridge until the factoring line is live (Day 28)"),
-        ("Technology (lean stack)", 1310, PLUM,
+        ("Technology (lean stack)", 1310, CORAL,
          "DAT One · QuickBooks · Carrier411 · domain, Workspace & VoIP — Command Deck is $0"),
-        ("Owner Launch Runway Reserve", 1174, FOREST,
-         "90-day partner cushion — released only by unanimous consent"),
-        ("Marketing & Brand", 500, CORAL,
+        ("Marketing & Brand", 500, GOLD,
          "Website launch · outreach tooling · print & brochure collateral"),
-        ("Legal & Professional", 500, GOLD,
+        ("Legal & Professional", 500, SLATE,
          "Attorney review: partnership agreement + broker/carrier templates"),
     ]
     max_v = max(v for _, v, _, _ in cats)
@@ -315,7 +330,7 @@ def _page_funds(c: Canvas, page: int, total: int):
         c.roundRect(40, y - 18, bw, 11, 5, fill=1, stroke=0)
         c.setFont("Helvetica-Bold", 7)
         c.setFillColor(WHITE if bw > 60 else col)
-        pct = val / 10000 * 100
+        pct = val / 30000 * 100
         c.drawString(46 if bw > 60 else 44 + bw + 4, y - 15.5, f"{pct:.1f}%")
         y = _para(c, desc, 40, y - 30, "Helvetica", 8, W - 90, SLATE, leading=11)
         y -= 14
@@ -323,10 +338,10 @@ def _page_funds(c: Canvas, page: int, total: int):
     c.setFont("Helvetica-Bold", 13)
     c.setFillColor(GOLD)
     c.drawString(56, y - 30, "TOTAL DEPLOYED")
-    c.drawRightString(W - 56, y - 30, "$10,000")
+    c.drawRightString(W - 56, y - 30, "$30,000")
     c.setFont("Helvetica", 7.5)
     c.setFillColor(WHITE)
-    c.drawString(56, y - 41, "Every disbursement over $500 requires both partners' sign-off · float untouchable until first load books")
+    c.drawString(56, y - 41, "Every disbursement over $500 requires a second member's sign-off · float untouchable until first load books")
     _footer(c, page, total)
     c.showPage()
 
@@ -394,9 +409,9 @@ def _page_financials(c: Canvas, page: int, total: int):
         ("Gross margin", "$82,080", "$215,460", "$441,600", True),
         ("Gross margin %", "19.0%", "21.0%", "23.0%", False),
         ("Operating expenses (lean)", "$22,510", "$79,030", "$131,800", False),
-        ("Partner draws (combined)", "$30,000", "$90,000", "$180,000", False),
-        ("Net cash to partners", "$57,490", "$125,383", "$223,200", True),
-        ("Per-partner share (50/50)", "$28,745", "$62,692", "$111,600", True),
+        ("Member comp (salary + distributions)", "$30,000", "$90,000", "$180,000", False),
+        ("Net cash to members", "$57,490", "$125,383", "$223,200", True),
+        ("Per-member share (⅓)", "$19,163", "$41,794", "$74,400", True),
     ]
     x0, tw = 40, W - 80
     col_w = [tw * 0.37, tw * 0.21, tw * 0.21, tw * 0.21]
@@ -436,11 +451,12 @@ def _page_financials(c: Canvas, page: int, total: int):
     _card(c, x0, y - 96, tw, 96, AZURE, radius=10)
     c.setFont("Helvetica-Bold", 11)
     c.setFillColor(GOLD)
-    c.drawString(x0 + 16, y - 24, "GOVERNANCE — 50/50 MINNESOTA PARTNERSHIP")
+    c.drawString(x0 + 16, y - 24, "GOVERNANCE — THREE-MEMBER MINNESOTA PARTNERSHIP · EQUAL 33⅓%")
     _para(c, "Member-managed LLC under Minn. Stat. Ch. 322C. Profits, losses, and distributions "
-             "split 50/50. Unanimous consent on all major decisions (spend >$2,500, debt, hiring, "
-             "IP). Deadlock resolved by mediation, then a buy-sell procedure. Full agreement "
-             "executed by both members and stored in the Command Deck Document Vault.",
+             "split equally among three members after a 10% reinvestment holdback. Operator salary "
+             "to Oliver Cummins only (§3.5). Unanimous consent on all major decisions. Deadlock "
+             "resolved by mediation, then buy-sell. Notarized agreement executed by all three "
+             "members and stored in the Command Deck Document Vault.",
           x0 + 16, y - 42, "Helvetica", 9, tw - 32, WHITE, leading=13.5)
     y -= 118
     c.setFont("Helvetica-Bold", 10)

@@ -27,19 +27,19 @@
 
 ## Article II · Members, Ownership & Capital Contributions
 
-**2.1 Members & Percentage Interests.** The Members and their respective membership interests ("**Percentage Interests**") are **equal**:
+**2.1 Members & Percentage Interests.** Each Member commits **Ten Thousand and 00/100 Dollars ($10,000.00)** in startup capital (aggregate **$30,000.00**). The Members and their respective membership interests ("**Percentage Interests**") are **equal**:
 
-| Member | Capital Contribution | Percentage Interest |
-| --- | --- | ---: |
-| Oliver Cummins | In-kind (§2.4) | **33⅓%** |
-| Daniel W. Karsor | $2,500.00 cash — RECEIVED (Receipt ORI-RCT-0001) | **33⅓%** |
-| Doug Graham | $300.00 cash — RECEIVED (Receipt ORI-RCT-0002) + in-kind (§2.5) | **33⅓%** |
+| Member | Capital Commitment | Received To Date | Percentage Interest |
+| --- | --- | --- | ---: |
+| Oliver Cummins | $10,000.00 cash + in-kind (§2.4) | Per funding schedule | **33⅓%** |
+| Daniel W. Karsor | $10,000.00 cash | $2,500.00 (Receipt ORI-RCT-0001) | **33⅓%** |
+| Doug Graham | $10,000.00 cash + in-kind (§2.5) | $300.00 (Receipt ORI-RCT-0002) | **33⅓%** |
 
-**2.2 Capital Contribution — Member Karsor.** Member Karsor has contributed **Two Thousand Five Hundred and 00/100 Dollars ($2,500.00)** in immediately available funds to the Company's operating account, receipt of which the Company acknowledges (Official Receipt No. ORI-RCT-0001). This contribution constitutes launch capital and shall be deployed in accordance with the Use of Funds schedule in the Company's Business Plan, incorporated herein by reference.
+**2.2 Capital Contribution — Member Karsor.** Member Karsor commits **$10,000.00** in startup capital, of which **Two Thousand Five Hundred and 00/100 Dollars ($2,500.00)** has been received by the Company (Official Receipt No. ORI-RCT-0001) and credited to his capital account; the balance is due per the Phase 0 funding schedule of the Business Plan, incorporated herein by reference.
 
-**2.3 Capital Contribution — Member Graham.** Member Graham has contributed **Three Hundred and 00/100 Dollars ($300.00)** in immediately available funds to the Company's operating account, receipt of which the Company acknowledges (Official Receipt No. ORI-RCT-0002).
+**2.3 Capital Contribution — Member Graham.** Member Graham commits **$10,000.00** in startup capital, of which **Three Hundred and 00/100 Dollars ($300.00)** has been received by the Company (Official Receipt No. ORI-RCT-0002) and credited to his capital account; the balance is due per the Phase 0 funding schedule.
 
-**2.4 Capital Contribution — Member Cummins.** Member Cummins contributes, and hereby irrevocably assigns to the Company: (a) all right, title, and interest in and to the **Orisei Brokerage Command Deck** software platform, including all source code, documentation, trademarks, and associated intellectual property; (b) all pre-formation regulatory work product (FMCSA filings preparation, carrier packets, compliance templates); and (c) his commitment to serve as the Company's Principal Broker and operations lead.
+**2.4 Capital Contribution — Member Cummins.** Member Cummins commits **$10,000.00** in startup capital per the Phase 0 funding schedule, and additionally contributes and hereby irrevocably assigns to the Company: (a) all right, title, and interest in and to the **Orisei Brokerage Command Deck** software platform, including all source code, documentation, trademarks, and associated intellectual property; (b) all pre-formation regulatory work product (FMCSA filings preparation, carrier packets, compliance templates); and (c) his commitment to serve as the Company's Principal Broker and operations lead.
 
 **2.5 In-Kind Contribution — Member Graham.** In addition to his cash contribution, Member Graham contributes his professional expertise as a CDL-licensed owner/operator with twelve (12) years of trucking experience, including: carrier-side operational knowledge, driver and equipment network relationships, lane and rate market intelligence, and ongoing service as the Company's **Capacity & Carrier Relations Advisor**.
 

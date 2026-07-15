@@ -1,24 +1,24 @@
 # Orisei Freight Solutions LLC
-## Freight Brokerage Business Plan · 2026 · v2.0 — Partnership Edition
+## Freight Brokerage Business Plan · 2026 · v3.0 — Three-Member Partnership Edition
 
-**Co-Founders & Principal Owners (50/50):** Oliver Cummins · Daniel W. Karsor
+**Founding Members & Principal Owners (equal 33⅓%):** Oliver Cummins · Daniel W. Karsor · Doug Graham
 **Headquarters:** Minneapolis · Saint Paul · Minnesota
-**Legal Form:** Two-member, member-managed LLC (MN Chapter 322C) · S-Corp election in Year 2
+**Legal Form:** Three-member, member-managed LLC (MN Chapter 322C) · S-Corp election in Year 2
 **Authority:** US DOT · MC# (Property Broker) · BOC-3 · BMC-84 $75,000 Surety
 **Contact:** oliver@oriseifreight.com · daniel@oriseifreight.com · (612) 555-0117
-**Launch Capital:** $10,000 partner cash infusion (Daniel W. Karsor)
+**Launch Capital:** $30,000 — $10,000 committed by each of the three members
 **Plan Horizon:** 2026 – 2029 (3-year operating window)
 
 ---
 
 ## 0 · Document Purpose
 
-This is the **operating business plan** for Orisei Freight Solutions LLC — a Minnesota-domiciled, partner-operated freight brokerage launching in Q2 2026. Version 2.0 reflects the admission of **Daniel W. Karsor** as an equal 50/50 co-founder and the recapitalization of the launch plan around his **$10,000 cash infusion**. It is designed to:
+This is the **operating business plan** for Orisei Freight Solutions LLC — a Minnesota-domiciled, partner-operated freight brokerage launching in Q2 2026. Version 3.0 reflects the admission of **Daniel W. Karsor** and **Doug Graham** as equal one-third members and the recapitalization of the launch plan around **$30,000 of member capital — $10,000 committed by each member** (received to date: Karsor $2,500 · Graham $300, per official receipts ORI-RCT-0001/0002; balances due per the Phase 0 funding schedule). It is designed to:
 
 1. Anchor the partners' first 36 months of decisions.
 2. Serve as a lender-ready / SBA-ready financial narrative.
 3. Document every step required to **legally activate property-broker authority** in the United States and convert it into recurring brokered freight revenue.
-4. Memorialize the **50/50 partnership structure** governed by the companion *Minnesota Member-Controlled LLC Partnership Agreement* (available in the Command Deck alongside this plan).
+4. Memorialize the **three-member, equal 33⅓% partnership structure** governed by the companion *Minnesota Member-Controlled LLC Partnership Agreement* (available in the Command Deck alongside this plan).
 
 If you are reading this inside the **Orisei Brokerage Command Deck** (the in-app Business Plan tab), the financial figures here are the same baseline the Dashboard tab projects forward against actual booked margins.
 
@@ -30,14 +30,15 @@ Orisei Freight Solutions LLC is a **lean, partner-operated property freight brok
 
 The freight-brokerage market in the United States is **~$95B (2025) and growing 5–7% CAGR**, driven by shipper appetite for asset-light fulfillment and the structural decline of in-house traffic departments at mid-market manufacturers. Minnesota's industrial mix — food & beverage, agriculture, fabricated metals, medical devices, and big-box retail distribution — produces **predictable, lane-dense outbound and inbound freight** that an operator-built brokerage can profitably book from day one.
 
-**The partnership advantage.** Orisei is now built by two complementary founders:
+**The partnership advantage.** Orisei is now built by three complementary founders:
 
 - **Oliver Cummins** — a 13-year supply-chain and logistics practitioner who has personally tendered, tracked, escalated, and audited freight across all six modes for major Minnesota industrials. He runs operations, carrier vetting, pricing, and the shipper book.
 - **Daniel W. Karsor** — a Brooklyn Park, MN entrepreneur and **software developer** who owns and operates a barbershop and a podcast studio. Originally from West Africa, Daniel brings proven multi-business ownership, hands-on engineering capability to co-develop the **Orisei Brokerage Command Deck**, an in-house media engine for brand content, and deep roots in Minnesota's West African diaspora business community — one of the most entrepreneurial owner-operator carrier communities in the Upper Midwest.
+- **Doug Graham** — a **CDL-licensed owner/operator with 12 years of over-the-road trucking experience**. Doug brings the carrier-side perspective no desk broker can fake: equipment knowledge, driver economics, lane and rate intuition, and a working network of owner-operators. He serves as **Capacity & Carrier Relations Advisor** — vetting carriers, sourcing capacity, and keeping Orisei's rates honest on both sides of every load.
 
-The brokerage launches with the operator's playbook AND the builder's toolkit — and ships with the **Orisei Brokerage Command Deck**, a proprietary internal TMS that aggregates DAT, Truckstop, Convoy, Uber Freight, and 123Loadboard postings; matches them against a real-time margin model; and books, settles, invoices, and reconciles loads to QuickBooks Online.
+The brokerage launches with the operator's playbook, the builder's toolkit, AND the driver's road sense — and ships with the **Orisei Brokerage Command Deck**, a proprietary internal TMS that aggregates DAT, Truckstop, Convoy, Uber Freight, and 123Loadboard postings; matches them against a real-time margin model; and books, settles, invoices, and reconciles loads to QuickBooks Online.
 
-**Financial highlights ($10K lean-launch, two-partner baseline).**
+**Financial highlights ($30K launch, three-member baseline).**
 
 | | Year 1 | Year 2 | Year 3 |
 | --- | ---: | ---: | ---: |
@@ -48,10 +49,10 @@ The brokerage launches with the operator's playbook AND the builder's toolkit �
 | Gross margin % | 19.0% | 21.0% | 23.0% |
 | Operating expenses (lean) | $22,510 | $79,030 | $131,800 |
 | Partner draws (combined) | $30,000 | $90,000 | $180,000 |
-| **Net cash to partners (50/50 split)** | **$57,490** | **$125,383** | **$223,200** |
-| **Per-partner share** | **$28,745** | **$62,692** | **$111,600** |
+| **Net cash to members (equal thirds)** | **$57,490** | **$125,383** | **$223,200** |
+| **Per-member share (⅓)** | **$19,163** | **$41,794** | **$74,400** |
 
-**The capitalization.** Orisei launches on **$10,000 of partner capital**, contributed in cash by Daniel W. Karsor, matched by Oliver Cummins' assignment of the Orisei Brokerage Command Deck intellectual property, his pre-formation regulatory work, and his full-time operating commitment. There is **no outside-investor ask** — Orisei is designed to be **cash-flow positive by Month 5** on the lean launch budget, with the factoring line carrying working-capital load from Day 28.
+**The capitalization.** Orisei launches on **$30,000 of member capital — $10,000 committed in cash by each of the three members**. Oliver Cummins additionally assigns the Orisei Brokerage Command Deck intellectual property, pre-formation regulatory work, and his full-time operating commitment; Doug Graham additionally contributes 12 years of owner/operator expertise as the Company's carrier-side advisor. There is **no outside-investor ask** — Orisei is designed to be **cash-flow positive by Month 5** on the lean launch budget, with the factoring line carrying working-capital load from Day 28.
 
 ---
 
@@ -85,29 +86,50 @@ Daniel W. Karsor is a **serial small-business owner and software developer** bas
 | Businesses owned | Barbershop (Brooklyn Park) · Podcast & media production studio (Brooklyn Park) |
 | Heritage | West African — deep ties to Minnesota's West African diaspora business community |
 | Technical skillset | Software developer — full-stack; co-develops & maintains the Orisei Brokerage Command Deck |
-| Capital contribution | **$10,000 cash** (100% of launch capital) |
-| Ownership | **50%** |
+| Capital contribution | **$10,000 cash commitment** (⅓ of the $30,000 launch capital · $2,500 received — receipt ORI-RCT-0001) |
+| Ownership | **33⅓%** |
 
 **What Daniel unlocks for Orisei:**
 
-1. **Capital.** The full $10,000 lean-launch budget — no debt, no outside equity, no bank dependency at launch.
+1. **Capital.** An equal $10,000 share of the $30,000 launch budget — no debt, no outside equity, no bank dependency at launch.
 2. **Engineering redundancy.** Two developers on the proprietary TMS instead of one. The Command Deck — Orisei's single biggest competitive moat — now has a maintainer whose day job is writing software.
 3. **Media & brand engine.** The podcast studio becomes Orisei's in-house content factory: a freight-market podcast, shipper-facing lane-intelligence video briefs, and carrier-recruitment content — at zero marginal production cost.
 4. **Carrier-community pipeline.** Minnesota's West African diaspora (Liberian, Ghanaian, Nigerian, and Sierra Leonean communities concentrated in Brooklyn Park / Brooklyn Center) is one of the most active owner-operator trucking communities in the Upper Midwest. Daniel's standing in that community is a direct, trust-based carrier-recruitment channel no incumbent brokerage can replicate.
 5. **Entrepreneurial pattern-matching.** Daniel has already done payroll, leases, licensing, insurance, and customer retention across two service businesses. He knows what "week 6 when the excitement wears off" feels like — and how to push through it.
 
-### 2.3 · Division of responsibilities
+### 2.3 · Doug Graham — Co-Founder · Capacity & Carrier Relations
 
-| Domain | Oliver Cummins | Daniel W. Karsor |
-| --- | --- | --- |
-| Shipper sales & pricing | **Lead** | Support |
-| Carrier sourcing & vetting | **Lead** | Support (diaspora carrier channel) |
-| Load operations & dispatch | **Lead** | Backup / after-hours |
-| Command Deck development | Support | **Lead** |
-| Brand, content & marketing | Support | **Lead** (podcast studio) |
-| Finance, banking & capital | Joint | Joint |
-| Compliance calendar | **Lead** | Support |
-| Major decisions (>$2,500, hiring, debt, new lanes) | **Unanimous — both partners** | **Unanimous — both partners** |
+Doug Graham is a **CDL-licensed truck driver and owner/operator with twelve years of over-the-road experience**. He has run the lanes Orisei brokers — through Midwest winters, coastal port surges, and produce-season squeezes — and he knows exactly what a fair rate, a bad broker, and a reliable carrier look like from the driver's seat.
+
+> "Brokers who've never been in the truck guess at what carriers will take. I don't guess. I know what that lane pays, what that dock does to your clock, and which owner-operators will actually show up. That's what I bring to this table." *— Doug Graham*
+
+| Dimension | Detail |
+| --- | --- |
+| Credential | CDL Class A · owner/operator |
+| Experience | **12 years** over-the-road trucking |
+| Role | **Capacity & Carrier Relations Advisor** |
+| Capital contribution | **$10,000 cash commitment** (⅓ of the $30,000 launch capital · $300 received — receipt ORI-RCT-0002) |
+| Ownership | **33⅓%** |
+
+**What Doug unlocks for Orisei:**
+
+1. **Carrier-side credibility.** Carriers negotiate differently with a brokerage that has a 12-year driver at the table — better rates, faster tenders, fewer fall-throughs.
+2. **Vetting instinct.** Doug can smell a chameleon carrier, a double-broker, or an over-leveraged owner-operator before the paperwork does.
+3. **Capacity network.** A working phone book of owner-operators and small fleets built over a decade on the road.
+4. **Rate honesty.** Real-time gut-check on what a lane actually pays a truck — keeping Orisei's buy rates competitive and its margins defensible.
+
+### 2.4 · Division of responsibilities
+
+| Domain | Oliver Cummins | Daniel W. Karsor | Doug Graham |
+| --- | --- | --- | --- |
+| Shipper sales & pricing | **Lead** | Support | Rate sanity-check |
+| Carrier sourcing & vetting | **Lead** | Support (diaspora carrier channel) | **Lead advisor** (owner-operator network) |
+| Load operations & dispatch | **Lead** | Backup / after-hours | Driver-side escalations |
+| Command Deck development | Support | **Lead** | Field feedback |
+| Brand, content & marketing | Support | **Lead** (podcast studio) | Carrier-recruitment voice |
+| Finance, banking & capital | Joint | Joint | Joint |
+| Compliance calendar | **Lead** | Support | Equipment/HOS advisory |
+| Major decisions (>$2,500, hiring, debt, new lanes) | **Unanimous — all members** | **Unanimous — all members** | **Unanimous — all members** |
 
 ---
 
@@ -117,9 +139,9 @@ Daniel W. Karsor is a **serial small-business owner and software developer** bas
 | --- | --- |
 | Legal name | Orisei Freight Solutions LLC |
 | State of formation | Minnesota |
-| Structure | Two-member, member-managed LLC · 50/50 · governed by MN Statutes Chapter 322C |
-| Members | Oliver Cummins (50%) · Daniel W. Karsor (50%) |
-| Filing date target | 2026-03-15 (amendment adding second member filed with MN SOS) |
+| Structure | Three-member, member-managed LLC · equal 33⅓% · governed by MN Statutes Chapter 322C |
+| Members | Oliver Cummins (33⅓%) · Daniel W. Karsor (33⅓%) · Doug Graham (33⅓%) |
+| Filing date target | 2026-03-15 (amendment adding Members Karsor & Graham filed with MN SOS) |
 | Registered agent | Northwest Registered Agent (MN) |
 | FEIN | Applied for week 1 |
 | MC Authority class | Property Broker — Motor Carrier (49 CFR §371) |
@@ -129,7 +151,7 @@ Daniel W. Karsor is a **serial small-business owner and software developer** bas
 | Banking | Choice Financial (MN) — operating + savings + factoring sweep · dual-signer over $2,500 |
 | Accounting | QuickBooks Online · CPA on retainer (1065 partnership return, K-1s, MN state filings) |
 | Insurance | $1M general liability · $100k contingent cargo · $1M E&O (broker's liability) |
-| Governing agreement | Minnesota Member-Controlled LLC Partnership Agreement (50/50) — executed by both members |
+| Governing agreement | Minnesota Member-Controlled LLC Partnership Agreement (three members · equal 33⅓% · notarized) — executed by all members |
 
 ---
 
@@ -222,7 +244,7 @@ Minnesota generates **~125M outbound freight tons annually** and consumes a near
 | **C.H. Robinson** (Eden Prairie, MN) | Scale, Navisphere TMS, capacity | Personal accountability — no rep churn |
 | **Coyote Logistics** | Capacity, UPS backing | Real broker on the phone, not a queue |
 | **Echo Global** | Tech, LTL discounts | Margin honesty + faster onboarding (24h vs 2 wks) |
-| **Local single-agent shops** | Relationships | Two-founder redundancy + operator-built tech stack |
+| **Local single-agent shops** | Relationships | Three-founder redundancy + operator-built tech stack |
 | **Digital brokers (Uber Freight, Convoy)** | App UX, instant quotes | Human escalation; complex / nonstandard freight |
 
 **Orisei's defensible wedge.** A **shipper-side operator résumé + a homegrown TMS with two engineers + an in-house media studio + a trust-based diaspora carrier network + a Minnesota address** is a combination C.H. Robinson cannot fake, single-agent shops cannot match, and Uber Freight cannot replicate. The pitch: *"You used to do this in-house. We'll be your in-house traffic team for half the price."*
@@ -233,7 +255,7 @@ Minnesota generates **~125M outbound freight tons annually** and consumes a near
 
 ### 8.1 · Positioning
 
-> **"Operator-built freight brokerage. Two founders. Headquartered in Minneapolis. 13 years on the shipper side. Answers the phone."**
+> **"Operator-built freight brokerage. Three founders. Headquartered in Minneapolis. 13 years on the shipper side, 12 years behind the wheel. Answers the phone."**
 
 ### 8.2 · Year-1 customer acquisition plan (target: 8 active accounts)
 
@@ -259,14 +281,14 @@ Minnesota generates **~125M outbound freight tons annually** and consumes a near
 
 - **Identity:** Orisei blue / gold / white. Logo: heraldic mark + wordmark.
 - **Website:** oriseifreight.com — single landing page + carrier portal + shipper login (Orisei Command Deck embedded SSO).
-- **Collateral:** One-page services PDF, lane intelligence weekly email, brochure-format business plan, founder LinkedIn ×2.
+- **Collateral:** One-page services PDF, lane intelligence weekly email, brochure-format business plan, founder LinkedIn ×3.
 - **Media:** Orisei Freight Brief podcast (produced at Daniel's Brooklyn Park studio).
 
 ---
 
 ## 9 · Operations Plan
 
-### 9.1 · Daily workflow (two-partner coverage)
+### 9.1 · Daily workflow (three-member coverage)
 
 | Time | Activity | Lead |
 | --- | --- | --- |
@@ -326,15 +348,18 @@ Orisei's carrier approval gate — **mandatory before any load is dispatched**:
 
 ## 10 · Financial Plan
 
-### 10.1 · Capitalization — the $10,000 partner infusion
+### 10.1 · Capitalization — $30,000 member capital ($10,000 each)
 
 | Member | Contribution | Value | Ownership |
 | --- | --- | ---: | ---: |
-| Daniel W. Karsor | Cash | **$10,000** | 50% |
-| Oliver Cummins | Orisei Command Deck IP assignment + pre-formation regulatory work + full-time operating commitment | Agreed-value in-kind | 50% |
-| **Total launch capital (cash)** | | **$10,000** | 100% |
+| Oliver Cummins | Cash commitment + Orisei Command Deck IP assignment + pre-formation regulatory work + full-time operating commitment | **$10,000** + agreed-value in-kind | 33⅓% |
+| Daniel W. Karsor | Cash commitment ($2,500 received — ORI-RCT-0001) | **$10,000** | 33⅓% |
+| Doug Graham | Cash commitment ($300 received — ORI-RCT-0002) + 12-yr owner/operator expertise in-kind | **$10,000** | 33⅓% |
+| **Total launch capital (cash)** | | **$30,000** | 100% |
 
-### 10.2 · Use of Funds — where the $10,000 goes
+Capital received to date is recorded in the Company's **official receipt register and Capital Accounts ledger** (Command Deck → Business Plan tab). Remaining commitment balances are due per the Phase 0 funding schedule (§14).
+
+### 10.2 · Use of Funds — where the $30,000 goes
 
 | Category | Line item | Amount |
 | --- | --- | ---: |
@@ -353,9 +378,10 @@ Orisei's carrier approval gate — **mandatory before any load is dispatched**:
 | | Outreach tooling + LinkedIn campaigns | $200 |
 | | Print collateral + brochure production | $150 |
 | **4 · Legal & Professional — $500** | Attorney review: partnership agreement + master broker/carrier agreement templates | $500 |
-| **5 · Working Capital Float — $3,200** | Carrier quick-pay float (bridges carrier net-terms before shipper receivables land, pre-factoring) | $3,200 |
-| **6 · Owner Launch Runway Reserve — $1,174** | 90-day partner cushion — covers phone, fuel, software renewals, and surprise fees so no partner injects unplanned cash in the first quarter | $1,174 |
-| **TOTAL** | | **$10,000** |
+| **5 · Working Capital / Quick-Pay Float — $14,000** | Carrier quick-pay float (bridges carrier net-terms before shipper receivables land, pre-factoring) — also seeds the in-house QuickPay spread program | $14,000 |
+| **6 · Owner Launch Runway Reserve — $4,374** | 90-day member cushion — covers phone, fuel, software renewals, and surprise fees so no member injects unplanned cash in the first quarter | $4,374 |
+| **7 · Growth & Contingency Reserve — $6,000** | Held in the Growth & Continued Operations Account — shipper-acquisition campaigns, deferred tech, and true contingency | $6,000 |
+| **TOTAL** | | **$30,000** |
 
 **Deployment discipline.**
 
@@ -397,7 +423,7 @@ The launch runway is tracked live in the **Command Deck → Launch Runway tab**,
 - Avg loads / week (ramp): Mo1–3 = 4 · Mo4–6 = 8 · Mo7–9 = 12 · Mo10–12 = 16
 - Total Y1 loads ≈ **480** → Revenue ≈ **$432K** → Gross margin ≈ **$82K**
 
-### 10.5 · 3-Year P&L (lean two-partner baseline)
+### 10.5 · 3-Year P&L (lean three-member baseline)
 
 | Line | Y1 (2026) | Y2 (2027) | Y3 (2028) |
 | --- | ---: | ---: | ---: |
@@ -422,32 +448,35 @@ The launch runway is tracked live in the **Command Deck → Launch Runway tab**,
 | &nbsp;&nbsp;Misc / contingency | $2,000 | $9,600 | $18,000 |
 | **Total OpEx** | **$22,510** | **$79,030** | **$131,800** |
 | **EBITDA before partner pay** | **$57,490** | **$132,583** | **$302,600** |
-| Partner draws (combined, 50/50) | $30,000 | $90,000 | $180,000 |
+| Member compensation (operator salary + distributions, combined) | $30,000 | $90,000 | $180,000 |
 | Payroll taxes (employer-side, S-Corp Y2+) | $0 | $7,200 | $14,400 |
 | Hire: 1 carrier-sales agent (Y3) | $0 | $0 | $65,000 |
 | **Net income** | **$27,490** | **$35,383** | **$43,200** |
-| **Net cash to partners (draws + net, combined)** | **$57,490** | **$125,383** | **$223,200** |
-| **Per-partner share (50/50)** | **$28,745** | **$62,692** | **$111,600** |
+| **Net cash to members (combined)** | **$57,490** | **$125,383** | **$223,200** |
+| **Per-member share (⅓)** | **$19,163** | **$41,794** | **$74,400** |
 
-> **Note on partner compensation.** Year 1 draws are intentionally modest ($1,250/partner/month) to bank reserves and prove cash discipline. Both partners retain outside income streams in Y1 (Oliver: Tennant W-2 · Daniel: barbershop + studio), which is what makes the lean draw viable. Year 2 elects S-Corp status and splits comp into reasonable salary + distributions. Year 3 funds the first hire.
+> **Note on member compensation.** Per the Partnership Agreement (§3.5), **Oliver Cummins is the only salaried member** ($1,500/mo guaranteed payment once monthly gross margin clears $4,000). Daniel and Doug are compensated exclusively through quarterly distributions after the **10% Reinvestment Holdback** is credited to the Growth & Continued Operations Account. All members retain outside income streams in Y1 (Oliver: Tennant W-2 · Daniel: barbershop + studio · Doug: owner/operator runs), which is what makes the lean compensation plan viable. Year 2 elects S-Corp status and splits comp into reasonable salary + distributions. Year 3 funds the first hire.
 
 ### 10.6 · Cash flow & break-even
 
 - **Break-even loads / month:** ~11 loads at $171 avg margin ≈ $1,900/mo covers the lean Y1 OpEx run-rate. Target hit by **Month 2**; full run-rate incl. draws covered by **Month 5**.
-- **Working capital pressure point:** Carrier net-30 payments owed before shipper net-45 receivables arrive. Mitigation: the **$3,200 quick-pay float** bridges Weeks 1–4; the **factoring line (live Day 28)** carries everything after.
+- **Working capital pressure point:** Carrier net-30 payments owed before shipper net-45 receivables arrive. Mitigation: the **$14,000 quick-pay float** bridges Weeks 1–4; the **factoring line (live Day 28)** carries everything after.
 - **Cash-flow positive month:** **Month 5** per pipeline ramp — two months earlier than the solo plan, because the lean stack cut Y1 OpEx by $18K.
-- **Funded entirely by the partnership.** No outside investor.
+- **Funded entirely by the three members.** No outside investor.
 
 ### 10.7 · Funding strategy
 
 | Source | Amount | Timing | Purpose |
 | --- | ---: | --- | --- |
-| Daniel W. Karsor — partner capital | **$10,000** | Pre-launch | Full launch budget per Use of Funds (§10.2) |
+| Oliver Cummins — member capital | **$10,000** | Pre-launch | Launch budget per Use of Funds (§10.2) |
+| Daniel W. Karsor — member capital | **$10,000** ($2,500 received · ORI-RCT-0001) | Pre-launch | Launch budget per Use of Funds (§10.2) |
+| Doug Graham — member capital | **$10,000** ($300 received · ORI-RCT-0002) | Pre-launch | Launch budget per Use of Funds (§10.2) |
 | Oliver Cummins — in-kind | Command Deck IP + operating commitment | Pre-launch | Technology platform + operations |
+| Doug Graham — in-kind | 12-yr owner/operator expertise · carrier network | Pre-launch | Capacity & carrier relations |
 | Factoring line (Rapid Finance / On The Spot) | up to $50K available | Day 28 | Carrier quick-pay on factored invoices |
 | Choice Bank LOC (post 12mo) | $25K | Mo13 | Seasonal swing (Q4 retail surge) |
 | SBA 7(a) micro (optional) | $50K | Mo18 | Hire #1 / office buildout |
-| Outside equity | **None** | — | Orisei stays partner-controlled, 50/50 |
+| Outside equity | **None** | — | Orisei stays member-controlled, equal thirds |
 
 ---
 
@@ -457,15 +486,17 @@ The partnership is governed by the **Minnesota Member-Controlled LLC Partnership
 
 | Provision | Term |
 | --- | --- |
-| Ownership | 50% Oliver Cummins · 50% Daniel W. Karsor |
+| Ownership | 33⅓% Oliver Cummins · 33⅓% Daniel W. Karsor · 33⅓% Doug Graham |
 | Management | Member-managed; day-to-day per division of responsibilities (§2.3) |
 | Major decisions | Unanimous consent: spending >$2,500, debt, hiring, new equity, lane/market exits, IP licensing |
-| Profit & loss allocation | 50/50 per capital-account rules |
+| Profit & loss allocation | Equal thirds (33⅓% each) per capital-account rules |
+| Compensation | Operator salary — Oliver Cummins only (§3.5); all other members via distributions |
+| Reinvestment | 10% holdback from each member's distribution → Growth & Continued Operations Account |
 | Distributions | Quarterly, by unanimous consent, after tax-reserve set-aside |
 | Deadlock | 30-day negotiation → mediation (Hennepin County) → buy-sell "shotgun" procedure |
-| Transfer restrictions | No transfer without right of first refusal to the other member |
+| Transfer restrictions | No transfer without right of first refusal to the Company, then the other members |
 | Death / disability | Cross-purchase buyout at appraised fair value, 24-month note |
-| Non-compete | Neither member brokers freight outside the LLC during membership + 18 months |
+| Non-compete | No member brokers freight outside the LLC during membership + non-solicitation 24 months (Doug's owner/operator runs expressly permitted per Agreement §7.2) |
 | Governing law | Minnesota Statutes Chapter 322C |
 
 ---
@@ -512,8 +543,8 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 
 | Step | Action | Owner | Done when |
 | --- | --- | --- | --- |
-| 0.1 | File MN amendment adding Daniel W. Karsor as 50% member; execute Partnership Agreement | Both | MN SOS confirmation + signed agreement |
-| 0.2 | Daniel wires $10,000 capital contribution to LLC operating account | Daniel | Deposit confirmed |
+| 0.1 | File MN amendment adding Daniel W. Karsor & Doug Graham as equal members; execute + **notarize** Partnership Agreement | All three | MN SOS confirmation + notarized agreement |
+| 0.2 | Each member funds their **$10,000 capital commitment** to the LLC operating account (received to date: Daniel $2,500 · Doug $300 — receipts ORI-RCT-0001/0002; balances due by T-30) | All three | $30,000 deposited · receipts issued |
 | 0.3 | Apply for FEIN with IRS (partnership classification) | Oliver | EIN letter received |
 | 0.4 | Open business checking + savings with Choice Financial; dual-signer >$2,500 | Both | Accounts active |
 | 0.5 | File **OP-1FF** with FMCSA (broker authority application, $300) | Oliver | MC# pending |
@@ -561,7 +592,7 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 ### Phase 5 · Institutionalize (Year 3 · 2028)
 
 - Dedicated office (1,200 sq ft) in North Loop or Bloomington.
-- Headcount: 2 founders + 1 sales agent + 1 ops/dispatch + 1 part-time AR.
+- Headcount: 3 founding members + 1 sales agent + 1 ops/dispatch + 1 part-time AR.
 - **Orisei Command Deck** licensed to 2 sister brokerages (optional revenue stream).
 - 37+ loads/wk · $441K gross margin year · open conversation on potential sale, merger, or roll-up.
 
@@ -571,11 +602,11 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 
 By the end of Year 3, Orisei Freight Solutions has three realistic strategic paths:
 
-1. **Continue & compound** — stay 50/50 partner-controlled, grow to 8-person shop, hit $5M revenue by Y5. Highest long-term EV, lowest velocity.
-2. **Strategic sale** — exit to a regional consolidator (RXO, Hub Group, Coyote) at ~3.5–5× EBITDA. Expected sale band at end Y3: **$1.0M – $1.5M cash + earnout**, split 50/50.
+1. **Continue & compound** — stay member-controlled (equal thirds), grow to 8-person shop, hit $5M revenue by Y5. Highest long-term EV, lowest velocity.
+2. **Strategic sale** — exit to a regional consolidator (RXO, Hub Group, Coyote) at ~3.5–5× EBITDA. Expected sale band at end Y3: **$1.0M – $1.5M cash + earnout**, split equally among the three members.
 3. **Tech-licensing pivot** — package the **Orisei Brokerage Command Deck** as a SaaS offering for other single-agent brokerages, engineered by Daniel. Pricing target: **$499/mo/seat**.
 
-The partners will revisit this decision tree at the end of every fiscal year.
+The members will revisit this decision tree at the end of every fiscal year.
 
 ---
 
@@ -607,6 +638,7 @@ The partners will revisit this decision tree at the end of every fiscal year.
 | --- | --- | --- | --- |
 | 1.0 | 2026-02-14 | Oliver Cummins | Initial plan rendered into Orisei Brokerage Command Deck. |
 | 2.0 | 2026-06 | Oliver Cummins · Daniel W. Karsor | Partnership Edition — Daniel W. Karsor admitted as 50/50 co-founder; recapitalized around $10,000 partner infusion; lean use-of-funds; owner launch runway integrated; partnership governance added. |
+| 3.0 | 2026-07 | Oliver Cummins · Daniel W. Karsor · Doug Graham | Three-Member Edition — Doug Graham admitted as equal 33⅓% member (CDL owner/operator, 12 yrs); recapitalized at $30,000 ($10,000 per member); reinvestment holdback + operator-only salary schedule; notarized agreement; official receipt register + capital accounts ledger. |
 
 ---
 

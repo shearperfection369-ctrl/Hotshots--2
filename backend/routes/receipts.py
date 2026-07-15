@@ -91,6 +91,24 @@ class ReceiptIn(BaseModel):
     notes: str = ""
 
 
+class CapitalEntryIn(BaseModel):
+    member: str
+    entry_type: str  # contribution | holdback | withdrawal
+    amount_usd: float
+    notes: str = ""
+
+
+CAPITAL_MEMBERS = [
+    {"member": "Oliver Cummins", "role": "Operator / Principal Broker",
+     "commitment_usd": 10000.0, "in_kind": "Orisei Command Deck platform IP + regulatory work product"},
+    {"member": "Daniel W. Karsor", "role": "Finance & Growth",
+     "commitment_usd": 10000.0, "in_kind": None},
+    {"member": "Doug Graham", "role": "Capacity & Carrier Relations",
+     "commitment_usd": 10000.0, "in_kind": "12 years CDL owner/operator expertise + carrier network"},
+]
+ENTRY_TYPES = ("contribution", "holdback", "withdrawal")
+
+
 def build_receipts_router(*, api_router: APIRouter, db,
                           get_current_user: Callable, require_role: Callable) -> None:
     router = APIRouter(prefix="/receipts", tags=["receipts"])
@@ -163,5 +181,72 @@ def build_receipts_router(*, api_router: APIRouter, db,
             io.BytesIO(pdf), media_type="application/pdf",
             headers={"Content-Disposition": f'attachment; filename="{r["receipt_no"]}.pdf"'})
 
+    # -------------------------------------------------- capital accounts ledger
+    cap = APIRouter(prefix="/capital", tags=["capital-accounts"])
+
+    @cap.get("/accounts")
+    async def capital_accounts(_=Depends(get_current_user)) -> Dict[str, Any]:
+        await _seed()
+        receipts = await db.capital_receipts.find({}, {"_id": 0}).to_list(500)
+        entries = await db.capital_ledger.find({}, {"_id": 0}).sort("at", -1).to_list(1000)
+        members = []
+        for m in CAPITAL_MEMBERS:
+            contributed = round(sum(
+                r["amount_usd"] for r in receipts
+                if r["received_from"] == m["member"] and "capital" in r["purpose"].lower()), 2)
+            holdbacks = round(sum(e["amount_usd"] for e in entries
+                                  if e["member"] == m["member"] and e["entry_type"] == "holdback"), 2)
+            withdrawals = round(sum(e["amount_usd"] for e in entries
+                                    if e["member"] == m["member"] and e["entry_type"] == "withdrawal"), 2)
+            members.append({
+                **m, "contributed_usd": contributed,
+                "remaining_commitment_usd": round(max(0, m["commitment_usd"] - contributed), 2),
+                "holdbacks_usd": holdbacks, "withdrawals_usd": withdrawals,
+                "balance_usd": round(contributed + holdbacks - withdrawals, 2),
+            })
+        return {"members": members,
+                "total_committed": round(sum(m["commitment_usd"] for m in CAPITAL_MEMBERS), 2),
+                "total_paid_in": round(sum(m["contributed_usd"] for m in members), 2),
+                "total_balance": round(sum(m["balance_usd"] for m in members), 2),
+                "ledger": entries[:50]}
+
+    @cap.post("/entries")
+    async def add_capital_entry(payload: CapitalEntryIn,
+                                user=Depends(require_role("admin", "dispatcher"))) -> Dict[str, Any]:
+        names = [m["member"] for m in CAPITAL_MEMBERS]
+        if payload.member not in names:
+            raise HTTPException(422, f"member must be one of {names}")
+        if payload.entry_type not in ENTRY_TYPES:
+            raise HTTPException(422, f"entry_type must be one of {list(ENTRY_TYPES)}")
+        if payload.amount_usd <= 0:
+            raise HTTPException(422, "amount_usd must be positive")
+        receipt_no = None
+        if payload.entry_type == "contribution":
+            r = {"received_from": payload.member, "amount_usd": round(payload.amount_usd, 2),
+                 "method": "Cash / Direct Transfer",
+                 "purpose": "Capital contribution — commitment installment (Agreement §2.1)",
+                 "credited_to": f"Member capital account — {payload.member} (33⅓% interest)",
+                 "notes": payload.notes, "receipt_no": await _next_no(),
+                 "received_at": datetime.now(timezone.utc).isoformat(),
+                 "issued_by_name": "Oliver Cummins — Operator / Principal Broker",
+                 "issued_by": getattr(user, "user_id", None)}
+            await db.capital_receipts.insert_one(dict(r))
+            receipt_no = r["receipt_no"]
+        elif payload.entry_type == "withdrawal":
+            acct = await capital_accounts()
+            member = next(m for m in acct["members"] if m["member"] == payload.member)
+            if payload.amount_usd > member["balance_usd"]:
+                raise HTTPException(409, f"Withdrawal exceeds {payload.member}'s capital balance "
+                                         f"(${member['balance_usd']:,.2f}) — unanimous consent + Agreement §3.4 limits apply")
+        entry = {"entry_id": f"CAP-{datetime.now(timezone.utc).strftime('%y%m%d%H%M%S')}",
+                 "at": datetime.now(timezone.utc).isoformat(), "member": payload.member,
+                 "entry_type": payload.entry_type, "amount_usd": round(payload.amount_usd, 2),
+                 "notes": payload.notes, "receipt_no": receipt_no,
+                 "by": getattr(user, "user_id", None)}
+        await db.capital_ledger.insert_one(dict(entry))
+        entry.pop("_id", None)
+        return {"ok": True, **entry}
+
     api_router.include_router(router)
-    logger.info("Receipts register registered (/api/receipts)")
+    api_router.include_router(cap)
+    logger.info("Receipts register + Capital Accounts registered (/api/receipts, /api/capital)")
