@@ -51,6 +51,9 @@ CITIES: Dict[str, tuple] = {
     "Oklahoma City, OK": (35.47, -97.52), "Fargo, ND": (46.88, -96.79),
     "Omaha, NE": (41.26, -95.94), "Louisville, KY": (38.25, -85.76),
     "Albuquerque, NM": (35.08, -106.65), "Duluth, MN": (46.79, -92.10),
+    "Wilmington, OH": (39.45, -83.83), "Dayton, OH": (39.76, -84.19),
+    "Green Bay, WI": (44.51, -88.01), "Richmond, VA": (37.54, -77.44),
+    "Rosemount, MN": (44.74, -93.13),
 }
 
 SHIPPERS = [
@@ -68,43 +71,14 @@ COMMODITIES = {
 }
 
 CARRIER_FLEET: List[Dict[str, Any]] = [
-    # (name, base, region, equipment, otp)
-    {"name": "North Star Express",     "base": "Minneapolis, MN", "equipment": ["Van", "Reefer"],  "otp": 97},
-    {"name": "Gopher State Carriers",  "base": "Minneapolis, MN", "equipment": ["Van"],            "otp": 95},
-    {"name": "Great Lakes Cartage",    "base": "Chicago, IL",     "equipment": ["Van", "Flatbed"], "otp": 96},
-    {"name": "Windy City Freightways", "base": "Chicago, IL",     "equipment": ["Van", "Reefer"],  "otp": 93},
-    {"name": "Badger Haulers",         "base": "Milwaukee, WI",   "equipment": ["Van"],            "otp": 94},
-    {"name": "Hawkeye Transport",      "base": "Des Moines, IA",  "equipment": ["Van", "Reefer"],  "otp": 95},
-    {"name": "Heartland Reefer Lines", "base": "Kansas City, MO", "equipment": ["Reefer"],         "otp": 96},
-    {"name": "Gateway Arch Logistics", "base": "St. Louis, MO",   "equipment": ["Van", "Flatbed"], "otp": 92},
-    {"name": "Lone Star Freight Co",   "base": "Dallas, TX",      "equipment": ["Van", "Flatbed"], "otp": 95},
-    {"name": "Gulf Coast Carriers",    "base": "Houston, TX",     "equipment": ["Van", "Reefer"],  "otp": 93},
-    {"name": "Alamo City Trucking",    "base": "San Antonio, TX", "equipment": ["Van"],            "otp": 91},
-    {"name": "Border Bridge Xpress",   "base": "Laredo, TX",      "equipment": ["Van", "Reefer"],  "otp": 94},
-    {"name": "Peach State Haulage",    "base": "Atlanta, GA",     "equipment": ["Van", "Reefer"],  "otp": 96},
-    {"name": "Queen City Motor Lines", "base": "Charlotte, NC",   "equipment": ["Van"],            "otp": 95},
-    {"name": "Delta Blues Transport",  "base": "Memphis, TN",     "equipment": ["Van", "Reefer"],  "otp": 94},
-    {"name": "Music City Freight",     "base": "Nashville, TN",   "equipment": ["Van", "Flatbed"], "otp": 93},
-    {"name": "Crossroads Carriers",    "base": "Indianapolis, IN","equipment": ["Van"],            "otp": 96},
-    {"name": "Buckeye Express Lines",  "base": "Columbus, OH",    "equipment": ["Van", "Flatbed"], "otp": 95},
-    {"name": "Motor City Logistics",   "base": "Detroit, MI",     "equipment": ["Van", "Flatbed"], "otp": 92},
-    {"name": "Mile High Trucking",     "base": "Denver, CO",      "equipment": ["Van", "Reefer"],  "otp": 94},
-    {"name": "Wasatch Freight Lines",  "base": "Salt Lake City, UT","equipment": ["Van", "Reefer"],"otp": 95},
-    {"name": "Sonoran Desert Freight", "base": "Phoenix, AZ",     "equipment": ["Van", "Flatbed"], "otp": 93},
-    {"name": "Pacific Crest Carriers", "base": "Los Angeles, CA", "equipment": ["Van", "Reefer"],  "otp": 94},
-    {"name": "Inland Empire Xpress",   "base": "Ontario, CA",     "equipment": ["Van"],            "otp": 92},
-    {"name": "Bay Bridge Freight",     "base": "Oakland, CA",     "equipment": ["Van", "Reefer"],  "otp": 95},
-    {"name": "Cascadia Motor Freight", "base": "Portland, OR",    "equipment": ["Van", "Reefer"],  "otp": 96},
-    {"name": "Rainier Reefer Express", "base": "Seattle, WA",     "equipment": ["Reefer"],         "otp": 97},
-    {"name": "Liberty Corridor Lines", "base": "Newark, NJ",      "equipment": ["Van"],            "otp": 93},
-    {"name": "Keystone Freightways",   "base": "Harrisburg, PA",  "equipment": ["Van", "Flatbed"], "otp": 95},
-    {"name": "Minuteman Transport",    "base": "Boston, MA",      "equipment": ["Van", "Reefer"],  "otp": 94},
-    {"name": "First Coast Carriers",   "base": "Jacksonville, FL","equipment": ["Van", "Reefer"],  "otp": 95},
-    {"name": "Everglades Express",     "base": "Miami, FL",       "equipment": ["Reefer"],         "otp": 92},
-    {"name": "Sooner State Trucking",  "base": "Oklahoma City, OK","equipment": ["Van", "Flatbed"],"otp": 94},
-    {"name": "Red River Valley Lines", "base": "Fargo, ND",       "equipment": ["Van", "Reefer"],  "otp": 96},
-    {"name": "Platte River Freight",   "base": "Omaha, NE",       "equipment": ["Van", "Reefer"],  "otp": 95},
-    {"name": "Bluegrass Motor Lines",  "base": "Louisville, KY",  "equipment": ["Van", "Flatbed"], "otp": 94},
+    # (name, base, equipment, otp) — the real partner roster
+    {"name": "R+L Carriers",             "base": "Wilmington, OH",  "equipment": ["Van"],                       "otp": 95},
+    {"name": "Saia LTL Freight",         "base": "Atlanta, GA",     "equipment": ["Van"],                       "otp": 94},
+    {"name": "Dayton Freight Lines",     "base": "Dayton, OH",      "equipment": ["Van"],                       "otp": 96},
+    {"name": "Schneider National",       "base": "Green Bay, WI",   "equipment": ["Van", "Reefer", "Flatbed"],  "otp": 95},
+    {"name": "Estes Express Lines",      "base": "Richmond, VA",    "equipment": ["Van", "Flatbed"],            "otp": 93},
+    {"name": "King Solutions",           "base": "Minneapolis, MN", "equipment": ["Van", "Reefer"],             "otp": 96},
+    {"name": "Bay & Bay Transportation", "base": "Rosemount, MN",   "equipment": ["Van", "Reefer"],             "otp": 95},
 ]
 
 # ------------------------------------------------- market realism: lane imbalance
@@ -125,6 +99,8 @@ REGION_OF: Dict[str, str] = {
     "Nashville, TN": "southeast",
     "Jacksonville, FL": "florida", "Miami, FL": "florida",
     "Newark, NJ": "northeast", "Harrisburg, PA": "northeast", "Boston, MA": "northeast",
+    "Wilmington, OH": "midwest", "Dayton, OH": "midwest", "Green Bay, WI": "midwest",
+    "Richmond, VA": "southeast", "Rosemount, MN": "plains",
 }
 
 # out = strength of outbound (headhaul) demand · in = strength of inbound demand.

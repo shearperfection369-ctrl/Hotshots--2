@@ -126,12 +126,11 @@ def build_ops_alerts_router(*, api_router: APIRouter, db,
                           "detail": f"Booked via marketplace {m['mb_id']} — verify authority/insurance before dispatch (auto once FMCSA key added)"})
 
         hunt_cut = _iso(now - timedelta(hours=24))
-        async for a in db.hunter_audit.find({"action": "risk_reject", "at": {"$gte": hunt_cut}},
-                                            {"_id": 0}).limit(10):
-            found.append({"type": "hunter_risk", "severity": "low",
-                          "ref": f"{a.get('lane')}-{a.get('at')}",
-                          "title": f"Hunter risk-rejected {a.get('shipper') or 'a load'}",
-                          "detail": f"Lane {a.get('lane') or '?'} · {a.get('reason') or 'risk registry match'}"})
+        n_rej = await db.hunter_audit.count_documents({"action": "risk_reject", "at": {"$gte": hunt_cut}})
+        if n_rej:
+            found.append({"type": "hunter_risk", "severity": "low", "ref": "24h-window",
+                          "title": f"Hunter risk-rejected {n_rej} load(s) in the last 24h",
+                          "detail": "Loads blocked by the risk registry (credit flags / low payment scores). Review in Load Hunter → Audit Trail."})
 
         decs = await db.hunter_decisions.find({}, {"_id": 0, "divergence": 1}).sort("at", -1).to_list(20)
         if len(decs) >= 5:
@@ -224,7 +223,11 @@ def build_ops_alerts_router(*, api_router: APIRouter, db,
                           "status": "open", "detected_at": _iso(_now())})
                 new.append(d)
             if new:
-                await _ai_briefs(new)
+                for a in new:
+                    a["ai_brief"] = a["detail"]
+                brief_targets = [a for a in new if SEV_RANK[a["severity"]] >= 1][:5]
+                if brief_targets:
+                    await _ai_briefs(brief_targets)
                 for a in new:
                     await db.ops_alerts.insert_one(dict(a))
                 await _notify(new)

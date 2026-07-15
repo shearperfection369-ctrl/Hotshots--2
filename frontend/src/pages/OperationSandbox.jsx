@@ -49,7 +49,8 @@ function LaunchScreen({ onStart, busy }) {
       <FlaskConical size={42} className="mx-auto text-cyan-400 mb-3" />
       <h2 className="font-display text-3xl font-black">Operation Sandbox</h2>
       <p className="text-sm text-slate-400 mt-2 max-w-xl mx-auto">
-        Run a full brokerage week against a 36-carrier nationwide sample network. Real load-board economics —
+        Run a full brokerage week against your real partner carrier network — R+L, Saia, Dayton Freight,
+        Schneider, Estes, King Solutions, Bay &amp; Bay. Real load-board economics —
         regional lane imbalance (headhaul/backhaul pricing), monthly seasonality curves,
         current FSC (${"0.41"}/mi @ DOE $3.68) — live GPS movement, AI matching &amp; triage, BOL/POD/invoicing,
         factoring, and a running P&amp;L. Every load is marked <span className="text-yellow-300 font-mono">SAMPLE</span>.

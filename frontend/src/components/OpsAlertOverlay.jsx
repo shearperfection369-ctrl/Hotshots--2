@@ -18,7 +18,7 @@ const SEEN_KEY = "sentinel_seen_alerts";
 const css = `
 @keyframes sentinelPing { 0% { transform: scale(0.6); opacity: 0.9; } 100% { transform: scale(2.4); opacity: 0; } }
 @keyframes sentinelScan { 0% { top: -8%; } 100% { top: 108%; } }
-@keyframes sentinelGlow { 0%,100% { box-shadow: 0 0 30px -6px var(--sv), inset 0 0 24px -14px var(--sv); } 50% { box-shadow: 0 0 70px -6px var(--sv), inset 0 0 40px -14px var(--sv); } }
+@keyframes sentinelFade { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
 @keyframes sentinelIn { from { opacity: 0; transform: scale(0.92) translateY(14px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 @keyframes sentinelPulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 `;
@@ -36,9 +36,11 @@ function AlertPopup({ alerts, onAck, onResolve, onDismiss, busy }) {
   const sev = SEV_STYLE[a.severity] || SEV_STYLE.high;
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" data-testid="sentinel-popup"
-      style={{ background: "radial-gradient(ellipse at center, rgba(239,68,68,0.10), rgba(3,7,15,0.88) 65%)", backdropFilter: "blur(10px)" }}>
+      style={{ background: "radial-gradient(ellipse at center, rgba(239,68,68,0.10), rgba(3,7,15,0.93) 65%)" }}>
       <div className="relative w-full max-w-2xl rounded-2xl border overflow-hidden"
-        style={{ "--sv": sev.ring, borderColor: `${sev.ring}66`, background: "linear-gradient(160deg, #0a1220 0%, #060b14 100%)", animation: "sentinelIn 0.35s cubic-bezier(0.2,0.9,0.3,1.2), sentinelGlow 2.4s ease-in-out infinite" }}>
+        style={{ "--sv": sev.ring, borderColor: `${sev.ring}66`, background: "linear-gradient(160deg, #0a1220 0%, #060b14 100%)", animation: "sentinelIn 0.35s cubic-bezier(0.2,0.9,0.3,1.2)" }}>
+        <div className="absolute inset-0 rounded-2xl pointer-events-none"
+          style={{ boxShadow: `0 0 60px -6px ${sev.ring}, inset 0 0 36px -14px ${sev.ring}`, animation: "sentinelFade 2.4s ease-in-out infinite" }} />
         <div className="absolute left-0 right-0 h-px pointer-events-none" style={{ background: `linear-gradient(90deg, transparent, ${sev.ring}, transparent)`, animation: "sentinelScan 3s linear infinite" }} />
         <div className="p-7">
           <div className="flex items-start justify-between gap-4">
@@ -204,7 +206,7 @@ export default function OpsAlertOverlay() {
 
   useEffect(() => {
     scan();
-    timerRef.current = setInterval(scan, 60000);
+    timerRef.current = setInterval(scan, 120000);
     return () => clearInterval(timerRef.current);
   }, [scan]);
 
