@@ -1919,3 +1919,22 @@ retrains scoring weights from revealed preferences — making the intuitive
 ### Partnership agreement location (user asked)
 - UI: Brokerage → Business Plan tab → "Partnership Agreement" button (branded PDF)
 - API: GET /api/brokerage/partnership-agreement(.pdf) · Source: /app/PARTNERSHIP_AGREEMENT.md
+
+---
+
+## 2026-07 (fork, cont.): Operating Agreement + Doug $1,300 correction — COMPLETE
+- Doug Graham's contribution corrected $300 → $1,300 everywhere (receipt ORI-RCT-0002,
+  agreement, plan, brochure, capital ledger: due $8,700).
+- Oliver's $10,000 marked PAID IN FULL in-kind (software design, business structuring,
+  expenses-to-date) — Agreement §2.4 + receipt ORI-RCT-0003 + ledger due $0.
+- NEW /app/OPERATING_AGREEMENT.md built on user's 8-point framework: equal 33⅓%
+  ownership w/ agreed-value equality clause; capital calls (unanimous only, never
+  forced, fair contributed-capital dilution OR 8% member-loan alternative); equal P&L;
+  roles matrix (ops/compliance/sales/carrier/tech); decision tiers ($2.5k operator /
+  majority / unanimous majors incl. debt>$5k, execs, sale); mediation-first dispute
+  ladder (negotiate→mediate→AAA arbitration, no litigation); buyout (ROFR, valuation =
+  max(NAV, 1x TTM gross margin), 24-mo payout, drag-along 2/3, tag-along); 2-yr
+  non-compete w/ Doug owner/operator carve-out; signatures + MN notary page.
+- Endpoints: GET /api/brokerage/operating-agreement(.pdf) — branded PDF verified via
+  pypdf. UI: "Operating Agreement" button on Brokerage → Business Plan toolbar
+  (data-testid operating-agreement-btn). Screenshot verified.

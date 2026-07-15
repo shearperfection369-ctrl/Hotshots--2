@@ -823,6 +823,14 @@ function BusinessPlanTab() {
         {busyDoc === "agreement" ? <Loader2 size={13} className="mr-1.5 animate-spin" /> : <Stamp size={13} className="mr-1.5" />} Partnership Agreement
       </Button>
       <Button
+        onClick={() => downloadPdf("opagreement", "/brokerage/operating-agreement/pdf", "Orisei_Operating_Agreement.pdf")}
+        disabled={busyDoc === "opagreement"}
+        data-testid="operating-agreement-btn"
+        className="bg-white/5 border border-white/10 hover:border-amber-400/40 hover:text-amber-200 text-slate-300 font-mono text-[11px] uppercase tracking-wider"
+      >
+        {busyDoc === "opagreement" ? <Loader2 size={13} className="mr-1.5 animate-spin" /> : <Stamp size={13} className="mr-1.5" />} Operating Agreement
+      </Button>
+      <Button
         onClick={() => setShowReceipts(true)}
         data-testid="receipts-open-btn"
         className="bg-white/5 border border-white/10 hover:border-amber-400/40 hover:text-amber-200 text-slate-300 font-mono text-[11px] uppercase tracking-wider"

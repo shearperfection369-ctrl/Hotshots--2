@@ -2174,6 +2174,28 @@ def build_brokerage_router(
             headers={"Content-Disposition": f'attachment; filename="{company.replace(" ", "_")}_Partnership_Agreement.pdf"'},
         )
 
+    @router.get("/operating-agreement")
+    async def operating_agreement(_=Depends(get_current_user)):
+        """Return the MN three-member operating agreement markdown."""
+        return _read_doc("OPERATING_AGREEMENT.md", "Operating agreement document not found")
+
+    @router.get("/operating-agreement/pdf")
+    async def operating_agreement_pdf(_=Depends(get_current_user)):
+        """Branded PDF of the MN three-member operating agreement."""
+        doc = _read_doc("OPERATING_AGREEMENT.md", "Operating agreement document not found")
+        brand = await _active_brand(db)
+        company = brand.get("company_name") or "Orisei Freight Solutions LLC"
+        pdf_bytes = build_branded_markdown_pdf(
+            doc["markdown"], title="Operating Agreement",
+            subtitle="Ownership · Capital Calls · Decisions · Buyout · Non-Compete · Notarized",
+            brand=brand,
+        )
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{company.replace(" ", "_")}_Operating_Agreement.pdf"'},
+        )
+
     @router.get("/business-plan/brochure.pdf")
     async def business_plan_brochure(_=Depends(get_current_user)):
         """Colorful brochure-style PDF of the business plan."""
