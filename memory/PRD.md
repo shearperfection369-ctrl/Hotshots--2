@@ -1860,3 +1860,31 @@ retrains scoring weights from revealed preferences — making the intuitive
   shipper_reliability/driver_match +0.02 each (correct direction, sum 1.0);
   gating 409 verified; test data cleaned, config restored to balanced.
 - Screenshot: monitor renders in Brokerage → AI Hunter tab.
+
+---
+
+## 2026-07 (fork, cont.): 3-Member Partnership + Official Receipts — COMPLETE
+
+### Partnership Agreement (PARTNERSHIP_AGREEMENT.md rewritten)
+- Members: Oliver Cummins (Operator), Daniel W. Karsor, Doug Graham (CDL owner/op,
+  12 yrs) — equal 33⅓% each. Capital: Karsor $2,500 (ORI-RCT-0001), Graham $300
+  (ORI-RCT-0002) + in-kind, Cummins platform IP in-kind.
+- Art III Distribution Schedule: reserves → operator salary → 10% Reinvestment
+  Holdback per member (Growth & Continued Operations Account) → equal distributions.
+  Quarterly equity withdrawals w/ unanimous consent. §3.5: ONLY Cummins draws salary
+  ($1,500/mo guaranteed payment once margin > $4k/mo).
+- Notary Acknowledgment page (MN, seal block) + 3 signature blocks. Branded PDF via
+  /api/brokerage/partnership-agreement/pdf (subtitle updated to Three Members).
+
+### Receipts Register (routes/receipts.py — /api/receipts)
+- db.capital_receipts, sequential ORI-RCT-#### (max-based numbering), idempotent
+  upsert seeding of the 2 founding receipts. GET list, POST create (module-level
+  ReceiptIn — NOTE: locally-defined pydantic models + `from __future__ import
+  annotations` broke body parsing → keep request models at module level),
+  GET /{no}/pdf branded w/ amount-in-words.
+- UI: ReceiptsDialog.jsx, opened via "Receipts" button on Brokerage → Business Plan
+  tab toolbar (data-testid receipts-open-btn). Verified via curl + screenshot.
+
+### Known inconsistency (offer to fix)
+- BUSINESS_PLAN.md + plan_brochure.py still describe 50/50 two-founder / $10,000
+  Karsor structure — needs update to 3-member $2,800 actuals if user confirms.

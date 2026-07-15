@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
+import { ReceiptsDialog } from "../components/ReceiptsDialog";
 import { CarrierCombobox } from "../components/CarrierCombobox";
 import { CustomerCombobox } from "../components/CustomerCombobox";
 import { useNavigate } from "react-router-dom";
@@ -780,6 +781,7 @@ function AITab() {
 // ============================================================
 function BusinessPlanTab() {
   const [showPitch, setShowPitch] = useState(false);
+  const [showReceipts, setShowReceipts] = useState(false);
   const [busyDoc, setBusyDoc] = useState(null);
 
   const downloadPdf = async (key, url, filename) => {
@@ -818,6 +820,13 @@ function BusinessPlanTab() {
         {busyDoc === "agreement" ? <Loader2 size={13} className="mr-1.5 animate-spin" /> : <Stamp size={13} className="mr-1.5" />} Partnership Agreement
       </Button>
       <Button
+        onClick={() => setShowReceipts(true)}
+        data-testid="receipts-open-btn"
+        className="bg-white/5 border border-white/10 hover:border-amber-400/40 hover:text-amber-200 text-slate-300 font-mono text-[11px] uppercase tracking-wider"
+      >
+        <Receipt size={13} className="mr-1.5" /> Receipts
+      </Button>
+      <Button
         onClick={() => setShowPitch(true)}
         data-testid="business-plan-email-investor-btn"
         className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-[11px] uppercase tracking-wider"
@@ -837,6 +846,7 @@ function BusinessPlanTab() {
         extraActions={extraActions}
       />
       <InvestorPitchDialog open={showPitch} onClose={() => setShowPitch(false)} />
+      <ReceiptsDialog open={showReceipts} onOpenChange={setShowReceipts} />
     </>
   );
 }

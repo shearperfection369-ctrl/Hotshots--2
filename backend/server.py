@@ -8429,6 +8429,11 @@ build_ops_alerts_router(api_router=api_router, db=db,
                         get_current_user=get_current_user,
                         require_role=require_role)
 
+from routes.receipts import build_receipts_router  # noqa: E402
+build_receipts_router(api_router=api_router, db=db,
+                      get_current_user=get_current_user,
+                      require_role=require_role)
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,

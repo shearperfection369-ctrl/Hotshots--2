@@ -2154,18 +2154,18 @@ def build_brokerage_router(
 
     @router.get("/partnership-agreement")
     async def partnership_agreement(_=Depends(get_current_user)):
-        """Return the MN 50/50 partnership agreement markdown."""
+        """Return the MN three-member partnership agreement markdown."""
         return _read_doc("PARTNERSHIP_AGREEMENT.md", "Partnership agreement document not found")
 
     @router.get("/partnership-agreement/pdf")
     async def partnership_agreement_pdf(_=Depends(get_current_user)):
-        """Branded PDF of the MN 50/50 partnership agreement."""
+        """Branded PDF of the MN three-member partnership agreement."""
         doc = _read_doc("PARTNERSHIP_AGREEMENT.md", "Partnership agreement document not found")
         brand = await _active_brand(db)
         company = brand.get("company_name") or "Orisei Freight Solutions LLC"
         pdf_bytes = build_branded_markdown_pdf(
             doc["markdown"], title="Partnership Agreement",
-            subtitle="Member-Controlled LLC · State of Minnesota · 50/50",
+            subtitle="Member-Controlled LLC · Minnesota · Three Members · Equal 33⅓% · Notarized",
             brand=brand,
         )
         return StreamingResponse(
