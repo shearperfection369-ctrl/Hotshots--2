@@ -559,11 +559,8 @@ def build_sim_router(*, api_router: APIRouter, db,
             if day <= sim["duration_days"]:
                 await _event(sim, "day", f"🌅 DAY {day} of {sim['duration_days']} — fresh freight hitting the boards")
 
-        # completion
-        if day > sim["duration_days"]:
-            sim["status"] = "complete"
-            await _event(sim, "complete", f"🏁 WEEK COMPLETE · revenue ${ledger.get('revenue',0):,.0f} · net margin ${ledger.get('revenue',0)-ledger.get('carrier_pay',0)-ledger.get('factoring_fees',0)-ledger.get('exception_costs',0):,.0f}")
-        else:
+        # spawn + advance first, then evaluate completion
+        if day <= sim["duration_days"]:
             # spawn new freight through the day
             target = sim["loads_per_day"]
             expected = target * min(1.0, ((clock - start_dt).total_seconds() % 86400) / 64800)
@@ -573,17 +570,34 @@ def build_sim_router(*, api_router: APIRouter, db,
                 sim["spawned_today"] += 1
                 await _event(sim, "post", f"📋 {nl['load_id']} posted on {nl['board']} · {nl['origin']['name']} → {nl['dest']['name']} · {nl['equipment']} · ${nl['sell_usd']:,.0f}", nl["load_id"])
 
-            # advance every open load
-            open_loads = await db.sim_loads.find(
-                {"sim_id": sim["sim_id"], "status": {"$ne": "paid"}}, {"_id": 0}).to_list(400)
-            for load in open_loads:
+        # advance every open load — multiple lifecycle passes when the clock jumps
+        passes = max(1, min(6, int(sim_hours // 2) + 1))
+        open_loads = await db.sim_loads.find(
+            {"sim_id": sim["sim_id"], "status": {"$ne": "paid"}}, {"_id": 0}).to_list(400)
+        for load in open_loads:
+            for _ in range(passes):
+                before = load["status"]
                 await _advance_load(sim, load, sim_hours, ledger, fleet, user_id)
-                await db.sim_loads.replace_one({"load_id": load["load_id"]}, dict(load))
+                if load["status"] == before:
+                    break
+            await db.sim_loads.replace_one({"load_id": load["load_id"]}, dict(load))
+
+        # completion — week over AND all loads settled (factored = cash advanced = settled)
+        if day > sim["duration_days"]:
+            open_n = await db.sim_loads.count_documents(
+                {"sim_id": sim["sim_id"], "status": {"$nin": ["paid", "factored", "posted"]}})
+            if open_n == 0 or day > sim["duration_days"] + 3:
+                sim["status"] = "complete"
+                await _event(sim, "complete", f"🏁 WEEK COMPLETE · revenue ${ledger.get('revenue',0):,.0f} · net margin ${ledger.get('revenue',0)-ledger.get('carrier_pay',0)-ledger.get('factoring_fees',0)-ledger.get('exception_costs',0):,.0f}")
+            elif not sim.get("_settling"):
+                sim["_settling"] = True
+                await _event(sim, "day", f"🏁 Trading week over — {open_n} load(s) still settling: deliveries, invoices, factoring, shipper payments")
 
         await db.sim_state.update_one({"sim_id": sim["sim_id"]}, {"$set": {
             "sim_clock": sim["sim_clock"], "last_tick_at": sim["last_tick_at"],
             "sim_day": min(sim["sim_day"], sim["duration_days"]), "status": sim["status"],
             "ledger": ledger, "daily": sim["daily"], "spawned_today": sim["spawned_today"],
+            "_settling": sim.get("_settling", False),
             "_ledger_snap": sim.get("_ledger_snap") or {}}})
         return await state(user)  # type: ignore
 
