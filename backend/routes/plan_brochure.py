@@ -283,7 +283,7 @@ def _page_founders(c: Canvas, page: int, total: int):
             "CDL Class A owner/operator — 12 years over-the-road experience.",
             "Vets carriers with a driver's instinct: equipment, HOS, rate honesty.",
             "Working network of owner-operators and small fleets built on the road.",
-            "Contributes $10,000 capital ($300 received · ORI-RCT-0002) + in-kind expertise.",
+            "Contributes $10,000 capital ($1,300 received · ORI-RCT-0002) + in-kind expertise.",
             "Keeps Orisei's buy rates honest on both sides of every load.",
         ],
         "\u201cBrokers who've never been in the truck guess at what carriers will take. "

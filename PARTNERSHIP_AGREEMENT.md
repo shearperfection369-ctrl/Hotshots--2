@@ -33,11 +33,11 @@
 | --- | --- | --- | ---: |
 | Oliver Cummins | $10,000.00 — **PAID IN FULL** in-kind (§2.4) | $10,000.00 agreed value (Receipt ORI-RCT-0003) | **33⅓%** |
 | Daniel W. Karsor | $10,000.00 cash | $2,500.00 (Receipt ORI-RCT-0001) | **33⅓%** |
-| Doug Graham | $10,000.00 cash + in-kind (§2.5) | $300.00 (Receipt ORI-RCT-0002) | **33⅓%** |
+| Doug Graham | $10,000.00 cash + in-kind (§2.5) | $1,300.00 (Receipt ORI-RCT-0002) | **33⅓%** |
 
 **2.2 Capital Contribution — Member Karsor.** Member Karsor commits **$10,000.00** in startup capital, of which **Two Thousand Five Hundred and 00/100 Dollars ($2,500.00)** has been received by the Company (Official Receipt No. ORI-RCT-0001) and credited to his capital account; the balance is due per the Phase 0 funding schedule of the Business Plan, incorporated herein by reference.
 
-**2.3 Capital Contribution — Member Graham.** Member Graham commits **$10,000.00** in startup capital, of which **Three Hundred and 00/100 Dollars ($300.00)** has been received by the Company (Official Receipt No. ORI-RCT-0002) and credited to his capital account; the balance is due per the Phase 0 funding schedule.
+**2.3 Capital Contribution — Member Graham.** Member Graham commits **$10,000.00** in startup capital, of which **One Thousand Three Hundred and 00/100 Dollars ($1,300.00)** has been received by the Company (Official Receipt No. ORI-RCT-0002) and credited to his capital account; the balance is due per the Phase 0 funding schedule.
 
 **2.4 Capital Contribution — Member Cummins (Paid in Full, In-Kind).** The Members unanimously agree that Member Cummins' **$10,000.00 capital commitment is fully satisfied and PAID IN FULL** as of the Effective Date (Official Receipt No. ORI-RCT-0003) through the following bargained-for, agreed-value contributions: (a) the **design, architecture, and development of the Orisei Brokerage Command Deck** software platform, which he hereby irrevocably assigns to the Company, including all source code, documentation, trademarks, and associated intellectual property; (b) the **structuring and organization of the business** — entity formation, partnership structuring, regulatory strategy, and all pre-formation work product (FMCSA filings preparation, carrier packets, compliance templates, business plan, and brand); (c) **payment of all Company expenses incurred through the Effective Date** from personal funds; and (d) his commitment to serve as the Company's Principal Broker and operations lead. No further capital contribution is owed by Member Cummins.
 
