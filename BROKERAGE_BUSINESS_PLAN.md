@@ -455,7 +455,7 @@ The launch runway is tracked live in the **Command Deck → Launch Runway tab**,
 | **Net cash to members (combined)** | **$57,490** | **$125,383** | **$223,200** |
 | **Per-member share (⅓)** | **$19,163** | **$41,794** | **$74,400** |
 
-> **Note on member compensation.** Per the Partnership Agreement (§3.5), **Oliver Cummins is the only salaried member** ($1,500/mo guaranteed payment once monthly gross margin clears $4,000). Daniel and Doug are compensated exclusively through quarterly distributions after the **10% Reinvestment Holdback** is credited to the Growth & Continued Operations Account. All members retain outside income streams in Y1 (Oliver: Tennant W-2 · Daniel: barbershop + studio · Doug: owner/operator runs), which is what makes the lean compensation plan viable. Year 2 elects S-Corp status and splits comp into reasonable salary + distributions. Year 3 funds the first hire.
+> **Note on member compensation.** Per the Partnership Agreement (§3.6), **Oliver Cummins is the only salaried member** ($1,500/mo guaranteed payment once monthly gross margin clears $4,000). Daniel and Doug are compensated exclusively through **quarterly equity distributions paid by ACH within 45 days of quarter close** (May 15 · Aug 14 · Nov 14 · Feb 14) under the Agreement's Distribution Waterfall: operating reserve → **15% Company retained earnings** → tax safe-harbor → **10% per-member Reinvestment Holdback** (credited to capital accounts) → equal thirds. All members retain outside income streams in Y1 (Oliver: Tennant W-2 · Daniel: barbershop + studio · Doug: owner/operator runs), which is what makes the lean compensation plan viable. Year 2 elects S-Corp status and splits comp into reasonable salary + distributions. Year 3 funds the first hire.
 
 ### 10.6 · Cash flow & break-even
 
@@ -490,8 +490,8 @@ The partnership is governed by the **Minnesota Member-Controlled LLC Partnership
 | Management | Member-managed; day-to-day per division of responsibilities (§2.3) |
 | Major decisions | Unanimous consent: spending >$2,500, debt, hiring, new equity, lane/market exits, IP licensing |
 | Profit & loss allocation | Equal thirds (33⅓% each) per capital-account rules |
-| Compensation | Operator salary — Oliver Cummins only (§3.5); all other members via distributions |
-| Reinvestment | 10% holdback from each member's distribution → Growth & Continued Operations Account |
+| Compensation | Operator salary — Oliver Cummins only (§3.6); all other members via quarterly ACH distributions (45-day close-to-pay standard) |
+| Reinvestment | 15% Company retained earnings + 10% holdback from each member's distribution → Growth & Continued Operations Account |
 | Distributions | Quarterly, by unanimous consent, after tax-reserve set-aside |
 | Deadlock | 30-day negotiation → mediation (Hennepin County) → buy-sell "shotgun" procedure |
 | Transfer restrictions | No transfer without right of first refusal to the Company, then the other members |

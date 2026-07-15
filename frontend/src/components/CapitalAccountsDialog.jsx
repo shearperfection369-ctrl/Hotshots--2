@@ -85,7 +85,7 @@ export const CapitalAccountsDialog = ({ open, onOpenChange }) => {
                 {busy ? <Loader2 size={12} className="animate-spin" /> : "Record Entry"}
               </Button>
               <div className="text-[8px] font-mono text-slate-600">
-                Contributions auto-issue an official Orisei receipt. Withdrawals are blocked above a member's balance (Agreement §3.4).
+                Contributions auto-issue an official Orisei receipt. Withdrawals are blocked above a member's balance (Agreement §3.5).
               </div>
             </div>
           </div>

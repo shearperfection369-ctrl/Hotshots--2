@@ -55,20 +55,36 @@
 
 **3.1 Allocation of Profits and Losses.** All items of Company income, gain, loss, deduction, and credit shall be allocated **one-third (33⅓%) to each Member**.
 
-**3.2 Distribution Waterfall.** Distributable cash shall be determined and applied **quarterly** in the following order (the "**Distribution Schedule**"):
+**3.2 Definition — Distributable Cash.** "**Distributable Cash**" for any fiscal quarter means the Company's cash receipts, minus: (a) all operating expenses paid or payable for the quarter (carrier payments, factoring fees, insurance, bond, software, professional fees); (b) debt service; (c) the Operator Salary (§3.6); and (d) the reserves required by §3.3 — as reflected in the quarterly financial statement prepared from the Company's books.
 
-1. **Operating Reserve** — retain cash sufficient for ninety (90) days of operating expenses, the carrier quick-pay float, surety bond (BMC-84) and insurance renewals, and estimated tax obligations;
-2. **Operator Salary** — payment of the Operator compensation described in §3.5, current and any accrued;
-3. **Reinvestment Holdback** — from each Member's share of the remaining distributable cash, **ten percent (10%)** shall be withheld and transferred to the Company's **Growth & Continued Operations Account** (the "**Reinvestment Account**"). Amounts withheld are credited to the contributing Member's capital account and may be deployed only for: platform development, marketing and shipper acquisition, compliance and insurance, working capital, or debt reduction;
-4. **Member Distributions** — the balance is distributed **equally (33⅓% each)** to the Members.
+**3.3 Distribution Waterfall.** Distributable Cash shall be determined **quarterly** and applied strictly in the following order (the "**Distribution Schedule**"):
 
-**3.3 Tax Distributions.** Notwithstanding §3.2, the Company shall use commercially reasonable efforts to distribute to each Member, no later than April 1 of each year, an amount sufficient to cover such Member's estimated tax liability on allocated Company income for the prior year.
+1. **Operating Reserve (first priority).** Retain cash sufficient for **ninety (90) days of operating expenses**, the carrier quick-pay float, BMC-84 surety bond and insurance renewals, and an estimated tax escrow. No distribution may be made that would impair this reserve or violate the solvency limitations of Minn. Stat. §322C.0405.
+2. **Company Retained Earnings — 15% (all Members equally).** Fifteen percent (15%) of the quarter's net profit is **retained by the Company** as general retained earnings — the business's permanent war chest. This retention burdens all Members equally by operation of the equal profit split and is not credited to any individual capital account.
+3. **Tax Safe-Harbor Distribution.** Distribute to each Member an amount equal to the Member's allocated share of quarterly taxable income multiplied by the **combined highest marginal federal + Minnesota individual rate** (deemed 40% unless the Members unanimously set another rate), so no Member ever funds Company taxes out of pocket.
+4. **Reinvestment Holdback — 10% per Member.** From each Member's one-third share of the cash remaining after steps 1–3, **ten percent (10%) is withheld and transferred to the Growth & Continued Operations Account**. Each Member's withheld amount is **credited to that Member's capital account** and may be deployed only for: platform development, marketing and shipper acquisition, compliance and insurance, working capital, or debt reduction. This account is tracked member-by-member in the Company's Capital Accounts ledger.
+5. **Member Equity Distributions.** The balance is distributed **equally — 33⅓% to each Member**.
 
-**3.4 Owner Equity Withdrawals.** A Member may request a withdrawal against their positive capital account balance (excluding the Reinvestment Account) no more than **once per calendar quarter**, upon **unanimous written consent** of the Members, provided that: (a) the withdrawal does not reduce Company cash below the Operating Reserve in §3.2(1); (b) all Operator Salary and Company obligations are current; and (c) the withdrawal is documented in the Company ledger with an official receipt/acknowledgment.
+**3.4 How and When Members Are Paid.** Equity distributions are paid as follows:
 
-**3.5 Operator Salary — Sole Salaried Member.** The Members agree that **Member Cummins, as Operator and Principal Broker, shall be the only Member to draw a salary** from the Company, structured as a guaranteed payment of **$1,500.00 per month**, commencing the first full month in which Company monthly gross margin exceeds $4,000, and adjustable thereafter only by unanimous written consent. No other Member shall receive any salary, guaranteed payment, wage, or recurring draw; Member Karsor and Member Graham are compensated exclusively through the distributions and withdrawals described in this Article III.
+| Quarter | Books Close | Distribution Statement Issued | **Payment Date (ACH)** |
+| --- | --- | --- | --- |
+| Q1 (Jan–Mar) | March 31 | by April 30 | **on or before May 15** |
+| Q2 (Apr–Jun) | June 30 | by July 31 | **on or before August 14** |
+| Q3 (Jul–Sep) | September 30 | by October 31 | **on or before November 14** |
+| Q4 + annual true-up (Oct–Dec) | December 31 | by January 31 | **on or before February 14** |
 
-**3.6 Expense Reimbursement.** Members shall be reimbursed for reasonable, documented out-of-pocket expenses incurred on Company business and approved in advance for amounts over $200.
+- **Method.** Payment by **ACH transfer** to each Member's bank account of record (or check if a Member so elects in writing). Each payment is accompanied by a **Distribution Statement** showing: quarterly net profit; reserve funding; the 15% retained-earnings amount; the Member's tax safe-harbor amount; the Member's 10% Reinvestment Holdback credit; and the net equity distribution.
+- **Timing standard.** Payment no later than **forty-five (45) days after quarter close** is the Company's binding standard, consistent with customary practice for closely-held logistics companies.
+- **Minimum threshold.** If total distributable equity for a quarter is less than **$1,500**, it rolls forward to the next quarter rather than being paid (avoids de minimis transfers).
+- **Equal treatment.** No Member may be paid a distribution unless all Members are simultaneously paid their equal share.
+- **Year 1 ramp.** The Members acknowledge Year-1 quarterly distributions will be modest while reserves and the reinvestment accounts are first funded; the waterfall above still applies without exception.
+
+**3.5 Owner Equity Withdrawals (outside the schedule).** A Member may request a withdrawal against their positive capital account balance (excluding the Growth & Continued Operations Account) no more than **once per calendar quarter**, upon **unanimous written consent** of the Members, provided that: (a) the withdrawal does not reduce Company cash below the Operating Reserve in §3.3(1); (b) all Operator Salary and Company obligations are current; and (c) the withdrawal is documented in the Capital Accounts ledger with an official receipt/acknowledgment.
+
+**3.6 Operator Salary — Sole Salaried Member.** The Members agree that **Member Cummins, as Operator and Principal Broker, shall be the only Member to draw a salary** from the Company, structured as a guaranteed payment of **$1,500.00 per month**, commencing the first full month in which Company monthly gross margin exceeds $4,000, and adjustable thereafter only by unanimous written consent. No other Member shall receive any salary, guaranteed payment, wage, or recurring draw; Member Karsor and Member Graham are compensated exclusively through the distributions and withdrawals described in this Article III.
+
+**3.7 Expense Reimbursement.** Members shall be reimbursed for reasonable, documented out-of-pocket expenses incurred on Company business and approved in advance for amounts over $200.
 
 ---
 

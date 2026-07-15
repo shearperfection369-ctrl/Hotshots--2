@@ -243,7 +243,7 @@ def build_receipts_router(*, api_router: APIRouter, db,
             member = next(m for m in acct["members"] if m["member"] == payload.member)
             if payload.amount_usd > member["balance_usd"]:
                 raise HTTPException(409, f"Withdrawal exceeds {payload.member}'s capital balance "
-                                         f"(${member['balance_usd']:,.2f}) — unanimous consent + Agreement §3.4 limits apply")
+                                         f"(${member['balance_usd']:,.2f}) — unanimous consent + Agreement §3.5 limits apply")
         entry = {"entry_id": f"CAP-{datetime.now(timezone.utc).strftime('%y%m%d%H%M%S')}",
                  "at": datetime.now(timezone.utc).isoformat(), "member": payload.member,
                  "entry_type": payload.entry_type, "amount_usd": round(payload.amount_usd, 2),

@@ -863,9 +863,52 @@ def build_branded_markdown_pdf(md_text: str, *, title: str = "Business Plan",
             i += 1; continue
         if "|" in stripped and i + 1 < len(lines) and _re.match(r"\|?\s*[:-]+\s*\|", lines[i + 1]):
             j = i
+            tbl_lines = []
             while j < len(lines) and lines[j].strip().startswith("|"):
+                tbl_lines.append(lines[j].strip())
                 j += 1
-            story.append(Paragraph("<i>[Table omitted — see full plan online]</i>", md_styles["quo"]))
+            try:
+                def _cells(row):
+                    return [c.strip() for c in row.strip("|").split("|")]
+                header = _cells(tbl_lines[0])
+                body = [_cells(r) for r in tbl_lines[2:]]
+                ncols = max(len(header), *(len(r) for r in body)) if body else len(header)
+                header += [""] * (ncols - len(header))
+                body = [r + [""] * (ncols - len(r)) for r in body]
+                blank_header = all(not h for h in header)
+                cell_style = ParagraphStyle(
+                    "tbl_cell", fontName="Helvetica", fontSize=7.6, leading=10,
+                    textColor=theme["ink"])
+                head_style = ParagraphStyle(
+                    "tbl_head", fontName="Helvetica-Bold", fontSize=7.6, leading=10,
+                    textColor=colors.white)
+                rows = []
+                if not blank_header:
+                    rows.append([Paragraph(_inline(h), head_style) for h in header])
+                for r in body:
+                    rows.append([Paragraph(_inline(c) or "—", cell_style) for c in r])
+                if rows:
+                    col_w = 7.0 * inch / ncols
+                    t = Table(rows, colWidths=[col_w] * ncols, repeatRows=0 if blank_header else 1)
+                    style = [
+                        ("ROWBACKGROUNDS", (0, 1 if not blank_header else 0), (-1, -1),
+                         [theme["paper"], colors.white]),
+                        ("BOX", (0, 0), (-1, -1), 0.5, theme["gold"]),
+                        ("INNERGRID", (0, 0), (-1, -1), 0.3, theme["gold_light"]),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                        ("TOPPADDING", (0, 0), (-1, -1), 4),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ]
+                    if not blank_header:
+                        style.append(("BACKGROUND", (0, 0), (-1, 0), theme["azure"]))
+                    t.setStyle(TableStyle(style))
+                    story.append(Spacer(1, 4))
+                    story.append(t)
+                    story.append(Spacer(1, 6))
+            except Exception:                                        # noqa: BLE001
+                story.append(Paragraph("<i>[Table could not be rendered]</i>", md_styles["quo"]))
             i = j; continue
         if stripped.startswith("### "):
             story.append(Paragraph(_inline(stripped[4:]), md_styles["h3"])); i += 1; continue
