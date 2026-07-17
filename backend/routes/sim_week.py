@@ -162,7 +162,58 @@ EXCEPTION_TYPES = [
     ("paperwork", "BOL discrepancy — piece count mismatch at pickup", "low", 0.0,
      "Driver noted exception on BOL, photographed count. Shipper ops confirmed revised "
      "count by email — document attached to load file. No claim exposure."),
+    ("lumper", "Lumper fee demanded at receiver — $175 cash/EFS", "low", 175.0,
+     "EFS check issued to driver, receipt photographed. Lumper billed back to shipper "
+     "per rate con accessorial schedule — 100% recovery expected, cash-flow hit today."),
+    ("layover", "Layover — receiver bumped appointment to next day", "moderate", 250.0,
+     "Driver held overnight; $250 layover owed to carrier per rate con. Re-confirmed "
+     "AM appointment, notified shipper, layover invoice added to load file."),
+    ("reweigh", "Scale ticket — gross over on drive axle, reweigh + slide", "low", 45.0,
+     "Driver slid tandems and re-scaled ($45 CAT scale, reimbursed). 20 min delay. "
+     "Weight documented for the file."),
+    ("appt_bump", "Appointment bumped — dock congestion at receiver", "low", 0.0,
+     "FCFS window renegotiated with receiving. ETA re-broadcast to shipper. No cost, "
+     "~3 sim hr delay documented."),
 ]
+
+# En-route exception pool: (index into EXCEPTION_TYPES, weight)
+EN_ROUTE_EXC = [(0, 3), (1, 4), (4, 3), (5, 2), (6, 2), (7, 3)]
+
+# ------------------------------------------- industry variables: fixed overhead
+# Real weekly cost stack of a working MN freight brokerage, amortized per sim day.
+OVERHEAD_DAILY: Dict[str, float] = {
+    "contingent_cargo_gl_ins": 28.0,   # $100k contingent cargo + GL (~$850/mo)
+    "bmc84_surety_bond": 4.1,          # $75k FMCSA broker bond premium (~$1.5k/yr)
+    "loadboard_subscriptions": 12.0,   # DAT One + Truckstop
+    "tms_software_eld_data": 10.0,     # TMS, phones, tracking data
+    "office_phone_misc": 7.0,
+    "ucr_boc3_permits": 1.2,           # UCR, BOC-3 process agents, filings amortized
+    "operator_draw": 143.0,            # member salary draw ($1,000/wk)
+    "carrier_vetting_service": 5.0,    # MyCarrierPackets/Highway (~$150/mo)
+    "insurance_cert_monitoring": 2.0,  # carrier COI monitoring (~$60/mo)
+    "credit_check_service": 1.7,       # shipper credit reports (~$50/mo)
+    "accounting_cpa": 6.6,             # bookkeeping + CPA (~$200/mo)
+    "website_marketing": 3.3,          # site, email, brand spend (~$100/mo)
+    "bank_fees_legal_reserve": 3.0,    # bank charges + legal reserve (~$90/mo)
+}
+OVERHEAD_DAY_TOTAL = round(sum(OVERHEAD_DAILY.values()), 2)
+
+CARRIER_PAYMENT_FEE = 12.0  # ACH/wire/EFS fee per carrier settlement
+
+CLAIM_PROB = 0.015          # OS&D cargo claim per delivered load
+CLAIM_RANGE = (350, 4200)   # typical freight-damage claim after salvage
+BAD_DEBT_PROB = 0.02        # shipper default/short-pay on reserve
+FALLTHROUGH_PROB = 0.06     # booked carrier falls through pre-pickup
+QUICKPAY_PROB = 0.30        # carriers electing 2% quick-pay (broker income)
+QUICKPAY_FEE = 0.02
+
+
+def _net_margin(ledger: Dict[str, float]) -> float:
+    return round(ledger.get("revenue", 0) - ledger.get("carrier_pay", 0)
+                 - ledger.get("factoring_fees", 0) - ledger.get("exception_costs", 0)
+                 - ledger.get("overhead", 0) - ledger.get("claims", 0)
+                 - ledger.get("bad_debt", 0) - ledger.get("transaction_fees", 0)
+                 + ledger.get("quickpay_income", 0), 2)
 
 
 def _now() -> datetime:
@@ -233,10 +284,14 @@ def build_sim_router(*, api_router: APIRouter, db,
         o_region, d_region = REGION_OF[origin], REGION_OF[dest]
         lane_mult = _lane_multiplier(origin, dest)
         seas_mult = _seasonal_multiplier(clock.month, equipment, o_region)
-        rpm = rpm * lane_mult * seas_mult
+        mkt = sim.get("market") or {}
+        spot_index = mkt.get("spot_index", 1.0)
+        diesel = mkt.get("diesel", DOE_DIESEL_AVG)
+        fsc_pm = round(FSC_PER_MILE * diesel / DOE_DIESEL_AVG, 2)
+        rpm = rpm * lane_mult * seas_mult * spot_index
         headhaul = "headhaul" if lane_mult >= 1.08 else "backhaul" if lane_mult <= 0.92 else "balanced"
         linehaul = round(rpm * miles, 2)
-        fsc = round(FSC_PER_MILE * miles, 2)
+        fsc = round(fsc_pm * miles, 2)
         carrier_pay = round(linehaul + fsc, 2)
         # brokers compress margin on hot headhauls, widen it on backhauls
         margin_pct = {"headhaul": rnd.uniform(0.10, 0.17), "backhaul": rnd.uniform(0.15, 0.25),
@@ -254,12 +309,13 @@ def build_sim_router(*, api_router: APIRouter, db,
             "miles": miles, "equipment": equipment,
             "commodity": rnd.choice(COMMODITIES[equipment]),
             "weight_lbs": rnd.randint(18000, 44500),
-            "linehaul_usd": linehaul, "fsc_usd": fsc, "fsc_per_mile": FSC_PER_MILE,
+            "linehaul_usd": linehaul, "fsc_usd": fsc, "fsc_per_mile": fsc_pm,
             "carrier_pay_usd": carrier_pay, "sell_usd": sell,
             "margin_usd": round(sell - carrier_pay, 2),
             "margin_pct": round(margin_pct * 100, 1),
             "rpm_all_in": round(sell / miles, 2),
             "market": {"lane_mult": lane_mult, "seasonal_mult": seas_mult,
+                       "spot_index": spot_index, "diesel": diesel,
                        "headhaul": headhaul, "o_region": o_region, "d_region": d_region},
             "pickup_appt": _iso(pickup),
             "delivery_appt": _iso(pickup + timedelta(hours=miles / EFFECTIVE_MPH + 6)),
@@ -365,6 +421,17 @@ def build_sim_router(*, api_router: APIRouter, db,
             return
 
         if st == "booked":
+            # carrier fall-through: truck no-shows pre-pickup, rebook at a premium
+            if not load.get("_fallthrough_done") and rnd.random() < min(FALLTHROUGH_PROB, 0.008 * sim_hours):
+                load["_fallthrough_done"] = True
+                old_name = load["carrier"]["name"]
+                c = _match_carrier(load, [f for f in fleet if f["name"] != old_name])
+                bump = round(load["carrier_pay_usd"] * rnd.uniform(0.05, 0.08), 2)
+                load["carrier"] = c
+                load["carrier_pay_usd"] = round(load["carrier_pay_usd"] + bump, 2)
+                load["margin_usd"] = round(load["margin_usd"] - bump, 2)
+                log(f"CARRIER FELL THROUGH — {old_name} no-show. Rebooked {c['name']} at +${bump:,.0f}")
+                await _event(sim, "exception", f"🚨 {load['load_id']}: carrier fall-through — rebooked {c['name']} (+${bump:,.0f} to cover)", load["load_id"], "warn")
             if clock >= datetime.fromisoformat(load["pickup_appt"]):
                 load["status"] = "at_pickup"
                 load["arrived_pu_at"] = _iso(clock)
@@ -401,10 +468,12 @@ def build_sim_router(*, api_router: APIRouter, db,
         if st == "in_transit":
             # random en-route exception (rate-capped so high speed stays realistic)
             if not load["exception"] and rnd.random() < min(0.10, 0.004 * sim_hours):
-                et = rnd.choice(EXCEPTION_TYPES[:2])
+                idx = rnd.choices([i for i, _ in EN_ROUTE_EXC], weights=[w for _, w in EN_ROUTE_EXC])[0]
+                et = EXCEPTION_TYPES[idx]
                 load["exception"] = {"type": et[0], "title": et[1], "severity": et[2],
                                      "cost": et[3], "plan": et[4], "opened_at": _iso(clock),
-                                     "hold_hours": 6 if et[0] == "breakdown" else 4}
+                                     "hold_hours": {"breakdown": 6, "weather": 4, "layover": 10,
+                                                    "lumper": 1.5, "reweigh": 1, "appt_bump": 3}.get(et[0], 3)}
                 await _event(sim, "exception", f"🚨 {load['load_id']}: {et[1]}", load["load_id"], "error")
             if load["exception"] and load["exception"].get("hold_hours"):
                 if sim.get("auto_triage"):
@@ -458,6 +527,19 @@ def build_sim_router(*, api_router: APIRouter, db,
             ledger["revenue"] = ledger.get("revenue", 0) + load["sell_usd"]
             ledger["carrier_pay"] = ledger.get("carrier_pay", 0) + load["carrier_pay_usd"]
             ledger["fsc_billed"] = ledger.get("fsc_billed", 0) + load["fsc_usd"]
+            # OS&D cargo claim — contingent cargo deductible + admin burden
+            if rnd.random() < CLAIM_PROB:
+                claim = round(rnd.uniform(*CLAIM_RANGE), 2)
+                ledger["claims"] = ledger.get("claims", 0) + claim
+                load["claim"] = {"amount_usd": claim, "opened_at": _iso(clock)}
+                await _event(sim, "exception", f"📦💥 {load['load_id']}: OS&D CARGO CLAIM filed — ${claim:,.0f} (49 CFR 370 clock started, carrier insurer noticed)", load["load_id"], "error")
+            # quick-pay income: carrier elects 2% for 24-hr pay
+            if rnd.random() < QUICKPAY_PROB:
+                qp = round(load["carrier_pay_usd"] * QUICKPAY_FEE, 2)
+                ledger["quickpay_income"] = ledger.get("quickpay_income", 0) + qp
+                await _event(sim, "factor", f"⚡ {load['load_id']}: carrier took 2% quick-pay — ${qp:,.0f} earned", load["load_id"])
+            # carrier settlement transaction fee (ACH/wire/EFS)
+            ledger["transaction_fees"] = ledger.get("transaction_fees", 0) + CARRIER_PAYMENT_FEE
             await _event(sim, "invoice", f"🧾 {load['docs']['invoice_id']} issued → {load['shipper']} · ${load['sell_usd']:,.0f} · Net {load['terms_days']}", load["load_id"])
             load["_factor_in"] = 3.0
             return
@@ -481,12 +563,16 @@ def build_sim_router(*, api_router: APIRouter, db,
             if load["_pays_in"] <= 0:
                 load["status"] = "paid"
                 reserve = load["factoring"]["reserve_usd"]
-                ledger["cash_collected"] = ledger.get("cash_collected", 0) + reserve
+                if rnd.random() < BAD_DEBT_PROB:
+                    ledger["bad_debt"] = ledger.get("bad_debt", 0) + reserve
+                    await _event(sim, "exception", f"🏴 {load['shipper']} SHORT-PAID {load['docs'].get('invoice_id')} — reserve ${reserve:,.0f} written off to bad debt. Credit hold placed.", load["load_id"], "error")
+                else:
+                    ledger["cash_collected"] = ledger.get("cash_collected", 0) + reserve
+                    await _event(sim, "paid", f"💰 {load['shipper']} paid {load['docs'].get('invoice_id')} · reserve ${reserve:,.0f} released · load CLOSED", load["load_id"])
                 if load["docs"].get("invoice_id"):
                     await db.brokerage_invoices.update_one(
                         {"invoice_id": load["docs"]["invoice_id"]},
                         {"$set": {"status": "paid", "paid_at": sim["sim_clock"]}})
-                await _event(sim, "paid", f"💰 {load['shipper']} paid {load['docs'].get('invoice_id')} · reserve ${reserve:,.0f} released · load CLOSED", load["load_id"])
             return
 
     # ------------------------------------------------------------ endpoints
@@ -506,9 +592,12 @@ def build_sim_router(*, api_router: APIRouter, db,
             "speed": payload.sim_minutes_per_real_second,
             "autopilot": payload.autopilot, "auto_triage": payload.auto_triage,
             "doe_diesel": DOE_DIESEL_AVG, "fsc_per_mile": FSC_PER_MILE,
+            "market": {"diesel": DOE_DIESEL_AVG, "spot_index": 1.0, "cycle": "balanced"},
             "ledger": {"revenue": 0, "carrier_pay": 0, "fsc_billed": 0,
                        "factoring_fees": 0, "detention_billed": 0,
-                       "exception_costs": 0, "cash_collected": 0},
+                       "exception_costs": 0, "cash_collected": 0,
+                       "overhead": OVERHEAD_DAY_TOTAL, "claims": 0,
+                       "bad_debt": 0, "quickpay_income": 0, "transaction_fees": 0},
             "daily": [], "spawned_today": 0,
         }
         await db.sim_state.insert_one(dict(sim))
@@ -541,14 +630,20 @@ def build_sim_router(*, api_router: APIRouter, db,
         fleet = _fleet_with_ids()
         user_id = getattr(user, "user_id", "sandbox")
 
-        # day rollover — daily P&L via ledger deltas
+        # day rollover — daily P&L via ledger deltas + market walk + overhead accrual
         if day > sim["sim_day"]:
             loads_all = await db.sim_loads.find({"sim_id": sim["sim_id"]}, {"_id": 0}).to_list(500)
             prev = sim.get("_ledger_snap") or {}
-            net_now = (ledger.get("revenue", 0) - ledger.get("carrier_pay", 0)
-                       - ledger.get("factoring_fees", 0) - ledger.get("exception_costs", 0))
-            net_prev = (prev.get("revenue", 0) - prev.get("carrier_pay", 0)
-                        - prev.get("factoring_fees", 0) - prev.get("exception_costs", 0))
+            days_rolled = day - sim["sim_day"]
+            ledger["overhead"] = round(ledger.get("overhead", 0) + OVERHEAD_DAY_TOTAL * days_rolled, 2)
+            # market random walk: DOE diesel drift + spot market cycle
+            mkt = sim.get("market") or {"diesel": DOE_DIESEL_AVG, "spot_index": 1.0}
+            mkt["diesel"] = round(min(4.75, max(3.05, mkt.get("diesel", DOE_DIESEL_AVG) + rnd.uniform(-0.07, 0.08))), 2)
+            mkt["spot_index"] = round(min(1.14, max(0.90, mkt.get("spot_index", 1.0) + rnd.uniform(-0.03, 0.035))), 3)
+            mkt["cycle"] = "tight" if mkt["spot_index"] >= 1.05 else "soft" if mkt["spot_index"] <= 0.96 else "balanced"
+            sim["market"] = mkt
+            net_now = _net_margin(ledger)
+            net_prev = _net_margin(prev)
             sim["daily"].append({"day": sim["sim_day"],
                                  "revenue": round(ledger.get("revenue", 0) - prev.get("revenue", 0), 2),
                                  "margin": round(net_now - net_prev, 2),
@@ -557,7 +652,7 @@ def build_sim_router(*, api_router: APIRouter, db,
             sim["sim_day"] = day
             sim["spawned_today"] = 0
             if day <= sim["duration_days"]:
-                await _event(sim, "day", f"🌅 DAY {day} of {sim['duration_days']} — fresh freight hitting the boards")
+                await _event(sim, "day", f"🌅 DAY {day} of {sim['duration_days']} — DOE diesel ${mkt['diesel']}/gal · spot market {mkt['cycle'].upper()} (idx {mkt['spot_index']}) · overhead accrued ${OVERHEAD_DAY_TOTAL:,.0f}/day")
 
         # spawn + advance first, then evaluate completion
         if day <= sim["duration_days"]:
@@ -588,7 +683,7 @@ def build_sim_router(*, api_router: APIRouter, db,
                 {"sim_id": sim["sim_id"], "status": {"$nin": ["paid", "factored", "posted"]}})
             if open_n == 0 or day > sim["duration_days"] + 3:
                 sim["status"] = "complete"
-                await _event(sim, "complete", f"🏁 WEEK COMPLETE · revenue ${ledger.get('revenue',0):,.0f} · net margin ${ledger.get('revenue',0)-ledger.get('carrier_pay',0)-ledger.get('factoring_fees',0)-ledger.get('exception_costs',0):,.0f}")
+                await _event(sim, "complete", f"🏁 WEEK COMPLETE · revenue ${ledger.get('revenue',0):,.0f} · TRUE net margin ${_net_margin(ledger):,.0f} (after carrier pay, factoring, overhead, claims, bad debt)")
             elif not sim.get("_settling"):
                 sim["_settling"] = True
                 await _event(sim, "day", f"🏁 Trading week over — {open_n} load(s) still settling: deliveries, invoices, factoring, shipper payments")
@@ -597,6 +692,7 @@ def build_sim_router(*, api_router: APIRouter, db,
             "sim_clock": sim["sim_clock"], "last_tick_at": sim["last_tick_at"],
             "sim_day": min(sim["sim_day"], sim["duration_days"]), "status": sim["status"],
             "ledger": ledger, "daily": sim["daily"], "spawned_today": sim["spawned_today"],
+            "market": sim.get("market") or {},
             "_settling": sim.get("_settling", False),
             "_ledger_snap": sim.get("_ledger_snap") or {}}})
         return await state(user)  # type: ignore
@@ -610,8 +706,7 @@ def build_sim_router(*, api_router: APIRouter, db,
         loads = await db.sim_loads.find({"sim_id": sim["sim_id"]}, {"_id": 0}).to_list(500)
         events = await db.sim_events.find({"sim_id": sim["sim_id"]}, {"_id": 0}).sort("at", -1).to_list(45)
         ledger = sim["ledger"]
-        net = round(ledger.get("revenue", 0) - ledger.get("carrier_pay", 0)
-                    - ledger.get("factoring_fees", 0) - ledger.get("exception_costs", 0), 2)
+        net = _net_margin(ledger)
         by_status: Dict[str, int] = {}
         for l in loads:
             by_status[l["status"]] = by_status.get(l["status"], 0) + 1
@@ -637,6 +732,11 @@ def build_sim_router(*, api_router: APIRouter, db,
             "active": True, "sim": {k: sim[k] for k in
                 ("sim_id", "status", "sim_clock", "sim_day", "duration_days", "speed",
                  "autopilot", "auto_triage", "doe_diesel", "fsc_per_mile", "daily")},
+            "market": sim.get("market") or {"diesel": DOE_DIESEL_AVG, "spot_index": 1.0, "cycle": "balanced"},
+            "industry": {"overhead_daily": OVERHEAD_DAILY, "overhead_day_total": OVERHEAD_DAY_TOTAL,
+                         "claim_prob": CLAIM_PROB, "bad_debt_prob": BAD_DEBT_PROB,
+                         "fallthrough_prob": FALLTHROUGH_PROB, "quickpay_fee": QUICKPAY_FEE,
+                         "carrier_payment_fee": CARRIER_PAYMENT_FEE},
             "ledger": {**ledger, "net_margin": net,
                        "outstanding_ar": round(ledger.get("revenue", 0) - ledger.get("cash_collected", 0), 2)},
             "kpis": {"total_loads": len(loads), "delivered": len(delivered),

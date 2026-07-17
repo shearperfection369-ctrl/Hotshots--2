@@ -8610,6 +8610,13 @@ api_router.include_router(build_route_optimizer_router(
     require_role=require_role,
 ))
 
+from routes.growth_copilot import build_growth_copilot_router  # noqa: E402
+api_router.include_router(build_growth_copilot_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+))
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,

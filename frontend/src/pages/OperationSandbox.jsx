@@ -312,6 +312,11 @@ export default function OperationSandbox() {
                 <Stat label="Revenue" value={`$${fmt(ledger.revenue)}`} accent="text-emerald-300" tid="sim-kpi-revenue" />
                 <Stat label="Carrier Pay" value={`$${fmt(ledger.carrier_pay)}`} accent="text-slate-300" />
                 <Stat label="Net Margin" value={`$${fmt(ledger.net_margin)}`} accent="text-yellow-300" tid="sim-kpi-margin" />
+                <Stat label="Overhead" value={`$${fmt(ledger.overhead)}`} accent="text-red-300" tid="sim-kpi-overhead" />
+                <Stat label="Claims" value={`$${fmt(ledger.claims)}`} accent="text-red-300" />
+                <Stat label="Bad Debt" value={`$${fmt(ledger.bad_debt)}`} accent="text-red-300" />
+                <Stat label="Txn Fees" value={`$${fmt(ledger.transaction_fees)}`} accent="text-red-300" />
+                <Stat label="Quick-Pay Income" value={`$${fmt(ledger.quickpay_income)}`} accent="text-emerald-300" />
                 <Stat label="Cash Collected" value={`$${fmt(ledger.cash_collected)}`} accent="text-emerald-300" />
                 <Stat label="AR Outstanding" value={`$${fmt(ledger.outstanding_ar)}`} accent="text-orange-300" />
                 <Stat label="Factoring Fees" value={`$${fmt(ledger.factoring_fees)}`} accent="text-purple-300" />
@@ -321,6 +326,21 @@ export default function OperationSandbox() {
                 <Stat label="On-Time" value={`${kpis.on_time_pct ?? 100}%`} accent="text-emerald-300" />
                 <Stat label="FSC / DOE" value={`$${sim.fsc_per_mile}/mi`} accent="text-slate-300" />
               </div>
+              {state?.market && (
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-3 pt-3 border-t border-white/5 text-[11px] font-mono" data-testid="sim-market-strip">
+                  <span className="text-slate-500 uppercase tracking-widest text-[9px]">Market Conditions</span>
+                  <span className="text-amber-300">DOE Diesel ${state.market.diesel}/gal</span>
+                  <span className={state.market.cycle === "tight" ? "text-emerald-300" : state.market.cycle === "soft" ? "text-red-300" : "text-slate-300"}>
+                    Spot market {String(state.market.cycle || "balanced").toUpperCase()} · idx {state.market.spot_index}
+                  </span>
+                  {state?.industry && (
+                    <span className="text-red-300/80" title={Object.entries(state.industry.overhead_daily || {}).map(([k, v]) => `${k}: $${v}/day`).join("\n")}>
+                      Fixed overhead ${state.industry.overhead_day_total}/day (13 expense lines)
+                    </span>
+                  )}
+                  <span className="text-slate-400">Claims {((state.industry?.claim_prob || 0) * 100).toFixed(1)}% · Bad debt {((state.industry?.bad_debt_prob || 0) * 100).toFixed(0)}% · Fall-through {((state.industry?.fallthrough_prob || 0) * 100).toFixed(0)}%</span>
+                </div>
+              )}
             </Card>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">

@@ -223,7 +223,7 @@ def build_agent_sentinel_router(*, api_router: APIRouter, db,
     def _ensure_loop():
         if not state["loop_started"]:
             state["loop_started"] = True
-            asyncio.get_event_loop().create_task(_bg_loop())
+            asyncio.get_running_loop().create_task(_bg_loop())
             logger.info("Agent Sentinel loop started (every %ds)", SWEEP_INTERVAL_S)
 
     router.start_loop = _ensure_loop  # exposed for server startup
