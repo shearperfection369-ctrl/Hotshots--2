@@ -149,24 +149,27 @@ def _cover(c: Canvas):
     _card(c, 60, 190, W - 120, 110, colors.HexColor("#0B2E55"), stroke=GOLD, radius=12)
     c.setFont("Helvetica-Bold", 9)
     c.setFillColor(GOLD)
-    c.drawCentredString(W / 2, 276, "CO-FOUNDERS & PRINCIPAL OWNERS · 50 / 50")
-    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(W / 2, 276, "CO-FOUNDERS & PRINCIPAL OWNERS · EQUAL THIRDS")
+    c.setFont("Helvetica-Bold", 13.5)
     c.setFillColor(WHITE)
-    c.drawCentredString(W / 2 - 118, 246, "Oliver Cummins")
-    c.drawCentredString(W / 2 + 118, 246, "Daniel W. Karsor")
-    c.setFont("Helvetica", 8.5)
+    c.drawCentredString(W / 2 - 178, 246, "Oliver Cummins")
+    c.drawCentredString(W / 2, 246, "Daniel W. Karsor")
+    c.drawCentredString(W / 2 + 178, 246, "Doug Graham")
+    c.setFont("Helvetica", 8)
     c.setFillColor(colors.HexColor("#9FB6D4"))
-    c.drawCentredString(W / 2 - 118, 231, "Principal Broker · Operations")
-    c.drawCentredString(W / 2 + 118, 231, "Technology · Brand · Capital")
+    c.drawCentredString(W / 2 - 178, 231, "Principal Broker · Operations")
+    c.drawCentredString(W / 2, 231, "Technology · Brand · Capital")
+    c.drawCentredString(W / 2 + 178, 231, "Capacity · Carrier Relations")
     c.setFillColor(GOLD)
-    c.rect(W / 2 - 1, 214, 2, 52, fill=1, stroke=0)
+    c.rect(W / 2 - 90, 224, 1.5, 40, fill=1, stroke=0)
+    c.rect(W / 2 + 90, 224, 1.5, 40, fill=1, stroke=0)
     c.setFont("Helvetica-Bold", 10.5)
     c.setFillColor(GOLD_LIGHT)
     c.drawCentredString(W / 2, 204, "Launched on $30,000 of member capital — $10,000 from each of three founders")
 
     c.setFont("Helvetica", 8.5)
     c.setFillColor(colors.HexColor("#7E96B8"))
-    c.drawCentredString(W / 2, 120, "oliver@oriseifreight.com  ·  daniel@oriseifreight.com  ·  (612) 555-0117")
+    c.drawCentredString(W / 2, 120, "oliver@oriseifreight.com · daniel@oriseifreight.com · doug@oriseifreight.com")
     c.drawCentredString(W / 2, 106, f"Confidential · Prepared {datetime.now(timezone.utc).strftime('%B %Y')}")
     c.showPage()
 
@@ -251,7 +254,7 @@ def _page_founders(c: Canvas, page: int, total: int):
     ph = H - 260
     _founder_panel(
         c, 40, 130, pw, ph, AZURE,
-        "Oliver Cummins", "Co-Founder · Principal Broker · Operator · 33⅓%",
+        "Oliver Cummins", "Co-Founder · Principal Broker · Operator · 33 1/3%",
         [
             "13 years in supply chain & logistics across TL, LTL, parcel, ocean, air, and rail.",
             "International specialist: customs, FTA / USMCA, port-of-entry strategy.",
@@ -265,7 +268,7 @@ def _page_founders(c: Canvas, page: int, total: int):
     )
     _founder_panel(
         c, 40 + pw + 16, 130, pw, ph, TEAL,
-        "Daniel W. Karsor", "Co-Founder · Technology, Brand & Capital · 33⅓%",
+        "Daniel W. Karsor", "Co-Founder · Technology, Brand & Capital · 33 1/3%",
         [
             "Serial entrepreneur in Brooklyn Park, MN — barbershop + podcast / media studio.",
             "Software developer — co-develops and maintains the Orisei Command Deck.",
@@ -278,7 +281,7 @@ def _page_founders(c: Canvas, page: int, total: int):
     )
     _founder_panel(
         c, 40 + (pw + 16) * 2, 130, pw, ph, FOREST,
-        "Doug Graham", "Co-Founder · Capacity & Carrier Relations · 33⅓%",
+        "Doug Graham", "Co-Founder · Capacity & Carrier Relations · 33 1/3%",
         [
             "CDL Class A owner/operator — 12 years over-the-road experience.",
             "Vets carriers with a driver's instinct: equipment, HOS, rate honesty.",
@@ -411,7 +414,7 @@ def _page_financials(c: Canvas, page: int, total: int):
         ("Operating expenses (lean)", "$22,510", "$79,030", "$131,800", False),
         ("Member comp (salary + distributions)", "$30,000", "$90,000", "$180,000", False),
         ("Net cash to members", "$57,490", "$125,383", "$223,200", True),
-        ("Per-member share (⅓)", "$19,163", "$41,794", "$74,400", True),
+        ("Per-member share (1/3)", "$19,163", "$41,794", "$74,400", True),
     ]
     x0, tw = 40, W - 80
     col_w = [tw * 0.37, tw * 0.21, tw * 0.21, tw * 0.21]
@@ -451,7 +454,7 @@ def _page_financials(c: Canvas, page: int, total: int):
     _card(c, x0, y - 96, tw, 96, AZURE, radius=10)
     c.setFont("Helvetica-Bold", 11)
     c.setFillColor(GOLD)
-    c.drawString(x0 + 16, y - 24, "GOVERNANCE — THREE-MEMBER MINNESOTA PARTNERSHIP · EQUAL 33⅓%")
+    c.drawString(x0 + 16, y - 24, "GOVERNANCE — THREE-MEMBER MINNESOTA PARTNERSHIP · EQUAL 33 1/3%")
     _para(c, "Member-managed LLC under Minn. Stat. Ch. 322C. Profits, losses, and distributions "
              "split equally among three members after a 10% reinvestment holdback. Operator salary "
              "to Oliver Cummins only (§3.5). Unanimous consent on all major decisions. Deadlock "
@@ -459,9 +462,9 @@ def _page_financials(c: Canvas, page: int, total: int):
              "members and stored in the Command Deck Document Vault.",
           x0 + 16, y - 42, "Helvetica", 9, tw - 32, WHITE, leading=13.5)
     y -= 118
-    c.setFont("Helvetica-Bold", 10)
+    c.setFont("Helvetica-Bold", 8.5)
     c.setFillColor(AZURE)
-    c.drawCentredString(W / 2, y, "Oliver Cummins · oliver@oriseifreight.com    |    Daniel W. Karsor · daniel@oriseifreight.com")
+    c.drawCentredString(W / 2, y, "Oliver Cummins · oliver@oriseifreight.com   |   Daniel W. Karsor · daniel@oriseifreight.com   |   Doug Graham · doug@oriseifreight.com")
     c.setFont("Helvetica", 8)
     c.setFillColor(SLATE)
     c.drawCentredString(W / 2, y - 14, "Confidential — prepared for the members of Orisei Freight Solutions LLC")

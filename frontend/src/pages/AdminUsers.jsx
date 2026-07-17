@@ -11,12 +11,13 @@ import { useAuth } from "../lib/auth";
 
 const ROLE_BADGE = {
   admin: "bg-red-500/10 text-red-300 border-red-500/30",
+  owner: "bg-amber-500/10 text-amber-300 border-amber-500/30",
   auditor: "bg-purple-500/10 text-purple-300 border-purple-500/30",
   dispatcher: "bg-cyan-500/10 text-cyan-300 border-cyan-500/30",
   driver: "bg-yellow-500/10 text-yellow-300 border-yellow-500/30",
 };
 
-const ROLES = ["admin", "auditor", "dispatcher", "driver"];
+const ROLES = ["admin", "owner", "auditor", "dispatcher", "driver"];
 
 export default function AdminUsers() {
   const { user } = useAuth();
@@ -127,7 +128,8 @@ export default function AdminUsers() {
         <Card className="hud-surface p-5">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-3">RBAC Reference</div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <RoleCard role="admin" desc="Full access · manage users, integrations, all freight & onboarding decisions" color="text-red-300" />
+            <RoleCard role="admin" desc="Primary administrator · full control incl. user management & authorization" color="text-red-300" />
+            <RoleCard role="owner" desc="Founding partner · full operational access — user management stays with the primary admin" color="text-amber-300" />
             <RoleCard role="auditor" desc="Freight bills approve/pay/dispute · view all shipments & reports" color="text-purple-300" />
             <RoleCard role="dispatcher" desc="Book loads · manage shipments · generate documents · chat" color="text-cyan-300" />
             <RoleCard role="driver" desc="Mobile check-in only — no dashboard access" color="text-yellow-300" />

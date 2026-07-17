@@ -744,6 +744,7 @@ def build_branded_markdown_pdf(md_text: str, *, title: str = "Business Plan",
     "prepared_date": "..."}` to stamp every page with a top
     "Confidential · Prepared for {firm}" banner + diagonal watermark.
     """
+    md_text = md_text.replace("33⅓", "33 1/3").replace("⅓", "1/3").replace("⅔", "2/3")
     theme = _theme(brand)
     s = _styles(theme)
     base_styles = getSampleStyleSheet()

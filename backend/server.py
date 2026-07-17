@@ -19,6 +19,7 @@ import json
 import random
 import httpx
 import urllib.parse
+import bcrypt
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Tuple
@@ -182,13 +183,20 @@ async def get_optional_user(request: Request) -> Optional[User]:
         return None
 
 # RBAC helpers
-ROLE_HIERARCHY = {"driver": 0, "dispatcher": 1, "auditor": 2, "admin": 3}
+# "admin" = the primary user (superadmin) — sole authority over users/authorization.
+# "owner" = founding partners (Daniel, Doug) — full operational access, but NOT
+#           admin-only endpoints (user management, role changes).
+ROLE_HIERARCHY = {"driver": 0, "dispatcher": 1, "auditor": 2, "owner": 3, "admin": 4}
 
 def require_role(*allowed_roles: str):
     """Dependency factory: ensure current user has one of the allowed roles, or admin (which can do anything)."""
     async def _checker(user: User = Depends(get_current_user)) -> User:
         if user.role == "admin":
             return user
+        if user.role == "owner":
+            if "owner" in allowed_roles or set(allowed_roles) != {"admin"}:
+                return user
+            raise HTTPException(status_code=403, detail="Reserved for the primary administrator")
         if user.role in allowed_roles:
             return user
         raise HTTPException(status_code=403, detail=f"Requires one of roles: {', '.join(allowed_roles)}")
@@ -379,6 +387,110 @@ async def dev_session(request: Request, response: Response):
         "user_id": user_id, "email": email, "name": name,
         "picture": picture, "role": "admin",
         "session_token": session_token,
+    }
+
+
+# -------------------- PARTNER PASSWORD LOGIN --------------------
+class PasswordLogin(BaseModel):
+    email: str
+    password: str
+
+
+PARTNER_LOGINS = [
+    # (email, name, role, env key holding the password)
+    ("oliver@oriseifreight.com", "Oliver Cummins", "admin", "PARTNER_OLIVER_PASSWORD"),
+    ("daniel@oriseifreight.com", "Daniel W. Karsor", "owner", "PARTNER_DANIEL_PASSWORD"),
+    ("doug@oriseifreight.com", "Doug Graham", "owner", "PARTNER_DOUG_PASSWORD"),
+]
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_password(password: str, hashed: Optional[str]) -> bool:
+    if not hashed:
+        return False
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+    except ValueError:
+        return False
+
+
+async def seed_partner_logins():
+    """Idempotent: create/refresh the three founding-member password logins."""
+    for email, name, role, env_key in PARTNER_LOGINS:
+        pwd = os.environ.get(env_key)
+        if not pwd:
+            continue
+        existing = await db.users.find_one({"email": email})
+        if existing is None:
+            await db.users.insert_one({
+                "user_id": f"user_{uuid.uuid4().hex[:12]}",
+                "email": email, "name": name, "picture": None,
+                "role": role, "password_hash": _hash_password(pwd),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+        else:
+            upd: Dict[str, Any] = {}
+            if not _verify_password(pwd, existing.get("password_hash")):
+                upd["password_hash"] = _hash_password(pwd)
+            # never downgrade an admin; lift partners to owner if below
+            cur_role = existing.get("role")
+            if cur_role != "admin" and cur_role != role:
+                upd["role"] = role
+            if upd:
+                await db.users.update_one({"email": email}, {"$set": upd})
+
+
+@api_router.post("/auth/login")
+async def password_login(payload: PasswordLogin, request: Request, response: Response):
+    """Email + password sign-in for the founding partners."""
+    email = payload.email.strip().lower()
+    ip = (request.headers.get("x-forwarded-for")
+          or (request.client.host if request.client else "?")).split(",")[0].strip()
+    ident = f"{ip}:{email}"
+    now = datetime.now(timezone.utc)
+
+    att = await db.login_attempts.find_one({"identifier": ident}, {"_id": 0})
+    if att and att.get("locked_until"):
+        locked_until = datetime.fromisoformat(att["locked_until"])
+        if locked_until > now:
+            raise HTTPException(status_code=429, detail="Too many failed attempts — locked for 15 minutes")
+
+    async def _fail():
+        count = (att.get("count", 0) if att else 0) + 1
+        upd = {"identifier": ident, "count": count, "updated_at": now.isoformat()}
+        if count >= 5:
+            upd["locked_until"] = (now + timedelta(minutes=15)).isoformat()
+            upd["count"] = 0
+        await db.login_attempts.update_one({"identifier": ident}, {"$set": upd}, upsert=True)
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    user_doc = await db.users.find_one({"email": email}, {"_id": 0})
+    if not user_doc or not _verify_password(payload.password, user_doc.get("password_hash")):
+        await _fail()
+
+    await db.login_attempts.delete_one({"identifier": ident})
+    session_token = f"pw_{uuid.uuid4().hex}"
+    expires_at = now + timedelta(days=7)
+    await db.user_sessions.insert_one({
+        "user_id": user_doc["user_id"], "session_token": session_token,
+        "expires_at": expires_at.isoformat(), "created_at": now.isoformat(),
+    })
+    cookie_kwargs = {
+        "key": "session_token", "value": session_token,
+        "httponly": True, "secure": True, "samesite": "none",
+        "path": "/", "max_age": 7 * 24 * 60 * 60,
+    }
+    cookie_domain = _shared_cookie_domain(request)
+    if cookie_domain:
+        cookie_kwargs["domain"] = cookie_domain
+    response.set_cookie(**cookie_kwargs)
+    return {
+        "user_id": user_doc["user_id"], "email": user_doc["email"],
+        "name": user_doc["name"], "picture": user_doc.get("picture"),
+        "role": user_doc.get("role", "dispatcher"), "session_token": session_token,
     }
 
 
@@ -3481,7 +3593,7 @@ async def download_document_pdf(document_id: str, _: User = Depends(get_current_
 # -------------------- ADMIN / RBAC --------------------
 @api_router.get("/admin/users")
 async def list_users(_: User = Depends(require_role("admin"))):
-    docs = await db.users.find({}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    docs = await db.users.find({}, {"_id": 0, "password_hash": 0}).sort("created_at", 1).to_list(500)
     return docs
 
 class RoleChange(BaseModel):
@@ -8631,6 +8743,13 @@ async def startup():
         await ensure_active_brand(db)
     except Exception as e:
         logger.warning(f"Brand bootstrap failed: {e}")
+
+    # ---------- 1.6 Founding-partner password logins (idempotent)
+    try:
+        await seed_partner_logins()
+        await db.login_attempts.create_index("identifier", name="ix_login_attempts")
+    except Exception as e:
+        logger.warning(f"Partner login seed failed: {e}")
 
     # ---------- 2. Auto-seed if empty
     try:

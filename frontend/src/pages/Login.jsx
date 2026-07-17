@@ -1,14 +1,46 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { TennantLogo } from "../components/TennantLogo";
-import { Truck, Plane, Ship, Package, Train, MapPinned, Zap } from "lucide-react";
+import { Truck, Plane, Ship, Package, Train, MapPinned, Zap, KeyRound, Loader2 } from "lucide-react";
 import { TENNANT_LOGO_URL, BACKEND_URL } from "../lib/api";
 
 export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const handleSignIn = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
     const redirectUrl = window.location.origin + "/dashboard";
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  };
+
+  const handlePasswordSignIn = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const r = await fetch(`${BACKEND_URL}/api/auth/login`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const d = data?.detail;
+        throw new Error(typeof d === "string" ? d : "Sign-in failed");
+      }
+      if (data.session_token) {
+        localStorage.setItem("tms_session_token", data.session_token);
+      }
+      window.location.href = "/dashboard";
+    } catch (err) {
+      setError(err.message || "Sign-in failed");
+      setLoading(false);
+    }
   };
 
   // One-click dev sign-in — hidden on production. Eliminates the Google OAuth
@@ -107,6 +139,49 @@ export default function Login() {
               Quick Sign In (preview · founder shortcut)
             </Button>
           )}
+
+          {/* Partner email + password sign-in */}
+          <div className="mt-8 flex items-center gap-3">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-slate-500">Partner sign-in</span>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+          <form onSubmit={handlePasswordSignIn} className="mt-4 space-y-3" data-testid="partner-login-form">
+            <Input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="partner@oriseifreight.com"
+              data-testid="partner-email-input"
+              className="bg-white/[0.03] border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-cyan-500/50"
+            />
+            <Input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              data-testid="partner-password-input"
+              className="bg-white/[0.03] border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-cyan-500/50"
+            />
+            {error && (
+              <div className="text-xs text-red-400 font-mono" data-testid="partner-login-error">{error}</div>
+            )}
+            <Button
+              type="submit"
+              disabled={loading}
+              data-testid="partner-signin-btn"
+              variant="outline"
+              className="w-full bg-white/[0.03] hover:bg-white/[0.08] text-slate-200 border-white/15 hover:border-cyan-400/40 font-medium py-5 text-sm transition-all"
+            >
+              {loading ? <Loader2 size={14} className="mr-2 animate-spin" /> : <KeyRound size={14} className="mr-2" />}
+              Sign in with password
+            </Button>
+            <div className="text-[10px] text-slate-500 font-mono">
+              Founding members only — Oliver, Daniel &amp; Doug. Contact the primary administrator for access.
+            </div>
+          </form>
 
           <div className="mt-6 text-[11px] text-slate-500 font-mono leading-relaxed">
             By signing in, you agree to the platform&apos;s acceptable-use policy.

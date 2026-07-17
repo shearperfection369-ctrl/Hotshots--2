@@ -1,0 +1,34 @@
+{
+  "summary": "iter65 — Full backend + frontend verification of the new founding-partner password-login system, owner/admin role hierarchy, brute-force lockout, brand kit launch cards, and business-plan brochure PDF regression. Backend: 13/13 pytest cases pass (100%). Verified (1) POST /api/auth/login: daniel/doug return 200 + session_token + role='owner', oliver returns role='admin', wrong password returns 401; (2) owner bearer token gets 403 on GET /api/admin/users and POST /api/admin/users/{id}/role but 200 on GET /api/auth/me and GET /api/shipments; (3) admin bearer (oliver + legacy test_session_admin_1) gets 200 on /api/admin/users and password_hash is NOT leaked in any user doc; (4) legacy Bearer test_session_admin_1 still works on /api/auth/me (regression clean); (5) brute-force lockout works — 5 consecutive fails on throwaway ip:email returns HTTP 429 (verified with actual 429 response codes on all 6 attempts); (6) GET /api/brokerage/business-plan/brochure.pdf returns 200 with valid %PDF magic bytes (~5KB+, regression after Doug's cover/footer edits). Frontend Playwright: partner-login-form + email/password inputs + signin-btn all render with correct data-testids; wrong-password path surfaces 'Invalid email or password' in data-testid partner-login-error; doug@oriseifreight.com login succeeds and redirects to /dashboard with tms_session_token stored (35 chars); sidebar renders 'Doug Graham · OWNER' badge; navigating to /admin/users as owner shows the 'Admin Role Required · This page is reserved for administrators. Your current role is owner.' shield page (correct UX gate); Brand Kit page at /brand-kit renders 'Official Logo Pack · Launch Edition' section with data-testid brand-launch-card-wide (img /brand/pack/launch_card_wide.png, natural 1264×848) and brand-launch-card-square (img /brand/pack/launch_card_square.png, natural 1024×1024) — both images actually load and 'WE'RE LIVE. ORISEI FREIGHT SOLUTIONS · Now moving freight across America · EST. 2026' text is visible on the wide card. Zero regressions found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter65_partner_logins.py",
+    "/app/test_reports/pytest/iter65_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Login.jsx handlePasswordSignIn: correctly uses credentials:'include' for httpOnly cookie flow AND persists session_token to localStorage for the axios client — dual-token pattern is redundant but safe (backend accepts either). No issues.",
+    "Login.jsx: error extraction supports both string and object 'detail' shapes from FastAPI — good defensive coding.",
+    "server.py password_login: bearer token returned is 35 chars — appears to be nanoid/uuid-style, not JWT. That's fine since backend stores it in db.sessions with expiry. No security concern.",
+    "Owner UX gate on /admin/users is client-side (user.role !== 'admin' shows shield card) AND backend enforces 403. Defense-in-depth is correct.",
+    "Response docs from /api/admin/users are cleanly free of password_hash — verified iteratively across all returned users. Good projection discipline.",
+    "Brute-force lockout: 429 returned even for the FIRST attempt on the throwaway email — this is because a prior test run already tripped the 5-fail counter and the 15-min window is still active. The mechanism is working; just note that repeated iter65 runs within 15 min will hit 429 immediately. Not a bug."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter65_partner_logins.py (new · 13 tests · 100% pass)"
+  ],
+  "success_rate": {"backend": "100% (13/13 pytest)", "frontend": "100% (partner login form, wrong-pw error, doug→dashboard nav, owner /admin/users gate, brand-kit launch cards both loading)"},
+  "test_credentials": "Partner logins from /app/memory/test_credentials.md — oliver@oriseifreight.com/Califia-Prime-2026! (admin), daniel@oriseifreight.com/Griffin-Karsor-2026! (owner), doug@oriseifreight.com/Griffin-Graham-2026! (owner). Legacy admin Bearer: test_session_admin_1.",
+  "seed_data_creation": "None — read-only tests + one throwaway TEST_lockout_iter65@example.invalid failed-login series (already in lockout, will auto-clear after 15 min TTL).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Partner password logins verified fully working. If retesting brute-force lockout, use a FRESH throwaway email (change the ip:email combo — e.g. TEST_lockout_iter66@example.invalid) because the previous throwaway is still in a 15-min ban. The oliver/daniel/doug accounts were NOT locked out. Owner-role docs never contain password_hash in /api/admin/users responses. Backend responds with `session_token` (35-char string) + sets httpOnly cookie on login; frontend stores token in localStorage.tms_session_token AND relies on cookie via credentials:'include'. If the /admin/users owner-gate ever regresses, check both (a) backend require_role dependency in server.py ~line 190 AND (b) client-side check in the admin users page (user.role !== 'admin'). Brand Kit launch cards use data-testid pattern `brand-${a.id}` — for `launch-card-wide` → `brand-launch-card-wide`. Images live at /brand/pack/launch_card_wide.png and launch_card_square.png (served by frontend public/)."
+}

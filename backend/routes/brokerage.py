@@ -2165,7 +2165,7 @@ def build_brokerage_router(
         company = brand.get("company_name") or "Orisei Freight Solutions LLC"
         pdf_bytes = build_branded_markdown_pdf(
             doc["markdown"], title="Partnership Agreement",
-            subtitle="Member-Controlled LLC · Minnesota · Three Members · Equal 33⅓% · Notarized",
+            subtitle="Member-Controlled LLC · Minnesota · Three Members · Equal 33 1/3% · Notarized",
             brand=brand,
         )
         return StreamingResponse(
