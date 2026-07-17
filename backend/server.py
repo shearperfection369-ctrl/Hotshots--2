@@ -433,7 +433,8 @@ async def seed_partner_logins():
             })
         else:
             upd: Dict[str, Any] = {}
-            if not _verify_password(pwd, existing.get("password_hash")):
+            # respect self-service password changes — never overwrite them
+            if not existing.get("password_self_set") and not _verify_password(pwd, existing.get("password_hash")):
                 upd["password_hash"] = _hash_password(pwd)
             # never downgrade an admin; lift partners to owner if below
             cur_role = existing.get("role")
@@ -492,6 +493,36 @@ async def password_login(payload: PasswordLogin, request: Request, response: Res
         "name": user_doc["name"], "picture": user_doc.get("picture"),
         "role": user_doc.get("role", "dispatcher"), "session_token": session_token,
     }
+
+
+class ChangePassword(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@api_router.post("/auth/change-password")
+async def change_password(payload: ChangePassword, request: Request,
+                          user: User = Depends(get_current_user)):
+    """Self-service password change for accounts with a password login."""
+    doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not doc or not doc.get("password_hash"):
+        raise HTTPException(status_code=400, detail="This account signs in with Google and has no password")
+    if not _verify_password(payload.current_password, doc.get("password_hash")):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
+    if payload.new_password == payload.current_password:
+        raise HTTPException(status_code=400, detail="New password must be different from the current one")
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"password_hash": _hash_password(payload.new_password), "password_self_set": True}})
+    token = request.cookies.get("session_token")
+    if not token:
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            token = auth[7:]
+    await db.user_sessions.delete_many({"user_id": user.user_id, "session_token": {"$ne": token}})
+    return {"ok": True, "message": "Password updated. Other sessions were signed out."}
 
 
 @api_router.post("/auth/logout")
@@ -8546,6 +8577,39 @@ build_receipts_router(api_router=api_router, db=db,
                       get_current_user=get_current_user,
                       require_role=require_role)
 
+from routes.agent_sentinel import build_agent_sentinel_router, record_request as _sentinel_record  # noqa: E402
+build_agent_sentinel_router(api_router=api_router, db=db,
+                            get_current_user=get_current_user,
+                            require_role=require_role)
+
+
+@app.middleware("http")
+async def _sentinel_metrics_mw(request: Request, call_next):
+    try:
+        response = await call_next(request)
+    except Exception:
+        if request.url.path.startswith("/api"):
+            _sentinel_record(500)
+        raise
+    if request.url.path.startswith("/api"):
+        _sentinel_record(response.status_code)
+    return response
+
+
+from routes.launch_blast import build_launch_blast_router  # noqa: E402
+api_router.include_router(build_launch_blast_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+))
+
+from routes.route_optimizer import build_route_optimizer_router  # noqa: E402
+api_router.include_router(build_route_optimizer_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+))
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,
@@ -8750,6 +8814,14 @@ async def startup():
         await db.login_attempts.create_index("identifier", name="ix_login_attempts")
     except Exception as e:
         logger.warning(f"Partner login seed failed: {e}")
+
+    # ---------- 1.7 Agent Sentinel — 30-min platform health sweeps
+    try:
+        from routes.agent_sentinel import build_agent_sentinel_router as _bas
+        if hasattr(_bas, "start_loop"):
+            _bas.start_loop()
+    except Exception as e:
+        logger.warning(f"Agent Sentinel loop start failed: {e}")
 
     # ---------- 2. Auto-seed if empty
     try:

@@ -98,6 +98,9 @@ import Invoices from "@/pages/Invoices";
 import FleetRouting from "@/pages/FleetRouting";
 import CarrierIntegrations from "@/pages/CarrierIntegrations";
 import DispatchAutopilot from "@/pages/DispatchAutopilot";
+import AgentSentinel from "@/pages/AgentSentinel";
+import LaunchBlast from "@/pages/LaunchBlast";
+import RouteOptimizer from "@/pages/RouteOptimizer";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 import WellnessNudges from "@/components/WellnessNudges";
 import { ThemeProvider } from "@/lib/theme";
@@ -176,6 +179,9 @@ function AppRouter() {
         <Route path="/cash-flow" element={<CashFlow />} />
         <Route path="/triage" element={<ShipmentTriage />} />
         <Route path="/brand-kit" element={<BrandKit />} />
+        <Route path="/sentinel" element={<AgentSentinel />} />
+        <Route path="/launch-blast" element={<LaunchBlast />} />
+        <Route path="/route-optimizer" element={<RouteOptimizer />} />
         <Route path="/document-archive" element={<DocumentArchive />} />
         <Route path="/launch-plan" element={<LaunchPlan />} />
         <Route path="/launch-runway" element={<LaunchPlan />} />

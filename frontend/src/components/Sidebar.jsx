@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
+import ChangePasswordDialog from "./ChangePasswordDialog";
 
 // Each item declares which roles can see it. Admin always sees everything.
 const NAV = [
@@ -21,6 +22,9 @@ const NAV = [
   { to: "/brokerage", label: "Brokerage · Accounting", icon: Calculator, tid: "nav-brokerage", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/sandbox", label: "Operation Sandbox", icon: FlaskConical, tid: "nav-sandbox", roles: ["admin", "dispatcher"] },
   { to: "/live-ops", label: "Live Ops Command", icon: Activity, tid: "nav-live-ops", roles: ["admin", "dispatcher"] },
+  { to: "/sentinel", label: "Agent Sentinel", icon: ShieldAlert, tid: "nav-sentinel", roles: ["admin"] },
+  { to: "/route-optimizer", label: "Route Optimizer", icon: MapPinned, tid: "nav-route-optimizer", roles: ["admin", "dispatcher", "auditor"] },
+  { to: "/launch-blast", label: "Launch Email Blast", icon: Megaphone, tid: "nav-launch-blast", roles: ["admin"] },
   { to: "/revenue", label: "Revenue Engine", icon: TrendingUp, tid: "nav-revenue", roles: ["admin", "dispatcher"] },
   { to: "/invoices", label: "Invoices", icon: Receipt, tid: "nav-invoices", roles: ["admin", "auditor", "dispatcher"] },
   { to: "/workflow", label: "Workflow · Run-the-Load", icon: Activity, tid: "nav-workflow", roles: ["admin", "dispatcher"] },
@@ -90,6 +94,16 @@ const NAV = [
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const [showChangePw, setShowChangePw] = React.useState(false);
+
+  // Owners (founding partners) see everything except user administration —
+  // authorization control stays with the primary admin.
+  const canSee = (n) => {
+    const role = user?.role || "dispatcher";
+    if (role === "admin") return true;
+    if (role === "owner") return n.to !== "/admin/users";
+    return !n.roles || n.roles.includes(role);
+  };
 
   return (
     <aside className="hidden md:flex md:w-60 lg:w-64 flex-col h-screen sticky top-0 border-r border-white/5 bg-[#0B0E14]/95 backdrop-blur-xl z-40" data-testid="sidebar">
@@ -103,7 +117,7 @@ export default function Sidebar() {
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <div className="text-[10px] font-mono text-slate-500 uppercase tracking-[0.2em] px-3 mb-2">Operations</div>
-        {NAV.filter((n) => !n.roles || n.roles.includes(user?.role || "dispatcher")).map(({ to, label, icon: Icon, tid }) => (
+        {NAV.filter(canSee).map(({ to, label, icon: Icon, tid }) => (
           <NavLink
             key={to}
             to={to}
@@ -137,6 +151,14 @@ export default function Sidebar() {
               <div className="text-[10px] font-mono text-cyan-400 truncate uppercase tracking-wider" data-testid="sidebar-role">{user.role}</div>
             </div>
             <button
+              onClick={() => setShowChangePw(true)}
+              data-testid="change-password-btn"
+              className="p-1.5 rounded text-slate-400 hover:text-amber-300 hover:bg-amber-500/10"
+              title="Change password"
+            >
+              <KeyRound size={15} />
+            </button>
+            <button
               onClick={logout}
               data-testid="logout-btn"
               className="p-1.5 rounded text-slate-400 hover:text-red-400 hover:bg-red-500/10"
@@ -146,6 +168,7 @@ export default function Sidebar() {
             </button>
           </div>
         )}
+        <ChangePasswordDialog open={showChangePw} onOpenChange={setShowChangePw} />
         <a href="https://mpls-automation-hub.emergent.host/"
            target="_blank" rel="noopener noreferrer"
            data-testid="sidebar-jadeos-link"
