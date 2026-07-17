@@ -124,7 +124,8 @@ export default function GrowthCopilot() {
             </div>
           </div>
           <div className="mt-3 h-2.5 rounded-full bg-white/5 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-700" style={{ width: `${pct}%` }} data-testid="gc-progress-bar" />
+            <div className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-700"
+                 style={{ width: `${Math.max(1.5, pct)}%`, minWidth: 8 }} data-testid="gc-progress-bar" />
           </div>
           <div className="mt-1 text-[10px] font-mono text-slate-500">{pct}% of the $20k/wk mission · {state?.compliance_gaps ?? "—"} compliance items open · {state?.sentinel_active_alerts ?? 0} sentinel alerts</div>
         </Card>
@@ -213,7 +214,7 @@ export default function GrowthCopilot() {
                   </div>
                 )}
                 {chat.map((m, i) => (
-                  <div key={i} className={`p-2.5 rounded-md text-[13px] leading-relaxed ${m.role === "user" ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-100 ml-8" : "bg-white/[0.03] border border-white/10 text-slate-200 mr-4"}`}>
+                  <div key={i} data-testid={`gc-chat-msg-${i}`} className={`p-2.5 rounded-md text-[13px] leading-relaxed ${m.role === "user" ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-100 ml-8" : "bg-white/[0.03] border border-white/10 text-slate-200 mr-4"}`}>
                     {m.role === "assistant" ? <div className="prose prose-invert prose-sm max-w-none"><ReactMarkdown>{m.content}</ReactMarkdown></div> : m.content}
                   </div>
                 ))}

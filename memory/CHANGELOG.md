@@ -2,6 +2,38 @@
 
 > Append-only changelog. Each session writes new entries at the **top**.
 
+## Iteration 67-68 (Jun 2026) — Agent Sentinel · Launch Blast · Password Self-Service · Route Optimizer · Sandbox Industry Variables · AI Growth Copilot
+
+- **Agent Sentinel** (`/api/sentinel/*`, /sentinel page): 30-min automated health
+  sweeps on all watched deployments (HTTP + latency), live LLM ping w/ budget-error
+  detection, rolling API 5xx error rate (middleware), alerts feed w/ ack/auto-resolve,
+  red alert banner (SentinelBanner.jsx) across the OS. CRUD watched deployments.
+- **Launch Email Blast** (`/api/launch-blast/*`, /launch-blast): launch card → branded
+  HTML announcement email; deduped prospect list (revenue+lighthouse+shipper_accounts);
+  Resend send or queued_awaiting_key; test-send; owner/admin gated.
+- **Password Self-Service**: POST /api/auth/change-password (verifies current, min 8,
+  kills other sessions, sets password_self_set so seed never overwrites); sidebar
+  key button + ChangePasswordDialog.
+- **Route Optimizer** (`/api/route-optimizer/*`, /route-optimizer): Nominatim geocoding
+  + OSRM real road routing (no keys), dark Leaflet map w/ route line, margin calc
+  (rate/fuel/MPG/driver pay/tolls → net, RPM, GO/CAUTION/NO-GO), saved load history.
+- **Sandbox Industry Variables** (sim_week.py): 13-line daily overhead ($226.90/day),
+  DOE diesel + spot-market random walks affecting rates/FSC, lumper/layover/reweigh/
+  appt-bump exceptions, carrier fall-through rebooks, OS&D claims 1.5%, bad debt 2%,
+  quick-pay income, $12/load settlement fees — TRUE net margin; market strip in UI.
+- **AI Growth Copilot** (`/api/copilot/*`, /growth-copilot): mission $20k/wk NET margin.
+  Live business state (excl. samples), Claude 4-phase master plan w/ checkable tasks,
+  weekly AI briefing, multi-turn grounded chat, 20-item freight compliance watchtower
+  (FMCSA, BMC-84, BOC-3, UCR, 49 CFR 371.3/370, vetting, double-brokering, tax).
+- Owner sidebar rule (owners see all but Admin·Users); test sessions (admin+dispatcher)
+  now seeded idempotently on startup when ENABLE_DEV_LOGIN.
+- Testing: iteration_66.json (17/17 + 28/28) and iteration_67.json (15/15, frontend 95%
+  → the 3 minor items fixed post-test: progress-bar min-width, chat msg testids,
+  dispatcher session seed).
+
+---
+
+
 ## Iteration 67 (Jun 2026) — Partner Owner Logins · Doug in Brochure · Launch Cards
 
 - **Partner password logins** (`POST /api/auth/login`, bcrypt + brute-force

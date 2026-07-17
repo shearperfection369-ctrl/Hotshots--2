@@ -292,11 +292,12 @@ def build_growth_copilot_router(*, db, get_current_user: Callable,
                   + (f"CONVERSATION SO FAR:\n{hist_txt}\n\n" if hist_txt else "")
                   + f"PARTNER ({user.name}): {payload.message}")
         reply = await _llm(SYSTEM, prompt, f"copilot-chat-{payload.session_id}")
-        now = _iso(_now())
+        now = _now()
         await db.copilot_chat.insert_many([
             {"session_id": payload.session_id, "role": "user", "content": payload.message,
-             "user": user.email, "at": now},
-            {"session_id": payload.session_id, "role": "assistant", "content": reply, "at": now}])
+             "user": user.email, "at": _iso(now)},
+            {"session_id": payload.session_id, "role": "assistant", "content": reply,
+             "at": _iso(now + timedelta(milliseconds=1))}])
         return {"reply": reply, "session_id": payload.session_id}
 
     @router.get("/chat/{session_id}")

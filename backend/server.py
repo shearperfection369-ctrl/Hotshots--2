@@ -8822,6 +8822,27 @@ async def startup():
     except Exception as e:
         logger.warning(f"Partner login seed failed: {e}")
 
+    # ---------- 1.65 Preview test sessions (only when dev login enabled)
+    if (os.environ.get("ENABLE_DEV_LOGIN") or "").lower() in ("1", "true", "yes"):
+        try:
+            far = (datetime.now(timezone.utc) + timedelta(days=365)).isoformat()
+            for tok, uid, email, name, role in [
+                ("test_session_admin_1", "test-admin-1", "test.admin@tennantco.com", "Test Admin", "admin"),
+                ("test_session_dispatcher_1", "test-disp-1", "test.dispatcher@tennantco.com", "Test Dispatcher", "dispatcher"),
+            ]:
+                await db.users.update_one(
+                    {"user_id": uid},
+                    {"$setOnInsert": {"user_id": uid, "email": email, "name": name,
+                                      "role": role, "created_at": datetime.now(timezone.utc).isoformat()}},
+                    upsert=True)
+                await db.user_sessions.update_one(
+                    {"session_token": tok},
+                    {"$set": {"session_token": tok, "user_id": uid, "expires_at": far,
+                              "created_at": datetime.now(timezone.utc).isoformat()}},
+                    upsert=True)
+        except Exception as e:
+            logger.warning(f"Test session seed failed: {e}")
+
     # ---------- 1.7 Agent Sentinel — 30-min platform health sweeps
     try:
         from routes.agent_sentinel import build_agent_sentinel_router as _bas

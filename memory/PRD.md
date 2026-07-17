@@ -1956,3 +1956,15 @@ retrains scoring weights from revealed preferences — making the intuitive
 - P1: Upwork Portfolio project media (Gemini image gen) — still pending.
 - P1: User API keys awaited: Twilio, Resend, DAT/Truckstop, Cloudflare R2, Samsara, Mapbox, FedEx/UPS.
 - P2: Continue refactoring server.py (~8.8k lines) into /app/backend/routes/.
+
+
+## 2026-06 (fork, cont.): Sentinel + Revenue/Growth suite — COMPLETE
+- Agent Sentinel (30-min health checks, alerts feed, red OS banner), Launch Email Blast,
+  Password self-service, Route Optimizer (OSM/OSRM + margin calc + history),
+  Sandbox full industry-variable realism (all business expenses as variables),
+  AI Growth Copilot ($20k/wk net-margin mission: plan, briefing, grounded chat,
+  20-item compliance watchtower). All tested (iterations 66-67, 100% backend).
+### Backlog
+- P1: Upwork Portfolio media assets (still pending, multiple sessions).
+- P1: Real keys awaited: Twilio, Resend, DAT, Cloudflare R2, Samsara, Mapbox, FedEx/UPS.
+- P2: server.py refactor into routes/; derive copilot WEEKLY_OVERHEAD from sim OVERHEAD_DAILY.
