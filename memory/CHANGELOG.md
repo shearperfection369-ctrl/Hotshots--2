@@ -2,6 +2,29 @@
 
 > Append-only changelog. Each session writes new entries at the **top**.
 
+## Iteration 67 (Jun 2026) — Partner Owner Logins · Doug in Brochure · Launch Cards
+
+- **Partner password logins** (`POST /api/auth/login`, bcrypt + brute-force
+  lockout 5 fails → 15 min 429): oliver@oriseifreight.com (admin/primary),
+  daniel@ + doug@oriseifreight.com (new `owner` role). Seeded idempotently at
+  startup from `PARTNER_*_PASSWORD` env keys. Login page got a
+  "Partner sign-in" email/password form.
+- **Role hierarchy**: `owner` added (full operational access; 403 on
+  admin-only endpoints like /api/admin/users — authorization stays with the
+  primary admin). AdminUsers page shows owner role/badge/description.
+  `/api/admin/users` no longer returns password_hash.
+- **Doug Graham in business plan brochure**: 3-founder cover band (equal
+  thirds), contact footers updated; fixed `⅓` glyph → "1/3" across all PDF
+  generators (plan_brochure, orisei_docs markdown renderer, receipts,
+  brokerage) so agreements print clean.
+- **Launch announcement cards** (wide LinkedIn/X + square Instagram) generated
+  from the Califia seal, added to Brand Kit launch section.
+- Testing: iteration_65.json — 13/13 backend, all frontend flows pass, zero
+  regressions.
+
+---
+
+
 ## Iteration 66 (Jun 2026) — Official Logo Pack · Launch Edition
 
 - Generated Queen Califia seal variations (gold-on-light, navy mono official

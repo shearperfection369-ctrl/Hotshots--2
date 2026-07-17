@@ -1938,3 +1938,21 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Endpoints: GET /api/brokerage/operating-agreement(.pdf) — branded PDF verified via
   pypdf. UI: "Operating Agreement" button on Brokerage → Business Plan toolbar
   (data-testid operating-agreement-btn). Screenshot verified.
+
+
+## 2026-06 (fork): Partner Owner Logins + Doug in Brochure + Launch Cards — COMPLETE
+- `owner` role added between auditor and admin: full operational access, 403 on
+  admin-only (user management) endpoints — primary admin keeps sole authorization control.
+- Password logins seeded for all three founders (see /app/memory/test_credentials.md);
+  bcrypt + brute-force lockout; "Partner sign-in" form on /login.
+- Doug Graham on business-plan brochure cover + footers; ⅓ glyph fixed to "1/3"
+  in all PDF renderers — Business Plan, Partnership Agreement, Operating Agreement
+  all verified print-clean with Doug included.
+- Launch announcement social cards (wide + square) in Brand Kit; Official Logo Pack
+  PDF + merch mockups shipped previous iteration.
+- Tested: /app/test_reports/iteration_65.json — 100% pass.
+
+### Remaining backlog
+- P1: Upwork Portfolio project media (Gemini image gen) — still pending.
+- P1: User API keys awaited: Twilio, Resend, DAT/Truckstop, Cloudflare R2, Samsara, Mapbox, FedEx/UPS.
+- P2: Continue refactoring server.py (~8.8k lines) into /app/backend/routes/.
