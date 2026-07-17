@@ -2218,6 +2218,17 @@ def build_brokerage_router(
             headers={"Content-Disposition": 'attachment; filename="Orisei_Carrier_Partner_Brochure.pdf"'},
         )
 
+    @router.get("/logo-pack.pdf")
+    async def logo_pack(_=Depends(get_current_user)):
+        """Official logo & brand pack: Queen Califia seal + apparel mockups."""
+        from .logo_pack import build_logo_pack_pdf
+        pdf_bytes = build_logo_pack_pdf()
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="Orisei_Logo_Brand_Pack.pdf"'},
+        )
+
     @router.get("/platform-manual.pdf")
     async def platform_manual(_=Depends(get_current_user)):
         """Colorful field-manual brochure for the entire platform."""

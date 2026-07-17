@@ -2,6 +2,22 @@
 
 > Append-only changelog. Each session writes new entries at the **top**.
 
+## Iteration 66 (Jun 2026) — Official Logo Pack · Launch Edition
+
+- Generated Queen Califia seal variations (gold-on-light, navy mono official
+  stamp) plus hoodie front/back, structured cap, and trucker+beanie merch
+  mockups via Gemini Nano Banana (assets in `backend/routes/_brand_pack/`
+  and `frontend/public/brand/pack/`).
+- New `backend/routes/logo_pack.py` — `build_logo_pack_pdf()` renders a
+  6-page print-ready brand pack (cover, seal story + specs, variations,
+  wordmark + palette + typography, hoodie program, headwear program).
+- New endpoint `GET /api/brokerage/logo-pack.pdf` (auth-required).
+- Brand Kit page: new "Official Logo Pack · Launch Edition" section with
+  7 cards (PDF via authed blob download + 6 high-res PNGs), tested e2e.
+
+---
+
+
 ---
 
 ## 2026-07 · Iterations 64-65 — Operation Sandbox · Field Manual · Alignment Guardian
