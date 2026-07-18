@@ -2,6 +2,33 @@
 
 > Append-only changelog. Each session writes new entries at the **top**.
 
+## Iteration 69 (Jun 2026) — Day-7 Bug Fix · Company Fleet · Month-Long Sims · Accuracy Assessment
+
+- **FIXED day-7 duplication bug**: tick persisted `sim_day` clamped to duration, so
+  post-week settling re-fired the day-rollover every tick (42 dup "day 7" entries,
+  over-accrued overhead, market re-walks). True sim_day now persists (display clamps
+  in state()), each day closes once (dedupe guard), overhead bills in-week days only.
+  Historical sims repaired via one-off migration.
+- **Company fleet (own authority)**: `sim_company_trucks` collection seeded with
+  2 default trucks (ORISEI 101 Van / 102 Van+Reefer, Minneapolis base).
+  GET/POST/DELETE /api/sim/company-trucks (admin/dispatcher/owner). Sim dispatches
+  own trucks FIRST (score bonus, ≤600mi deadhead, one load at a time via truck_busy);
+  own-fleet economics = fuel(diesel/MPG) + driver $/mi + maintenance $/mi, full rate
+  kept (~38% margins vs 17% brokered); weekly truck payment+insurance accrued as
+  fleet_fixed_costs in net margin; no fall-through/quickpay/txn-fee on company loads.
+  UI: "My Company Fleet" card (stats + add/delete), MY TRUCK badges, leaderboard shows
+  ORISEI FLEET units.
+- **Month-long sims**: duration_days up to 31, speed up to 360 sim-min/sec, query
+  limits raised to 2000. Verified full 31-day run: 208 loads, no dup days, correct
+  overhead (226.9×31) and fleet fixed (fleet weekly/7×30).
+- **Accuracy assessment** delivered: /app/SANDBOX_ACCURACY_ASSESSMENT.md — sandbox vs
+  DAT Week-22 2026 rates (van buy $2.68 exact), margins optimistic ~2×, diesel
+  calibrated to 2024-25 era ($3.68 vs real $5.60+ 2026) — recalibration offered.
+- Load board source badges (DAT/Truckstop/Convoy/Uber/123LB/Direct) with weights.
+
+---
+
+
 ## Iteration 67-68 (Jun 2026) — Agent Sentinel · Launch Blast · Password Self-Service · Route Optimizer · Sandbox Industry Variables · AI Growth Copilot
 
 - **Agent Sentinel** (`/api/sentinel/*`, /sentinel page): 30-min automated health

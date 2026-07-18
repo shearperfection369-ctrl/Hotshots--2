@@ -58,15 +58,16 @@ function LaunchScreen({ onStart, busy }) {
       <FlaskConical size={42} className="mx-auto text-cyan-400 mb-3" />
       <h2 className="font-display text-3xl font-black">Operation Sandbox</h2>
       <p className="text-sm text-slate-400 mt-2 max-w-xl mx-auto">
-        Run a full brokerage week against your real partner carrier network — R+L, Saia, Dayton Freight,
-        Schneider, Estes, King Solutions, Bay &amp; Bay. Real load-board economics —
+        Run a full brokerage week — or a full month — against your real partner carrier network (R+L, Saia,
+        Dayton Freight, Schneider, Estes, King Solutions, Bay &amp; Bay) <b className="text-cyan-300">plus your own
+        company trucks running under Orisei authority</b>. Real load-board economics —
         regional lane imbalance (headhaul/backhaul pricing), monthly seasonality curves,
         current FSC (${"0.41"}/mi @ DOE $3.68) — live GPS movement, AI matching &amp; triage, BOL/POD/invoicing,
         factoring, and a running P&amp;L. Every load is marked <span className="text-yellow-300 font-mono">SAMPLE</span>.
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 text-left">
-        {[["duration_days", "Week length (days)", 1, 14], ["loads_per_day", "Loads / day", 3, 25],
-          ["sim_minutes_per_real_second", "Sim min per real sec", 1, 120]].map(([k, label, min, max]) => (
+        {[["duration_days", "Duration (days · up to 31)", 1, 31], ["loads_per_day", "Loads / day", 3, 25],
+          ["sim_minutes_per_real_second", "Sim min per real sec", 1, 360]].map(([k, label, min, max]) => (
           <div key={k}>
             <div className="text-[9px] font-mono uppercase text-slate-500 mb-1">{label}</div>
             <input type="number" min={min} max={max} value={cfg[k]} data-testid={`sim-cfg-${k}`}
@@ -91,6 +92,86 @@ function LaunchScreen({ onStart, busy }) {
         {busy ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Rocket size={16} className="mr-2" />}
         Launch The Week
       </Button>
+    </Card>
+  );
+}
+
+function MyFleetCard() {
+  const [trucks, setTrucks] = useState([]);
+  const [form, setForm] = useState({ unit: "", driver: "", equipment: "Van", home_base: "Minneapolis, MN", mpg: 6.8, driver_pay_cpm: 0.62 });
+  const load = useCallback(async () => {
+    try { const r = await api.get("/sim/company-trucks"); setTrucks(r.data.trucks || []); } catch (_) {}
+  }, []);
+  useEffect(() => { load(); const t = setInterval(load, 8000); return () => clearInterval(t); }, [load]);
+  const add = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post("/sim/company-trucks", { ...form, equipment: [form.equipment], mpg: Number(form.mpg), driver_pay_cpm: Number(form.driver_pay_cpm) });
+      setForm({ ...form, unit: "", driver: "" });
+      load(); toast.success("Truck added to the company fleet");
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed to add truck"); }
+  };
+  const del = async (id) => {
+    try { await api.delete(`/sim/company-trucks/${id}`); load(); toast.success("Truck removed"); }
+    catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+  return (
+    <Card className="hud-surface p-4 mt-4" data-testid="sim-myfleet-card">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-2">
+        🚛 My Company Fleet — running under Orisei authority (dispatched first, full margin stays home)
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {trucks.map((t) => (
+          <div key={t.truck_id} className="p-2.5 rounded border border-cyan-500/20 bg-cyan-500/5" data-testid={`sim-truck-${t.truck_id}`}>
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-mono font-bold text-cyan-200">{t.unit}
+                <span className={`ml-2 text-[8px] border rounded px-1 ${t.on_load ? "text-emerald-300 border-emerald-500/50 bg-emerald-500/10" : "text-slate-400 border-white/20"}`}>
+                  {t.on_load ? `ON LOAD ${t.on_load}` : "IDLE"}
+                </span>
+              </div>
+              <button onClick={() => del(t.truck_id)} className="text-slate-600 hover:text-red-400 text-xs" data-testid={`sim-truck-del-${t.truck_id}`}>✕</button>
+            </div>
+            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+              {t.driver} · {(t.equipment || []).join("/")} · base {t.home_base} · {t.mpg} MPG · ${t.driver_pay_cpm}/mi driver
+            </div>
+            <div className="text-[10px] font-mono mt-1">
+              <span className="text-slate-500">This sim:</span>{" "}
+              <span className="text-white">{t.week_stats.loads} loads</span> ·{" "}
+              <span className="text-emerald-300">${Math.round(t.week_stats.revenue).toLocaleString()} rev</span> ·{" "}
+              <span className="text-yellow-300">${Math.round(t.week_stats.margin).toLocaleString()} margin</span> ·{" "}
+              <span className="text-slate-400">{Math.round(t.week_stats.miles).toLocaleString()} mi</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <form onSubmit={add} className="flex flex-wrap gap-2 mt-3 items-end" data-testid="sim-truck-add-form">
+        {[["unit", "Unit #", "ORISEI 103"], ["driver", "Driver", "Driver name"]].map(([k, label, ph]) => (
+          <div key={k}>
+            <div className="text-[9px] font-mono uppercase text-slate-500 mb-1">{label}</div>
+            <input required value={form[k]} placeholder={ph} data-testid={`sim-truck-${k}-input`}
+              onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))}
+              className="h-8 w-32 rounded bg-slate-950 border border-white/10 font-mono text-xs px-2 text-slate-200" />
+          </div>
+        ))}
+        <div>
+          <div className="text-[9px] font-mono uppercase text-slate-500 mb-1">Trailer</div>
+          <select value={form.equipment} data-testid="sim-truck-equipment-select"
+            onChange={(e) => setForm((f) => ({ ...f, equipment: e.target.value }))}
+            className="h-8 rounded bg-slate-950 border border-white/10 font-mono text-xs px-2 text-slate-200">
+            {["Van", "Reefer", "Flatbed"].map((x) => <option key={x}>{x}</option>)}
+          </select>
+        </div>
+        {[["mpg", "MPG"], ["driver_pay_cpm", "$/mi driver"]].map(([k, label]) => (
+          <div key={k}>
+            <div className="text-[9px] font-mono uppercase text-slate-500 mb-1">{label}</div>
+            <input type="number" step="0.01" value={form[k]} data-testid={`sim-truck-${k}-input`}
+              onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))}
+              className="h-8 w-20 rounded bg-slate-950 border border-white/10 font-mono text-xs px-2 text-slate-200" />
+          </div>
+        ))}
+        <Button type="submit" size="sm" data-testid="sim-truck-add-btn"
+          className="h-8 bg-cyan-500 hover:bg-cyan-400 text-black font-mono text-xs font-bold">+ ADD TRUCK</Button>
+      </form>
     </Card>
   );
 }
@@ -466,6 +547,13 @@ export default function OperationSandbox() {
                             {l.board === "Direct Shipper Tender" ? "DIRECT" : l.board.replace(" (Flexport)", "").toUpperCase()}
                           </span>
                         )}
+                        {l.company_truck && (
+                          <span title={`Our iron: ${l.carrier?.unit} · ${l.carrier?.driver}`}
+                            className="ml-1 text-[8px] border rounded px-1 text-cyan-200 border-cyan-400/60 bg-cyan-500/15 font-bold"
+                            data-testid={`sim-load-mytruck-${l.load_id}`}>
+                            MY TRUCK
+                          </span>
+                        )}
                         {MKT_BADGE[l.market?.headhaul] && (
                           <span title={MKT_BADGE[l.market.headhaul].title}
                             className={`ml-1 text-[8px] border rounded px-1 ${MKT_BADGE[l.market.headhaul].cls}`}>
@@ -489,7 +577,8 @@ export default function OperationSandbox() {
               </Card>
             </div>
 
-            <AiAnalysisPanel analysis={state?.analysis} />
+            <MyFleetCard />
+
           </>
         )}
       </div>

@@ -1968,3 +1968,11 @@ retrains scoring weights from revealed preferences — making the intuitive
 - P1: Upwork Portfolio media assets (still pending, multiple sessions).
 - P1: Real keys awaited: Twilio, Resend, DAT, Cloudflare R2, Samsara, Mapbox, FedEx/UPS.
 - P2: server.py refactor into routes/; derive copilot WEEKLY_OVERHEAD from sim OVERHEAD_DAILY.
+
+## 2026-06 (fork, cont. 2): Sandbox fleet + month sims — COMPLETE
+- Day-7 rollover bug fixed & migrated; company trucks (own authority) in sim with
+  full asset-based economics + My Fleet UI; 31-day simulations; accuracy assessment
+  doc at /app/SANDBOX_ACCURACY_ASSESSMENT.md.
+### Backlog (new)
+- P2: Diesel recalibration to 2026 levels ($5.25 avg) + optional "realism discount" toggle.
+- P2: High-speed sims (>120) merge some daily P&L buckets on multi-day tick jumps (cosmetic).

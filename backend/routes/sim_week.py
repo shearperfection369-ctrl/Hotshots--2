@@ -237,11 +237,33 @@ def _lerp(a: tuple, b: tuple, t: float) -> tuple:
 
 
 class StartIn(BaseModel):
-    duration_days: int = Field(7, ge=1, le=14)
+    duration_days: int = Field(7, ge=1, le=31)
     loads_per_day: int = Field(10, ge=3, le=25)
-    sim_minutes_per_real_second: float = Field(12.0, ge=1, le=120)
+    sim_minutes_per_real_second: float = Field(12.0, ge=1, le=360)
     autopilot: bool = True
     auto_triage: bool = True
+
+
+class CompanyTruckIn(BaseModel):
+    unit: str = Field(..., min_length=1, max_length=40)
+    driver: str = Field(..., min_length=1, max_length=80)
+    equipment: List[str] = Field(default=["Van"])
+    home_base: str = Field("Minneapolis, MN")
+    mpg: float = Field(6.8, gt=3, le=12)
+    driver_pay_cpm: float = Field(0.62, ge=0, le=2)
+    maintenance_cpm: float = Field(0.18, ge=0, le=1)
+    truck_payment_weekly: float = Field(650.0, ge=0)
+    insurance_weekly: float = Field(320.0, ge=0)
+
+
+DEFAULT_COMPANY_TRUCKS = [
+    {"unit": "ORISEI 101", "driver": "Doug Graham", "equipment": ["Van"],
+     "home_base": "Minneapolis, MN", "mpg": 6.8, "driver_pay_cpm": 0.62,
+     "maintenance_cpm": 0.18, "truck_payment_weekly": 650.0, "insurance_weekly": 320.0},
+    {"unit": "ORISEI 102", "driver": "Company Driver 2", "equipment": ["Van", "Reefer"],
+     "home_base": "Minneapolis, MN", "mpg": 6.5, "driver_pay_cpm": 0.62,
+     "maintenance_cpm": 0.18, "truck_payment_weekly": 650.0, "insurance_weekly": 340.0},
+]
 
 
 def build_sim_router(*, api_router: APIRouter, db,
@@ -262,12 +284,28 @@ def build_sim_router(*, api_router: APIRouter, db,
             "type": etype, "load_id": load_id, "message": msg, "severity": severity,
         })
 
-    def _fleet_with_ids() -> List[Dict[str, Any]]:
+    async def _company_trucks() -> List[Dict[str, Any]]:
+        if await db.sim_company_trucks.count_documents({}) == 0:
+            for t in DEFAULT_COMPANY_TRUCKS:
+                await db.sim_company_trucks.insert_one(
+                    {**t, "truck_id": f"TRK-{uuid.uuid4().hex[:6].upper()}",
+                     "created_at": _iso(_now())})
+        return await db.sim_company_trucks.find({}, {"_id": 0}).to_list(20)
+
+    def _fleet_with_ids(company: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         out = []
         for i, c in enumerate(CARRIER_FLEET):
             fsc = round(FSC_PER_MILE + rnd.uniform(-0.02, 0.02), 2)
             out.append({**c, "mc_number": f"MC-9{40000 + i * 137}", "dot": f"3{500000 + i * 911}",
                         "fsc_per_mile": fsc, "insurance": "1M/100K", "is_sample": True})
+        for t in (company or []):
+            base = t.get("home_base") if t.get("home_base") in CITIES else "Minneapolis, MN"
+            out.append({"name": f"ORISEI FLEET · {t['unit']}", "base": base,
+                        "equipment": t.get("equipment") or ["Van"], "otp": 98,
+                        "mc_number": "MC-ORISEI (own authority)", "dot": "DOT-ORISEI",
+                        "fsc_per_mile": FSC_PER_MILE, "insurance": "1M/100K (company)",
+                        "is_sample": True, "company_truck": True, **{k: t[k] for k in
+                        ("truck_id", "unit", "driver", "mpg", "driver_pay_cpm", "maintenance_cpm")}})
         return out
 
     def _gen_load(sim: Dict[str, Any], day: int) -> Dict[str, Any]:
@@ -328,17 +366,28 @@ def build_sim_router(*, api_router: APIRouter, db,
             "posted_at": sim["sim_clock"],
         }
 
-    def _match_carrier(load: Dict[str, Any], fleet: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _match_carrier(load: Dict[str, Any], fleet: List[Dict[str, Any]],
+                       busy: Optional[set] = None) -> Dict[str, Any]:
         o = (load["origin"]["lat"], load["origin"]["lng"])
+        busy = busy or set()
         scored = []
         for c in fleet:
             if load["equipment"] not in c["equipment"]:
                 continue
+            if c.get("company_truck") and c.get("truck_id") in busy:
+                continue
             dead = _haversine_mi(o, CITIES[c["base"]])
+            if c.get("company_truck") and dead > 600:
+                continue  # keep our own trucks in sensible range
             score = c["otp"] * 1.2 - dead / 18 + rnd.uniform(-4, 4)
+            if c.get("company_truck"):
+                score += 55  # dispatch our own iron first — margin stays home
             scored.append((score, dead, c))
         scored.sort(key=lambda x: -x[0])
         _, dead, best = scored[0]
+        if best.get("company_truck"):
+            return {**best, "deadhead_mi": round(dead),
+                    "driver": best["driver"], "truck": best["unit"]}
         return {**best, "deadhead_mi": round(dead),
                 "driver": f"{rnd.choice(FIRST)} {rnd.choice(LAST)}",
                 "truck": f"#{rnd.randint(100, 899)}"}
@@ -413,18 +462,34 @@ def build_sim_router(*, api_router: APIRouter, db,
             tl.append({"t": _iso(clock), "e": msg})
 
         if st == "posted" and sim.get("autopilot"):
-            c = _match_carrier(load, fleet)
+            busy = set((sim.get("truck_busy") or {}).keys())
+            c = _match_carrier(load, fleet, busy)
             load["carrier"] = c
             load["status"] = "booked"
-            log(f"AI matched → {c['name']} ({c['mc_number']}) · deadhead {c['deadhead_mi']} mi · rate con e-signed")
+            if c.get("company_truck"):
+                # own-authority economics: keep the whole rate, pay operating cost
+                diesel = (sim.get("market") or {}).get("diesel", DOE_DIESEL_AVG)
+                total_mi = load["miles"] + c["deadhead_mi"]
+                op_cost = round(total_mi / c["mpg"] * diesel
+                                + total_mi * c["driver_pay_cpm"]
+                                + total_mi * c["maintenance_cpm"], 2)
+                load["carrier_pay_usd"] = op_cost
+                load["margin_usd"] = round(load["sell_usd"] - op_cost, 2)
+                load["company_truck"] = True
+                sim.setdefault("truck_busy", {})[c["truck_id"]] = load["load_id"]
+                log(f"DISPATCHED COMPANY TRUCK {c['unit']} ({c['driver']}) · deadhead {c['deadhead_mi']} mi · op cost ${op_cost:,.0f}")
+                await _event(sim, "book", f"🚛 {load['load_id']} → OUR TRUCK {c['unit']} ({c['driver']}) · ${load['sell_usd']:,.0f} all-in · fleet margin ${load['margin_usd']:,.0f}", load["load_id"])
+            else:
+                log(f"AI matched → {c['name']} ({c['mc_number']}) · deadhead {c['deadhead_mi']} mi · rate con e-signed")
+                await _event(sim, "book", f"🤖 {load['load_id']} booked → {c['name']} · ${load['sell_usd']:,.0f} all-in · margin ${load['margin_usd']:,.0f}", load["load_id"])
             load["docs"]["ratecon_at"] = _iso(clock)
             await _mirror_booking(load, user_id)
-            await _event(sim, "book", f"🤖 {load['load_id']} booked → {c['name']} · ${load['sell_usd']:,.0f} all-in · margin ${load['margin_usd']:,.0f}", load["load_id"])
             return
 
         if st == "booked":
             # carrier fall-through: truck no-shows pre-pickup, rebook at a premium
-            if not load.get("_fallthrough_done") and rnd.random() < min(FALLTHROUGH_PROB, 0.008 * sim_hours):
+            if (not load.get("company_truck") and not load.get("_fallthrough_done")
+                    and rnd.random() < min(FALLTHROUGH_PROB, 0.008 * sim_hours)):
                 load["_fallthrough_done"] = True
                 old_name = load["carrier"]["name"]
                 c = _match_carrier(load, [f for f in fleet if f["name"] != old_name])
@@ -529,19 +594,29 @@ def build_sim_router(*, api_router: APIRouter, db,
             ledger["revenue"] = ledger.get("revenue", 0) + load["sell_usd"]
             ledger["carrier_pay"] = ledger.get("carrier_pay", 0) + load["carrier_pay_usd"]
             ledger["fsc_billed"] = ledger.get("fsc_billed", 0) + load["fsc_usd"]
+            if load.get("company_truck"):
+                # release our truck for the next dispatch; track fleet performance
+                tb = sim.get("truck_busy") or {}
+                for tid, lid in list(tb.items()):
+                    if lid == load["load_id"]:
+                        tb.pop(tid, None)
+                ledger["fleet_loads"] = ledger.get("fleet_loads", 0) + 1
+                ledger["fleet_revenue"] = ledger.get("fleet_revenue", 0) + load["sell_usd"]
+                ledger["fleet_margin"] = ledger.get("fleet_margin", 0) + load["margin_usd"]
             # OS&D cargo claim — contingent cargo deductible + admin burden
             if rnd.random() < CLAIM_PROB:
                 claim = round(rnd.uniform(*CLAIM_RANGE), 2)
                 ledger["claims"] = ledger.get("claims", 0) + claim
                 load["claim"] = {"amount_usd": claim, "opened_at": _iso(clock)}
                 await _event(sim, "exception", f"📦💥 {load['load_id']}: OS&D CARGO CLAIM filed — ${claim:,.0f} (49 CFR 370 clock started, carrier insurer noticed)", load["load_id"], "error")
-            # quick-pay income: carrier elects 2% for 24-hr pay
-            if rnd.random() < QUICKPAY_PROB:
+            # quick-pay income: carrier elects 2% for 24-hr pay (not our own trucks)
+            if not load.get("company_truck") and rnd.random() < QUICKPAY_PROB:
                 qp = round(load["carrier_pay_usd"] * QUICKPAY_FEE, 2)
                 ledger["quickpay_income"] = ledger.get("quickpay_income", 0) + qp
                 await _event(sim, "factor", f"⚡ {load['load_id']}: carrier took 2% quick-pay — ${qp:,.0f} earned", load["load_id"])
-            # carrier settlement transaction fee (ACH/wire/EFS)
-            ledger["transaction_fees"] = ledger.get("transaction_fees", 0) + CARRIER_PAYMENT_FEE
+            # carrier settlement transaction fee (payroll covers company drivers)
+            if not load.get("company_truck"):
+                ledger["transaction_fees"] = ledger.get("transaction_fees", 0) + CARRIER_PAYMENT_FEE
             await _event(sim, "invoice", f"🧾 {load['docs']['invoice_id']} issued → {load['shipper']} · ${load['sell_usd']:,.0f} · Net {load['terms_days']}", load["load_id"])
             load["_factor_in"] = 3.0
             return
@@ -595,6 +670,7 @@ def build_sim_router(*, api_router: APIRouter, db,
             "autopilot": payload.autopilot, "auto_triage": payload.auto_triage,
             "doe_diesel": DOE_DIESEL_AVG, "fsc_per_mile": FSC_PER_MILE,
             "market": {"diesel": DOE_DIESEL_AVG, "spot_index": 1.0, "cycle": "balanced"},
+            "truck_busy": {},
             "ledger": {"revenue": 0, "carrier_pay": 0, "fsc_billed": 0,
                        "factoring_fees": 0, "detention_billed": 0,
                        "exception_costs": 0, "cash_collected": 0,
@@ -629,18 +705,24 @@ def build_sim_router(*, api_router: APIRouter, db,
         day = int((clock - start_dt).total_seconds() // 86400) + 1
 
         ledger = sim["ledger"]
-        fleet = _fleet_with_ids()
+        fleet = _fleet_with_ids(await _company_trucks())
         user_id = getattr(user, "user_id", "sandbox")
 
         # day rollover — daily P&L via ledger deltas + market walk + overhead accrual
         if day > sim["sim_day"]:
-            loads_all = await db.sim_loads.find({"sim_id": sim["sim_id"]}, {"_id": 0}).to_list(500)
+            loads_all = await db.sim_loads.find({"sim_id": sim["sim_id"]}, {"_id": 0}).to_list(2000)
             prev = sim.get("_ledger_snap") or {}
             dur = sim["duration_days"]
             # overhead bills only for in-week days (settling days carry no new overhead)
             days_billed = max(0, min(day, dur) - min(sim["sim_day"], dur))
             if days_billed:
                 ledger["overhead"] = round(ledger.get("overhead", 0) + OVERHEAD_DAY_TOTAL * days_billed, 2)
+                trucks = await _company_trucks()
+                fleet_daily = sum((t.get("truck_payment_weekly", 0) + t.get("insurance_weekly", 0)) / 7
+                                  for t in trucks)
+                if fleet_daily:
+                    ledger["fleet_fixed_costs"] = round(
+                        ledger.get("fleet_fixed_costs", 0) + fleet_daily * days_billed, 2)
             # market random walk: DOE diesel drift + spot market cycle
             mkt = sim.get("market") or {"diesel": DOE_DIESEL_AVG, "spot_index": 1.0}
             mkt["diesel"] = round(min(4.75, max(3.05, mkt.get("diesel", DOE_DIESEL_AVG) + rnd.uniform(-0.07, 0.08))), 2)
@@ -697,8 +779,9 @@ def build_sim_router(*, api_router: APIRouter, db,
 
         await db.sim_state.update_one({"sim_id": sim["sim_id"]}, {"$set": {
             "sim_clock": sim["sim_clock"], "last_tick_at": sim["last_tick_at"],
-            "sim_day": min(sim["sim_day"], sim["duration_days"]), "status": sim["status"],
+            "sim_day": sim["sim_day"], "status": sim["status"],
             "ledger": ledger, "daily": sim["daily"], "spawned_today": sim["spawned_today"],
+            "truck_busy": sim.get("truck_busy") or {},
             "market": sim.get("market") or {},
             "_settling": sim.get("_settling", False),
             "_ledger_snap": sim.get("_ledger_snap") or {}}})
@@ -710,7 +793,7 @@ def build_sim_router(*, api_router: APIRouter, db,
         if not sim:
             return {"active": False, "fleet_size": len(CARRIER_FLEET),
                     "doe_diesel": DOE_DIESEL_AVG, "fsc_per_mile": FSC_PER_MILE}
-        loads = await db.sim_loads.find({"sim_id": sim["sim_id"]}, {"_id": 0}).to_list(500)
+        loads = await db.sim_loads.find({"sim_id": sim["sim_id"]}, {"_id": 0}).to_list(2000)
         events = await db.sim_events.find({"sim_id": sim["sim_id"]}, {"_id": 0}).sort("at", -1).to_list(45)
         ledger = sim["ledger"]
         net = _net_margin(ledger)
@@ -757,7 +840,7 @@ def build_sim_router(*, api_router: APIRouter, db,
         }
 
     async def _sim_summary_text(sim: Dict[str, Any]) -> str:
-        loads = await db.sim_loads.find({"sim_id": sim["sim_id"]}, {"_id": 0}).to_list(500)
+        loads = await db.sim_loads.find({"sim_id": sim["sim_id"]}, {"_id": 0}).to_list(2000)
         led = sim["ledger"]
         delivered = [l for l in loads if l["status"] in ("delivered", "invoiced", "factored", "paid")]
         otp = round(sum(1 for l in delivered if l.get("on_time")) / len(delivered) * 100, 1) if delivered else 100.0
@@ -906,8 +989,51 @@ def build_sim_router(*, api_router: APIRouter, db,
 
     @router.get("/carriers")
     async def carriers(_=Depends(get_current_user)) -> Dict[str, Any]:
-        return {"items": _fleet_with_ids(), "count": len(CARRIER_FLEET),
+        trucks = await _company_trucks()
+        return {"items": _fleet_with_ids(trucks), "count": len(CARRIER_FLEET) + len(trucks),
                 "doe_diesel": DOE_DIESEL_AVG, "fsc_per_mile": FSC_PER_MILE}
+
+    @router.get("/company-trucks")
+    async def list_company_trucks(_=Depends(get_current_user)) -> Dict[str, Any]:
+        trucks = await _company_trucks()
+        sim = await _active_sim()
+        busy = (sim or {}).get("truck_busy") or {}
+        stats: Dict[str, Dict[str, Any]] = {}
+        if sim:
+            loads = await db.sim_loads.find(
+                {"sim_id": sim["sim_id"], "company_truck": True}, {"_id": 0}).to_list(2000)
+            for l in loads:
+                unit = (l.get("carrier") or {}).get("unit")
+                s = stats.setdefault(unit, {"loads": 0, "revenue": 0.0, "margin": 0.0, "miles": 0})
+                s["loads"] += 1
+                s["revenue"] = round(s["revenue"] + l["sell_usd"], 2)
+                s["margin"] = round(s["margin"] + l["margin_usd"], 2)
+                s["miles"] += l["miles"]
+        return {"trucks": [
+            {**t, "on_load": busy.get(t["truck_id"]),
+             "week_stats": stats.get(t["unit"], {"loads": 0, "revenue": 0, "margin": 0, "miles": 0})}
+            for t in trucks]}
+
+    @router.post("/company-trucks")
+    async def add_company_truck(payload: CompanyTruckIn,
+                                _=Depends(require_role("admin", "dispatcher"))) -> Dict[str, Any]:
+        if payload.home_base not in CITIES:
+            raise HTTPException(status_code=400,
+                                detail=f"home_base must be one of the sim cities, e.g. {', '.join(list(CITIES)[:6])}…")
+        eq = [e for e in payload.equipment if e in ("Van", "Reefer", "Flatbed")] or ["Van"]
+        doc = {**payload.model_dump(), "equipment": eq,
+               "truck_id": f"TRK-{uuid.uuid4().hex[:6].upper()}", "created_at": _iso(_now())}
+        await db.sim_company_trucks.insert_one(dict(doc))
+        doc.pop("_id", None)
+        return doc
+
+    @router.delete("/company-trucks/{truck_id}")
+    async def remove_company_truck(truck_id: str,
+                                   _=Depends(require_role("admin", "dispatcher"))) -> Dict[str, Any]:
+        r = await db.sim_company_trucks.delete_one({"truck_id": truck_id})
+        if r.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Truck not found")
+        return {"ok": True}
 
     api_router.include_router(router)
     logger.info("Operation Sandbox router registered (/api/sim)")
