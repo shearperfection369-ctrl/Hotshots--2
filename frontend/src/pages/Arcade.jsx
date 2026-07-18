@@ -10,6 +10,7 @@ import { Trophy, Swords, Crown, Users, Inbox, Send, Sparkles, ArrowLeft, Award, 
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import ChessGame from "../components/ChessGame";
+import SoloArcade from "../components/arcade/SoloArcade";
 
 const TIER_BADGE = {
   Rookie: "bg-slate-500/15 text-slate-300 border-slate-500/30",
@@ -270,6 +271,7 @@ export default function Arcade() {
         <Card className="hud-surface p-3 flex flex-wrap items-center gap-2 relative">
           {[
             { id: "lobby", label: "Lobby", Icon: Swords },
+            { id: "solo", label: "Solo Arcade", Icon: Sparkles },
             { id: "chess", label: "Chess · Solo", Icon: Bot },
             { id: "challenges", label: `Challenges${challenges.pending_count ? ` (${challenges.pending_count})` : ""}`, Icon: Inbox },
             { id: "leaderboard", label: "Leaderboard", Icon: Trophy },
@@ -294,6 +296,9 @@ export default function Arcade() {
             )}
           </div>
         </Card>
+
+        {/* Solo arcade tab */}
+        {tab === "solo" && <SoloArcade />}
 
         {/* Chess tab */}
         {tab === "chess" && <ChessGame />}

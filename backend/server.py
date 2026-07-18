@@ -8624,6 +8624,12 @@ api_router.include_router(build_hotshot_router(
     require_role=require_role,
 ))
 
+from routes.arcade_solo import build_arcade_solo_router  # noqa: E402
+api_router.include_router(build_arcade_solo_router(
+    db=db,
+    get_current_user=get_current_user,
+))
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,

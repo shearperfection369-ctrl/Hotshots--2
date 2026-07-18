@@ -4,14 +4,17 @@ Public landing support (lead capture, one-pager PDF) + internal sales ops.
 Endpoints — /api/hotshot/*
 """
 import io
+import inspect
 import logging
+import os
 import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import Response, StreamingResponse
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from pydantic import BaseModel, Field
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -184,5 +187,91 @@ def build_hotshot_router(*, db, get_current_user: Callable,
     async def one_pager() -> StreamingResponse:
         return StreamingResponse(io.BytesIO(_one_pager_pdf()), media_type="application/pdf",
                                  headers={"Content-Disposition": 'attachment; filename="HotShot_TMS_One_Pager.pdf"'})
+
+    media_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="hotshot_media")
+
+    @router.post("/demo-video/chunk")
+    async def demo_video_chunk(upload_id: str = Form(...), chunk_index: int = Form(...),
+                               total_chunks: int = Form(...), file: UploadFile = File(...),
+                               user=Depends(get_current_user)) -> Dict[str, Any]:
+        safe = re.sub(r"[^a-zA-Z0-9_-]", "", upload_id)[:48]
+        if not safe:
+            raise HTTPException(status_code=400, detail="Invalid upload_id")
+        path = f"/tmp/hs_demo_{safe}.part"
+        with open(path, "ab" if chunk_index > 0 else "wb") as f:
+            f.write(await file.read())
+        if chunk_index + 1 < total_chunks:
+            return {"ok": True, "received": chunk_index + 1, "total": total_chunks}
+        # final chunk — replace any existing demo video in GridFS
+        async for old in db["hotshot_media.files"].find({"filename": "demo_video"}):
+            await media_bucket.delete(old["_id"])
+        size = os.path.getsize(path)
+        with open(path, "rb") as src:
+            await media_bucket.upload_from_stream("demo_video", src, metadata={
+                "content_type": file.content_type or "video/mp4",
+                "original_name": file.filename or "demo.mp4",
+                "uploaded_by": getattr(user, "name", ""),
+                "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            })
+        os.remove(path)
+        logger.info("HOT SHOT demo video stored (%s bytes)", size)
+        return {"ok": True, "complete": True, "size": size}
+
+    @router.get("/demo-video/status")  # PUBLIC — landing page probe
+    async def demo_video_status() -> Dict[str, Any]:
+        doc = await db["hotshot_media.files"].find_one({"filename": "demo_video"}, sort=[("uploadDate", -1)])
+        if not doc:
+            return {"exists": False}
+        meta = doc.get("metadata") or {}
+        return {"exists": True, "size": doc["length"], "original_name": meta.get("original_name", "demo.mp4"),
+                "uploaded_at": meta.get("uploaded_at", ""), "content_type": meta.get("content_type", "video/mp4")}
+
+    @router.get("/demo-video")  # PUBLIC — streamed with Range support for <video> seeking
+    async def demo_video(request: Request):
+        doc = await db["hotshot_media.files"].find_one({"filename": "demo_video"}, sort=[("uploadDate", -1)])
+        if not doc:
+            raise HTTPException(status_code=404, detail="No demo video uploaded yet")
+        size = doc["length"]
+        ctype = (doc.get("metadata") or {}).get("content_type", "video/mp4")
+        start, end = 0, size - 1
+        rng = request.headers.get("range")
+        if rng:
+            m = re.match(r"bytes=(\d*)-(\d*)", rng)
+            if m:
+                if m.group(1):
+                    start = int(m.group(1))
+                if m.group(2):
+                    end = min(int(m.group(2)), size - 1)
+        if start > end or start >= size:
+            return Response(status_code=416, headers={"Content-Range": f"bytes */{size}"})
+        length = end - start + 1
+        stream = await media_bucket.open_download_stream(doc["_id"])
+        res = stream.seek(start)
+        if inspect.isawaitable(res):
+            await res
+
+        async def body():
+            remaining = length
+            while remaining > 0:
+                chunk = await stream.read(min(1024 * 512, remaining))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+                yield chunk
+
+        headers = {"Accept-Ranges": "bytes", "Content-Length": str(length)}
+        status = 200
+        if rng:
+            headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+            status = 206
+        return StreamingResponse(body(), status_code=status, media_type=ctype, headers=headers)
+
+    @router.delete("/demo-video")
+    async def delete_demo_video(_=Depends(require_role("admin", "owner", "dispatcher"))) -> Dict[str, Any]:
+        deleted = 0
+        async for old in db["hotshot_media.files"].find({"filename": "demo_video"}):
+            await media_bucket.delete(old["_id"])
+            deleted += 1
+        return {"ok": True, "deleted": deleted}
 
     return router

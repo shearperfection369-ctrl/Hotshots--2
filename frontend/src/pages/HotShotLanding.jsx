@@ -112,6 +112,17 @@ export default function HotShotLanding() {
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
+  const [roi, setRoi] = useState({ loads: 60, margin: 300, hours: 25 });
+  const [demo, setDemo] = useState({ exists: false });
+
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/hotshot/demo-video/status`).then((r) => r.json()).then(setDemo).catch(() => {});
+  }, []);
+
+  const deskSavings = Math.round(roi.hours * 0.65 * 25 * 4.33);
+  const extraMargin = Math.round(roi.loads * 0.06 * roi.margin);
+  const totalValue = deskSavings + extraMargin;
+  const roiMultiple = (totalValue / 975).toFixed(1);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -289,6 +300,54 @@ export default function HotShotLanding() {
         </div>
       </section>
 
+      {/* ROI calculator */}
+      <section className="px-5 py-16 max-w-6xl mx-auto" data-testid="hs-roi-calculator">
+        <h2 className="text-lg font-black tracking-tight mb-2">WHAT'S IT WORTH <span className="text-amber-400">TO YOUR DESK?</span></h2>
+        <p className="text-slate-400 text-sm mb-8 max-w-2xl">Slide to your numbers. The math is conservative — 65% of admin time automated, 6% more booked loads from 24/7 AI hunting.</p>
+        <div className="grid md:grid-cols-2 gap-8 items-center">
+          <div className="space-y-6">
+            {[
+              { key: "loads", label: "Loads you move per month", min: 10, max: 500, step: 5, fmt: (v) => v },
+              { key: "margin", label: "Average gross margin per load", min: 100, max: 800, step: 25, fmt: (v) => `$${v}` },
+              { key: "hours", label: "Hours/week on paperwork, check calls & collections", min: 5, max: 60, step: 1, fmt: (v) => `${v} hrs` },
+            ].map(({ key, label, min, max, step, fmt }) => (
+              <div key={key}>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-slate-300">{label}</span>
+                  <span className="font-black text-amber-400 tabular-nums">{fmt(roi[key])}</span>
+                </div>
+                <input type="range" min={min} max={max} step={step} value={roi[key]}
+                       onChange={(e) => setRoi({ ...roi, [key]: Number(e.target.value) })}
+                       data-testid={`hs-roi-${key}-slider`}
+                       className="w-full h-2 rounded-full appearance-none bg-white/10 accent-amber-500 cursor-pointer" />
+              </div>
+            ))}
+          </div>
+          <div className="p-6 rounded-2xl border border-amber-500/40 bg-amber-500/[0.05]">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-4">Estimated monthly value</div>
+            <div className="text-5xl font-black text-amber-400 tabular-nums" data-testid="hs-roi-total">${totalValue.toLocaleString()}<span className="text-lg text-slate-500 font-bold">/mo</span></div>
+            <div className="mt-5 space-y-2.5">
+              <div className="flex justify-between text-sm border-b border-white/5 pb-2.5">
+                <span className="text-slate-400">Desk hours automated (65% × $25/hr)</span>
+                <span className="font-bold text-white tabular-nums" data-testid="hs-roi-desk">${deskSavings.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm border-b border-white/5 pb-2.5">
+                <span className="text-slate-400">Extra margin from 24/7 AI load hunting (+6%)</span>
+                <span className="font-bold text-white tabular-nums" data-testid="hs-roi-extra">${extraMargin.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm pt-1">
+                <span className="text-slate-300 font-semibold">Return on the Growth founder rate ($975/mo)</span>
+                <span className="font-black text-emerald-400 tabular-nums" data-testid="hs-roi-multiple">{roiMultiple}×</span>
+              </div>
+            </div>
+            <button onClick={() => scrollTo("demo")} data-testid="hs-roi-demo-btn"
+                    className="mt-6 w-full py-3 rounded-full bg-amber-500 text-black font-black hover:bg-amber-400 inline-flex items-center justify-center gap-2">
+              Lock in the founder rate <ArrowRight size={15} />
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing */}
       <section id="pricing" className="px-5 py-16 bg-white/[0.02] border-b border-white/5">
         <div className="max-w-6xl mx-auto">
@@ -328,12 +387,17 @@ export default function HotShotLanding() {
             the Triage engine work an exception, and a full simulated brokerage month run in minutes.
             15 minutes, screen share, no fluff.
           </p>
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] aspect-video grid place-items-center">
-            <div className="text-center">
-              <PlayCircle className="text-amber-400 mx-auto mb-2" size={44} />
-              <div className="text-sm text-slate-300 font-semibold">Demo video drops here soon</div>
-              <div className="text-[11px] text-slate-500">Until then — book the live one. It's better anyway.</div>
-            </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] aspect-video grid place-items-center overflow-hidden">
+            {demo.exists ? (
+              <video controls preload="metadata" className="w-full h-full bg-black" data-testid="hs-demo-video"
+                     src={`${BACKEND_URL}/api/hotshot/demo-video`} />
+            ) : (
+              <div className="text-center">
+                <PlayCircle className="text-amber-400 mx-auto mb-2" size={44} />
+                <div className="text-sm text-slate-300 font-semibold">Demo video drops here soon</div>
+                <div className="text-[11px] text-slate-500">Until then — book the live one. It's better anyway.</div>
+              </div>
+            )}
           </div>
           <a href={`${BACKEND_URL}/api/hotshot/one-pager.pdf`} data-testid="hs-onepager-link"
              className="mt-4 inline-flex items-center gap-2 text-sm text-amber-300 hover:text-amber-200 font-semibold">
