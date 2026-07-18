@@ -302,7 +302,9 @@ def build_sim_router(*, api_router: APIRouter, db,
         return {
             "load_id": f"SMPL-{uuid.uuid4().hex[:6].upper()}",
             "sim_id": sim["sim_id"], "day_posted": day, "status": "posted",
-            "board": rnd.choice(["DAT One", "Truckstop", "123Loadboard"]),
+            "board": rnd.choices(
+                ["DAT One", "Truckstop", "Convoy (Flexport)", "Uber Freight", "123Loadboard", "Direct Shipper Tender"],
+                weights=[40, 24, 10, 12, 6, 8])[0],
             "shipper": shipper, "terms_days": terms,
             "origin": {"name": origin, "lat": o[0], "lng": o[1]},
             "dest": {"name": dest, "lat": d[0], "lng": d[1]},

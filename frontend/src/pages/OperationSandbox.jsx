@@ -22,6 +22,15 @@ const STATUS_COLOR = {
   factored: "text-purple-300", paid: "text-emerald-300",
 };
 
+const BOARD_BADGE = {
+  "DAT One": "text-red-300 border-red-500/40 bg-red-500/10",
+  "Truckstop": "text-orange-300 border-orange-500/40 bg-orange-500/10",
+  "Convoy (Flexport)": "text-indigo-300 border-indigo-500/40 bg-indigo-500/10",
+  "Uber Freight": "text-emerald-300 border-emerald-500/40 bg-emerald-500/10",
+  "123Loadboard": "text-purple-300 border-purple-500/40 bg-purple-500/10",
+  "Direct Shipper Tender": "text-amber-300 border-amber-500/40 bg-amber-500/10",
+};
+
 const MKT_BADGE = {
   headhaul: { label: "HH", cls: "text-red-300 border-red-500/30", title: "Headhaul — hot lane, rates priced up, margin compressed" },
   backhaul: { label: "BH", cls: "text-sky-300 border-sky-500/30", title: "Backhaul — cheap lane, rates discounted, margin widened" },
@@ -451,6 +460,12 @@ export default function OperationSandbox() {
                     <div key={l.load_id} className="text-[10px] font-mono p-1.5 rounded bg-white/[0.02] flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <span className="text-slate-200">{l.load_id}</span>
+                        {l.board && (
+                          <span title={`Sourced from ${l.board}`} data-testid={`sim-load-board-${l.load_id}`}
+                            className={`ml-1 text-[8px] border rounded px-1 ${BOARD_BADGE[l.board] || "text-slate-400 border-white/20 bg-white/5"}`}>
+                            {l.board === "Direct Shipper Tender" ? "DIRECT" : l.board.replace(" (Flexport)", "").toUpperCase()}
+                          </span>
+                        )}
                         {MKT_BADGE[l.market?.headhaul] && (
                           <span title={MKT_BADGE[l.market.headhaul].title}
                             className={`ml-1 text-[8px] border rounded px-1 ${MKT_BADGE[l.market.headhaul].cls}`}>
