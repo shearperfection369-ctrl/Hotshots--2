@@ -25,6 +25,7 @@ const NAV = [
   { to: "/sentinel", label: "Agent Sentinel", icon: ShieldAlert, tid: "nav-sentinel", roles: ["admin"] },
   { to: "/growth-copilot", label: "AI Growth Copilot", icon: Target, tid: "nav-growth-copilot", roles: ["admin", "dispatcher"] },
   { to: "/hotshot-sales", label: "Hot Shot TMS Sales", icon: Zap, tid: "nav-hotshot-sales", roles: ["admin"] },
+  { to: "/tenant-command", label: "Tenant Command", icon: Building2, tid: "nav-tenant-command", roles: ["admin"] },
   { to: "/route-optimizer", label: "Route Optimizer", icon: MapPinned, tid: "nav-route-optimizer", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/launch-blast", label: "Launch Email Blast", icon: Megaphone, tid: "nav-launch-blast", roles: ["admin"] },
   { to: "/revenue", label: "Revenue Engine", icon: TrendingUp, tid: "nav-revenue", roles: ["admin", "dispatcher"] },

@@ -1,0 +1,56 @@
+{
+  "summary": "iter69 — Hot Shot TMS multi-tenant white-label platform. Comprehensive backend + frontend E2E. 29/30 backend tests pass. All critical UI flows work: tenant isolation, portal auth, loads/invoice/carriers CRUD, per-tenant branding refresh, dispatcher role-gating (Team/Settings hidden), Stripe checkout redirect to checkout.stripe.com, Tenant Command panel provision/suspend/activate/delete, public /api/hotshot/status, ROI calculator, Solo Arcade (all 3 games), demo video card. ONE REAL BACKEND BUG: brute-force lockout unreliable through k8s ingress (uses request.client.host which rotates across pods) — lockout does not fire within 9 attempts in some runs.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/t/{slug}/auth/login",
+        "issue": "Brute-force lockout uses `request.client.host` as part of the identifier. Through the k8s ingress load-balancer the client IP visible to the app rotates across ingress pods, so the per-identifier counter resets and the 5-strike lockout is inconsistent. Observed lockout firing after 7-9 attempts (variable) rather than the spec of 5 -> 429 on 6th. Should use X-Forwarded-For (first hop) or slug+email only as identifier."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "TenantPortal frontend routing",
+        "issue": "When a dispatcher user directly navigates to /t/<slug>/app/team or /app/settings, the route still renders (URL stays the same, page appears blank because the Team/Settings components require admin scope but frontend doesn't redirect). Backend correctly returns 403 for admin-only endpoints so no data leaks — but UX would be better with a redirect to /app or a friendly access-denied screen.",
+        "selector": "/t/{slug}/app/team, /t/{slug}/app/settings",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "TenantLogin",
+        "issues": ["Console logs 3-6 401s on initial page load — likely from an axios call fired before the token is set. Harmless functionally but noisy for observability."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter69_tenant_platform.py",
+    "/app/test_reports/pytest/iter69_results.xml"
+  ],
+  "action_items": [
+    "Fix brute-force identifier: replace `request.client.host` with X-Forwarded-For header parse (first IP) OR just use slug+email — the current implementation is effectively bypassable in a k8s environment and the auto-test proves lockout does not reliably fire within 9 attempts.",
+    "Optional: frontend guard for dispatcher hitting /app/team, /app/settings directly by URL — redirect to /app when role != admin."
+  ],
+  "critical_code_review_comments": [
+    "tenant_platform.py line 284: `request.client.host` is unreliable behind a reverse proxy / k8s ingress — this weakens the brute-force protection.",
+    "tenant_platform.py public_branding endpoint does NOT enforce tenant suspended check — a suspended tenant's branding is still publicly readable. Minor (branding is intended to be public), but the endpoint returns 200 for suspended tenants which may be intentional. Consider adding a note.",
+    "arcade_solo.py line 8: GAMES set duplicated between frontend and backend. Minor duplication risk of drift.",
+    "tenant_platform.py `_hash_pw` uses default bcrypt gensalt (rounds=12) — good. Passwords stored as bcrypt $2b$ — verified by successful login."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter69_tenant_platform.py"
+  ],
+  "success_rate": {
+    "backend": "97% (29/30)",
+    "frontend": "100% (all critical flows passed)"
+  },
+  "test_credentials": "Orisei admin: Bearer test_session_admin_1. Acme tenant admin: admin@acmefreight.com / AcmeDemo123!. All from /app/memory/test_credentials.md.",
+  "seed_data_creation": "Created several TEST_ prefixed tenants and loads during testing — all cleaned up via API DELETE at fixture teardown. Verified via GET /api/hotshot/tenants that only acme-freight-co remains after teardown.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All key data-testids are correctly wired. Tenant nav uses testids like tenant-nav-{tab}. Load form has tenant-load-{field}-input testids + tenant-load-submit. Tenant Command uses tc-suspend-{slug}, tc-activate-{slug}, tc-delete-{slug} — dispatcher role-gating on backend is enforced (dispatcher can't add users/branding, verified). Full Stripe payment (entering test card 4242) was NOT completed — only verified redirect lands on checkout.stripe.com/c/pay/cs_test_... — the polling logic on return would need a real completion to test end-to-end. Suggest either a manual test or mock the Stripe webhook to complete _mark_paid.",
+  "rca_brute_force_bug": "Reproduction: repeatedly POST /api/t/{slug}/auth/login with a wrong password >= 6 times in quick succession. Expected: 6th attempt returns 429. Actual: 429 fires sometimes after 7, 8, or 9 attempts. Root cause: routes/tenant_platform.py:284 constructs the login-attempt identifier as `f\"{request.client.host}:{slug}:{email}\"`. In the preview environment (Kubernetes ingress -> multiple backend pods) `request.client.host` is the ingress pod's IP, which rotates. So the counter is split across N pods and each needs to hit >=5 individually. Mitigation: (a) parse X-Forwarded-For header (first IP) so the identifier reflects the real user IP, (b) store attempts under `slug:email` only, dropping IP (slightly less DDoS-friendly but far more predictable), or (c) use a Redis-backed shared counter with the real forwarded IP."
+}

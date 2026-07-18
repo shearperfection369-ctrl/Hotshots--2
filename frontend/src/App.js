@@ -104,6 +104,9 @@ import RouteOptimizer from "@/pages/RouteOptimizer";
 import GrowthCopilot from "@/pages/GrowthCopilot";
 import HotShotLanding from "@/pages/HotShotLanding";
 import HotShotSales from "@/pages/HotShotSales";
+import TenantCommand from "@/pages/TenantCommand";
+import TenantLogin from "@/pages/tenant/TenantLogin";
+import TenantPortal from "@/pages/tenant/TenantPortal";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 import WellnessNudges from "@/components/WellnessNudges";
 import { ThemeProvider } from "@/lib/theme";
@@ -153,6 +156,9 @@ function AppRouter() {
       <Route path="/tour" element={<PublicTour />} />
       <Route path="/get-quote" element={<GetQuote />} />
       <Route path="/carriers/loadboard" element={<CarrierLoadboard />} />
+      <Route path="/t/:slug/login" element={<TenantLogin />} />
+      <Route path="/t/:slug/app" element={<TenantPortal />} />
+      <Route path="/t/:slug/app/:tab" element={<TenantPortal />} />
 
       <Route path="/hotshot" element={<ProtectedRoute><HotShotLanding /></ProtectedRoute>} />
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -188,6 +194,7 @@ function AppRouter() {
         <Route path="/route-optimizer" element={<RouteOptimizer />} />
         <Route path="/growth-copilot" element={<GrowthCopilot />} />
         <Route path="/hotshot-sales" element={<HotShotSales />} />
+        <Route path="/tenant-command" element={<TenantCommand />} />
         <Route path="/document-archive" element={<DocumentArchive />} />
         <Route path="/launch-plan" element={<LaunchPlan />} />
         <Route path="/launch-runway" element={<LaunchPlan />} />
