@@ -5,7 +5,7 @@ import {
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut, TrendingUp, Lightbulb,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
   DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon,
-  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2, Trophy, Wallet, ShieldAlert, Ship, Rocket, Satellite, FlaskConical, Target
+  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2, Trophy, Wallet, ShieldAlert, Ship, Rocket, Satellite, FlaskConical, Target, Zap
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -24,6 +24,7 @@ const NAV = [
   { to: "/live-ops", label: "Live Ops Command", icon: Activity, tid: "nav-live-ops", roles: ["admin", "dispatcher"] },
   { to: "/sentinel", label: "Agent Sentinel", icon: ShieldAlert, tid: "nav-sentinel", roles: ["admin"] },
   { to: "/growth-copilot", label: "AI Growth Copilot", icon: Target, tid: "nav-growth-copilot", roles: ["admin", "dispatcher"] },
+  { to: "/hotshot-sales", label: "Hot Shot TMS Sales", icon: Zap, tid: "nav-hotshot-sales", roles: ["admin"] },
   { to: "/route-optimizer", label: "Route Optimizer", icon: MapPinned, tid: "nav-route-optimizer", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/launch-blast", label: "Launch Email Blast", icon: Megaphone, tid: "nav-launch-blast", roles: ["admin"] },
   { to: "/revenue", label: "Revenue Engine", icon: TrendingUp, tid: "nav-revenue", roles: ["admin", "dispatcher"] },

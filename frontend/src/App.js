@@ -102,6 +102,8 @@ import AgentSentinel from "@/pages/AgentSentinel";
 import LaunchBlast from "@/pages/LaunchBlast";
 import RouteOptimizer from "@/pages/RouteOptimizer";
 import GrowthCopilot from "@/pages/GrowthCopilot";
+import HotShotLanding from "@/pages/HotShotLanding";
+import HotShotSales from "@/pages/HotShotSales";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 import WellnessNudges from "@/components/WellnessNudges";
 import { ThemeProvider } from "@/lib/theme";
@@ -152,6 +154,7 @@ function AppRouter() {
       <Route path="/get-quote" element={<GetQuote />} />
       <Route path="/carriers/loadboard" element={<CarrierLoadboard />} />
 
+      <Route path="/hotshot" element={<ProtectedRoute><HotShotLanding /></ProtectedRoute>} />
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/shipments" element={<Shipments />} />
@@ -184,6 +187,7 @@ function AppRouter() {
         <Route path="/launch-blast" element={<LaunchBlast />} />
         <Route path="/route-optimizer" element={<RouteOptimizer />} />
         <Route path="/growth-copilot" element={<GrowthCopilot />} />
+        <Route path="/hotshot-sales" element={<HotShotSales />} />
         <Route path="/document-archive" element={<DocumentArchive />} />
         <Route path="/launch-plan" element={<LaunchPlan />} />
         <Route path="/launch-runway" element={<LaunchPlan />} />

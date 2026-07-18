@@ -1,0 +1,30 @@
+{
+  "summary": "iter68 — HOT SHOT TMS end-to-end regression PASSED. Backend 9/9 pytest (test_iter68_hotshot.py) — lead POST (public) validates email (400 on bad), rejects missing name (422), returns ok on valid; GET /api/hotshot/leads with admin bearer test_session_admin_1 returns 200 (NOTE: require_role('owner','dispatcher') implicitly allows admin — verified working, so the pre-flagged 403 concern does NOT reproduce); unauthenticated GET → 401; POST /leads/{id}/status with 'contacted' persists (re-GET confirms); 'bogus' status → 400; unknown lead_id → 404; /one-pager.pdf → 200 %PDF, application/pdf, >1KB. Frontend Playwright: (1) Unauth GET /hotshot correctly REDIRECTS to /login (ProtectedRoute active); (2) After localStorage.tms_session_token=test_session_admin_1, /hotshot renders data-testid=hotshot-landing with ALL required sections: hs-live-stats (animated counters 131/4+/32/3), hs-week-one (5 day cards DAY1-5 visible), hs-capability-map (5 category groups: AI Suite, Live Operations, Money & Back Office, Paperwork & Compliance, Intelligence & Reporting; 28 module cards counted from screenshot: 6+6+6+6+4), hs-sandbox-spotlight, hs-tier-starter (contains $390), hs-tier-growth (contains $975), hs-tier-donewithyou (contains $2,600), plus lead form (hs-lead-name-input, hs-lead-email-input, hs-lead-company-input, hs-lead-fleet_or_volume-input, hs-lead-tier-select, hs-lead-message-input, hs-lead-submit-btn). (3) Lead form submit → hs-lead-success appears; (4) Sidebar Zap regression FIXED: /dashboard renders with sidebar visible, nav-hotshot-sales+nav-dashboard present, no 'Zap is not defined' or ReferenceError on /dashboard or /brokerage; (5) Clicking nav-hotshot-sales navigates to /hotshot-sales, new lead visible in hs-leads-card by email; (6) Row status select (hs-lead-status-{lead_id}) changed 'new'→'contacted' persists after full page reload AND backend GET confirms status=contacted. Full round-trip lead capture → pipeline → status persistence VERIFIED.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter68_hotshot.py",
+    "/app/test_reports/pytest/iter68_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/hotshot.py:168 — list_leads uses require_role('owner','dispatcher'); admin currently works (require_role must implicitly grant admin). If require_role behavior ever changes, add 'admin' explicitly to be safe: require_role('admin','owner','dispatcher').",
+    "routes/hotshot.py:159 — count_documents by email pre-insert is fine at low volume but O(N) on unindexed field; consider a MongoDB index on hotshot_leads.email if list grows.",
+    "routes/hotshot.py:52 _one_pager_pdf() rebuilds the entire PDF on every request (no cache). Static content — cache the bytes at module load or use lru_cache; save ~20-50ms per request.",
+    "HotShotLanding.jsx — day cards inside hs-week-one and module cards inside hs-capability-map do NOT have individual data-testid attributes (only the section-level ones). This is fine for the current test spec, but adding hs-week-one-day-{n} and hs-cap-module-{slug} would let future regressions target cards individually.",
+    "App.js:157 — /hotshot is now inside ProtectedRoute (correct per spec). If a future requirement wants a public marketing variant, keep this route auth-gated and add a separate /hotshot-public route."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter68_hotshot.py (new — 9 tests, 100% pass, ~1.5s)"
+  ],
+  "success_rate": {"backend": "100% (9/9 pytest)", "frontend": "100% (all sections render, auth-gating works, lead round-trip works, status persistence works, no Zap regression)"},
+  "test_credentials": "Admin Bearer test_session_admin_1 (working; from /app/memory/test_credentials.md).",
+  "seed_data_creation": "Two hotshot_leads inserted during testing (Playwright TEST_1784389539 email pwtest_1784389539@test.com now status=contacted; pytest TEST_iter68_* fixtures ~4 rows). Prior smoke lead HSL-484A03 kept as-is. All are TEST-prefixed and safe to purge.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "HOT SHOT TMS: lead capture endpoint /api/hotshot/leads is public POST; GET/status endpoints require role (owner/dispatcher) but admin token works fine — do not assume 403 for admin. Reusable pytest: /app/backend/tests/test_iter68_hotshot.py (9 tests). Landing page renders all sections behind ProtectedRoute — set localStorage.tms_session_token='test_session_admin_1' before navigating to /hotshot. Lead form testids: hs-lead-{field}-input (name/email/company/fleet_or_volume/message), hs-lead-tier-select is a native <select> (use select_option, NOT click). Row status selects in /hotshot-sales are also native <select>."
+}
