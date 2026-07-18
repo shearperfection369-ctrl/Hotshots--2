@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Topbar from "../components/Topbar";
 import { Card } from "../components/ui/card";
-import { ShieldCheck, Play, Loader2, ChevronDown, ChevronRight, Timer, Gauge, CheckCircle2, AlertTriangle, XCircle, History } from "lucide-react";
+import { ShieldCheck, Play, Loader2, ChevronDown, ChevronRight, Timer, Gauge, CheckCircle2, AlertTriangle, XCircle, History, FileDown, Moon, BellRing } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -22,6 +22,10 @@ export default function PlatformReadiness() {
   const [runs, setRuns] = useState([]);
   const [busy, setBusy] = useState(false);
   const [openCats, setOpenCats] = useState({});
+  const [nightly, setNightly] = useState(null);
+
+  const loadNightly = useCallback(() => api.get("/hotshot/readiness/nightly").then((r) => setNightly(r.data)).catch(() => {}), []);
+  useEffect(() => { loadNightly(); }, [loadNightly]);
 
   const load = useCallback(async () => {
     try {
@@ -42,6 +46,20 @@ export default function PlatformReadiness() {
       load();
     } catch (e) { toast.error("Self-test failed to complete — check backend logs"); }
     finally { setBusy(false); }
+  };
+
+  const downloadReport = async () => {
+    try {
+      const r = await api.get("/hotshot/readiness/report.pdf", { responseType: "blob" });
+      const url = URL.createObjectURL(r.data);
+      const a = document.createElement("a");
+      a.href = url; a.download = "HotShot_TMS_Verification_Report.pdf"; a.click();
+      URL.revokeObjectURL(url);
+    } catch (_) { toast.error("Run the self-test first"); }
+  };
+
+  const ackAlert = async (id) => {
+    try { await api.post(`/hotshot/readiness/alerts/${id}/ack`); loadNightly(); } catch (_) {}
   };
 
   const v = run ? VERDICT[run.verdict] || VERDICT.NEEDS_ATTENTION : null;
@@ -66,11 +84,51 @@ export default function PlatformReadiness() {
                 {run && <div className="text-[10px] font-mono text-slate-500 mt-1">{run.run_id} · {new Date(run.started_at).toLocaleString()} · full suite in {(run.duration_ms / 1000).toFixed(1)}s</div>}
               </div>
             </div>
-            <button onClick={execute} disabled={busy} data-testid="pr-run-btn"
-                    className="px-6 py-3 rounded-full bg-amber-500 text-black font-black text-sm inline-flex items-center gap-2 hover:bg-amber-400 disabled:opacity-60">
-              {busy ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-              {busy ? "Testing every module…" : "Run Full Self-Test"}
-            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={downloadReport} disabled={!run} data-testid="pr-download-pdf-btn"
+                      className="px-5 py-3 rounded-full border border-white/15 hover:border-amber-400/50 text-slate-200 font-bold text-sm inline-flex items-center gap-2 disabled:opacity-40">
+                <FileDown size={15} /> PDF Report
+              </button>
+              <button onClick={execute} disabled={busy} data-testid="pr-run-btn"
+                      className="px-6 py-3 rounded-full bg-amber-500 text-black font-black text-sm inline-flex items-center gap-2 hover:bg-amber-400 disabled:opacity-60">
+                {busy ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                {busy ? "Testing every module…" : "Run Full Self-Test"}
+              </button>
+            </div>
+          </div>
+        </Card>
+
+        {/* Open alerts */}
+        {nightly?.open_alerts?.length > 0 && (
+          <Card className="p-4 bg-red-500/10 border-red-500/40" data-testid="pr-alerts-card">
+            <div className="text-xs font-mono uppercase tracking-widest text-red-400 flex items-center gap-2 mb-2"><BellRing size={13} /> Sell-ready alerts</div>
+            {nightly.open_alerts.map((a) => (
+              <div key={a.alert_id} className="flex flex-wrap items-center gap-3 py-2 border-b border-red-500/20 last:border-0 text-sm">
+                <span className="font-mono text-[10px] text-slate-500">{new Date(a.at).toLocaleString()}</span>
+                <span className="text-red-300 font-bold">{a.verdict.replace(/_/g, " ")} · score {a.score}</span>
+                <span className="text-slate-400 text-xs flex-1 truncate">{(a.failed_checks || []).slice(0, 3).join(" · ")}</span>
+                <button onClick={() => ackAlert(a.alert_id)} data-testid={`pr-ack-${a.alert_id}`}
+                        className="px-3 py-1 rounded-full border border-red-500/40 text-red-300 text-xs font-bold hover:bg-red-500/10">Acknowledge</button>
+              </div>
+            ))}
+          </Card>
+        )}
+
+        {/* Nightly watchdog */}
+        <Card className="p-4 bg-slate-950/60 border-white/10" data-testid="pr-nightly-card">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/15 grid place-items-center"><Moon size={18} className="text-indigo-300" /></div>
+            <div className="flex-1 min-w-[220px]">
+              <div className="font-black text-sm text-white">Nightly self-test watchdog <span className="ml-2 text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/40">armed</span></div>
+              <div className="text-xs text-slate-400">Runs the full suite every night at {nightly ? `${nightly.hour_utc}:00 UTC` : "…"} and raises an alert (plus email, once your Resend key is in) if the platform drops below sell-ready.</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] font-mono uppercase text-slate-500">Next run</div>
+              <div className="text-sm font-bold text-indigo-300" data-testid="pr-nightly-next">{nightly ? new Date(nightly.next_run_at).toLocaleString() : "—"}</div>
+              {nightly?.last_nightly && (
+                <div className="text-[10px] text-slate-500 font-mono mt-0.5">last: {nightly.last_nightly.verdict.replace(/_/g, " ")} · {nightly.last_nightly.score}</div>
+              )}
+            </div>
           </div>
         </Card>
 

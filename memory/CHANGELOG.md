@@ -563,3 +563,15 @@ file.)
   button in Tenant Command opens client portal with purple CLIENT VIEW banner.
 - Tested iteration_71.json: 14/14 backend, frontend 100%, zero issues.
 - KNOWN COSMETIC (3x recurring, unfixed): 4-6 401 console errors on tenant portal first load.
+
+## 2026-06 (fork) · Readiness PDF Report + Nightly Watchdog (self-tested)
+- GET /api/hotshot/readiness/report.pdf — 3-page branded Verification Report (verdict banner,
+  score, metric tiles, category bars, "what this proves", full check log). PDF button on
+  /platform-readiness (blob download). Layout verified via extraction — no overflow.
+- Nightly self-test: start_nightly loop (server startup task) runs full suite daily at 08:00 UTC
+  via temp system session in db.user_sessions (deleted after). Below sell-ready → alert in
+  db.readiness_alerts + activity log + email (queued w/o Resend key). Endpoints: GET /nightly
+  (next run, last nightly, open alerts), POST /alerts/{id}/ack. UI: watchdog card + red alerts
+  card w/ acknowledge. Runs now tagged trigger=manual|nightly.
+- Self-tested: PDF 200 (11KB, %PDF), system-session run READY_TO_SELL 100, alert seed→ack flow,
+  UI screenshot (PDF download works, watchdog shows next run).
