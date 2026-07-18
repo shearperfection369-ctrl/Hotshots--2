@@ -636,25 +636,30 @@ def build_sim_router(*, api_router: APIRouter, db,
         if day > sim["sim_day"]:
             loads_all = await db.sim_loads.find({"sim_id": sim["sim_id"]}, {"_id": 0}).to_list(500)
             prev = sim.get("_ledger_snap") or {}
-            days_rolled = day - sim["sim_day"]
-            ledger["overhead"] = round(ledger.get("overhead", 0) + OVERHEAD_DAY_TOTAL * days_rolled, 2)
+            dur = sim["duration_days"]
+            # overhead bills only for in-week days (settling days carry no new overhead)
+            days_billed = max(0, min(day, dur) - min(sim["sim_day"], dur))
+            if days_billed:
+                ledger["overhead"] = round(ledger.get("overhead", 0) + OVERHEAD_DAY_TOTAL * days_billed, 2)
             # market random walk: DOE diesel drift + spot market cycle
             mkt = sim.get("market") or {"diesel": DOE_DIESEL_AVG, "spot_index": 1.0}
             mkt["diesel"] = round(min(4.75, max(3.05, mkt.get("diesel", DOE_DIESEL_AVG) + rnd.uniform(-0.07, 0.08))), 2)
             mkt["spot_index"] = round(min(1.14, max(0.90, mkt.get("spot_index", 1.0) + rnd.uniform(-0.03, 0.035))), 3)
             mkt["cycle"] = "tight" if mkt["spot_index"] >= 1.05 else "soft" if mkt["spot_index"] <= 0.96 else "balanced"
             sim["market"] = mkt
-            net_now = _net_margin(ledger)
-            net_prev = _net_margin(prev)
-            sim["daily"].append({"day": sim["sim_day"],
-                                 "revenue": round(ledger.get("revenue", 0) - prev.get("revenue", 0), 2),
-                                 "margin": round(net_now - net_prev, 2),
-                                 "booked": sum(1 for l in loads_all if l.get("day_posted") == sim["sim_day"] and l["status"] != "posted")})
+            # close out the finished day's P&L exactly once, only for in-week days
+            if sim["sim_day"] <= dur and not any(d["day"] == sim["sim_day"] for d in sim["daily"]):
+                net_now = _net_margin(ledger)
+                net_prev = _net_margin(prev)
+                sim["daily"].append({"day": sim["sim_day"],
+                                     "revenue": round(ledger.get("revenue", 0) - prev.get("revenue", 0), 2),
+                                     "margin": round(net_now - net_prev, 2),
+                                     "booked": sum(1 for l in loads_all if l.get("day_posted") == sim["sim_day"] and l["status"] != "posted")})
             sim["_ledger_snap"] = dict(ledger)
             sim["sim_day"] = day
             sim["spawned_today"] = 0
-            if day <= sim["duration_days"]:
-                await _event(sim, "day", f"🌅 DAY {day} of {sim['duration_days']} — DOE diesel ${mkt['diesel']}/gal · spot market {mkt['cycle'].upper()} (idx {mkt['spot_index']}) · overhead accrued ${OVERHEAD_DAY_TOTAL:,.0f}/day")
+            if day <= dur:
+                await _event(sim, "day", f"🌅 DAY {day} of {dur} — DOE diesel ${mkt['diesel']}/gal · spot market {mkt['cycle'].upper()} (idx {mkt['spot_index']}) · overhead accrued ${OVERHEAD_DAY_TOTAL:,.0f}/day")
 
         # spawn + advance first, then evaluate completion
         if day <= sim["duration_days"]:
@@ -715,7 +720,7 @@ def build_sim_router(*, api_router: APIRouter, db,
         delivered = [l for l in loads if l["status"] in ("delivered", "invoiced", "factored", "paid")]
         otp = round(sum(1 for l in delivered if l.get("on_time")) / len(delivered) * 100, 1) if delivered else 100.0
         booked_n = sum(1 for l in loads if l["status"] != "posted")
-        avg_daily = round(booked_n / max(1, sim["sim_day"]), 1)
+        avg_daily = round(booked_n / max(1, min(sim["sim_day"], sim["duration_days"])), 1)
         # carrier leaderboard
         cmap: Dict[str, Dict[str, Any]] = {}
         for l in loads:
@@ -731,9 +736,10 @@ def build_sim_router(*, api_router: APIRouter, db,
                    "carrier": (l.get("carrier") or {}).get("name")}
                   for l in loads if l.get("exception")]
         return {
-            "active": True, "sim": {k: sim[k] for k in
-                ("sim_id", "status", "sim_clock", "sim_day", "duration_days", "speed",
+            "active": True, "sim": {**{k: sim[k] for k in
+                ("sim_id", "status", "sim_clock", "duration_days", "speed",
                  "autopilot", "auto_triage", "doe_diesel", "fsc_per_mile", "daily")},
+                "sim_day": min(sim["sim_day"], sim["duration_days"])},
             "market": sim.get("market") or {"diesel": DOE_DIESEL_AVG, "spot_index": 1.0, "cycle": "balanced"},
             "industry": {"overhead_daily": OVERHEAD_DAILY, "overhead_day_total": OVERHEAD_DAY_TOTAL,
                          "claim_prob": CLAIM_PROB, "bad_debt_prob": BAD_DEBT_PROB,
