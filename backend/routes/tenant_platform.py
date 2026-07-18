@@ -190,6 +190,8 @@ def build_tenant_platform_router(*, db, client, require_role: Callable) -> APIRo
         user = await tdb(slug).users.find_one({"user_id": payload.get("sub")}, {"_id": 0, "password_hash": 0})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
+        if payload.get("imp"):
+            user["impersonated"] = True
         return user
 
     def require_tenant_role(*roles):
@@ -364,6 +366,19 @@ def build_tenant_platform_router(*, db, client, require_role: Callable) -> APIRo
         await db.tenants.delete_one({"slug": slug})
         await _log(slug, "delete", "Tenant deleted and database dropped", level="warn")
         return {"ok": True}
+
+    @router.post("/hotshot/tenants/{slug}/impersonate")
+    async def impersonate_tenant(slug: str, _=Depends(require_role("admin"))) -> Dict[str, Any]:
+        tenant = await _tenant_doc(slug)
+        user = await tdb(slug).users.find_one({"role": "admin"}, sort=[("created_at", 1)])
+        if not user:
+            raise HTTPException(status_code=404, detail="Tenant has no admin user")
+        token = pyjwt.encode({
+            "sub": user["user_id"], "email": user["email"], "role": user["role"], "tenant": slug,
+            "imp": True, "exp": datetime.now(timezone.utc) + timedelta(hours=2), "type": "access",
+        }, _jwt_secret(), algorithm=JWT_ALG)
+        await _log(slug, "impersonate", f"Platform owner opened client view for {tenant['company_name']}")
+        return {"token": token, "portal_path": f"/t/{slug}/app", "expires_in_hours": 2}
 
     @router.get("/hotshot/tenants/{slug}/activity")
     async def tenant_activity(slug: str, _=Depends(require_role("admin"))) -> Dict[str, Any]:

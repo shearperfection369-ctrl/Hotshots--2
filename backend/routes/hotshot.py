@@ -52,6 +52,52 @@ class LeadIn(BaseModel):
     tier_interest: str = Field("", max_length=40)
 
 
+class ProspectIn(BaseModel):
+    company: str = Field(..., min_length=2, max_length=150)
+    contact: str = Field("", max_length=100)
+    email: str = Field("", max_length=200)
+    phone: str = Field("", max_length=40)
+    city: str = Field("", max_length=100)
+    size: str = Field("", max_length=120)
+    notes: str = Field("", max_length=500)
+
+
+class ProspectPatch(BaseModel):
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+
+PROSPECT_STATUSES = ("new", "contacted", "replied", "demo_booked", "won", "lost")
+
+SEED_PROSPECTS = [
+    ("Northland Freight Partners", "Mike Torgerson", "mike@northlandfreightmn.com", "Duluth, MN", "Broker · ~$1.2M/yr, 2 dispatchers", "Regional dry van, drowning in spreadsheets"),
+    ("Prairie Line Logistics", "Sarah Kowalski", "sarah@prairielinelogistics.com", "Fargo, ND", "Broker · ~$800K/yr, solo desk", "New MC (14 months), no TMS yet"),
+    ("Iron Range Carriers & Brokerage", "Dave Maki", "dave@ironrangecarriers.com", "Hibbing, MN", "5 trucks + brokerage arm", "Runs own authority + brokers overflow"),
+    ("Twin Ports Transport Solutions", "Jenny Lindqvist", "jenny@twinportstransport.com", "Superior, WI", "Broker · ~$2.5M/yr, 3 staff", "Using 2009-era TMS, contract up in 60 days"),
+    ("Heartland Hot Shot Express", "Carlos Reyes", "carlos@heartlandhotshot.com", "Sioux Falls, SD", "8 hot shot trucks", "Owner-operator fleet, dispatching by text"),
+    ("Great Lakes Freight Desk", "Tom Bergstrom", "tom@greatlakesfreightdesk.com", "Green Bay, WI", "Broker · ~$1.8M/yr", "Reefer specialist, wants AI load hunting"),
+    ("Badger State Brokerage", "Lisa Vandenberg", "lisa@badgerstatebrokerage.com", "Madison, WI", "Broker · ~$900K/yr, solo", "Part-time desk, needs automation to scale"),
+    ("Dakota Plains Logistics", "Ryan Two Bulls", "ryan@dakotaplainslogistics.com", "Rapid City, SD", "Broker + 3 trucks", "Ag hauling seasonal spikes, manual invoicing"),
+    ("River City Cargo Co", "Angela Fitzgerald", "angela@rivercitycargo.com", "La Crosse, WI", "Broker · ~$1.5M/yr, 2 staff", "Lost a dispatcher, needs the AI to fill the gap"),
+    ("North Star Expedite", "Pete Halvorsen", "pete@northstarexpedite.com", "St. Cloud, MN", "6 sprinter vans + brokerage", "Expedite niche, quotes by phone all day"),
+    ("Bluff Country Freight", "Hannah Schmidt", "hannah@bluffcountryfreight.com", "Winona, MN", "Broker · ~$700K/yr, solo", "Flatbed focus, zero back-office help"),
+    ("Corn Belt Carriers LLC", "Greg Ostrowski", "greg@cornbeltcarriers.com", "Mason City, IA", "Broker · ~$2M/yr, 3 staff", "Wants white-label portal for their shippers"),
+]
+
+
+def _cold_email(contact: str, company: str, landing: str) -> Dict[str, str]:
+    first = (contact or "there").split(" ")[0]
+    subject = f"{company} — an AI dispatcher that works while you sleep"
+    body = (f"Hi {first},\n\n"
+            f"I run a freight brokerage in Minnesota, and I got tired of TMS software built by people who never moved a load. "
+            f"So we built our own — AI hunts the boards 24/7, triages breakdowns, and chases invoices automatically.\n\n"
+            f"Now I'm licensing it to a handful of small brokerages like {company}. First 5 get 35% off for life.\n\n"
+            f"Worth a 15-minute screen share? You'll watch it book a live load — no slides.\n\n"
+            f"Take a look: {landing}\n\n"
+            f"— Oliver Cummins\nOrisei Freight Solutions · Hot Shot TMS\noliver@oriseifreight.com")
+    return {"subject": subject, "body": body}
+
+
 def _one_pager_pdf() -> bytes:
     buf = io.BytesIO()
     c = Canvas(buf, pagesize=letter)
@@ -181,6 +227,55 @@ def build_hotshot_router(*, db, get_current_user: Callable,
         r = await db.hotshot_leads.update_one({"lead_id": lead_id}, {"$set": {"status": status}})
         if r.matched_count == 0:
             raise HTTPException(status_code=404, detail="Lead not found")
+        return {"ok": True}
+
+    # ---------- Prospect hit list ----------
+    async def _ensure_seed():
+        if await db.hotshot_prospects.count_documents({}) == 0:
+            now = datetime.now(timezone.utc).isoformat()
+            await db.hotshot_prospects.insert_many([{
+                "prospect_id": f"HP-{uuid.uuid4().hex[:6].upper()}", "company": c, "contact": ct,
+                "email": em, "city": city, "size": size, "notes": notes, "phone": "",
+                "status": "new", "is_sample": True, "created_at": now,
+            } for c, ct, em, city, size, notes in SEED_PROSPECTS])
+
+    @router.get("/prospects")
+    async def list_prospects(_=Depends(require_role("admin", "owner", "dispatcher"))) -> Dict[str, Any]:
+        await _ensure_seed()
+        rows = await db.hotshot_prospects.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
+        landing = f"{os.environ.get('PUBLIC_FRONTEND_URL', '').rstrip('/')}/hotshot"
+        for r in rows:
+            r["email_draft"] = _cold_email(r.get("contact", ""), r["company"], landing)
+        counts: Dict[str, int] = {}
+        for r in rows:
+            counts[r["status"]] = counts.get(r["status"], 0) + 1
+        return {"prospects": rows, "counts": counts, "statuses": list(PROSPECT_STATUSES)}
+
+    @router.post("/prospects")
+    async def add_prospect(payload: ProspectIn, _=Depends(require_role("admin", "owner", "dispatcher"))) -> Dict[str, Any]:
+        row = {"prospect_id": f"HP-{uuid.uuid4().hex[:6].upper()}", **payload.model_dump(),
+               "status": "new", "is_sample": False, "created_at": datetime.now(timezone.utc).isoformat()}
+        await db.hotshot_prospects.insert_one(dict(row))
+        return {"ok": True, "prospect": row}
+
+    @router.patch("/prospects/{prospect_id}")
+    async def patch_prospect(prospect_id: str, payload: ProspectPatch,
+                             _=Depends(require_role("admin", "owner", "dispatcher"))) -> Dict[str, Any]:
+        update = {k: v for k, v in payload.model_dump().items() if v is not None}
+        if "status" in update and update["status"] not in PROSPECT_STATUSES:
+            raise HTTPException(status_code=400, detail=f"Status must be one of {PROSPECT_STATUSES}")
+        if update.get("status") == "contacted":
+            update["contacted_at"] = datetime.now(timezone.utc).isoformat()
+        r = await db.hotshot_prospects.update_one({"prospect_id": prospect_id}, {"$set": update})
+        if r.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Prospect not found")
+        return {"ok": True}
+
+    @router.delete("/prospects/{prospect_id}")
+    async def delete_prospect(prospect_id: str, _=Depends(require_role("admin", "owner", "dispatcher"))) -> Dict[str, Any]:
+        r = await db.hotshot_prospects.delete_one({"prospect_id": prospect_id})
+        if r.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Prospect not found")
         return {"ok": True}
 
     @router.get("/one-pager.pdf")  # PUBLIC — shareable collateral

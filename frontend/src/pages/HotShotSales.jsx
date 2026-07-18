@@ -5,6 +5,7 @@ import { Badge } from "../components/ui/badge";
 import { Zap, Copy, ExternalLink, FileText, Users, Video, Trash2, UploadCloud, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api, BACKEND_URL } from "../lib/api";
+import { ProspectList } from "../components/hotshot/ProspectList";
 
 const STATUSES = ["new", "contacted", "demo_booked", "won", "lost"];
 const SBADGE = {
@@ -151,6 +152,8 @@ export default function HotShotSales() {
           </Card>
           <DemoVideoCard />
         </div>
+
+        <ProspectList />
 
         <Card className="p-4 bg-slate-950/60 border-white/10" data-testid="hs-leads-card">
           <div className="flex items-center gap-3 mb-3">

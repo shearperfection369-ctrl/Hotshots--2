@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Topbar from "../components/Topbar";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
-import { Building2, Plus, ExternalLink, Copy, Loader2, Activity, Ban, Play, Trash2, HeartPulse } from "lucide-react";
+import { Building2, Plus, ExternalLink, Copy, Loader2, Activity, Ban, Play, Trash2, HeartPulse, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { api, BACKEND_URL } from "../lib/api";
 
@@ -57,6 +57,14 @@ export default function TenantCommand() {
   const copyLink = (slug) => {
     navigator.clipboard.writeText(`${window.location.origin}/t/${slug}/login`);
     toast.success("Client login link copied");
+  };
+  const viewAsClient = async (slug) => {
+    try {
+      const { data } = await api.post(`/hotshot/tenants/${slug}/impersonate`);
+      localStorage.setItem(`hs_token_${slug}`, data.token);
+      window.open(data.portal_path, "_blank");
+      toast.success("Opening client view — you'll see exactly what they see");
+    } catch (_) { toast.error("Failed to open client view"); }
   };
 
   return (
@@ -145,6 +153,8 @@ export default function TenantCommand() {
                       <div className="flex gap-2.5 items-center">
                         <a href={`/t/${t.slug}/login`} target="_blank" rel="noreferrer" title="Open portal" data-testid={`tc-open-${t.slug}`}
                            className="text-cyan-300 hover:text-cyan-200"><ExternalLink size={14} /></a>
+                        <button onClick={() => viewAsClient(t.slug)} title="View as client — see exactly what they see" data-testid={`tc-impersonate-${t.slug}`}
+                                className="text-purple-300 hover:text-purple-200"><Eye size={14} /></button>
                         <button onClick={() => copyLink(t.slug)} title="Copy client login link" className="text-slate-400 hover:text-white"><Copy size={14} /></button>
                         {t.status === "active" ? (
                           <button onClick={() => setTenantStatus(t.slug, "suspended")} title="Suspend" data-testid={`tc-suspend-${t.slug}`}

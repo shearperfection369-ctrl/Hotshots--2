@@ -60,7 +60,13 @@ export default function TenantPortal() {
 
   return (
     <TenantCtx.Provider value={{ slug, api, me, brand, primary: p, accent: a, refreshBrand: loadBrand }}>
-      <div className="min-h-screen bg-[#0D1117] text-slate-100 flex" data-testid="tenant-portal">
+      <div className="min-h-screen bg-[#0D1117] text-slate-100 flex flex-col" data-testid="tenant-portal">
+        {me.impersonated && (
+          <div className="w-full bg-purple-600/90 text-white text-xs font-bold text-center py-1.5 px-4" data-testid="tenant-impersonation-banner">
+            👁 CLIENT VIEW — you're seeing this workspace exactly as {brand.company_name}'s team sees it (owner impersonation, expires in 2h)
+          </div>
+        )}
+        <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
         <aside className="w-56 shrink-0 border-r border-white/5 flex flex-col sticky top-0 h-screen">
           <div className="p-4 flex items-center gap-2.5 border-b border-white/5">
@@ -95,6 +101,7 @@ export default function TenantPortal() {
         <main className="flex-1 min-w-0 p-5 md:p-8 overflow-y-auto">
           <ActiveComp />
         </main>
+        </div>
       </div>
     </TenantCtx.Provider>
   );

@@ -1,0 +1,45 @@
+{
+  "summary": "iter71 — Platform Readiness self-test + Prospect hit list + View-as-client impersonation fully verified. Backend pytest 14/14 PASS. Frontend Playwright: /platform-readiness renders pr-verdict='READY TO SELL' after ~3-4s pr-run-btn click, pr-metrics shows score=100 / 47/47 checks / 100% / 20/20 functional / avg 155ms / p95 511ms, 6 category accordions expand with per-check rows (ms + evidence), pr-history-chart appears after 2nd run. HotShot Sales page hs-prospects-card shows 12 SAMPLE seeded prospects; add via hs-add-prospect-btn + form works; status change (hs-prospect-status-{id}) persists after full page reload; mailto link href contains urlencoded subject + company name AND clicking flips DB status to 'contacted'; copy button writes 662-char personalized email to clipboard; delete removes row and 404s subsequent DELETE. Impersonation: tc-impersonate-acme-freight-co button visible; POST /api/hotshot/tenants/acme-freight-co/impersonate returns JWT with imp:true; loading /t/acme-freight-co/app with impersonation token renders purple tenant-impersonation-banner with 'CLIENT VIEW' text over full tenant portal; regression = normal admin@acmefreight.com login shows NO banner. Non-admin blocked on readiness/run + impersonate (401/403). Cleanup verified: no selftest-* tenants remain, only acme-freight-co in db.tenants; 12 prospects (no UITest_ leftovers).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Tenant portal (both normal login and impersonated)",
+        "issues": ["Pre-existing 4-6 401 console errors on initial /t/{slug}/app load (axios /auth/me + /branding/public fire before token is picked up on first render). Cosmetic — same finding carried from iter69/iter70."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter71_readiness_prospects_impersonation.py",
+    "/app/test_reports/pytest/iter71_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/readiness.py: functional_flow provisions a real tenant per run (selftest-*), teardown DELETE runs even if intermediate steps fail because it's not in a try/finally — if a mid-step raises inside step()'s except (which currently swallows exceptions), teardown still runs. Confirmed cleanup works, but suggest wrapping the whole flow in try/finally to guarantee teardown on any unexpected pattern change.",
+    "routes/readiness.py:275 db.readiness_runs.insert_one(dict(run)) — the run dict contains a nested Motor '_id' key added by insert_one; the code correctly pops '_id' before return. Good. But run stored in DB includes ObjectId '_id' — later /runs and /latest use projection {'_id':0} to strip it, so OK.",
+    "routes/readiness.py PROBE_OVERRIDES has hard-coded '/api/driver-pwa/booking/SELFTEST-PROBE' which returns 404 by design — the code accepts 404 as 'alive+guarded'. Slightly hacky but works. Consider moving probes to a dedicated /alive endpoint per module long-term.",
+    "routes/hotshot.py _ensure_seed uses count==0 gate — safe against duplicates but if a single seed is deleted it will not re-seed remaining. Documented as intentional (design: seeds are samples).",
+    "routes/hotshot.py PATCH /prospects — contacted_at is set but never cleared if status flips back to 'new'. Minor: not really a bug, but consider clearing on non-contacted transitions if timelines matter.",
+    "routes/tenant_platform.py impersonate — token TTL 2h with imp:true is reasonable. Consider adding an audit log entry with the impersonator's user_id (currently only logs company_name); if a future admin action goes wrong under impersonation, you can't trace back who did it. Recommend `_log(slug, 'impersonate', f'{admin_user_id} opened client view')`.",
+    "PlatformReadiness.jsx: axios timeout 120s handled well; pr-history-chart depends on >=2 runs — no empty state message if only 1 run exists; add a placeholder for first-run UX.",
+    "ProspectList.jsx delete uses window.confirm — inconsistent with rest of app (toast/modal); low priority."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter71_readiness_prospects_impersonation.py (new — 14 tests, 100% pass, ~10s runtime)"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 pytest)",
+    "frontend": "100% (all critical flows: readiness UI + prospects CRUD + status persistence + mailto/copy + impersonation banner + regression)"
+  },
+  "test_credentials": "Orisei admin: Bearer test_session_admin_1 / localStorage tms_session_token. Dispatcher: test_session_dispatcher_1 (used for 401/403 gating). Acme tenant admin: admin@acmefreight.com / AcmeDemo123!. From /app/memory/test_credentials.md.",
+  "seed_data_creation": "Created 2 test prospects via API+UI (UITest_1784397919 + UITest2_1784397971) — both DELETED. Readiness self-test provisioned 3 selftest-* tenants across 3 runs — all self-cleaned up by the /run endpoint's teardown step. Verified via GET /api/hotshot/tenants that only 'acme-freight-co' remains and /api/hotshot/prospects returns 12 (matches SEED_PROSPECTS constant).",
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "iter71 covers Platform Readiness (POST/GET /api/hotshot/readiness/*, verdict READY_TO_SELL, 47/47 checks, 100% pass, 20/20 functional, self-cleanup verified), Prospects (12 seeded, full CRUD, mailto encodes subject + auto-flips to contacted, clipboard copy, delete), and View-as-client impersonation (JWT with imp:true, purple banner data-testid=tenant-impersonation-banner shows only when impersonated). Non-admin (dispatcher role) correctly gets 401/403 on /readiness/run and /tenants/{slug}/impersonate. Test file /app/backend/tests/test_iter71_readiness_prospects_impersonation.py has 14 tests, ~10s runtime. To retest UI impersonation without opening a new tab: set localStorage hs_token_acme-freight-co to the impersonation JWT and navigate to /t/acme-freight-co/app — the tenant-impersonation-banner renders when auth/me returns impersonated:true. Cleanup: no selftest-* tenants, no UITest_ prospects, 12 seed prospects, only acme-freight-co.",
+  "rca of the issue": "No blocking issues. Two observations: (1) pre-existing console 401 noise on tenant portal initial load (same as iter69/70 — cosmetic), (2) impersonate audit log doesn't include the impersonator's user_id — enhancement rather than a bug."
+}
