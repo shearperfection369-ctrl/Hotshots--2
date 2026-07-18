@@ -537,3 +537,29 @@ file.)
 - Tested: iteration_69.json — 29/30 backend, 100% frontend incl. full Stripe checkout with 4242
   card, cross-tenant isolation, suspend/reactivate, role gating. Both post-fixes self-verified.
 - Demo tenant: acme-freight-co (admin@acmefreight.com / AcmeDemo123!) — in test_credentials.md.
+
+## 2026-06 (fork) · Welcome Email + Self-Serve Signup + Tenant PDFs (iter70)
+- Welcome email on provisioning (branded HTML, queues to db.tenant_emails as queued_no_resend
+  when Resend key missing); POST /api/hotshot/signup — PUBLIC self-serve trial (honeypot +
+  3/hr/IP limit) auto-provisions growth-trial tenant, returns JWT, lands user in their portal.
+- Landing page: "Start free trial" section (hs-trial-section). Branded PDFs: GET
+  /t/{slug}/loads/{id}/ratecon.pdf + /t/{slug}/invoices/{id}/pdf (routes/tenant_pdfs.py,
+  tenant colors/logo). Download buttons in TenantLoads/TenantInvoices.
+- Fixes: brute-force ident slug:email (no IP), dispatcher redirect off admin tabs, /t added to
+  public route prefixes. INCIDENT: importing routes outside dotenv regenerated
+  CONNECTIONS_ENCRYPTION_KEY into .env (duplicate line) — removed duplicate, original preserved.
+- Tested iteration_70.json: 17/17 backend, frontend 100%.
+
+## 2026-06 (fork) · Platform Readiness + Prospect Hit List + View-as-Client (iter71)
+- routes/readiness.py: POST /api/hotshot/readiness/run — deep functional flow (provision
+  throwaway tenant → auth → load → PDFs → branding → team/role gates → Stripe session →
+  teardown, 20 checks) + live probes of 27 landing-page modules (route introspection via
+  request.app.routes since /openapi.json 500s app-wide). Metrics: score, pass rate, avg/p95
+  latency, slowest check, verdict READY_TO_SELL. History in db.readiness_runs.
+  Current: score 100, 47/47 checks, ~4s runtime. UI: /platform-readiness (Recharts trend).
+- Prospect hit list (routes/hotshot.py): 12 SAMPLE small-broker prospects seeded, CRUD +
+  status pipeline + personalized cold-email drafts (copy/mailto). UI card on /hotshot-sales.
+- Impersonation: POST /api/hotshot/tenants/{slug}/impersonate (2h token, imp claim) — Eye
+  button in Tenant Command opens client portal with purple CLIENT VIEW banner.
+- Tested iteration_71.json: 14/14 backend, frontend 100%, zero issues.
+- KNOWN COSMETIC (3x recurring, unfixed): 4-6 401 console errors on tenant portal first load.

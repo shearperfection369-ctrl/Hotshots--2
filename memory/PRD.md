@@ -1,5 +1,6 @@
 # Tennant Companies TMS — PRD
 
+> **Iter 70-71 (2026-06)**: Welcome emails (queued, needs Resend key), self-serve trial signup on landing, branded tenant Rate Con/Invoice PDFs, Platform Readiness self-test (score 100, 47/47), prospect hit list, view-as-client impersonation.
 > **Iter 69 (2026-06)**: Hot Shot TMS is now a MULTI-TENANT white-label SaaS — database-per-tenant isolation, per-tenant JWT auth + roles, per-tenant branding, Stripe recurring billing (claimable sandbox), Tenant Command admin panel, public uptime endpoint. Plus Solo Arcade (3 games), ROI calculator + demo-video slot on the landing page. See `/app/memory/CHANGELOG.md`.
 > **Iter 68 (2026-06)**: Hot Shot TMS sales package complete — landing behind login, capability map, lead pipeline. Fixed app-wide Sidebar crash (missing Zap import).
 
