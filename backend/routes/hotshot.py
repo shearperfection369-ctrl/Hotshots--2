@@ -165,7 +165,7 @@ def build_hotshot_router(*, db, get_current_user: Callable,
         return {"ok": True, "message": "You're on the list — we'll reach out within one business day to book your demo."}
 
     @router.get("/leads")
-    async def list_leads(_=Depends(require_role("owner", "dispatcher"))) -> Dict[str, Any]:
+    async def list_leads(_=Depends(require_role("admin", "owner", "dispatcher"))) -> Dict[str, Any]:
         leads = await db.hotshot_leads.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
         return {"leads": leads, "count": len(leads)}
 

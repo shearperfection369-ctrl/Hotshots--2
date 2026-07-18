@@ -497,3 +497,18 @@ public `/i/:token` route sits outside the `ProtectedRoute` wrapper.)
 (Earlier iterations 38–44 documented in main PRD.md until this file
 exists. Going forward, append new iteration blocks at the top of this
 file.)
+
+## 2026-06 (fork) · Hot Shot TMS SaaS package complete (iter68)
+- `/hotshot` landing moved BEHIND login (user choice "b") — ProtectedRoute, no Layout chrome.
+- Landing page expanded into a full capability showcase: animated live-stats strip,
+  "Value in the first 7 days" timeline (5 day cards), FULL CAPABILITY MAP (5 categories ×
+  28 module cards: AI Suite / Live Operations / Money & Back Office / Paperwork & Compliance /
+  Intelligence & Reporting), Operational Sandbox spotlight with sample month P&L,
+  3 founder-rate pricing tiers ($390/$975/$2,600), lead-capture demo form.
+- One-pager PDF enriched: sandbox, KPI intelligence, Dispatch Autopilot, money-on-autopilot lines.
+- CRITICAL FIX: Sidebar.jsx used the Zap lucide icon (Hot Shot nav item, added by prior fork)
+  WITHOUT importing it — top-level NAV array evaluation threw "Zap is not defined" and crashed
+  the ENTIRE frontend bundle. Added Zap to the lucide import; every logged-in page restored.
+- require_role on /api/hotshot/leads GET + status now explicitly includes "admin".
+- Tested: iteration_68.json — 9/9 backend pytest + 100% frontend (auth-gating, all landing
+  sections, lead→pipeline round trip, status persistence, Zap regression cleared). Test leads purged.
