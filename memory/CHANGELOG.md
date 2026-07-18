@@ -512,3 +512,28 @@ file.)
 - require_role on /api/hotshot/leads GET + status now explicitly includes "admin".
 - Tested: iteration_68.json — 9/9 backend pytest + 100% frontend (auth-gating, all landing
   sections, lead→pipeline round trip, status persistence, Zap regression cleared). Test leads purged.
+
+## 2026-06 (fork) · Multi-Tenant White-Label Platform + Solo Arcade + ROI + Demo Video (iter69)
+- **Hot Shot TMS Tenant Platform** (`routes/tenant_platform.py`): DATABASE-PER-TENANT isolation
+  (`hs_tenant_{slug}` MongoDB dbs). Master endpoints /api/hotshot/tenants/* (provision, list w/
+  usage, suspend/activate, delete+drop-db, activity feed). Tenant APIs /api/t/{slug}/*: JWT auth
+  (bcrypt + HS_JWT_SECRET, 12h tokens, brute-force 5-strike lockout keyed slug:email), roles
+  admin/dispatcher/viewer, team CRUD, branding (logo b64 + colors), loads/carriers/invoices CRUD,
+  dashboard KPIs, help guide. Public uptime probe /api/hotshot/status (UptimeRobot-ready).
+- **Stripe billing** (Flow A claimable sandbox, SMP tax mode w/ auto-fallback): catalog via
+  setup_stripe.py (hotshot_starter/growth/dwy_monthly at $390/$975/$2600), checkout per tenant,
+  /api/payments/status/{id} poll flips tenant billing to active, webhook /api/stripe/webhook.
+  Env: STRIPE_* + HS_JWT_SECRET added to backend/.env.
+- **Frontend**: /tenant-command (Orisei admin: provision, MRR, health, suspend, activity feed);
+  tenant portal /t/{slug}/login + /t/{slug}/app/{tab} — branded shell (runtime colors/logo),
+  Dashboard/Loads/Carriers/Invoices/Team/Settings(branding+billing+password)/Help.
+- **Solo Arcade**: 3 canvas games (Freight Runner snake, Load Stacker 2048, Dock Breaker breakout)
+  + /api/arcade/solo scores + per-game leaderboards. New "Solo Arcade" tab in /arcade.
+- **ROI calculator** on /hotshot landing (sliders → monthly value + ROI multiple vs $975 tier).
+- **Demo video**: chunked upload (4MB chunks → GridFS hotshot_media) from /hotshot-sales, Range-
+  supported streaming /api/hotshot/demo-video, auto-plays in landing demo box when uploaded.
+- Post-test fixes: brute-force ident no longer uses client IP (k8s pod rotation); dispatcher
+  hitting admin-only tab URLs redirects to /app; /t/* added to public route prefixes (401 noise).
+- Tested: iteration_69.json — 29/30 backend, 100% frontend incl. full Stripe checkout with 4242
+  card, cross-tenant isolation, suspend/reactivate, role gating. Both post-fixes self-verified.
+- Demo tenant: acme-freight-co (admin@acmefreight.com / AcmeDemo123!) — in test_credentials.md.

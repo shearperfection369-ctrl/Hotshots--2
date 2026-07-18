@@ -281,7 +281,7 @@ def build_tenant_platform_router(*, db, client, require_role: Callable) -> APIRo
         if tenant.get("status") == "suspended":
             raise HTTPException(status_code=403, detail="This workspace is suspended — contact support")
         email = payload.email.strip().lower()
-        ident = f"{request.client.host if request.client else 'x'}:{slug}:{email}"
+        ident = f"{slug}:{email}"
         attempt = await db.hs_login_attempts.find_one({"identifier": ident})
         if attempt and attempt.get("count", 0) >= 5:
             locked_at = datetime.fromisoformat(attempt["last_at"])

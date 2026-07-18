@@ -1,5 +1,8 @@
 # Tennant Companies TMS — PRD
 
+> **Iter 69 (2026-06)**: Hot Shot TMS is now a MULTI-TENANT white-label SaaS — database-per-tenant isolation, per-tenant JWT auth + roles, per-tenant branding, Stripe recurring billing (claimable sandbox), Tenant Command admin panel, public uptime endpoint. Plus Solo Arcade (3 games), ROI calculator + demo-video slot on the landing page. See `/app/memory/CHANGELOG.md`.
+> **Iter 68 (2026-06)**: Hot Shot TMS sales package complete — landing behind login, capability map, lead pipeline. Fixed app-wide Sidebar crash (missing Zap import).
+
 > **Iter 55 (2026-07-03)**: Dispatch Autopilot shipped — rule-based real-time load-matching engine + **full ML integration** (sklearn GradientBoosting classifier + regressor, Claude Sonnet 4.5 rationale via Emergent LLM key). Twilio/Resend intentionally mocked; drop-in ready for live keys. AUC 0.944, R² 0.558 on 400 synthetic training rows. See `/app/memory/CHANGELOG.md`.
 > **Iter 54 (2026-07-03)**: FedEx + UPS parcel rating and SPS Commerce EDI 204/210/214/990/856 shipped.
 > **Iter 53 (2026-07-03)**: Load Aggregator margin $ / %, Fleet · Routing console (Samsara + Mapbox/OSRM).

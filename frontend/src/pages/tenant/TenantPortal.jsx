@@ -51,7 +51,12 @@ export default function TenantPortal() {
   const p = brand.primary_color || "#F59E0B";
   const a = brand.accent_color || "#22D3EE";
   const visibleTabs = TABS.filter((t) => !t.roles || t.roles.includes(me.role));
-  const ActiveComp = (visibleTabs.find((t) => t.id === tab) || visibleTabs[0]).comp;
+  const activeTab = visibleTabs.find((t) => t.id === tab);
+  if (!activeTab) {
+    nav(`/t/${slug}/app`, { replace: true });
+    return null;
+  }
+  const ActiveComp = activeTab.comp;
 
   return (
     <TenantCtx.Provider value={{ slug, api, me, brand, primary: p, accent: a, refreshBrand: loadBrand }}>
