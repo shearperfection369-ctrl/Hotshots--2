@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2, Receipt } from "lucide-react";
+import { Plus, Trash2, Receipt, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { useTenant } from "./TenantPortal";
 import { errText } from "./tenantApi";
@@ -32,6 +32,15 @@ export default function TenantLoads() {
   const invoice = async (id) => {
     try { const { data } = await api.post(`/loads/${id}/invoice`); toast.success(data.already_invoiced ? "Already invoiced" : `Invoice ${data.invoice.invoice_id} created`); load(); }
     catch (e2) { toast.error(errText(e2)); }
+  };
+  const downloadRatecon = async (id) => {
+    try {
+      const r = await api.get(`/loads/${id}/ratecon.pdf`, { responseType: "blob" });
+      const url = URL.createObjectURL(r.data);
+      const a = document.createElement("a");
+      a.href = url; a.download = `RateCon_${id}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e2) { toast.error("Failed to generate rate con"); }
   };
   const del = async (id) => {
     try { await api.delete(`/loads/${id}`); load(); } catch (e2) { toast.error(errText(e2)); }
@@ -95,6 +104,8 @@ export default function TenantLoads() {
                 {canWrite && (
                   <td className="p-3">
                     <div className="flex gap-2">
+                      <button onClick={() => downloadRatecon(l.load_id)} title="Download rate confirmation PDF" data-testid={`tenant-load-ratecon-${l.load_id}`}
+                              className="text-slate-400 hover:text-cyan-300"><FileDown size={15} /></button>
                       <button onClick={() => invoice(l.load_id)} title="Create invoice" data-testid={`tenant-load-invoice-${l.load_id}`}
                               className="text-slate-400 hover:text-emerald-400"><Receipt size={15} /></button>
                       <button onClick={() => del(l.load_id)} title="Delete" data-testid={`tenant-load-delete-${l.load_id}`}

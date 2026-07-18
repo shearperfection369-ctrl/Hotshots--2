@@ -36,8 +36,10 @@ export default function TenantCommand() {
     e.preventDefault();
     setBusy(true);
     try {
-      const { data } = await api.post("/hotshot/tenants", form);
-      toast.success(`Tenant live — login at ${data.login_path}`);
+      const { data } = await api.post("/hotshot/tenants", { ...form, origin_url: window.location.origin });
+      const w = data.welcome_email;
+      if (w?.sent) toast.success(`Tenant live — welcome email sent to ${form.admin_email}`);
+      else toast.success(`Tenant live at ${data.login_path}`, { description: w?.reason || "" });
       setOpen(false); setForm(EMPTY); load();
     } catch (e2) { toast.error(typeof e2?.response?.data?.detail === "string" ? e2.response.data.detail : "Provisioning failed"); }
     finally { setBusy(false); }
@@ -127,7 +129,7 @@ export default function TenantCommand() {
                 {tenants.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-slate-500">No clients yet — provision your first workspace above.</td></tr>}
                 {tenants.map((t) => (
                   <tr key={t.slug} className="border-b border-white/5" data-testid={`tc-tenant-row-${t.slug}`}>
-                    <td className="py-2.5 pr-3"><div className="text-white font-semibold">{t.company_name}</div><div className="text-[10px] text-slate-500 font-mono">/t/{t.slug}</div></td>
+                    <td className="py-2.5 pr-3"><div className="text-white font-semibold">{t.company_name}{t.source === "self_serve" && <span className="ml-2 text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/40">self-serve</span>}</div><div className="text-[10px] text-slate-500 font-mono">/t/{t.slug}</div></td>
                     <td className="py-2.5 pr-3"><Badge className={`${PLAN_BADGE[t.plan]} text-[9px] font-mono uppercase`}>{t.plan}</Badge></td>
                     <td className="py-2.5 pr-3">
                       <span className={`text-[10px] font-mono uppercase ${t.billing?.status === "active" ? "text-emerald-400" : "text-orange-300"}`} data-testid={`tc-billing-${t.slug}`}>

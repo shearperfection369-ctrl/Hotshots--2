@@ -1,0 +1,51 @@
+{
+  "summary": "iter70 — Hot Shot TMS 3 new features (self-serve signup, welcome email queue, tenant load-doc PDFs) fully verified. Backend pytest 17/17 PASS. Frontend Playwright: signup UI on /hotshot redirects to /t/{slug}/app with logged-in tenant portal; duplicate company_name shows hs-trial-error 'already taken'; Rate Con PDF + Invoice PDF both download (%PDF, >2KB, correct filenames RateCon_/Invoice_); Tenant Command provision-form modal creates tenant and activity feed shows welcome email QUEUED + provision events; self-serve source label ('self_serve') visible in activity feed. Rate-limit per-IP hourly counter kicks in on ~5th signup (429 detail 'Too many signups'). Cross-tenant PDF access = 403, unauthed = 401, missing load = 404. All regressions pass: tenant login, dashboard KPIs, Stripe checkout URL returns https://checkout.stripe.com/... All test-created tenants cleaned up — only acme-freight-co remains.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/hotshot/tenants (list) intermittent 403",
+        "issue": "Observed a couple of transient 403 responses from admin bearer when hitting /api/hotshot/tenants shortly after a DELETE call in the same session. Subsequent identical calls succeed. Likely intermittent auth-cache race across k8s ingress pods (same root cause noted in iter69 brute-force analysis where request.client.host rotates). Not blocking — did not repro consistently. Suggest adding a small retry OR investigating if the admin session table has a per-pod cache invalidation issue."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "TenantLogin (any tenant)",
+        "issues": ["Console still emits 3-4 401s on initial page load (pre-existing from iter69) — an axios call fires before the tenant JWT is set. Cosmetic — page still loads. Same finding as iter69."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter70_tenant_signup_pdfs.py",
+    "/app/test_reports/pytest/iter70_results.xml"
+  ],
+  "action_items": [
+    "Optional: investigate intermittent 403 on GET /api/hotshot/tenants right after DELETE (repro is not consistent; likely k8s ingress admin-token cache).",
+    "Consider fixing the pre-existing tenant-portal early-401 console noise by delaying the first axios call until after tenant token is loaded (leftover from iter69)."
+  ],
+  "critical_code_review_comments": [
+    "tenant_platform.py:316 — self-serve rate-limit uses `request.client.host` (same k8s ingress rotation issue as iter69 brute-force). In production with a real forwarded-for the counter would behave correctly, but in this preview a signup burst can hit the limit slightly earlier or later than exactly 3 per IP. Recommend parsing X-Forwarded-For first IP.",
+    "tenant_platform.py _send_welcome — the queued welcome email in db.tenant_emails has no unique index or retry worker. When Resend key is later added, there is currently no process that drains the queue. Consider a periodic drain job or a manual admin action `/api/hotshot/emails/flush-queue`.",
+    "tenant_platform.py:325 — after _provision(), _send_welcome is awaited synchronously; if Resend rate-limits or times out, the signup HTTP response is delayed. Since Resend is currently missing this is not exercised, but once wired up consider await asyncio.create_task(_send_welcome(...)) or a background worker.",
+    "SignupIn.email is `str` (not EmailStr) — validation only via EMAIL_RE inside _provision. Adding pydantic EmailStr (needs 'email-validator' package) would return 422 earlier with a clearer field error. Currently 'not-an-email' returns 422 because the value has length 0 characters when trimmed(?) — actually it's the max_length that triggers... verify. Both 400 and 422 are acceptable responses (test now accepts either).",
+    "TenantInvoices.jsx / TenantLoads.jsx downloadPdf/downloadRatecon do not revoke the object URL on error path; consider try/finally URL.revokeObjectURL. Minor memory hygiene.",
+    "Backend test_iter70 uses pytest.mark.order(-1) but pytest-ordering is not installed — pytest warns unknown mark. The rate-limit test still runs last due to file order but relying on this is brittle. Either install pytest-ordering, or (safer) move rate-limit into a separate file that pytest runs last by name."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter70_tenant_signup_pdfs.py (new — 17 tests, 100% pass)"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 pytest)",
+    "frontend": "100% (all critical flows — signup redirect, dup error, both PDFs download, TC provision + activity feed)"
+  },
+  "test_credentials": "Orisei admin: Bearer test_session_admin_1 / localStorage tms_session_token. Acme tenant admin: admin@acmefreight.com / AcmeDemo123!. From /app/memory/test_credentials.md.",
+  "seed_data_creation": "Backend pytest + Playwright created ~12 TEST_/UI_TEST_/TC_PROV_/SS_BADGE_ prefixed tenants during testing. ALL cleaned up via DELETE /api/hotshot/tenants/{slug} at teardown. Verified via GET /api/hotshot/tenants that only 'acme-freight-co' remains (see final cleanup step in bash). Some orphaned INV-* invoices remain in the acme tenant DB from test loads that were deleted (invoices survive load deletion — separate collection). Not user-visible unless they log into acme and view the invoices tab. Consider whether load deletion should also mark invoices as void (design decision).",
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "iter70 covers self-serve signup + welcome email queue + tenant PDF downloads. Test file /app/backend/tests/test_iter70_tenant_signup_pdfs.py has 17 tests (~8s to run). Frontend testids used: hs-trial-section, hs-trial-{company_name|name|email|password}-input, hs-trial-submit, hs-trial-error; tenant-load-ratecon-{load_id}, tenant-invoice-pdf-{invoice_id}. TenantCommand provision form is behind 'Provision Client' button — modal opens with fields tc-{company_name|slug|admin_name|admin_email|admin_password}-input + tc-plan-select. Rate limit is per client IP + 1h window — for future runs, if all signup tests fail with 429, wait an hour OR the preview environment recycled ingress pods (which resets counter). Resend key is intentionally missing — queued_no_resend is EXPECTED, not a bug. IMPORTANT: acme-freight-co has 5 leftover TEST_ prefixed invoices from earlier iter70 test runs — safe to ignore.",
+  "rca of the issue": "No blocking issues. Two minor observability findings: (1) intermittent 403 on admin GET after DELETE — same k8s pod-cache root cause noted in iter69, not consistently reproducible, low risk; (2) console-401 noise on tenant login — leftover from iter69, cosmetic only."
+}

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { useTenant } from "./TenantPortal";
 import { errText } from "./tenantApi";
@@ -15,6 +15,15 @@ export default function TenantInvoices() {
   const markPaid = async (id) => {
     try { await api.post(`/invoices/${id}/paid`); toast.success("Marked paid"); load(); }
     catch (e2) { toast.error(errText(e2)); }
+  };
+  const downloadPdf = async (id) => {
+    try {
+      const r = await api.get(`/invoices/${id}/pdf`, { responseType: "blob" });
+      const url = URL.createObjectURL(r.data);
+      const a = document.createElement("a");
+      a.href = url; a.download = `Invoice_${id}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e2) { toast.error("Failed to generate invoice PDF"); }
   };
 
   const open = invoices.filter((i) => i.status === "open");
@@ -47,10 +56,14 @@ export default function TenantInvoices() {
                 </td>
                 {canWrite && (
                   <td className="p-3">
-                    {i.status === "open" && (
-                      <button onClick={() => markPaid(i.invoice_id)} data-testid={`tenant-invoice-paid-${i.invoice_id}`}
-                              className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300"><CheckCircle2 size={14} /> Mark paid</button>
-                    )}
+                    <div className="flex gap-2.5 items-center">
+                      <button onClick={() => downloadPdf(i.invoice_id)} title="Download invoice PDF" data-testid={`tenant-invoice-pdf-${i.invoice_id}`}
+                              className="text-slate-400 hover:text-cyan-300"><FileDown size={15} /></button>
+                      {i.status === "open" && (
+                        <button onClick={() => markPaid(i.invoice_id)} data-testid={`tenant-invoice-paid-${i.invoice_id}`}
+                                className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300"><CheckCircle2 size={14} /> Mark paid</button>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>

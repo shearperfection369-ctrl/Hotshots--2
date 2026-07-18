@@ -114,6 +114,26 @@ export default function HotShotLanding() {
   const [err, setErr] = useState("");
   const [roi, setRoi] = useState({ loads: 60, margin: 300, hours: 25 });
   const [demo, setDemo] = useState({ exists: false });
+  const [trial, setTrial] = useState({ company_name: "", name: "", email: "", password: "", website: "" });
+  const [trialBusy, setTrialBusy] = useState(false);
+  const [trialErr, setTrialErr] = useState("");
+
+  const startTrial = async (e) => {
+    e.preventDefault();
+    setTrialBusy(true); setTrialErr("");
+    try {
+      const r = await fetch(`${BACKEND_URL}/api/hotshot/signup`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...trial, origin_url: window.location.origin }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof d?.detail === "string" ? d.detail : "Signup failed");
+      if (d.token && d.slug) {
+        localStorage.setItem(`hs_token_${d.slug}`, d.token);
+        window.location.href = `/t/${d.slug}/app`;
+      }
+    } catch (e2) { setTrialErr(e2.message); } finally { setTrialBusy(false); }
+  };
 
   useEffect(() => {
     fetch(`${BACKEND_URL}/api/hotshot/demo-video/status`).then((r) => r.json()).then(setDemo).catch(() => {});
@@ -149,6 +169,7 @@ export default function HotShotLanding() {
         <div className="flex items-center gap-4 text-xs font-semibold">
           <button onClick={() => scrollTo("capabilities")} className="text-slate-300 hover:text-amber-300 hidden sm:block">Capabilities</button>
           <button onClick={() => scrollTo("pricing")} className="text-slate-300 hover:text-amber-300">Pricing</button>
+          <button onClick={() => scrollTo("trial")} data-testid="hs-nav-trial-btn" className="text-amber-300 hover:text-amber-200 font-bold">Free trial</button>
           <a href={`${BACKEND_URL}/api/hotshot/one-pager.pdf`} className="text-slate-300 hover:text-amber-300">One-Pager</a>
           <button onClick={() => scrollTo("demo")} data-testid="hs-nav-demo-btn"
                   className="px-4 py-2 rounded-full bg-amber-500 text-black font-bold hover:bg-amber-400">Book a demo</button>
@@ -345,6 +366,45 @@ export default function HotShotLanding() {
               Lock in the founder rate <ArrowRight size={15} />
             </button>
           </div>
+        </div>
+      </section>
+
+      {/* Self-serve trial */}
+      <section id="trial" className="px-5 py-16 bg-amber-500/[0.04] border-y border-amber-500/20" data-testid="hs-trial-section">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-10 items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.2em] text-amber-400 mb-3">
+              <Zap size={13} /> No sales call required
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Your own workspace, <span className="text-amber-400">live in 30 seconds.</span></h2>
+            <p className="mt-4 text-slate-400 text-sm leading-relaxed max-w-md">
+              Create a free trial workspace right now — your own isolated database, your own logins,
+              your own branding. Book a load before your coffee cools. Upgrade to a paid plan whenever you're ready.
+            </p>
+            <ul className="mt-4 space-y-2 text-[13px] text-slate-300">
+              {["Fully isolated — your data in your own database", "Add your team with roles from day one", "Upload your logo, pick your colors — instant white-label", "No credit card to start"].map((f) => (
+                <li key={f} className="flex gap-2"><Check size={14} className="text-amber-400 mt-0.5 shrink-0" />{f}</li>
+              ))}
+            </ul>
+          </div>
+          <form onSubmit={startTrial} className="p-6 rounded-2xl border border-amber-500/30 bg-[#0D1117] space-y-3" data-testid="hs-trial-form">
+            <div className="font-black">Start your free trial</div>
+            {[["company_name", "Brokerage / company name *"], ["name", "Your name *"], ["email", "Work email *"], ["password", "Create a password (8+ chars) *"]].map(([k, ph]) => (
+              <input key={k} required value={trial[k]} placeholder={ph}
+                     type={k === "password" ? "password" : k === "email" ? "email" : "text"}
+                     minLength={k === "password" ? 8 : undefined} data-testid={`hs-trial-${k}-input`}
+                     onChange={(e) => setTrial({ ...trial, [k]: e.target.value })}
+                     className="w-full h-11 rounded-lg bg-[#0D1117] border border-white/15 px-3 text-sm placeholder:text-slate-600 focus:border-amber-400 outline-none" />
+            ))}
+            <input value={trial.website} onChange={(e) => setTrial({ ...trial, website: e.target.value })}
+                   className="hidden" tabIndex={-1} autoComplete="off" placeholder="Website" />
+            {trialErr && <div className="text-xs text-red-400" data-testid="hs-trial-error">{trialErr}</div>}
+            <button type="submit" disabled={trialBusy} data-testid="hs-trial-submit"
+                    className="w-full py-3 rounded-full bg-amber-500 text-black font-black hover:bg-amber-400 inline-flex items-center justify-center gap-2 disabled:opacity-60">
+              {trialBusy ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />} Create my workspace
+            </button>
+            <div className="text-[10px] text-slate-500 text-center">You'll be dropped straight into your live portal.</div>
+          </form>
         </div>
       </section>
 

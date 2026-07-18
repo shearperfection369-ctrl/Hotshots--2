@@ -24,11 +24,16 @@ import bcrypt
 import jwt as pyjwt
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
+
+from routes.connections import get_connection_credentials
+from routes.tenant_pdfs import build_invoice_pdf, build_ratecon_pdf
 
 logger = logging.getLogger("orisei.tenant_platform")
 JWT_ALG = "HS256"
 BOOT_TS = time.time()
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY") or "sk_test_emergent"
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
@@ -79,6 +84,17 @@ class TenantCreate(BaseModel):
     admin_email: str = Field(..., max_length=200)
     admin_password: str = Field(..., min_length=8, max_length=100)
     admin_name: str = Field("", max_length=100)
+    origin_url: str = Field("", max_length=300)
+    send_welcome: bool = True
+
+
+class SignupIn(BaseModel):
+    company_name: str = Field(..., min_length=2, max_length=100)
+    name: str = Field(..., min_length=2, max_length=100)
+    email: str = Field(..., max_length=200)
+    password: str = Field(..., min_length=8, max_length=100)
+    origin_url: str = Field("", max_length=300)
+    website: str = Field("", max_length=100)  # honeypot
 
 
 class LoginIn(BaseModel):
@@ -197,32 +213,123 @@ def build_tenant_platform_router(*, db, client, require_role: Callable) -> APIRo
                 "uptime_seconds": int(time.time() - BOOT_TS), "tenants": tenants, "checked_at": _now()}
 
     # ================= MASTER: TENANT PROVISIONING =================
-    @router.post("/hotshot/tenants")
-    async def create_tenant(payload: TenantCreate, _=Depends(require_role("admin"))) -> Dict[str, Any]:
-        if payload.plan not in PLANS:
-            raise HTTPException(status_code=400, detail="Invalid plan")
-        slug = _slugify(payload.slug or payload.company_name)
+    def _welcome_html(company: str, admin_name: str, login_url: str, primary: str = "#F59E0B") -> str:
+        steps = [
+            ("Book your first load", "Loads → New Load. Enter the lane and rates — margin computes automatically."),
+            ("Invoice in one click", "When a load delivers, hit the invoice icon. Track open A/R on your dashboard."),
+            ("Add your team", "Team tab — admins, dispatchers, and read-only viewers."),
+            ("Make it yours", "Settings → Branding. Upload your logo and colors — the portal re-skins instantly."),
+        ]
+        rows = "".join(
+            f'<tr><td style="padding:10px 0;border-bottom:1px solid #F1F5F9;"><b style="color:#0D1117;">{i+1}. {t}</b><br>'
+            f'<span style="color:#64748B;font-size:13px;">{d}</span></td></tr>' for i, (t, d) in enumerate(steps))
+        return f"""<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#F8FAFC;padding:24px;">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #E2E8F0;">
+<div style="background:#0D1117;padding:26px 30px;border-bottom:4px solid {primary};">
+<div style="color:{primary};font-size:11px;letter-spacing:.25em;font-family:Courier,monospace;">HOT SHOT TMS</div>
+<div style="color:#fff;font-size:22px;font-weight:800;margin-top:6px;">Welcome aboard, {company}!</div></div>
+<div style="padding:26px 30px;font-size:14px;line-height:1.6;color:#1E293B;">
+<p>Hi {admin_name or 'there'},</p>
+<p>Your isolated workspace is live. Your data sits in its own database — nobody else's freight ever touches it.</p>
+<p style="text-align:center;margin:26px 0;"><a href="{login_url}" style="background:{primary};color:#000;font-weight:800;padding:13px 34px;border-radius:999px;text-decoration:none;">Open your workspace</a></p>
+<p style="font-size:12px;color:#64748B;text-align:center;">Login: <a href="{login_url}">{login_url}</a></p>
+<table style="width:100%;border-collapse:collapse;margin-top:8px;">{rows}</table>
+<p style="margin-top:22px;">Questions? Just reply — you'll hear back within one business day.<br>— Oliver Cummins, Hot Shot TMS</p>
+</div></div></body></html>"""
+
+    async def _send_welcome(slug: str, company: str, admin_email: str, admin_name: str, origin: str) -> Dict[str, Any]:
+        login_url = f"{(origin or os.environ.get('PUBLIC_FRONTEND_URL', '')).rstrip('/')}/t/{slug}/login"
+        html = _welcome_html(company, admin_name, login_url)
+        subject = f"Your {company} workspace on Hot Shot TMS is live"
+        record = {"id": f"WEL-{uuid.uuid4().hex[:8].upper()}", "slug": slug, "to_email": admin_email,
+                  "subject": subject, "html": html, "login_url": login_url, "created_at": _now()}
+        creds = await get_connection_credentials(db, "resend") or {}
+        api_key = creds.get("api_key")
+        if not api_key:
+            record["status"] = "queued_no_resend"
+            await db.tenant_emails.insert_one(dict(record))
+            await _log(slug, "email", f"Welcome email QUEUED for {admin_email} (Resend key missing)", level="warn")
+            return {"sent": False, "status": "queued_no_resend", "login_url": login_url,
+                    "reason": "Resend key missing — email queued. Add your Resend key in Connections to send automatically."}
+        try:
+            import resend
+            resend.api_key = api_key
+            resp = resend.Emails.send({
+                "from": creds.get("from_email") or "Hot Shot TMS <oliver@oriseifreight.com>",
+                "to": [admin_email], "subject": subject, "html": html,
+                "reply_to": creds.get("reply_to") or "oliver@oriseifreight.com"})
+            record["status"] = "sent"
+            record["message_id"] = (resp or {}).get("id") if isinstance(resp, dict) else None
+            await db.tenant_emails.insert_one(dict(record))
+            await _log(slug, "email", f"Welcome email SENT to {admin_email}")
+            return {"sent": True, "status": "sent", "login_url": login_url}
+        except Exception as exc:  # noqa: BLE001
+            record["status"] = "failed"
+            record["error"] = str(exc)[:200]
+            await db.tenant_emails.insert_one(dict(record))
+            await _log(slug, "email", f"Welcome email FAILED for {admin_email}: {str(exc)[:120]}", level="warn")
+            return {"sent": False, "status": "failed", "login_url": login_url, "reason": str(exc)[:200]}
+
+    async def _provision(company_name: str, slug_hint: str, plan: str, admin_email: str,
+                         admin_password: str, admin_name: str, source: str) -> Dict[str, Any]:
+        slug = _slugify(slug_hint or company_name)
         if await db.tenants.find_one({"slug": slug}):
-            raise HTTPException(status_code=400, detail=f"Slug '{slug}' is already taken")
-        email = payload.admin_email.strip().lower()
+            raise HTTPException(status_code=400, detail=f"Workspace name '{slug}' is already taken — try another")
+        email = admin_email.strip().lower()
+        if not EMAIL_RE.match(email):
+            raise HTTPException(status_code=400, detail="Enter a valid email address")
         tenant = {
-            "slug": slug, "company_name": payload.company_name, "plan": payload.plan,
-            "status": "active", "created_at": _now(), "admin_email": email,
-            "billing": {"status": "trial", "plan": payload.plan, "subscription_id": None, "last_payment_at": None},
+            "slug": slug, "company_name": company_name, "plan": plan,
+            "status": "active", "source": source, "created_at": _now(), "admin_email": email,
+            "billing": {"status": "trial", "plan": plan, "subscription_id": None, "last_payment_at": None},
         }
         await db.tenants.insert_one(dict(tenant))
         t = tdb(slug)
         await t.users.create_index("email", unique=True)
         await t.users.insert_one({
             "user_id": f"TU-{uuid.uuid4().hex[:8].upper()}", "email": email,
-            "name": payload.admin_name or payload.company_name + " Admin",
-            "role": "admin", "password_hash": _hash_pw(payload.admin_password),
+            "name": admin_name or company_name + " Admin",
+            "role": "admin", "password_hash": _hash_pw(admin_password),
             "created_at": _now(), "last_login_at": None,
         })
-        await t.branding.insert_one({**DEFAULT_BRANDING, "company_name": payload.company_name, "_singleton": True})
-        await _log(slug, "provision", f"Tenant '{payload.company_name}' provisioned on {payload.plan} plan")
-        logger.info("Tenant provisioned: %s (%s)", slug, payload.plan)
-        return {"ok": True, "tenant": tenant, "login_path": f"/t/{slug}/login"}
+        await t.branding.insert_one({**DEFAULT_BRANDING, "company_name": company_name, "_singleton": True})
+        await _log(slug, "provision", f"Tenant '{company_name}' provisioned on {plan} plan ({source})")
+        logger.info("Tenant provisioned: %s (%s, %s)", slug, plan, source)
+        return tenant
+
+    @router.post("/hotshot/tenants")
+    async def create_tenant(payload: TenantCreate, _=Depends(require_role("admin"))) -> Dict[str, Any]:
+        if payload.plan not in PLANS:
+            raise HTTPException(status_code=400, detail="Invalid plan")
+        tenant = await _provision(payload.company_name, payload.slug, payload.plan,
+                                  payload.admin_email, payload.admin_password, payload.admin_name, "manual")
+        welcome = None
+        if payload.send_welcome:
+            welcome = await _send_welcome(tenant["slug"], payload.company_name,
+                                          tenant["admin_email"], payload.admin_name, payload.origin_url)
+        return {"ok": True, "tenant": tenant, "login_path": f"/t/{tenant['slug']}/login", "welcome_email": welcome}
+
+    @router.post("/hotshot/signup")  # PUBLIC — self-serve trial from the landing page
+    async def self_serve_signup(payload: SignupIn, request: Request) -> Dict[str, Any]:
+        if payload.website:  # honeypot — silently accept
+            return {"ok": True, "login_path": "/hotshot"}
+        ip = request.client.host if request.client else "x"
+        recent = await db.tenants.count_documents({
+            "source": "self_serve", "signup_ip": ip,
+            "created_at": {"$gt": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()}})
+        if recent >= 3:
+            raise HTTPException(status_code=429, detail="Too many signups from this network — try again later")
+        tenant = await _provision(payload.company_name, "", "growth",
+                                  payload.email, payload.password, payload.name, "self_serve")
+        await db.tenants.update_one({"slug": tenant["slug"]}, {"$set": {"signup_ip": ip}})
+        await _send_welcome(tenant["slug"], payload.company_name, tenant["admin_email"], payload.name, payload.origin_url)
+        user = await tdb(tenant["slug"]).users.find_one({"email": tenant["admin_email"]})
+        token = pyjwt.encode({
+            "sub": user["user_id"], "email": tenant["admin_email"], "role": "admin", "tenant": tenant["slug"],
+            "exp": datetime.now(timezone.utc) + timedelta(hours=12), "type": "access",
+        }, _jwt_secret(), algorithm=JWT_ALG)
+        return {"ok": True, "slug": tenant["slug"], "login_path": f"/t/{tenant['slug']}/login", "token": token}
+
 
     @router.get("/hotshot/tenants")
     async def list_tenants(_=Depends(require_role("admin"))) -> Dict[str, Any]:
@@ -454,6 +561,30 @@ def build_tenant_platform_router(*, db, client, require_role: Callable) -> APIRo
         if r.matched_count == 0:
             raise HTTPException(status_code=404, detail="Invoice not found")
         return {"ok": True}
+
+    # ================= TENANT: BRANDED PDFS =================
+    @router.get("/t/{slug}/loads/{load_id}/ratecon.pdf")
+    async def load_ratecon_pdf(slug: str, load_id: str,
+                               user=Depends(require_tenant_role("admin", "dispatcher", "viewer"))) -> Response:
+        load = await tdb(slug).loads.find_one({"load_id": load_id}, {"_id": 0})
+        if not load:
+            raise HTTPException(status_code=404, detail="Load not found")
+        brand = await tdb(slug).branding.find_one({"_singleton": True}, {"_id": 0}) or dict(DEFAULT_BRANDING)
+        pdf = build_ratecon_pdf(brand, load)
+        return Response(content=pdf, media_type="application/pdf",
+                        headers={"Content-Disposition": f'attachment; filename="RateCon_{load_id}.pdf"'})
+
+    @router.get("/t/{slug}/invoices/{invoice_id}/pdf")
+    async def invoice_pdf(slug: str, invoice_id: str,
+                          user=Depends(require_tenant_role("admin", "dispatcher", "viewer"))) -> Response:
+        inv = await tdb(slug).invoices.find_one({"invoice_id": invoice_id}, {"_id": 0})
+        if not inv:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        load = await tdb(slug).loads.find_one({"load_id": inv.get("load_id", "")}, {"_id": 0})
+        brand = await tdb(slug).branding.find_one({"_singleton": True}, {"_id": 0}) or dict(DEFAULT_BRANDING)
+        pdf = build_invoice_pdf(brand, inv, load)
+        return Response(content=pdf, media_type="application/pdf",
+                        headers={"Content-Disposition": f'attachment; filename="Invoice_{invoice_id}.pdf"'})
 
     # ================= TENANT: DASHBOARD =================
     @router.get("/t/{slug}/dashboard")
