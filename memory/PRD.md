@@ -1980,3 +1980,37 @@ retrains scoring weights from revealed preferences — making the intuitive
 ### Backlog (new)
 - P2: Diesel recalibration to 2026 levels ($5.25 avg) + optional "realism discount" toggle.
 - P2: High-speed sims (>120) merge some daily P&L buckets on multi-day tick jumps (cosmetic).
+
+
+## 2026-07-20 · Truck Cleaning: Doc Vault · Branded Onboarding · Invoicing + Stripe Pay · Official Logo
+- **NEW `routes/truck_cleaning_biz.py`** (~450 lines) mounted at `/api/truck-cleaning/*`:
+  - **Doc Vault** — GridFS bucket `tc_vault`: upload (25MB cap, 8 categories, optional client link,
+    notes), list w/ category filter, download, delete.
+  - **Onboarding lifecycle** — admin creates tokenized invite → public wizard at `/tc/onboard/{token}`
+    (3 steps: company → fleet+plan → agreement acceptance) → status `submitted` (pending review, per
+    user choice) → APPROVE auto-creates `tc_clients` row with plan rate (150/120/125) / REJECT.
+    Branded Welcome Packet PDF per onboarding.
+  - **Invoicing & payments** — build invoice from unbilled jobs + custom line items (Net 15),
+    branded PDF, Resend email w/ pay-button + PDF attach (400 w/ helpful msg until key added),
+    mark-paid cascades linked jobs → `paid`. PUBLIC pay page `/tc/invoice/{id}`: sanitized info,
+    inline PDF, **Stripe test-mode checkout** (managed_payments w/ fallback), status poll settles
+    invoice + jobs on `payment_status=paid`. Collections: `tc_onboarding`, `tc_invoices`.
+- **Official logo** — user-supplied blue shield "ORISEI Truck Cleaning Solutions EST. 2023"
+  (truck.jpeg asset) cropped/feathered → `/app/frontend/public/tc-logo.png` (web) +
+  `/app/backend/routes/_tc_logo_pdf.png` (PDF). All TC PDFs (proposal/agreement/report-card/
+  welcome packet/invoice) now embed it; UI headers on /truck-cleaning + both public pages use it.
+- **Frontend** — TruckCleaning.jsx now 9 tabs (added Onboarding, Invoices, Doc Vault) via
+  `components/truckcleaning/{TcOnboarding,TcInvoices,TcVault}.jsx`. Public routes registered:
+  `/tc/onboard/:token` (TcOnboardPublic), `/tc/invoice/:invoiceId` (TcInvoicePublic).
+- **Bug fixes** — Sidebar.jsx missing `Droplets` lucide import (crashed whole authed layout);
+  AuthProvider public-route list extended with `/tc`, `/i`, `/tour`, `/get-quote`, `/carriers`
+  so public pages don't fire 401 auth polls.
+- **Tests** — iteration_72: backend 31/31 pytest pass + 100% frontend flows
+  (`/app/backend/tests/test_iter72_tc_biz.py` reusable for regression).
+
+### Remaining backlog (carried)
+- QuickBooks real OAuth connect for TC paid-jobs sync (vault creds ready; use integration_expert).
+- Upwork Portfolio media assets via Nano Banana (recurring, 5 forks).
+- Demo reel `rerecord.py` routeopt.webm Playwright timeout.
+- `server.py` refactor continues (P2). Resend/Twilio/R2/DAT keys pending user.
+

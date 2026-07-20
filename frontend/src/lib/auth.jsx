@@ -8,7 +8,7 @@ const PUBLIC_ROUTE_PREFIXES = [
   "/investors", "/press", "/exec-summary",
   "/tms-investors", "/tms-pitch", "/demo",
   "/marketing", "/landing", "/accept-invite", "/customer-portal", "/rfp-board", "/driver",
-  "/driver", "/login", "/t",
+  "/driver", "/login", "/t", "/tc", "/i", "/tour", "/get-quote", "/carriers",
 ];
 
 function isPublicRoute() {
