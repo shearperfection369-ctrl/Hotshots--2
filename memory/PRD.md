@@ -2076,3 +2076,31 @@ retrains scoring weights from revealed preferences — making the intuitive
   Bedding batch self-tested via curl ($303 job = 150+25+99+29) + brochure raster + UI screenshot.
 - LESSON: when adding tabs to TruckCleaning.jsx, every TABS.id needs a matching render branch.
 
+
+## 2026-07-20 (later 3) · Month Calendar · Edit Everything · Review Engine · Scent Card · Bedding Inventory
+- **Scheduler → month calendar** (TcScheduler.jsx rewrite): 42-cell month grid, month nav + TODAY,
+  today highlight (tc-cal-today), color legend (crewed/needs-crew/done), hover-to-book per day,
+  KPI strip. Backend GET /schedule clamp raised to 45 days.
+- **Edit capability everywhere**: POST /jobs/{id}/update (date/cabs/window/tech_ids/status/upsells
+  w/ reprice; empty payload 400 — window is Optional[str] after tester-found bug), DELETE /jobs/{id},
+  POST /techs/{id}/update. Big-font (text-base/h-12) edit + dispatch dialogs per user request;
+  tech roster cards click-to-edit w/ remove.
+- **Review Engine** (`truck_cleaning_field.py`): tc_settings google_review_url (GET/POST /settings),
+  auto-SMS review link fires inside proof/send success + manual POST /jobs/{id}/review-request;
+  review_requested_at idempotence; settings card w/ sent counter atop AI Offers tab (tc-review-engine).
+- **Driver Scent Card**: POST /jobs/{id}/scent-card → public /tc/scent/{token}
+  (TcScentCardPublic.jsx): 8 free scent pills + 10 paid upgrades (freshener+bedding) w/ running
+  total; submit merges upsells + reprices job, stores driver_prefs; locked when job done.
+  Reminder SMS now carries BOTH reschedule + scent links. Palette button in Jobs tools copies link.
+- **Bedding Inventory** (`truck_cleaning_fleet.py` + new Inventory tab, 15 tabs total):
+  tc_inventory seeds 9 products (bed_change service excluded), stock/committed/available (floored
+  at 0)/LOW badges, ± and +10 restock; stock auto-deducts ONCE when a job w/ product upsells is
+  completed (inventory_consumed flag in truck_cleaning.py status endpoint).
+- **Incidents fixed this session**: truck_cleaning_field.py bad splice (early `return router` +
+  orphaned fragment — repaired, dup proof endpoints removed); TcOffers.jsx duplicated JSX tail
+  (truncated + ReviewEngine re-added); running `python -c import routes...` in shell appended a
+  DUPLICATE CONNECTIONS_ENCRYPTION_KEY to backend/.env (removed line 22; vault verified intact —
+  NEVER import backend modules in a bare shell, use pytest against the running server).
+- **Tests**: iteration_76 — backend 117 checks (1 real bug found → fixed → suite
+  test_iter76_tc_batch.py 29/29 pass), frontend 100%. Regression iter72-75 suites pass.
+

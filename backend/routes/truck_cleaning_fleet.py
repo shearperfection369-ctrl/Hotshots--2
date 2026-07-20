@@ -368,7 +368,7 @@ def build_truck_cleaning_fleet_router(*, db, require_role: Callable) -> APIRoute
                     committed[u] = committed.get(u, 0) + 1
         for r in rows:
             r["committed"] = committed.get(r["item_id"], 0)
-            r["available"] = r["stock"] - r["committed"]
+            r["available"] = max(0, r["stock"] - r["committed"])
             r["low"] = r["available"] <= r["low_threshold"]
         return {"items": rows, "low_count": sum(1 for r in rows if r["low"]),
                 "retail_value": round(sum(r["stock"] * r["unit_price"] for r in rows), 2)}

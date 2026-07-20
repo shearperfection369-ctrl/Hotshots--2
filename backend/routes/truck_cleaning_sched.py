@@ -29,7 +29,7 @@ class AssignIn(BaseModel):
 class JobUpdateIn(BaseModel):
     date: str = Field("", max_length=10)
     cabs: int = Field(0, ge=0, le=500)
-    window: str = Field("", max_length=30)
+    window: Optional[str] = Field(None, max_length=30)
     tech_ids: Optional[List[str]] = None
     status: str = Field("", max_length=20)
     upsells: Optional[List[str]] = None
@@ -176,7 +176,7 @@ def build_truck_cleaning_sched_router(*, db, require_role: Callable) -> APIRoute
         if payload.date:
             upd["date"] = payload.date
             upd["reminder_for_date"] = None
-        if payload.window or payload.window == "":
+        if payload.window is not None:
             upd["window"] = payload.window
         if payload.status:
             if payload.status not in ("scheduled", "completed", "paid"):

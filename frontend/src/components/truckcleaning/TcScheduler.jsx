@@ -76,7 +76,7 @@ export const TcScheduler = ({ clients, reloadAll }) => {
             const isToday = ds === today;
             const day = jobsByDate[ds];
             return (
-              <div key={ds} data-testid={`tc-cal-day-${ds}`}
+              <div key={ds} data-testid={isToday ? "tc-cal-today" : `tc-cal-day-${ds}`}
                    className={`min-h-[110px] border-b border-r border-white/5 p-1.5 relative group ${inMonth ? "" : "opacity-35"} ${isToday ? "bg-amber-500/[0.07] ring-1 ring-inset ring-amber-400/50" : ""}`}>
                 <div className="flex justify-between items-center mb-1">
                   <span className={`text-xs font-mono ${isToday ? "text-amber-300 font-black" : "text-slate-500"}`}>{d.getUTCDate()}</span>
@@ -97,7 +97,7 @@ export const TcScheduler = ({ clients, reloadAll }) => {
             );
           })}
         </div>
-        <div className="flex gap-4 px-3 py-2 border-t border-white/10 text-[10px] font-mono text-slate-500">
+        <div className="flex gap-4 px-3 py-2 border-t border-white/10 text-[10px] font-mono text-slate-500" data-testid="tc-sched-legend">
           <span><span className="inline-block h-2 w-2 rounded-sm bg-cyan-500/50 mr-1" />crewed</span>
           <span><span className="inline-block h-2 w-2 rounded-sm bg-red-500/50 mr-1" />needs crew</span>
           <span><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/50 mr-1" />done/paid</span>
