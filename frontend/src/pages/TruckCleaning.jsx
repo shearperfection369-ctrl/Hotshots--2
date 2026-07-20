@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Topbar from "../components/Topbar";
 import { Card } from "../components/ui/card";
-import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp, UserPlus, FolderOpen, Receipt, CalendarDays, SprayCan } from "lucide-react";
+import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp, UserPlus, FolderOpen, Receipt, CalendarDays, SprayCan, Truck, Megaphone } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -11,6 +11,8 @@ import { TcInvoices } from "../components/truckcleaning/TcInvoices";
 import { TcJobActions } from "../components/truckcleaning/TcJobActions";
 import { TcScheduler } from "../components/truckcleaning/TcScheduler";
 import { TcGuide } from "../components/truckcleaning/TcGuide";
+import { TcFleet } from "../components/truckcleaning/TcFleet";
+import { TcOffers } from "../components/truckcleaning/TcOffers";
 
 const TABS = [
   { id: "dashboard", label: "Command Deck", icon: Sparkles },
@@ -18,6 +20,8 @@ const TABS = [
   { id: "clients", label: "Clients", icon: Users },
   { id: "onboarding", label: "Onboarding", icon: UserPlus },
   { id: "jobs", label: "Jobs", icon: ClipboardList },
+  { id: "fleet", label: "Fleet Registry", icon: Truck },
+  { id: "offers", label: "AI Offers", icon: Megaphone },
   { id: "invoices", label: "Invoices", icon: Receipt },
   { id: "vault", label: "Doc Vault", icon: FolderOpen },
   { id: "guide", label: "Cleaning Guide", icon: SprayCan },
@@ -392,6 +396,8 @@ export default function TruckCleaning() {
           {tab === "clients" && <Clients clients={clients} reload={reload} />}
           {tab === "onboarding" && <TcOnboarding reloadAll={reload} />}
           {tab === "jobs" && <Jobs jobs={jobs} clients={clients} reload={reload} />}
+          {tab === "fleet" && <TcFleet clients={clients} />}
+          {tab === "offers" && <TcOffers />}
           {tab === "invoices" && <TcInvoices clients={clients} jobs={jobs} reloadAll={reload} />}
           {tab === "vault" && <TcVault clients={clients} />}
           {tab === "playbook" && <Playbook pb={pb} />}

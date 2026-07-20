@@ -1,0 +1,38 @@
+{
+  "summary": "Iter74 — Full backend + frontend verification of Orisei Truck Cleaning fleet unit registry, AI efficiency schedule, and AI offer engine. Backend: 15/15 new pytest tests pass in test_iter74_tc_fleet_offers.py covering GET /units (seed + metrics shape + fleets rollup), client_id filter, POST /units (404 unknown client, cadence 0 derives from client plan = 14|21|30, never_cleaned initial status), POST /units/{id}/clean (metrics update — total_cleans=1, status fresh, days_since=0), POST /units/{id}/cadence (3-120 guard: rejects 2 and 121 with 400, accepts 30 and persists), 404 on unknown unit, DELETE /units (200 + repeat 404). AI schedule: GET /ai-schedule?ai=false returns capacity_per_day=27 (3 techs*9), 7-day plan, one client per day (no client dupes on same day), day.cabs = sum(stops.cabs); days=2 clamps to 3 buckets. Offers: /offers returns resend_configured=false + shape ok, POST /offers/{id}/send → 400 with 'resend' in body, /offers/send-all → 400, DELETE /offers/{id} → 200 (repeat 404). AI schedule with ai=true verified via live curl — returned 851-char AI notes within 60s (Claude via EMERGENT_LLM_KEY). Regression: iter72 (31) + iter73 (31) still all pass — 62/62. Frontend: /truck-cleaning admin renders all 13 tabs incl. Fleet Registry (tc-tab-fleet) + AI Offers (tc-tab-offers). Fleet tab: ALL FLEETS pill (6 units), 3 fleet pills, 6 unit cards with status pill + cadence bar; clicking a card opens tc-unit-detail with 3 metric tiles + tc-unit-cadence-input + tc-unit-cadence-save (cadence updated), Mark Cleaned Today + Remove. Add Unit reveals tc-unit-form. AI Efficiency Schedule (tc-ai-schedule-btn) rendered 3 day columns in ~15s and tc-ai-notes populated with 4-bullet AI insights. AI Offers tab: shows Resend-needed notice, tc-offers-scrub-btn present, 5 existing draft offer rows load with angle chips (UPSELL BUNDLE, SUB UPGRADE) + DRAFT status; tc-offer-preview-* opens tc-offer-preview-dialog with subject/body; Send on draft correctly surfaces 'Resend is not configured — add your Resend API key in Connections · Keys.' toast; Send All (4) button visible and errors gracefully with same Resend toast; delete removes row (5→4). Regression quick pass: Scheduler tab (tc-scheduler), Jobs tab (tc-run-reminders-btn), Invoices (tc-invoices), Doc Vault (tc-vault), Cleaning Guide all render.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/truck-cleaning offers tab (initial load)", "issues": ["When offers list is fetching, the empty-state 'No offers yet — hit \"AI Scrub Client List\"' briefly flashes before data arrives. Consider a small loading skeleton or defer empty-state message by 200ms to avoid the flicker."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter74_tc_fleet_offers.py",
+    "/app/test_reports/pytest/iter74_results.xml"
+  ],
+  "action_items": [
+    "None blocking. Optional UX polish: add loading skeleton to Offers table to hide the empty-state flash while /offers loads."
+  ],
+  "critical_code_review_comments": [
+    "truck_cleaning_fleet.py _seed_units correctly gates on count==0 (idempotent) and only seeds up to 3 clients × 3 cabs — clean bounded seed.",
+    "POST /units/{id}/cadence validates 3<=days<=120 before hitting Mongo — good. However set_cadence accepts a raw Dict[str,int] instead of a Pydantic model — consider a CadenceIn model for consistency.",
+    "ai_schedule plan-packing greedily assigns groups to the lightest day; capacity overflow only triggers a re-min-day pick — for small fleets this is fine but with dozens of clients a single yard could still exceed capacity. Acceptable MVP.",
+    "scrub uses a HARD 4000-char body cap and 180-char subject cap — good defensive slicing before Mongo write.",
+    "scrub deletes prior drafts per client (tc_offers.delete_many status=draft) before insert — prevents duplicate drafts on re-scrub. Correct.",
+    "_ai_notes catches all exceptions and returns '' — matches spec ('empty string acceptable on LLM failure').",
+    "_public_base import from truck_cleaning_field is unused in fleet router — safe to remove.",
+    "resend.api_key is set as a module-level attr each send; if two send-all calls run concurrently with different api_keys it could race — very unlikely in single-tenant admin flow but worth a wrapper if multi-tenancy is added.",
+    "TcFleet.jsx uses `m.days_since / m.cadence_days` for progress bar without guarding cadence_days=0 — currently backend defaults to 21 so safe, but a defensive `|| 21` on the frontend would prevent NaN if cadence were ever 0.",
+    "TcOffers.jsx errTxt handles string detail only; if backend ever returns detail as list/dict (FastAPI validation errors), the toast will read 'Something went wrong' — acceptable fallback."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter74_tc_fleet_offers.py", "/app/test_reports/pytest/iter74_results.xml"],
+  "success_rate": {"backend": "100% (15/15 iter74 + 62/62 regression iter72+iter73)", "frontend": "100% (13 tabs, fleet cards + detail dialog + cadence save, AI schedule with AI notes, offers preview + send Resend-error + send-all Resend-error + delete)"},
+  "test_credentials": "Admin bearer test_session_admin_1; frontend localStorage tms_session_token=test_session_admin_1.",
+  "seed_data_creation": "Fleet: 6 sample units auto-seeded on first /units call (idempotent). Offers: 4 draft offers remain (TEST_iter72 Fleet, TEST_iter73 NoPhone, TEST_iter73 Fleet, SMS Test Fleet); one was deleted by pytest cleanup and one by playwright delete-row test. All remaining offers are TEST_-prefixed clients — safe.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter74 fleet + offers batch is fully verified. Do NOT run POST /offers/scrub again — it burns LLM tokens; the existing 4 drafts are sufficient for any subsequent UI verification. Existing tests are idempotent-safe. AI schedule with ai=true takes ~10-20s in practice (well under 60s timeout). Resend and Twilio remain unconfigured by design (mocked APIs per problem statement) — every /send endpoint correctly returns 400 with 'Resend is not configured' message.",
+  "rca_of_the_issue": "N/A — no blocking bugs."
+}
