@@ -2048,3 +2048,31 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Demo reel `rerecord.py` routeopt.webm Playwright timeout.
 - `server.py` refactor continues (P2). Resend/Twilio/R2/DAT keys pending user.
 
+
+## 2026-07-20 (later 2) · Fleet Registry · AI Offers · Color Brochures · Expanded Upsells · Bedding Service
+- **`routes/truck_cleaning_fleet.py`** — `tc_units` registry (make/model/year, per-unit clean history,
+  cadence by plan 14/21/30d), metrics (days_since, due_in, status overdue|due_soon|fresh|never_cleaned,
+  avg interval), mark-cleaned, cadence 3-120d; **AI efficiency schedule** GET /ai-schedule packs due
+  units into a week grouped one-yard-trip-per-client at capacity techs×9 cabs/day + Claude notes;
+  **AI Offer Engine** POST /offers/scrub — Claude scrubs the client registry and drafts one targeted
+  offer per client (win_back|sub_upgrade|upsell_bundle|referral|fleet_rate), send/send-all via Resend
+  (400 until key), tc_offers collection, re-scrub replaces drafts.
+- **Catalog expanded** (`truck_cleaning.py` UPSELL_META, GET /catalog): 9 add-ons (engine bay, tires,
+  filter, leather, headliner, mattress refresh, chrome, exterior wash, ozone odor bomb), 4 air-freshener
+  packages (single $5, dual $9, vent diffuser $12, rotation club $8) + 8-scent menu, and **6 bedding
+  items** (bed change service $25, Fresh Start set $59, Premium Sleep Kit $99, memory/cooling pillows
+  $29/$39, mattress protector $35). Job pricing accepts all ids; Jobs form renders 3 dynamic chip rows.
+- **Color brochure engine** (`routes/truck_cleaning_brochure.py`, Brochure class: multi-page, colored
+  bands/tint panels/price badges/numbered steps): GET /brochures/services.pdf (pricing cards, add-on
+  menu, freshener packages, bedding section, scent chips, loyalty) + /brochures/cleaning-guide.pdf
+  (9 phases color-coded, supply kit, upsell procedures incl. bunk bed change, safety, quality bar).
+  Legacy 3 docs restyled with amber band headers. Branded Docs tab now 5 cards; Guide tab has
+  brochure download button.
+- **Fleet Registry tab** client-specific: fleet pills w/ overdue badges + 6-tile per-client metrics
+  strip (units/overdue/due soon/fresh/lifetime cleans/full-fleet clean $) + interactive unit cards
+  (cadence progress bar, detail dialog w/ history + mark cleaned). AI Offers tab w/ scrub/preview/send.
+- /truck-cleaning now **13 tabs**. Tests: iteration_74 (15 + regression 62) and iteration_75
+  (11 + regression 77) all pass; testing agent fixed a missing `{tab==='guide'}` render branch.
+  Bedding batch self-tested via curl ($303 job = 150+25+99+29) + brochure raster + UI screenshot.
+- LESSON: when adding tabs to TruckCleaning.jsx, every TABS.id needs a matching render branch.
+

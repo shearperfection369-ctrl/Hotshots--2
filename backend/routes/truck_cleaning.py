@@ -20,7 +20,9 @@ COGS_PER_CAB = 46.0
 UPSELLS = {"engine_bay": 25.0, "tire_dressing": 20.0, "cabin_filter": 15.0,
            "leather_conditioning": 30.0, "headliner_spot": 20.0, "mattress_refresh": 25.0,
            "chrome_polish": 30.0, "exterior_wash": 45.0, "odor_bomb": 35.0,
-           "scent_single": 5.0, "scent_dual": 9.0, "vent_diffuser": 12.0, "scent_subscription": 8.0}
+           "scent_single": 5.0, "scent_dual": 9.0, "vent_diffuser": 12.0, "scent_subscription": 8.0,
+           "bed_change": 25.0, "bedding_starter": 59.0, "bedding_premium": 99.0,
+           "pillow_memory": 29.0, "pillow_cooling": 39.0, "mattress_protector": 35.0}
 UPSELL_META = [
     {"id": "engine_bay", "label": "Engine Bay Degrease", "price": 25.0, "category": "add_on",
      "desc": "Full degrease of painted & plastic surfaces, dressed matte. Adds 15 min."},
@@ -48,6 +50,18 @@ UPSELL_META = [
      "desc": "30-day slow-release vent diffuser — refill swapped on every visit."},
     {"id": "scent_subscription", "label": "Scent Rotation Club", "price": 8.0, "category": "freshener",
      "desc": "Fresh scent rotated every visit — driver picks from the menu each time."},
+    {"id": "bed_change", "label": "Bunk Bed Change Service", "price": 25.0, "category": "bedding",
+     "desc": "Strip the bunk, install fresh bedding (yours or ours), old set bagged for laundry. Adds 10 min."},
+    {"id": "bedding_starter", "label": "Fresh Start Bedding Set", "price": 59.0, "category": "bedding",
+     "desc": "Bunk-fit fitted + flat sheet and pillowcase in road-tough cotton blend. Installed FREE with a bed change."},
+    {"id": "bedding_premium", "label": "Premium Sleep Kit", "price": 99.0, "category": "bedding",
+     "desc": "Cooling sheet set + microfiber blanket + memory foam pillow. The full hotel-bunk upgrade, installed."},
+    {"id": "pillow_memory", "label": "Memory Foam Trucker Pillow", "price": 29.0, "category": "bedding",
+     "desc": "Contoured memory foam with washable bamboo cover — built for sleeper-cab neck support."},
+    {"id": "pillow_cooling", "label": "Cooling Gel Pillow", "price": 39.0, "category": "bedding",
+     "desc": "Gel-infused foam that stays cool on summer hauls. Washable cover included."},
+    {"id": "mattress_protector", "label": "Waterproof Mattress Protector", "price": 35.0, "category": "bedding",
+     "desc": "Quiet, breathable, bunk-sized protector — doubles mattress life. Installed on the spot."},
 ]
 SCENT_MENU = ["New Truck Smell", "Black Ice", "Leather & Cedar", "Pine Forest",
               "Citrus Shop", "Cool Breeze", "Vanilla Cab", "Odor-Neutral (unscented)"]

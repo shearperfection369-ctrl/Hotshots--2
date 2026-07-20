@@ -216,6 +216,13 @@ function Jobs({ jobs, clients, reload }) {
             ))}
             {catalog.scents.length > 0 && <span className="text-[9px] text-slate-600 font-mono">scents: {catalog.scents.join(" · ")}</span>}
           </div>
+          <div className="w-full flex flex-wrap gap-1.5 items-center">
+            <span className="text-[9px] font-mono uppercase text-rose-400">Bedding & pillows</span>
+            {catalog.upsells.filter((u) => u.category === "bedding").map((u) => (
+              <button type="button" key={u.id} onClick={() => toggleUp(u.id)} title={u.desc} data-testid={`tc-upsell-${u.id}`}
+                      className={`h-7 px-2.5 rounded-full border text-[10px] font-bold ${form.upsells.includes(u.id) ? "border-rose-400 text-rose-300 bg-rose-500/10" : "border-white/15 text-slate-400"}`}>{u.label} +${u.price}</button>
+            ))}
+          </div>
         </form>
       )}
       <Card className="bg-slate-950/70 border-white/10 overflow-x-auto">

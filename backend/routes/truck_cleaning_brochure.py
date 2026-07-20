@@ -211,6 +211,9 @@ def _services_brochure() -> bytes:
     b.band("AIR FRESHENER PACKAGES", CYAN)
     for u in [u for u in UPSELL_META if u["category"] == "freshener"]:
         b.price_row(u["label"], u["desc"], f"${u['price']:.0f}", CYAN)
+    b.band("BEDDING & PILLOW SERVICE — SLEEP LIKE A HOTEL, PARK LIKE A TRUCKER", ROSE)
+    for u in [u for u in UPSELL_META if u["category"] == "bedding"]:
+        b.price_row(u["label"], u["desc"], f"${u['price']:.0f}", ROSE)
     b.ensure(58)
     c.setFont("Helvetica-Bold", 10); c.setFillColor(INK); c.drawString(44, b.y, "THE SCENT MENU")
     b.y -= 20
