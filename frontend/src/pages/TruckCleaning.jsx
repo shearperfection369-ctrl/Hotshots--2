@@ -1,21 +1,26 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Topbar from "../components/Topbar";
 import { Card } from "../components/ui/card";
-import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp, UserPlus, FolderOpen, Receipt } from "lucide-react";
+import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp, UserPlus, FolderOpen, Receipt, CalendarDays, SprayCan } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import { TcVault } from "../components/truckcleaning/TcVault";
 import { TcOnboarding } from "../components/truckcleaning/TcOnboarding";
 import { TcInvoices } from "../components/truckcleaning/TcInvoices";
+import { TcJobActions } from "../components/truckcleaning/TcJobActions";
+import { TcScheduler } from "../components/truckcleaning/TcScheduler";
+import { TcGuide } from "../components/truckcleaning/TcGuide";
 
 const TABS = [
   { id: "dashboard", label: "Command Deck", icon: Sparkles },
+  { id: "scheduler", label: "Scheduler", icon: CalendarDays },
   { id: "clients", label: "Clients", icon: Users },
   { id: "onboarding", label: "Onboarding", icon: UserPlus },
   { id: "jobs", label: "Jobs", icon: ClipboardList },
   { id: "invoices", label: "Invoices", icon: Receipt },
   { id: "vault", label: "Doc Vault", icon: FolderOpen },
+  { id: "guide", label: "Cleaning Guide", icon: SprayCan },
   { id: "playbook", label: "Playbook", icon: BookOpenText },
   { id: "docs", label: "Branded Docs", icon: FileDown },
   { id: "advisor", label: "AI Profit Advisor", icon: Bot },
@@ -155,6 +160,16 @@ function Jobs({ jobs, clients, reload }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ client_id: "", date: "", cabs: 1, upsells: [] });
   const toggleUp = (u) => setForm((f) => ({ ...f, upsells: f.upsells.includes(u) ? f.upsells.filter((x) => x !== u) : [...f.upsells, u] }));
+  const runReminders = async () => {
+    try {
+      const { data } = await api.post("/truck-cleaning/reminders/run");
+      const sent = data.processed.filter((p) => p.status === "sent").length;
+      const queued = data.processed.filter((p) => p.status === "queued").length;
+      if (data.processed.length === 0) toast.info(`No jobs scheduled for ${data.target_date} needing a reminder`);
+      else toast.success(`${sent} SMS sent, ${queued} queued for ${data.target_date}`);
+      reload();
+    } catch (e2) { toast.error(errTxt(e2)); }
+  };
   const add = async (e) => {
     e.preventDefault();
     try { await api.post("/truck-cleaning/jobs", { ...form, cabs: Number(form.cabs) }); toast.success("Job scheduled"); setOpen(false); reload(); }
@@ -163,7 +178,9 @@ function Jobs({ jobs, clients, reload }) {
   const setStatus = async (id, status) => { try { await api.post(`/truck-cleaning/jobs/${id}/status`, { status }); reload(); } catch (e2) { toast.error(errTxt(e2)); } };
   return (
     <div>
-      <div className="flex justify-end mb-3">
+      <div className="flex justify-end gap-2 mb-3">
+        <button onClick={runReminders} data-testid="tc-run-reminders-btn" title="SMS every client with a job tomorrow — includes one-tap reschedule link"
+                className="px-4 py-2 rounded-full border border-cyan-500/50 text-cyan-300 font-bold text-xs inline-flex items-center gap-1.5 hover:bg-cyan-500/10"><Send size={13} /> Text Tomorrow's Reminders</button>
         <button onClick={() => setOpen(!open)} data-testid="tc-add-job-btn" className="px-4 py-2 rounded-full bg-amber-500 text-black font-bold text-xs inline-flex items-center gap-1.5"><Plus size={13} /> Schedule Job</button>
       </div>
       {open && (
@@ -187,7 +204,7 @@ function Jobs({ jobs, clients, reload }) {
       <Card className="bg-slate-950/70 border-white/10 overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-[10px] font-mono uppercase text-slate-500 border-b border-white/5">
-            <th className="p-3">Job</th><th className="p-3">Client</th><th className="p-3">Cabs</th><th className="p-3">Price</th><th className="p-3">Margin</th><th className="p-3">QB</th><th className="p-3">Status</th></tr></thead>
+            <th className="p-3">Job</th><th className="p-3">Client</th><th className="p-3">Cabs</th><th className="p-3">Price</th><th className="p-3">Margin</th><th className="p-3">QB</th><th className="p-3">Status</th><th className="p-3">Tools</th></tr></thead>
           <tbody>
             {jobs.map((j) => (
               <tr key={j.job_id} className="border-b border-white/5" data-testid={`tc-job-row-${j.job_id}`}>
@@ -203,6 +220,7 @@ function Jobs({ jobs, clients, reload }) {
                     <option value="scheduled">scheduled</option><option value="completed">completed</option><option value="paid">paid</option>
                   </select>
                 </td>
+                <td className="p-3"><TcJobActions job={j} reload={reload} /></td>
               </tr>
             ))}
           </tbody>
@@ -370,6 +388,7 @@ export default function TruckCleaning() {
         </div>
         <div className="relative">
           {tab === "dashboard" && <Dashboard metrics={metrics} qb={qb} onSync={sync} />}
+          {tab === "scheduler" && <TcScheduler clients={clients} reloadAll={reload} />}
           {tab === "clients" && <Clients clients={clients} reload={reload} />}
           {tab === "onboarding" && <TcOnboarding reloadAll={reload} />}
           {tab === "jobs" && <Jobs jobs={jobs} clients={clients} reload={reload} />}

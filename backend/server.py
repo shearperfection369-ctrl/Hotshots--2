@@ -8661,6 +8661,23 @@ api_router.include_router(build_truck_cleaning_biz_router(
     require_role=require_role,
 ))
 
+from routes.truck_cleaning_field import build_truck_cleaning_field_router, reminders_autorun_loop  # noqa: E402
+api_router.include_router(build_truck_cleaning_field_router(
+    db=db,
+    require_role=require_role,
+))
+
+from routes.truck_cleaning_sched import build_truck_cleaning_sched_router  # noqa: E402
+api_router.include_router(build_truck_cleaning_sched_router(
+    db=db,
+    require_role=require_role,
+))
+
+
+@app.on_event("startup")
+async def _start_tc_reminders():
+    asyncio.create_task(reminders_autorun_loop(db))
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,

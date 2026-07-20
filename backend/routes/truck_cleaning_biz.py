@@ -19,6 +19,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen.canvas import Canvas
 
 from routes.connections import get_connection_credentials
+from routes.truck_cleaning_field import _public_base
 
 logger = logging.getLogger(__name__)
 LOGO_PATH = Path(__file__).resolve().parent / "_tc_logo_pdf.png"
@@ -506,9 +507,5 @@ def build_truck_cleaning_biz_router(*, db, require_role: Callable) -> APIRouter:
                                         {"$set": {"status": "paid", "paid_at": _now(), "paid_method": method}})
         if inv.get("job_ids"):
             await db.tc_jobs.update_many({"job_id": {"$in": inv["job_ids"]}}, {"$set": {"status": "paid"}})
-
-    def _public_base() -> str:
-        return (os.environ.get("PUBLIC_APP_URL") or os.environ.get("FRONTEND_PUBLIC_URL")
-                or os.environ.get("REACT_APP_BACKEND_URL") or "").rstrip("/")
 
     return router

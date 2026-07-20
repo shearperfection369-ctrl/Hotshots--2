@@ -1,0 +1,8 @@
+file '/app/demo_reel/build/seg_intro.mp4'
+file '/app/demo_reel/build/seg_hunter.mp4'
+file '/app/demo_reel/build/seg_automatch.mp4'
+file '/app/demo_reel/build/seg_liveops.mp4'
+file '/app/demo_reel/build/seg_routeopt.mp4'
+file '/app/demo_reel/build/seg_sandbox.mp4'
+file '/app/demo_reel/build/seg_whitelabel.mp4'
+file '/app/demo_reel/build/seg_outro.mp4'

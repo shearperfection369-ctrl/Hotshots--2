@@ -109,6 +109,8 @@ import PlatformReadiness from "@/pages/PlatformReadiness";
 import TruckCleaning from "@/pages/TruckCleaning";
 import TcOnboardPublic from "@/pages/TcOnboardPublic";
 import TcInvoicePublic from "@/pages/TcInvoicePublic";
+import TcReschedulePublic from "@/pages/TcReschedulePublic";
+import TcProofPublic from "@/pages/TcProofPublic";
 import TenantLogin from "@/pages/tenant/TenantLogin";
 import TenantPortal from "@/pages/tenant/TenantPortal";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
@@ -159,6 +161,8 @@ function AppRouter() {
       <Route path="/i/:token" element={<PublicIntake />} />
       <Route path="/tc/onboard/:token" element={<TcOnboardPublic />} />
       <Route path="/tc/invoice/:invoiceId" element={<TcInvoicePublic />} />
+      <Route path="/tc/reschedule/:token" element={<TcReschedulePublic />} />
+      <Route path="/tc/proof/:token" element={<TcProofPublic />} />
       <Route path="/tour" element={<PublicTour />} />
       <Route path="/get-quote" element={<GetQuote />} />
       <Route path="/carriers/loadboard" element={<CarrierLoadboard />} />

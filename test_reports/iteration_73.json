@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 73 — Full backend + frontend testing of Orisei Truck Cleaning field-ops batch (SMS reminders + public reschedule, before/after photo proof + public gallery + Resend send, master scheduler / techs / assignment / 7-day board, cleaning guide). Backend: 31/31 new pytest tests pass in test_iter73_tc_field_sched.py covering remind (sent|queued|failed accepted), reschedule_token persisted, sms-log contains absolute https reschedule link, skipped for phoneless client, reminders/run idempotent per-date, public GET/POST reschedule (past date/completed job/bad token all correctly rejected), photo upload downsamples + sets proof_token + kind before|after enforced + non-image 400 + max 8/job enforced, public proof gallery + JPEG bytes + wrong-token cross-job 404, DELETE photo, proof/send returns 400 with Resend-not-configured message + proof link, techs auto-seed 3 samples with jobs_today/status_today, add-tech role guard (400 for non lead|junior), assign persists valid tech_ids only, GET /schedule?start=&days=7 returns 7 buckets with tech_names resolved + summary jobs/cabs/revenue/crew_hours_needed, invalid start=400, DELETE tech soft-deactivates + pulls from scheduled jobs, /guide auth-required (401) + 9 phases + supply_kit + 3 upsells + safety + quality_bar. Regression: iter72 test_iter72_tc_biz.py 31/31 still pass. Frontend: /truck-cleaning admin renders all 11 tabs incl. Scheduler (tc-tab-scheduler) + Cleaning Guide (tc-tab-guide); Scheduler shows 5 KPI tiles + week nav (prev/next) + 7 day columns (tc-sched-day-*) + tech roster with AVAILABLE/ON JOB chips; clicking a job opens tc-assign-dialog → check tech + tc-assign-window-08:00-10:00 + tc-assign-save dispatches (toast Crew dispatched); tc-sched-book-{date} opens tc-quickbook-dialog and books a job; tc-add-tech-btn opens tc-tech-dialog and saves. Jobs tab: tc-run-reminders-btn fires with toast; per-row tc-job-remind-* bell fires; tc-job-proof-* opens tc-proof-dialog with Add Before/Add After/Copy Gallery Link/Send inputs. Cleaning Guide tab renders tc-guide-kit + 9 tc-guide-phase-* cards + tc-guide-upsells + tc-guide-safety + tc-guide-quality. Public pages (no login): /tc/reschedule/{token} shows current date + 4 quick-pick day buttons + Confirm (7 tcr-* testids), bad token shows tcr-invalid; /tc/proof/{proof_token} shows branded tcpr-gallery with BEFORE section + photo image (200x150 test image renders), bad token shows tcpr-invalid.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/truck-cleaning Jobs tab (per-row bell toast)", "issues": ["When Twilio creds are dummy the toast text is 'Reminder failed' which is technically correct but could be misleading to operators — consider showing 'Reminder failed (Twilio not connected — see Connections)' so they know it is a config issue not a bug. Not blocking."]},
+      {"screen": "Global console on /truck-cleaning and public /tc/* pages", "issues": ["Recurring 401 responses from unrelated background pollers persist (carried over from iter72 — QuickBooks/Sentinel). Same non-blocking finding, not a regression."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter73_tc_field_sched.py",
+    "/app/backend/tests/test_iter72_tc_biz.py",
+    "/app/test_reports/pytest/iter73_results.xml"
+  ],
+  "action_items": [
+    "No blocking issues. Optional UX polish: humanise 'Reminder failed' toast when Twilio creds are dummy/missing (link to Connections)."
+  ],
+  "critical_code_review_comments": [
+    "truck_cleaning_field.py _send_sms cleanly separates queued (no creds) vs failed (creds present but Twilio 401/network) — correct per spec.",
+    "run_tomorrow_reminders is idempotent via reminder_for_date=tomorrow guard — verified in test_reminders_run_idempotent.",
+    "reminders_autorun_loop starts on backend boot every 6h; because it uses the same guard the pytest suite is safe to re-run repeatedly.",
+    "_public_base falls back to reading /app/frontend/.env if REACT_APP_BACKEND_URL / PUBLIC_APP_URL env vars are missing — good but that file-read is synchronous inside a hot code path (called on every remind + proof send). Cache the value at import.",
+    "Photo upload validates Pillow decode + downsamples to 1280px JPEG q82 — good; also enforces max 8/job by counting tc_photos.files.metadata.job_id.",
+    "public_proof_photo enforces per-token ownership by comparing gridfs metadata.job_id — verified by test_public_proof_photo_wrong_token_404.",
+    "truck_cleaning_sched.py: assign endpoint filters payload.tech_ids through db.tc_techs to keep only active+valid — good defensive design.",
+    "schedule endpoint clamps days to [1,14] and validates start=YYYY-MM-DD (400 otherwise) — good.",
+    "delete_tech soft-deactivates AND $pulls tech_id from every scheduled job — clean cascade, verified.",
+    "CLEANING_GUIDE is a hardcoded module-level dict (~90 lines of copy). Consider extracting to a JSON asset for easier content edits by non-devs.",
+    "TcScheduler.jsx uses toISOString().slice(0,10) which is UTC-based — dates near midnight could shift by a day for MN-local techs. Consider a small helper that respects browser tz. Not blocking (backend also uses UTC)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter73_tc_field_sched.py"],
+  "success_rate": {"backend": "100% (31/31 iter73 + 31/31 iter72 regression)", "frontend": "100% (scheduler assign+book, guide, jobs remind+proof dialog, public reschedule + proof gallery, invalid tokens)"},
+  "test_credentials": "Admin bearer test_session_admin_1; frontend localStorage tms_session_token=test_session_admin_1. Public /tc/reschedule/{token} + /tc/proof/{proof_token} pages need NO auth.",
+  "seed_data_creation": "Backend fixture created 'TEST_iter73 Fleet {marker}' + 'TEST_iter73 NoPhone {marker}' clients + several TJ-* jobs (tomorrow, +2..+8 days). One 'TEST_iter73 New Tech' + 'TEST_iter73 UI Tech' created (first was deleted by test flow, second may remain — safe, is_sample=false, does not affect other flows).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Field-ops batch (SMS/reschedule/photos/scheduler/guide) is fully verified end-to-end. Test file /app/backend/tests/test_iter73_tc_field_sched.py is idempotent-safe against the 6h autorun loop (assertions accept sent|queued|failed and the second /reminders/run always returns 0 processed). When creating jobs for photo tests, use dates >= today+2 so the reminders autorun does not interfere with reminder_for_date. Twilio dummy creds produce status=failed (expected). Resend not configured → proof/send returns 400 mentioning 'Resend' + the /tc/proof/{token} link (expected).",
+  "rca_of_the_issue": "N/A — no blocking bugs."
+}
