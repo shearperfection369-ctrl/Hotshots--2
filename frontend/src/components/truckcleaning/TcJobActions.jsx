@@ -16,6 +16,7 @@ export const TcJobActions = ({ job, reload }) => {
       const { data } = await api.post(`/truck-cleaning/jobs/${job.job_id}/remind`);
       if (data.status === "sent") toast.success(`SMS sent to ${data.to}`);
       else if (data.status === "queued") toast.info("Reminder queued — add Twilio keys in Connections to send for real");
+      else if (data.status === "failed") toast.error("SMS failed — check your Twilio keys in Connections · Keys");
       else toast.error(data.note || `Reminder ${data.status}`);
       reload();
     } catch (e2) { toast.error(errTxt(e2)); }

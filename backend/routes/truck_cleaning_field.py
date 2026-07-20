@@ -87,7 +87,7 @@ async def _remind_job(db, job: Dict[str, Any]) -> Dict[str, Any]:
     await db.tc_jobs.update_one({"job_id": job["job_id"]},
                                 {"$set": {"reminder_status": sms["status"], "reminder_sent_at": _now(),
                                           "reminder_for_date": job["date"]}})
-    return {"job_id": job["job_id"], "status": sms["status"], "to": phone}
+    return {"job_id": job["job_id"], "status": sms["status"], "to": phone, "note": sms.get("note")}
 
 
 async def run_tomorrow_reminders(db) -> Dict[str, Any]:

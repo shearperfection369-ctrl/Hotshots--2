@@ -2011,6 +2011,40 @@ retrains scoring weights from revealed preferences — making the intuitive
 ### Remaining backlog (carried)
 - QuickBooks real OAuth connect for TC paid-jobs sync (vault creds ready; use integration_expert).
 - Upwork Portfolio media assets via Nano Banana (recurring, 5 forks).
+
+## 2026-07-20 (later) · TC Field Ops: SMS Reminders · Photo Proof · Master Scheduler · Cleaning Guide · Demo Reel DONE
+- **`routes/truck_cleaning_field.py`** — Twilio SMS via Connections vault (`twilio` provider):
+  no/dummy creds → messages log `queued`/`failed` in `tc_sms_log`, real keys flip it live.
+  Job reminder w/ one-tap public reschedule link; `/reminders/run` (jobs dated tomorrow,
+  idempotent per date) + 6-hour autorun loop registered on app startup. Public
+  `/tc/reschedule/{token}` page (quick-pick days + date picker) updates the job and sends a
+  confirm SMS. **Photo proof**: per-job before/after uploads (PIL ≤1280 JPEG, max 8, GridFS
+  `tc_photos`), public branded gallery `/tc/proof/{proof_token}` with zoom, Resend email w/
+  embedded photos + gallery CTA (400 until key). `_public_base()` now falls back to reading
+  frontend/.env REACT_APP_BACKEND_URL (backend env lacks a public URL — links were relative).
+- **`routes/truck_cleaning_sched.py`** — Master Scheduler: `tc_techs` roster CRUD (seeds
+  Marcus/Jaylen/Tommy), job crew assignment `{tech_ids, window}`, 7-day dispatch board
+  `GET /schedule` (per-day jobs w/ tech names, cabs, revenue, unassigned count + weekly
+  summary incl. crew_hours_needed @45min/cab), and `GET /guide` — the full 9-phase 45-minute
+  step-by-step cab cleaning spec (supply kit, upsell procedures, safety, quality bar).
+- **Frontend** — /truck-cleaning now **11 tabs** (+Scheduler, +Cleaning Guide). New:
+  `TcScheduler.jsx` (KPI strip, glowing week board, dispatch dialog w/ time windows,
+  quick-book per day, add-tech dialog, roster w/ ON JOB/AVAILABLE), `TcGuide.jsx`,
+  `TcJobActions.jsx` (bell = SMS reminder, camera = proof dialog w/ mobile capture),
+  Jobs tab "Text Tomorrow's Reminders" bulk button. Public pages `TcReschedulePublic.jsx`,
+  `TcProofPublic.jsx` (+App.js routes). Fixed a duplicate-JSX compile break in TruckCleaning.jsx.
+- **Demo Reel COMPLETE** — root cause of routeopt timeout: script never clicked a geocode
+  candidate (`{testId}-candidate-0`), so route btn stayed disabled. `demo_reel/fix_routeopt.py`
+  re-recorded it (Playwright chromium reinstalled in fork pod; ffmpeg apt-installed).
+  NEW `demo_reel/assemble.py`: speed-fits each raw recording into its narration window
+  (timelapse), amber lower-third captions (FreeSansBold), fades, ambient bed, concat →
+  **3 social-ready videos** in `/app/frontend/public/demo/`: `hotshot_demo_16x9.mp4` (73.5s,
+  10MB, YouTube/LinkedIn/site), `_1x1.mp4` (IG/FB feed), `_9x16.mp4` (TikTok/Reels/Shorts,
+  blurred-fill vertical).
+- **Tests** — iteration_73: 31/31 new backend + 31/31 iter72 regression + 100% frontend
+  (`/app/backend/tests/test_iter73_tc_field_sched.py`). Toast polish applied post-test.
+- Deps: `twilio==9.10.9` (pip freeze'd), system ffmpeg 5.1.
+
 - Demo reel `rerecord.py` routeopt.webm Playwright timeout.
 - `server.py` refactor continues (P2). Resend/Twilio/R2/DAT keys pending user.
 
