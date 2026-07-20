@@ -8649,6 +8649,12 @@ api_router.include_router(_readiness_router)
 async def _start_readiness_nightly():
     asyncio.create_task(_readiness_router.start_nightly(app))
 
+from routes.truck_cleaning import build_truck_cleaning_router  # noqa: E402
+api_router.include_router(build_truck_cleaning_router(
+    db=db,
+    require_role=require_role,
+))
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,

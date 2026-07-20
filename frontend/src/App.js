@@ -106,6 +106,7 @@ import HotShotLanding from "@/pages/HotShotLanding";
 import HotShotSales from "@/pages/HotShotSales";
 import TenantCommand from "@/pages/TenantCommand";
 import PlatformReadiness from "@/pages/PlatformReadiness";
+import TruckCleaning from "@/pages/TruckCleaning";
 import TenantLogin from "@/pages/tenant/TenantLogin";
 import TenantPortal from "@/pages/tenant/TenantPortal";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
@@ -197,6 +198,7 @@ function AppRouter() {
         <Route path="/hotshot-sales" element={<HotShotSales />} />
         <Route path="/tenant-command" element={<TenantCommand />} />
         <Route path="/platform-readiness" element={<PlatformReadiness />} />
+        <Route path="/truck-cleaning" element={<TruckCleaning />} />
         <Route path="/document-archive" element={<DocumentArchive />} />
         <Route path="/launch-plan" element={<LaunchPlan />} />
         <Route path="/launch-runway" element={<LaunchPlan />} />

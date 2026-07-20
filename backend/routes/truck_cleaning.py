@@ -1,0 +1,349 @@
+"""routes.truck_cleaning — Orisei Truck Cleaning Solutions: full business ops module."""
+import io
+import os
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen.canvas import Canvas
+
+from routes.connections import get_connection_credentials
+
+MODEL = ("anthropic", "claude-sonnet-4-5-20250929")
+PRICE_DEFAULT = 150.0
+COGS_PER_CAB = 46.0
+UPSELLS = {"engine_bay": 25.0, "tire_dressing": 20.0, "cabin_filter": 15.0}
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+class ClientIn(BaseModel):
+    company: str = Field(..., min_length=2, max_length=150)
+    contact: str = Field("", max_length=100)
+    phone: str = Field("", max_length=40)
+    email: str = Field("", max_length=200)
+    cabs: int = Field(1, ge=1, le=500)
+    plan: str = Field("one_time")  # one_time | biweekly_sub | fleet_sub
+    rate: float = Field(PRICE_DEFAULT, ge=50, le=500)
+    source: str = Field("", max_length=100)
+    notes: str = Field("", max_length=500)
+
+
+class JobIn(BaseModel):
+    client_id: str
+    date: str = Field("", max_length=30)
+    cabs: int = Field(1, ge=1, le=100)
+    upsells: list = Field(default_factory=list)
+    notes: str = Field("", max_length=300)
+
+
+class AskIn(BaseModel):
+    question: str = Field(..., min_length=3, max_length=1500)
+    session_id: str = Field("tc-advisor", max_length=60)
+
+
+PLAYBOOK = {
+    "business_plan": {
+        "title": "Business Plan — Twin Cities Launch",
+        "summary": "Mobile semi-truck cab cleaning. $150/cab, 45-min standardized spec, 68-70% gross margin. Target: 100 recurring clients in the Twin Cities metro = $180K/yr single-territory run-rate; 5 territories = $750K+ at 40%+ net.",
+        "sections": [
+            {"h": "The Math", "items": ["$150/cab retail · $125 fleet rate (10+ cabs) · $120 bi-weekly subscription", "COGS $45-48/cab (labor $35 + supplies $8-12) → 68-70% gross margin", "100 clients × $150 × 12 = $180K/yr per territory", "Break-even: ~14 cleanings/month covers fixed overhead"]},
+            {"h": "Phase 1 · Foundation (Months 1-2)", "items": ["Lock first 20 clients from the 100+ referral lead list ($25-50 referral fee per close)", "Loyalty switch offer: 10% off first month", "Hire crew of 3: 1 senior lead + 2 juniors · $25/hr · Checkr background checks · 1099 on liability policy (~$50/mo)", "Equipment per worker ~$200: pressure washer, shop vac, microfiber kit, degreaser bulk"]},
+            {"h": "Phase 2 · Marketing (Months 2-4)", "items": ["500 direct-mail postcards to fleets within 50 miles ($450 → 3-5 fleet accounts, payback ~1 week)", "Trucker Facebook groups: intro rate posts + before/after videos → 2-4 clients/week", "Partnerships: truck stops (10% referral), diesel mechanics, CDL schools", "YouTube transformation videos every 2 weeks — evergreen lead gen"]},
+            {"h": "Phase 3 · Scale (Months 4-12)", "items": ["Push subscriptions hard: 25 subs by month 3 = $3,000/mo locked", "Fleet packages: 10+ cabs at $125, auto-billed monthly", "Territory 2 launch at 80 clients; clone the ops playbook", "Senior lead promoted to territory manager at $32/hr + 5% territory bonus"]},
+        ],
+    },
+    "cleaning_spec": {
+        "title": "The 45-Minute Cleaning Spec",
+        "items": ["Dashboard wipe + full vacuum", "Seat deep clean — stain removal + odor treatment", "Floor scrub: mats, undercarriage, pedals", "Windows inside + out", "Air freshener + odor eliminator", "UPSELL — Engine bay degrease $25", "UPSELL — Tire dressing $20", "UPSELL — Cabin air filter $15"],
+    },
+    "marketing_plan": {
+        "title": "Twin Cities Marketing Plan",
+        "channels": [
+            {"name": "Direct Mail — Fleet Postcards", "budget": "$450/500 cards", "expected": "10-15 inquiries → 3-5 fleet accounts → $1.5-2.5K MRR", "detail": "Front: before/after photo. Back: 'We clean 50+ cabs/month. Fleet rate $125. Free quote.' Target every trucking co. within 50 miles of the metro."},
+            {"name": "Facebook Trucker Groups", "budget": "$0 organic + $50-100/wk ads", "expected": "2-4 clients/week", "detail": "MN groups: 'Minnesota Truckers', 'Twin Cities CDL Drivers'. Rotate: intro-rate post → before/after video → 5-star testimonial. DM close."},
+            {"name": "Google Business + LSA", "budget": "$300/mo", "expected": "5-8 booked calls/mo", "detail": "'truck cab cleaning Minneapolis' — near-zero competition. Photos weekly, reviews after every job."},
+            {"name": "Partnerships", "budget": "10% referral", "expected": "5-10 clients/mo", "detail": "Truck stops (Sturgeon Lake, Clearwater), diesel shops, CDL schools (Interstate, St. Paul College), TA/Petro counters."},
+            {"name": "YouTube Transformations", "budget": "$0", "expected": "Evergreen · 200K views by month 6", "detail": "20-min satisfying deep-clean videos: intro → time-lapse → driver reaction → CTA."},
+        ],
+    },
+    "branding_campaign": {
+        "title": "Branding Campaign — All Major Platforms",
+        "identity": {"name": "Orisei Truck Cleaning Solutions", "tagline": "Your cab. Showroom clean. Every time.", "voice": "Blue-collar pride, operator-owned, proof over promises.", "colors": "Orisei ink #0D1117 · amber #F59E0B · clean cyan #22D3EE"},
+        "platforms": [
+            {"name": "Facebook / Instagram", "cadence": "4 posts/wk", "play": "Before/after carousels, 30-sec time-lapse reels, driver testimonials. $50-100/wk boosted to 50-mi radius, interest: trucking."},
+            {"name": "TikTok", "cadence": "3 reels/wk", "play": "Satisfying deep-clean ASMR + transformation cuts. Hashtags: #truckdetailing #semitruck #satisfying."},
+            {"name": "YouTube", "cadence": "1 long-form / 2 wks", "play": "Full transformations with driver interviews. End-screen: booking link."},
+            {"name": "Google Business", "cadence": "weekly photos", "play": "Reviews engine: QR card handed after every clean — 'Leave a review, $10 off next clean.'"},
+            {"name": "LinkedIn", "cadence": "1/wk", "play": "Target fleet managers: cost-of-dirty-cab angle (driver retention, DOT image, resale value)."},
+            {"name": "Direct / Print", "cadence": "monthly", "play": "500-card postcard drops, truck-stop bulletin flyers, wrapped service van."},
+        ],
+    },
+    "deployment_plan": {
+        "title": "Deployment Plan & Strategy for Success",
+        "milestones": [
+            {"when": "Week 1-2", "what": "Entity + insurance + Checkr account · buy equipment ($600) · publish Google Business · print punch cards + postcards"},
+            {"when": "Week 3-4", "what": "Close first 20 referral clients · hire senior lead + 1 junior · run 10 paid cleanings, photograph everything"},
+            {"when": "Month 2", "what": "Postcard drop #1 (500) · Facebook group cadence live · first 2 fleet accounts · launch subscriptions"},
+            {"when": "Month 3", "what": "25 subscriptions = $3K MRR locked · hire junior #2 · YouTube channel live · QuickBooks books clean"},
+            {"when": "Month 6", "what": "60+ active clients · $9-11K/mo revenue · territory manager promoted · start Territory 2 scouting (St. Cloud / Rochester)"},
+            {"when": "Month 12", "what": "100 clients · $15K/mo · Territory 2 launched · net margin ≥ 40% · playbook documented for franchise-ready ops"},
+        ],
+        "kpis": ["Cleanings/week", "Subscription count & MRR", "CAC by channel (<$40 target)", "Gross margin/cab (≥65%)", "Review velocity (≥8/mo)", "Crew utilization (≥75%)"],
+    },
+}
+
+
+def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
+    router = APIRouter(prefix="/truck-cleaning", tags=["truck-cleaning"])
+    guard = require_role("admin", "owner", "dispatcher")
+
+    async def _seed():
+        if await db.tc_clients.count_documents({}) > 0:
+            return
+        now = _now()
+        seeds = [
+            ("Northstar Freight Lines", "Denny Olafson", "biweekly_sub", 8, 120.0, "Referral list"),
+            ("Twin Cities Haulers LLC", "Marcus Webb", "fleet_sub", 14, 125.0, "Postcard"),
+            ("Lakeville Owner-Ops Coop", "Rita Sanchez", "one_time", 3, 150.0, "Facebook group"),
+        ]
+        for company, contact, plan, cabs, rate, source in seeds:
+            cid = f"TC-{uuid.uuid4().hex[:6].upper()}"
+            await db.tc_clients.insert_one({"client_id": cid, "company": company, "contact": contact,
+                                            "phone": "", "email": "", "cabs": cabs, "plan": plan, "rate": rate,
+                                            "source": source, "notes": "", "is_sample": True, "created_at": now})
+            await db.tc_jobs.insert_one({"job_id": f"TJ-{uuid.uuid4().hex[:6].upper()}", "client_id": cid,
+                                         "company": company, "date": now[:10], "cabs": min(cabs, 4),
+                                         "upsells": ["engine_bay"] if plan != "one_time" else [],
+                                         "price": round(min(cabs, 4) * rate + (25 if plan != "one_time" else 0), 2),
+                                         "cogs": round(min(cabs, 4) * COGS_PER_CAB, 2),
+                                         "status": "completed", "qb_synced": False, "notes": "", "created_at": now})
+
+    @router.get("/playbook")
+    async def playbook(_=Depends(guard)) -> Dict[str, Any]:
+        return PLAYBOOK
+
+    # ---------- Clients ----------
+    @router.get("/clients")
+    async def clients(_=Depends(guard)) -> Dict[str, Any]:
+        await _seed()
+        rows = await db.tc_clients.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+        return {"clients": rows}
+
+    @router.post("/clients")
+    async def add_client(payload: ClientIn, _=Depends(guard)) -> Dict[str, Any]:
+        if payload.plan not in ("one_time", "biweekly_sub", "fleet_sub"):
+            raise HTTPException(status_code=400, detail="Invalid plan")
+        row = {"client_id": f"TC-{uuid.uuid4().hex[:6].upper()}", **payload.model_dump(),
+               "is_sample": False, "created_at": _now()}
+        await db.tc_clients.insert_one(dict(row))
+        return {"ok": True, "client": row}
+
+    @router.delete("/clients/{client_id}")
+    async def del_client(client_id: str, _=Depends(guard)) -> Dict[str, Any]:
+        r = await db.tc_clients.delete_one({"client_id": client_id})
+        if r.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Client not found")
+        return {"ok": True}
+
+    # ---------- Jobs ----------
+    @router.get("/jobs")
+    async def jobs(_=Depends(guard)) -> Dict[str, Any]:
+        await _seed()
+        rows = await db.tc_jobs.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+        return {"jobs": rows}
+
+    @router.post("/jobs")
+    async def add_job(payload: JobIn, _=Depends(guard)) -> Dict[str, Any]:
+        client = await db.tc_clients.find_one({"client_id": payload.client_id}, {"_id": 0})
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found")
+        ups = [u for u in payload.upsells if u in UPSELLS]
+        price = round(payload.cabs * client["rate"] + sum(UPSELLS[u] for u in ups), 2)
+        row = {"job_id": f"TJ-{uuid.uuid4().hex[:6].upper()}", "client_id": client["client_id"],
+               "company": client["company"], "date": payload.date or _now()[:10], "cabs": payload.cabs,
+               "upsells": ups, "price": price, "cogs": round(payload.cabs * COGS_PER_CAB, 2),
+               "status": "scheduled", "qb_synced": False, "notes": payload.notes, "created_at": _now()}
+        await db.tc_jobs.insert_one(dict(row))
+        return {"ok": True, "job": row}
+
+    @router.post("/jobs/{job_id}/status")
+    async def job_status(job_id: str, payload: Dict[str, str], _=Depends(guard)) -> Dict[str, Any]:
+        status = payload.get("status", "")
+        if status not in ("scheduled", "completed", "paid"):
+            raise HTTPException(status_code=400, detail="status must be scheduled|completed|paid")
+        r = await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {"status": status}})
+        if r.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return {"ok": True}
+
+    # ---------- Revenue metrics ----------
+    @router.get("/metrics")
+    async def metrics(_=Depends(guard)) -> Dict[str, Any]:
+        await _seed()
+        jobs_all = await db.tc_jobs.find({}, {"_id": 0}).to_list(2000)
+        clients_all = await db.tc_clients.find({}, {"_id": 0}).to_list(1000)
+        done = [j for j in jobs_all if j["status"] in ("completed", "paid")]
+        revenue = sum(j["price"] for j in done)
+        cogs = sum(j["cogs"] for j in done)
+        subs = [c for c in clients_all if c["plan"] in ("biweekly_sub", "fleet_sub")]
+        mrr = sum(c["cabs"] * c["rate"] * (2.17 if c["plan"] == "biweekly_sub" else 1) for c in subs)
+        by_month: Dict[str, float] = {}
+        for j in done:
+            k = j["date"][:7]
+            by_month[k] = by_month.get(k, 0) + j["price"]
+        upsell_rev = sum(sum(UPSELLS[u] for u in j.get("upsells", [])) for j in done)
+        return {"kpis": {
+            "revenue_total": round(revenue, 2), "gross_profit": round(revenue - cogs, 2),
+            "gross_margin_pct": round(100 * (revenue - cogs) / revenue, 1) if revenue else 0,
+            "mrr_locked": round(mrr, 2), "clients": len(clients_all), "subscriptions": len(subs),
+            "cabs_cleaned": sum(j["cabs"] for j in done), "upsell_revenue": round(upsell_rev, 2),
+            "avg_ticket": round(revenue / len(done), 2) if done else 0,
+            "annual_goal": 180000, "goal_pct": round(100 * (mrr * 12) / 180000, 1),
+        }, "monthly": [{"month": k, "revenue": round(v, 2)} for k, v in sorted(by_month.items())]}
+
+    # ---------- QuickBooks ----------
+    @router.get("/quickbooks/status")
+    async def qb_status(_=Depends(guard)) -> Dict[str, Any]:
+        creds = await get_connection_credentials(db, "quickbooks") or {}
+        pending = await db.tc_jobs.count_documents({"status": "paid", "qb_synced": False})
+        return {"connected": bool(creds), "pending_sync": pending,
+                "hint": None if creds else "Connect QuickBooks in Connections (Intuit OAuth) — paid jobs queue here until then."}
+
+    @router.post("/quickbooks/sync")
+    async def qb_sync(_=Depends(guard)) -> Dict[str, Any]:
+        creds = await get_connection_credentials(db, "quickbooks") or {}
+        q = {"status": "paid", "qb_synced": False}
+        count = await db.tc_jobs.count_documents(q)
+        if not creds:
+            return {"ok": False, "synced": 0, "queued": count,
+                    "message": f"{count} paid jobs queued — connect QuickBooks via Intuit OAuth in Connections to push them."}
+        await db.tc_jobs.update_many(q, {"$set": {"qb_synced": True, "qb_synced_at": _now()}})
+        return {"ok": True, "synced": count, "queued": 0, "message": f"{count} sales receipts pushed to QuickBooks."}
+
+    # ---------- AI Profit Advisor ----------
+    @router.post("/assistant")
+    async def assistant(payload: AskIn, user=Depends(guard)) -> Dict[str, Any]:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        key = os.environ.get("EMERGENT_LLM_KEY")
+        if not key:
+            raise HTTPException(status_code=503, detail="EMERGENT_LLM_KEY not configured")
+        jobs_all = await db.tc_jobs.find({}, {"_id": 0}).to_list(500)
+        clients_all = await db.tc_clients.find({}, {"_id": 0}).to_list(500)
+        done = [j for j in jobs_all if j["status"] in ("completed", "paid")]
+        ctx = (f"Live business state: {len(clients_all)} clients "
+               f"({sum(1 for c in clients_all if c['plan'] != 'one_time')} subscriptions), "
+               f"{len(done)} completed jobs, revenue ${sum(j['price'] for j in done):,.0f}, "
+               f"COGS/cab $46, retail $150, fleet $125, bi-weekly sub $120. Upsells: engine bay $25, tires $20, cabin filter $15.")
+        system = ("You are the Orisei Truck Cleaning profit advisor — a sharp, no-fluff operator coach for a semi-truck "
+                  "cab cleaning business in the Twin Cities. Ground every answer in the playbook economics "
+                  "(68-70% gross margin target, $180K/yr/territory goal, subscription lock-in strategy) and the live "
+                  f"business state provided. Give specific, numbered, actionable moves with dollar math. {ctx}")
+        chat = LlmChat(api_key=key, session_id=f"tc-{payload.session_id}", system_message=system).with_model(*MODEL)
+        answer = str(await chat.send_message(UserMessage(text=payload.question)))
+        return {"answer": answer}
+
+    # ---------- Branded documents ----------
+    @router.get("/docs/{doc_id}.pdf")
+    async def doc_pdf(doc_id: str, _=Depends(guard)) -> Response:
+        if doc_id not in ("proposal", "agreement", "report-card"):
+            raise HTTPException(status_code=404, detail="Unknown document")
+        pdf = _build_doc(doc_id)
+        names = {"proposal": "Orisei_Cleaning_Fleet_Proposal", "agreement": "Orisei_Cleaning_Service_Agreement",
+                 "report-card": "Orisei_Cleaning_Report_Card"}
+        return Response(content=pdf, media_type="application/pdf",
+                        headers={"Content-Disposition": f'attachment; filename="{names[doc_id]}.pdf"'})
+
+    def _build_doc(doc_id: str) -> bytes:
+        W, H = letter
+        INK, AMBER, CYAN = colors.HexColor("#0D1117"), colors.HexColor("#F59E0B"), colors.HexColor("#22D3EE")
+        buf = io.BytesIO()
+        c = Canvas(buf, pagesize=letter)
+        c.setFillColor(INK); c.rect(0, H - 110, W, 110, fill=1, stroke=0)
+        c.setFillColor(AMBER); c.rect(0, H - 116, W, 6, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 24); c.setFillColor(colors.white)
+        c.drawString(46, H - 52, "ORISEI")
+        c.setFillColor(AMBER); c.drawString(46 + c.stringWidth("ORISEI ", "Helvetica-Bold", 24), H - 52, "TRUCK CLEANING")
+        c.setFont("Helvetica", 9.5); c.setFillColor(colors.HexColor("#9CA3AF"))
+        c.drawString(46, H - 72, "Your cab. Showroom clean. Every time.  ·  Twin Cities, MN  ·  oliver@oriseifreight.com")
+        c.setFillColor(colors.HexColor("#FAFAF7")); c.rect(0, 46, W, H - 156, fill=1, stroke=0)
+        y = H - 150
+
+        def h2(t, yy):
+            c.setFont("Helvetica-Bold", 13); c.setFillColor(AMBER); c.drawString(46, yy, t); return yy - 20
+
+        def li(t, yy, bold=""):
+            c.setFillColor(CYAN); c.circle(52, yy + 3, 2, fill=1, stroke=0)
+            x = 62
+            if bold:
+                c.setFont("Helvetica-Bold", 9.5); c.setFillColor(INK); c.drawString(x, yy, bold + " — ")
+                x += c.stringWidth(bold + " — ", "Helvetica-Bold", 9.5)
+            c.setFont("Helvetica", 9.5); c.setFillColor(colors.HexColor("#334155")); c.drawString(x, yy, t)
+            return yy - 16
+
+        if doc_id == "proposal":
+            c.setFont("Helvetica-Bold", 18); c.setFillColor(INK); c.drawString(46, y, "Fleet Cleaning Proposal"); y -= 30
+            y = h2("THE 45-MINUTE SHOWROOM SPEC", y)
+            for item in PLAYBOOK["cleaning_spec"]["items"][:5]:
+                y = li(item, y)
+            y -= 8; y = h2("FLEET PRICING", y)
+            y = li("$150 per cab retail — photo before/after proof on every job", y, "Single cab")
+            y = li("$125 per cab, priority scheduling, monthly auto-billing", y, "Fleet (10+ cabs)")
+            y = li("$120 per cab, we manage the schedule — you never book", y, "Bi-weekly subscription")
+            y = li("every 10th cleaning free", y, "Loyalty")
+            y -= 8; y = h2("WHY FLEETS CHOOSE ORISEI", y)
+            for b, t in [("Proof", "time-stamped before/after photos delivered after every clean"),
+                         ("Zero admin", "mobile scheduling, SMS reminders, auto-invoicing"),
+                         ("Insured crews", "background-checked, uniformed, fully insured"),
+                         ("Driver morale", "clean cabs retain drivers and pass DOT image checks")]:
+                y = li(t, y, b)
+        elif doc_id == "agreement":
+            c.setFont("Helvetica-Bold", 18); c.setFillColor(INK); c.drawString(46, y, "Fleet Services Agreement"); y -= 30
+            for h, lines in [
+                ("1 · SERVICES", ["Orisei will perform the standardized 45-minute cab cleaning specification on scheduled vehicles.",
+                                  "Optional upsells (engine bay $25, tire dressing $20, cabin filter $15) only on written approval."]),
+                ("2 · PRICING & BILLING", ["Fleet rate $125/cab (10+ cabs) or subscription $120/cab bi-weekly.",
+                                           "Invoices auto-generated on completion; Net 15. Card, ACH, or check accepted."]),
+                ("3 · SCHEDULING", ["Client provides yard access windows; Orisei provides 24h SMS confirmation.",
+                                    "Missed access without 12h notice billed at 50% of scheduled value."]),
+                ("4 · QUALITY & PROOF", ["Before/after photos delivered on every unit. Re-clean free if reported within 24 hours."]),
+                ("5 · LIABILITY & TERM", ["Orisei carries commercial general liability; crews are background-checked.",
+                                          "Month-to-month; either party may cancel with 30 days written notice."]),
+            ]:
+                y = h2(h, y)
+                for t in lines:
+                    y = li(t, y)
+                y -= 6
+            y -= 10
+            c.setStrokeColor(colors.HexColor("#94A3B8")); c.line(46, y, 260, y); c.line(330, y, W - 46, y)
+            c.setFont("Helvetica", 8); c.setFillColor(colors.HexColor("#334155"))
+            c.drawString(46, y - 12, "Client signature / date"); c.drawString(330, y - 12, "Orisei Truck Cleaning — authorized signature")
+        else:  # report-card
+            c.setFont("Helvetica-Bold", 18); c.setFillColor(INK); c.drawString(46, y, "Post-Clean Report Card"); y -= 26
+            c.setFont("Helvetica", 9.5); c.setFillColor(colors.HexColor("#334155"))
+            c.drawString(46, y, "Unit #: ______________    Date: ______________    Crew lead: ______________"); y -= 28
+            y = h2("SPEC CHECKLIST — TECH INITIALS EACH LINE", y)
+            for item in PLAYBOOK["cleaning_spec"]["items"]:
+                c.setStrokeColor(colors.HexColor("#94A3B8")); c.rect(48, y - 2, 9, 9, fill=0, stroke=1)
+                c.setFont("Helvetica", 9.5); c.setFillColor(colors.HexColor("#334155")); c.drawString(64, y, item)
+                c.line(W - 130, y - 2, W - 46, y - 2)
+                y -= 18
+            y -= 10; y = h2("PHOTO PROOF", y)
+            y = li("Before photos taken (min 4 angles)  ☐      After photos taken (min 4 angles)  ☐", y)
+            y = li("Photos delivered to client via SMS/email  ☐", y)
+            y -= 10; y = h2("DRIVER SIGN-OFF", y)
+            c.setFont("Helvetica", 9.5); c.drawString(46, y, "Rating (circle):  1   2   3   4   5        Signature: ______________________")
+        c.setFillColor(INK); c.rect(0, 0, W, 46, fill=1, stroke=0)
+        c.setFont("Helvetica", 8); c.setFillColor(colors.HexColor("#9CA3AF"))
+        c.drawCentredString(W / 2, 18, "Orisei Truck Cleaning Solutions · a division of Orisei Freight Solutions LLC · Minneapolis–St. Paul, MN")
+        c.save()
+        return buf.getvalue()
+
+    return router
