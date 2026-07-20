@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from routes.connections import get_connection_credentials
+from routes.truck_cleaning import PRODUCT_IDS, UPSELL_META
 from routes.truck_cleaning_field import _public_base
 
 logger = logging.getLogger(__name__)
@@ -343,5 +344,46 @@ def build_truck_cleaning_fleet_router(*, db, require_role: Callable) -> APIRoute
         results = [await _send_offer(o, creds["api_key"], from_addr) for o in drafts]
         return {"ok": True, "results": results,
                 "sent": sum(1 for r in results if r["status"] == "sent")}
+
+    # ================= BEDDING & PRODUCT INVENTORY =================
+    async def _seed_inventory():
+        if await db.tc_inventory.count_documents({}) > 0:
+            return
+        meta = {u["id"]: u for u in UPSELL_META}
+        for pid in PRODUCT_IDS:
+            u = meta[pid]
+            await db.tc_inventory.insert_one({"item_id": pid, "label": u["label"], "category": u["category"],
+                                              "unit_price": u["price"], "stock": 10, "low_threshold": 4,
+                                              "is_sample": True, "created_at": _now()})
+
+    @router.get("/inventory")
+    async def inventory(_=Depends(guard)) -> Dict[str, Any]:
+        await _seed_inventory()
+        rows = await db.tc_inventory.find({}, {"_id": 0}).sort("category", 1).to_list(100)
+        pending = await db.tc_jobs.find({"status": "scheduled"}, {"_id": 0, "upsells": 1}).to_list(500)
+        committed: Dict[str, int] = {}
+        for j in pending:
+            for u in j.get("upsells", []):
+                if u in PRODUCT_IDS:
+                    committed[u] = committed.get(u, 0) + 1
+        for r in rows:
+            r["committed"] = committed.get(r["item_id"], 0)
+            r["available"] = r["stock"] - r["committed"]
+            r["low"] = r["available"] <= r["low_threshold"]
+        return {"items": rows, "low_count": sum(1 for r in rows if r["low"]),
+                "retail_value": round(sum(r["stock"] * r["unit_price"] for r in rows), 2)}
+
+    @router.post("/inventory/{item_id}/adjust")
+    async def adjust_inventory(item_id: str, payload: Dict[str, int], _=Depends(guard)) -> Dict[str, Any]:
+        delta = int(payload.get("delta", 0))
+        if not delta or abs(delta) > 500:
+            raise HTTPException(status_code=400, detail="delta must be non-zero, |delta| <= 500")
+        item = await db.tc_inventory.find_one({"item_id": item_id})
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+        new_stock = max(0, item["stock"] + delta)
+        await db.tc_inventory.update_one({"item_id": item_id},
+                                         {"$set": {"stock": new_stock, "updated_at": _now()}})
+        return {"ok": True, "stock": new_stock}
 
     return router

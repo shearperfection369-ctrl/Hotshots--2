@@ -65,6 +65,7 @@ UPSELL_META = [
 ]
 SCENT_MENU = ["New Truck Smell", "Black Ice", "Leather & Cedar", "Pine Forest",
               "Citrus Shop", "Cool Breeze", "Vanilla Cab", "Odor-Neutral (unscented)"]
+PRODUCT_IDS = [u["id"] for u in UPSELL_META if u["category"] in ("freshener", "bedding") and u["id"] != "bed_change"]
 
 
 def _now() -> str:
@@ -226,9 +227,16 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
         status = payload.get("status", "")
         if status not in ("scheduled", "completed", "paid"):
             raise HTTPException(status_code=400, detail="status must be scheduled|completed|paid")
-        r = await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {"status": status}})
-        if r.matched_count == 0:
+        job = await db.tc_jobs.find_one({"job_id": job_id}, {"_id": 0})
+        if not job:
             raise HTTPException(status_code=404, detail="Job not found")
+        await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {"status": status}})
+        if status in ("completed", "paid") and not job.get("inventory_consumed"):
+            consumed = [u for u in job.get("upsells", []) if u in PRODUCT_IDS]
+            if consumed:
+                for pid in consumed:
+                    await db.tc_inventory.update_one({"item_id": pid}, {"$inc": {"stock": -1}})
+                await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {"inventory_consumed": True}})
         return {"ok": True}
 
     # ---------- Revenue metrics ----------

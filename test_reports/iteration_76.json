@@ -1,0 +1,49 @@
+{
+  "summary": "Iter76 — end-to-end verification of Truck Cleaning batch: month scheduler, edit dialogs, review engine, driver scent card, bedding inventory. 29 new backend tests (test_iter76_tc_batch.py) — 28/29 pass; the one failure is a real bug (see rca). Frontend smoke-tested: month calendar renders 42 day cells, prev/next + TODAY + month label all present; clicking a job chip opens the big-font edit dialog with all 5 required data-testids (tc-edit-date/cabs/status/save/delete); Inventory tab renders 9 items with correct 5 bedding + 4 fresheners grouping, LOW badges + stock counters + +/− + +10 restock buttons; AI Offers tab has the Review Engine card (tc-review-engine + tc-review-url-input + tc-review-save); Jobs tab has 29 tc-job-scent-* palette icons; public /tc/scent/{token} page renders the branded card with 8 scents + 10 upgrades + LOCK IT IN submit; invalid token shows tcs-invalid. FULL regression: 116/117 pytest pass across iter72–76 (fixed 3 stale assertions in iter73 + iter75 tests to accept the batch's expanded 19-item UPSELL_META catalog).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/truck-cleaning/jobs/{id}/update", "issue": "Empty payload {} returns 200 (not 400 'Nothing to update' as spec requires). Root cause in truck_cleaning_sched.py line 179: `if payload.window or payload.window == \"\":` always fires because the Pydantic default for window is `\"\"`. So `upd` is never empty and the 'Nothing to update' guard never trips. Same latent risk on `status` since default is `\"\"` (but that field uses `if payload.status:` which is safe). Fix: use `Optional[str] = None` for window (and any other truly-optional string), or explicitly skip window when it equals its default AND was not user-supplied (Pydantic can distinguish via `model_fields_set`)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "TcScheduler.jsx", "issue": "Color legend (crewed/needs-crew/done) is rendered visually (lines 100-104) but has NO data-testid — makes automated testing brittle. Suggest adding data-testid=\"tc-sched-legend\" to the wrapping div.", "selector": "N/A (missing testid)", "priority": "LOW"},
+      {"component": "TcScheduler.jsx", "issue": "Today's cell is highlighted with an amber ring (isToday check line 76) but there's no data-testid=\"tc-cal-today\" marker as implied by the spec. Consider adding it to the highlighted cell for testability.", "selector": "N/A", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Inventory tab", "issues": ["Cooling Gel Pillow showed 'available: -1' after backend adjust tests ran stock below committed count. This is a real edge-case bug: the inventory display computes `available = stock - committed` and does not floor at zero, so scheduled jobs holding upsells while stock is below the committed count produces a negative badge. Cosmetic only, but confusing to operators. Fix: floor `available` at 0 or add a warning color when negative."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter76_tc_batch.py",
+    "/app/test_reports/pytest/iter76_results.xml",
+    "/app/test_reports/pytest/iter76_full.xml"
+  ],
+  "action_items": [
+    "FIX (backend, HIGH): truck_cleaning_sched.py update_job — empty payload should return 400. Change window field to Optional[str]=None so `payload.window == \"\"` no longer always fires. Once fixed, re-run test_iter76_tc_batch.py::TestJobEdit::test_update_empty_payload_400 which will then pass.",
+    "OPTIONAL (frontend, LOW): add data-testid=\"tc-sched-legend\" to the legend div in TcScheduler.jsx and data-testid=\"tc-cal-today\" to the isToday-highlighted cell.",
+    "OPTIONAL (frontend, LOW): floor `available` at 0 in TcInventory.jsx display to avoid negative badges when committed > stock."
+  ],
+  "critical_code_review_comments": [
+    "truck_cleaning_sched.py update_job: JobUpdateIn.window default `\"\"` + the `payload.window == \"\"` check together mean `upd` always contains window=\"\", breaking the 'Nothing to update' guard. This is the root cause of the empty-payload bug. Use Optional[str]=None (or Pydantic model_fields_set) to distinguish 'not provided' from 'explicitly cleared'. Same subtle risk on TechUpdateIn.phone and JobUpdateIn.status.",
+    "truck_cleaning.py PRODUCT_IDS excludes bed_change from inventory (correct for spec), but bed_change IS still in scent card upgrades (correct). The two 'product' concepts diverge in one line — worth a comment near PRODUCT_IDS explaining that bed_change is a service, not stock.",
+    "truck_cleaning_field.py _remind_job overwrites reschedule_token & scent_card_token on EVERY reminder call if not already present. Fine for first reminder, but if a job's tokens are somehow re-generated later, old public links break. Consider atomicity via $setOnInsert-style logic (find_one_and_update with $set only when field missing).",
+    "truck_cleaning_field.py scent_card_submit at line 379 hardcodes `client.get(\"rate\", 150)` — this duplicates the same reprice logic in truck_cleaning_sched.update_job. Consider a shared _reprice(job, cabs, upsells, client) helper to avoid drift.",
+    "TcScheduler.jsx render switch (main TruckCleaning.jsx) is still the manually-maintained if-cascade flagged in iter75. That known fragile pattern claimed no new casualties this iteration but still deserves the map-based refactor.",
+    "TcInventory available badge does not floor at 0 (see design issue). Also relevant: adjust_inventory floors stock at 0 in backend but committed is not adjusted — an admin who oversells scheduled jobs can produce negative-available items with no warning."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter76_tc_batch.py (NEW, 29 tests)",
+    "/app/backend/tests/test_iter73_tc_field_sched.py (relaxed upsells count 3→>=3 for expanded guide)",
+    "/app/backend/tests/test_iter75_tc_brochures_catalog.py (relaxed upsells count 13→>=13; added 'bedding' to allowed categories)"
+  ],
+  "success_rate": {"backend": "116/117 = 99.1% (only failure is the real 'empty payload should 400' bug)", "frontend": "100% of critical flows verified — month calendar 42-cell, edit dialog with all 5 testids, inventory 9 items, review engine card, jobs scent icons, public scent card 8+10, invalid-token guard"},
+  "test_credentials": "Admin bearer test_session_admin_1; localStorage tms_session_token=test_session_admin_1.",
+  "seed_data_creation": "Test suite creates ~10 TEST_* prefixed jobs and 2 TEST_* clients per run and cleans them up in the same test (per-test delete). One 'Cooling Gel Pillow' inventory stock was reduced during testing (test_adjust_floors_at_zero) — not restored fully; committed count from scheduled jobs may exceed remaining stock. Main agent can reseed inventory by clearing tc_inventory or POST /inventory/{id}/adjust with a positive delta.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter76 batch verified. One real backend bug remains: POST /jobs/{id}/update with empty {} returns 200 instead of 400 due to Pydantic default `\"\"` on the window field combined with an `or payload.window == \"\"` truthiness check. After main agent fixes, re-run test_iter76_tc_batch.py::TestJobEdit::test_update_empty_payload_400 — it will flip to green. All other tests (28 iter76 + 88 iter72-75) already pass. Regression tests in iter73/iter75 had stale count assertions (guide upsells=3 and catalog upsells=13) that were updated to >= comparisons to accommodate the expanded 19-item UPSELL_META in this batch. NOTE: iter74 tests only work when REACT_APP_BACKEND_URL env var is set at run time (pytest run must inherit it); the file reads env at import.",
+  "rca_of_the_issue": "ROOT CAUSE (empty-payload update accepted): In /app/backend/routes/truck_cleaning_sched.py, JobUpdateIn.window is declared `Field(\"\", max_length=30)` — Pydantic gives it default `\"\"`. In update_job() the guard is `if payload.window or payload.window == \"\":` — the second branch is True whenever payload.window equals its own default (i.e., always when the caller omits window), so `upd[\"window\"] = \"\"` is always assigned. Therefore `upd` is never empty on an empty payload, and the intended `raise HTTPException(400, 'Nothing to update')` guard never fires. REPRODUCTION: `curl -X POST /api/truck-cleaning/jobs/{JID}/update -d '{}'` → 200 OK with an update that writes window=\"\". EXPECTED per spec: 400 'Nothing to update'. FIX (recommended): change JobUpdateIn.window to `Optional[str] = None`, then guard becomes `if payload.window is not None: upd[\"window\"] = payload.window`. Apply the same pattern to TechUpdateIn.phone. MITIGATION APPLIED BY TESTING AGENT: none — this is business logic. Test suite documents the bug in test_iter76_tc_batch.py::TestJobEdit::test_update_empty_payload_400 which will flip to green after the fix."
+}

@@ -21,7 +21,7 @@ class TestCatalog:
         upsells = data["upsells"]
         scents = data["scents"]
         assert isinstance(upsells, list) and isinstance(scents, list)
-        assert len(upsells) == 13, f"expected 13 upsells, got {len(upsells)}"
+        assert len(upsells) >= 13, f"expected >=13 upsells, got {len(upsells)}"
         assert len(scents) == 8, f"expected 8 scents, got {len(scents)}"
         add_ons = [u for u in upsells if u["category"] == "add_on"]
         fresheners = [u for u in upsells if u["category"] == "freshener"]
@@ -29,7 +29,7 @@ class TestCatalog:
         assert len(fresheners) == 4, f"expected 4 fresheners, got {len(fresheners)}"
         for u in upsells:
             assert set(u.keys()) >= {"id", "label", "price", "category", "desc"}
-            assert u["category"] in ("add_on", "freshener")
+            assert u["category"] in ("add_on", "freshener", "bedding")
             assert isinstance(u["price"], (int, float))
         ids = {u["id"] for u in upsells}
         for required in ("engine_bay", "odor_bomb", "exterior_wash", "scent_single", "vent_diffuser"):

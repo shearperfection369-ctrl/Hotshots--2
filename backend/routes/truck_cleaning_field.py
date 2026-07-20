@@ -16,6 +16,7 @@ from PIL import Image
 from pydantic import BaseModel, Field
 
 from routes.connections import get_connection_credentials
+from routes.truck_cleaning import UPSELLS, UPSELL_META, SCENT_MENU
 
 logger = logging.getLogger(__name__)
 
@@ -78,11 +79,14 @@ async def _remind_job(db, job: Dict[str, Any]) -> Dict[str, Any]:
     if not phone:
         return {"job_id": job["job_id"], "status": "skipped", "note": "client has no phone on file"}
     token = job.get("reschedule_token") or uuid.uuid4().hex
-    await db.tc_jobs.update_one({"job_id": job["job_id"]}, {"$set": {"reschedule_token": token}})
+    scent_token = job.get("scent_card_token") or uuid.uuid4().hex
+    await db.tc_jobs.update_one({"job_id": job["job_id"]},
+                                {"$set": {"reschedule_token": token, "scent_card_token": scent_token}})
     link = f"{_public_base()}/tc/reschedule/{token}"
+    scent_link = f"{_public_base()}/tc/scent/{scent_token}"
     body = (f"Orisei Truck Cleaning: confirming your cleaning for {job['company']} on {job['date']} "
             f"({job['cabs']} cab{'s' if job['cabs'] != 1 else ''}). Need a different day? "
-            f"One tap: {link}")
+            f"One tap: {link} | Pick your scent + bunk upgrades: {scent_link}")
     sms = await _send_sms(db, phone, body, job_id=job["job_id"], kind="reminder")
     await db.tc_jobs.update_one({"job_id": job["job_id"]},
                                 {"$set": {"reminder_status": sms["status"], "reminder_sent_at": _now(),
@@ -267,7 +271,8 @@ def build_truck_cleaning_field_router(*, db, require_role: Callable) -> APIRoute
             logger.exception("TC proof email failed")
             raise HTTPException(status_code=502, detail=f"Resend send failed: {str(exc)[:180]}")
         await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {"proof_sent_at": _now(), "proof_sent_to": payload.to_email}})
-        return {"ok": True, "proof_url": proof_url,
+        review = await _request_review(job)
+        return {"ok": True, "proof_url": proof_url, "review_request": review,
                 "message_id": (resp or {}).get("id") if isinstance(resp, dict) else None}
 
     # -------- public proof gallery --------
@@ -293,5 +298,91 @@ def build_truck_cleaning_field_router(*, db, require_role: Callable) -> APIRoute
         data = await grid_out.read()
         return Response(content=data, media_type="image/jpeg",
                         headers={"Cache-Control": "public, max-age=86400"})
+
+    # ================= REVIEW ENGINE =================
+    async def _request_review(job: Dict[str, Any]) -> Dict[str, Any]:
+        settings = await db.tc_settings.find_one({"_id": "truck_cleaning"}) or {}
+        review_url = settings.get("google_review_url", "")
+        if not review_url:
+            return {"status": "skipped", "note": "no review link set — add it in AI Offers · Review Engine"}
+        if job.get("review_requested_at"):
+            return {"status": "skipped", "note": "already requested"}
+        client = await db.tc_clients.find_one({"client_id": job["client_id"]}, {"_id": 0}) or {}
+        phone = (client.get("phone") or "").strip()
+        if not phone:
+            return {"status": "skipped", "note": "client has no phone"}
+        sms = await _send_sms(db, phone,
+                              f"Thanks for trusting Orisei Truck Cleaning with your cabs, {job['company']}! "
+                              f"Your before/after photos just landed. If we earned it, a 5-star review takes 20 seconds "
+                              f"and means the world to our crew: {review_url}",
+                              job_id=job["job_id"], kind="review_request")
+        await db.tc_jobs.update_one({"job_id": job["job_id"]},
+                                    {"$set": {"review_requested_at": _now(), "review_sms_status": sms["status"]}})
+        return {"status": sms["status"]}
+
+    @router.post("/jobs/{job_id}/review-request")
+    async def manual_review_request(job_id: str, _=Depends(guard)) -> Dict[str, Any]:
+        job = await db.tc_jobs.find_one({"job_id": job_id}, {"_id": 0})
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        job.pop("review_requested_at", None)
+        return await _request_review(job)
+
+    @router.get("/settings")
+    async def get_settings(_=Depends(guard)) -> Dict[str, Any]:
+        s = await db.tc_settings.find_one({"_id": "truck_cleaning"}) or {}
+        reviews = await db.tc_jobs.count_documents({"review_requested_at": {"$ne": None}})
+        return {"google_review_url": s.get("google_review_url", ""), "review_requests_sent": reviews}
+
+    @router.post("/settings")
+    async def set_settings(payload: Dict[str, str], _=Depends(guard)) -> Dict[str, Any]:
+        url = (payload.get("google_review_url") or "").strip()[:400]
+        await db.tc_settings.update_one({"_id": "truck_cleaning"},
+                                        {"$set": {"google_review_url": url, "updated_at": _now()}}, upsert=True)
+        return {"ok": True, "google_review_url": url}
+
+    # ================= DRIVER SCENT CARD =================
+    @router.post("/jobs/{job_id}/scent-card")
+    async def make_scent_card(job_id: str, _=Depends(guard)) -> Dict[str, Any]:
+        job = await db.tc_jobs.find_one({"job_id": job_id}, {"_id": 0})
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        token = job.get("scent_card_token") or uuid.uuid4().hex
+        await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {"scent_card_token": token}})
+        return {"ok": True, "link_path": f"/tc/scent/{token}"}
+
+    @router.get("/scent/{token}")
+    async def scent_card_info(token: str) -> Dict[str, Any]:
+        job = await db.tc_jobs.find_one({"scent_card_token": token}, {"_id": 0})
+        if not job:
+            raise HTTPException(status_code=404, detail="Scent card not found")
+        options = [u for u in UPSELL_META if u["category"] in ("freshener", "bedding")]
+        return {"company": job["company"], "date": job["date"], "cabs": job["cabs"], "status": job["status"],
+                "scents": SCENT_MENU, "upgrades": options,
+                "current": job.get("driver_prefs") or {"scent": "", "upsell_ids": []},
+                "locked": job["status"] != "scheduled"}
+
+    @router.post("/scent/{token}")
+    async def scent_card_submit(token: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        job = await db.tc_jobs.find_one({"scent_card_token": token}, {"_id": 0})
+        if not job:
+            raise HTTPException(status_code=404, detail="Scent card not found")
+        if job["status"] != "scheduled":
+            raise HTTPException(status_code=400, detail="This job is already done — picks apply to your next visit, call us!")
+        scent = str(payload.get("scent") or "")[:60]
+        if scent and scent not in SCENT_MENU:
+            raise HTTPException(status_code=400, detail="Pick a scent from the menu")
+        valid_ids = {u["id"] for u in UPSELL_META if u["category"] in ("freshener", "bedding")}
+        picks = [u for u in (payload.get("upsell_ids") or []) if u in valid_ids][:10]
+        ups = sorted(set([u for u in job.get("upsells", []) if u not in valid_ids] + picks))
+        client = await db.tc_clients.find_one({"client_id": job["client_id"]}, {"_id": 0}) or {}
+        price = round(job["cabs"] * client.get("rate", 150) + sum(UPSELLS[u] for u in ups), 2)
+        await db.tc_jobs.update_one({"scent_card_token": token},
+                                    {"$set": {"upsells": ups, "price": price,
+                                              "driver_prefs": {"scent": scent, "upsell_ids": picks,
+                                                               "submitted_at": _now()}}})
+        added = round(sum(UPSELLS[u] for u in picks), 2)
+        return {"ok": True, "scent": scent, "added_total": added,
+                "message": "Locked in — the crew will have it on the truck."}
 
     return router

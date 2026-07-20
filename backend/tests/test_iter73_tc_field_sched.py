@@ -389,7 +389,7 @@ class TestGuide:
         g = r.json()
         assert isinstance(g.get("phases"), list) and len(g["phases"]) == 9
         assert g.get("supply_kit") and len(g["supply_kit"]) >= 5
-        assert len(g.get("upsells", [])) == 3
+        assert len(g.get("upsells", [])) >= 3
         assert g.get("safety") and g.get("quality_bar")
         for ph in g["phases"]:
             assert "phase" in ph and "steps" in ph and "minutes" in ph

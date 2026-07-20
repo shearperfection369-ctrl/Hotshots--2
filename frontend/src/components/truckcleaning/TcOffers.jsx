@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Card } from "../ui/card";
-import { Bot, Send, Trash2, Loader2, Eye, Sparkles, Mail } from "lucide-react";
+import { Bot, Send, Trash2, Loader2, Eye, Sparkles, Mail, Star } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 
@@ -55,6 +55,7 @@ export const TcOffers = () => {
 
   return (
     <div className="space-y-4" data-testid="tc-offers">
+      <ReviewEngine />
       <Card className="p-5 bg-slate-950/70 border-cyan-500/30 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -126,3 +127,30 @@ export const TcOffers = () => {
     </div>
   );
 };
+
+function ReviewEngine() {
+  const [url, setUrl] = useState("");
+  const [sent, setSent] = useState(0);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    api.get("/truck-cleaning/settings").then((r) => { setUrl(r.data.google_review_url); setSent(r.data.review_requests_sent); }).catch(() => {});
+  }, []);
+  const save = async () => {
+    try { await api.post("/truck-cleaning/settings", { google_review_url: url }); setSaved(true); toast.success("Review Engine armed"); setTimeout(() => setSaved(false), 2000); }
+    catch (e2) { toast.error(errTxt(e2)); }
+  };
+  return (
+    <div className="p-4 rounded-2xl border border-amber-500/30 bg-slate-950/70 backdrop-blur" data-testid="tc-review-engine">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-[220px]">
+          <div className="font-black text-white flex items-center gap-2 text-sm"><Star size={15} className="text-amber-400" /> Review Engine</div>
+          <p className="text-[11px] text-slate-500 mt-0.5">Auto-texts your review link the moment photo proof lands. {sent > 0 && <span className="text-amber-300 font-mono">{sent} requests sent.</span>}</p>
+        </div>
+        <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://g.page/r/your-google-review-link"
+               data-testid="tc-review-url-input" className="flex-1 min-w-[240px] h-10 rounded-full bg-slate-900 border border-white/15 px-4 text-xs outline-none focus:border-amber-400" />
+        <button onClick={save} data-testid="tc-review-save" className="px-5 h-10 rounded-full bg-amber-500 text-black font-bold text-xs">{saved ? "Saved ✓" : "Save"}</button>
+      </div>
+    </div>
+  );
+}
+

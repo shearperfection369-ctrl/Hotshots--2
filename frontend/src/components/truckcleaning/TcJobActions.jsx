@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Card } from "../ui/card";
-import { BellRing, Camera, Trash2, Link2, Mail, Loader2, ImagePlus } from "lucide-react";
+import { BellRing, Camera, Trash2, Link2, Mail, Loader2, ImagePlus, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 
@@ -23,6 +23,14 @@ export const TcJobActions = ({ job, reload }) => {
     finally { setReminding(false); }
   };
 
+  const scentLink = async () => {
+    try {
+      const { data } = await api.post(`/truck-cleaning/jobs/${job.job_id}/scent-card`);
+      const url = `${window.location.origin}${data.link_path}`;
+      navigator.clipboard?.writeText(url).then(() => toast.success("Scent card link copied — text it to the driver")).catch(() => toast.info(url));
+    } catch (e2) { toast.error(errTxt(e2)); }
+  };
+
   return (
     <div className="flex gap-2 items-center">
       {job.status === "scheduled" && (
@@ -34,6 +42,10 @@ export const TcJobActions = ({ job, reload }) => {
       <button onClick={() => setProofOpen(true)} title="Before/after photo proof"
               data-testid={`tc-job-proof-${job.job_id}`} className="text-amber-400 hover:text-amber-300">
         <Camera size={14} />
+      </button>
+      <button onClick={scentLink} title="Copy driver scent card link"
+              data-testid={`tc-job-scent-${job.job_id}`} className="text-rose-400 hover:text-rose-300">
+        <Palette size={14} />
       </button>
       {job.reminder_status && <span className="text-[9px] font-mono text-slate-600 uppercase">SMS {job.reminder_status}</span>}
       {proofOpen && <ProofDialog job={job} onClose={() => setProofOpen(false)} />}

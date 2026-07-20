@@ -1,10 +1,12 @@
 """routes.truck_cleaning_sched — master scheduler, tech dispatch board, and the step-by-step cab cleaning guide."""
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+
+from routes.truck_cleaning import UPSELLS, COGS_PER_CAB
 
 
 def _now() -> str:
@@ -22,6 +24,22 @@ class TechIn(BaseModel):
 class AssignIn(BaseModel):
     tech_ids: List[str] = Field(default_factory=list)
     window: str = Field("", max_length=30)  # e.g. "08:00-10:00"
+
+
+class JobUpdateIn(BaseModel):
+    date: str = Field("", max_length=10)
+    cabs: int = Field(0, ge=0, le=500)
+    window: str = Field("", max_length=30)
+    tech_ids: Optional[List[str]] = None
+    status: str = Field("", max_length=20)
+    upsells: Optional[List[str]] = None
+
+
+class TechUpdateIn(BaseModel):
+    name: str = Field("", max_length=80)
+    phone: str = Field("", max_length=40)
+    role: str = Field("", max_length=10)
+    hourly_rate: float = Field(0, ge=0, le=100)
 
 
 CLEANING_GUIDE = {
@@ -148,11 +166,73 @@ def build_truck_cleaning_sched_router(*, db, require_role: Callable) -> APIRoute
                                     {"$set": {"tech_ids": ids, "window": payload.window, "assigned_at": _now()}})
         return {"ok": True, "tech_ids": ids, "window": payload.window}
 
+    # ---------------- job edit / delete ----------------
+    @router.post("/jobs/{job_id}/update")
+    async def update_job(job_id: str, payload: JobUpdateIn, _=Depends(guard)) -> Dict[str, Any]:
+        job = await db.tc_jobs.find_one({"job_id": job_id}, {"_id": 0})
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        upd: Dict[str, Any] = {}
+        if payload.date:
+            upd["date"] = payload.date
+            upd["reminder_for_date"] = None
+        if payload.window or payload.window == "":
+            upd["window"] = payload.window
+        if payload.status:
+            if payload.status not in ("scheduled", "completed", "paid"):
+                raise HTTPException(status_code=400, detail="status must be scheduled|completed|paid")
+            upd["status"] = payload.status
+        if payload.tech_ids is not None:
+            valid = await db.tc_techs.find({"tech_id": {"$in": payload.tech_ids}, "active": True},
+                                           {"_id": 0, "tech_id": 1}).to_list(50)
+            upd["tech_ids"] = [t["tech_id"] for t in valid]
+        cabs = payload.cabs or job["cabs"]
+        ups = [u for u in payload.upsells if u in UPSELLS] if payload.upsells is not None else job.get("upsells", [])
+        if payload.cabs or payload.upsells is not None:
+            client = await db.tc_clients.find_one({"client_id": job["client_id"]}, {"_id": 0}) or {}
+            upd["cabs"] = cabs
+            upd["upsells"] = ups
+            upd["price"] = round(cabs * client.get("rate", 150) + sum(UPSELLS[u] for u in ups), 2)
+            upd["cogs"] = round(cabs * COGS_PER_CAB, 2)
+        if not upd:
+            raise HTTPException(status_code=400, detail="Nothing to update")
+        upd["updated_at"] = _now()
+        await db.tc_jobs.update_one({"job_id": job_id}, {"$set": upd})
+        fresh = await db.tc_jobs.find_one({"job_id": job_id}, {"_id": 0})
+        return {"ok": True, "job": fresh}
+
+    @router.delete("/jobs/{job_id}")
+    async def delete_job(job_id: str, _=Depends(guard)) -> Dict[str, Any]:
+        r = await db.tc_jobs.delete_one({"job_id": job_id})
+        if r.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return {"ok": True}
+
+    @router.post("/techs/{tech_id}/update")
+    async def update_tech(tech_id: str, payload: TechUpdateIn, _=Depends(guard)) -> Dict[str, Any]:
+        upd = {}
+        if payload.name:
+            upd["name"] = payload.name
+        if payload.phone or payload.phone == "":
+            upd["phone"] = payload.phone
+        if payload.role:
+            if payload.role not in ("lead", "junior"):
+                raise HTTPException(status_code=400, detail="role must be lead|junior")
+            upd["role"] = payload.role
+        if payload.hourly_rate:
+            upd["hourly_rate"] = payload.hourly_rate
+        if not upd:
+            raise HTTPException(status_code=400, detail="Nothing to update")
+        r = await db.tc_techs.update_one({"tech_id": tech_id, "active": True}, {"$set": upd})
+        if r.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Tech not found")
+        return {"ok": True}
+
     # ---------------- schedule board ----------------
     @router.get("/schedule")
     async def schedule(start: str = "", days: int = 7, _=Depends(guard)) -> Dict[str, Any]:
         await _seed_techs()
-        days = max(1, min(days, 14))
+        days = max(1, min(days, 45))
         try:
             d0 = datetime.strptime(start, "%Y-%m-%d").date() if start else datetime.now(timezone.utc).date()
         except ValueError:
