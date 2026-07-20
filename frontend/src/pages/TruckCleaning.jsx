@@ -1,15 +1,21 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Topbar from "../components/Topbar";
 import { Card } from "../components/ui/card";
-import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp } from "lucide-react";
+import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp, UserPlus, FolderOpen, Receipt } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 import { api } from "../lib/api";
+import { TcVault } from "../components/truckcleaning/TcVault";
+import { TcOnboarding } from "../components/truckcleaning/TcOnboarding";
+import { TcInvoices } from "../components/truckcleaning/TcInvoices";
 
 const TABS = [
   { id: "dashboard", label: "Command Deck", icon: Sparkles },
   { id: "clients", label: "Clients", icon: Users },
+  { id: "onboarding", label: "Onboarding", icon: UserPlus },
   { id: "jobs", label: "Jobs", icon: ClipboardList },
+  { id: "invoices", label: "Invoices", icon: Receipt },
+  { id: "vault", label: "Doc Vault", icon: FolderOpen },
   { id: "playbook", label: "Playbook", icon: BookOpenText },
   { id: "docs", label: "Branded Docs", icon: FileDown },
   { id: "advisor", label: "AI Profit Advisor", icon: Bot },
@@ -352,7 +358,7 @@ export default function TruckCleaning() {
       <div className="relative p-4 md:p-6" data-testid="truck-cleaning-page">
         <Orbs />
         <div className="relative flex items-center gap-3 mb-5">
-          <img src="/orisei-logo.svg" alt="Orisei" className="h-10 w-10 drop-shadow-[0_0_14px_rgba(245,158,11,0.6)]" />
+          <img src="/tc-logo.png" alt="Orisei Truck Cleaning" data-testid="tc-logo" className="h-12 w-auto drop-shadow-[0_0_16px_rgba(59,130,246,0.55)]" />
           <div className="flex flex-wrap gap-2">
             {TABS.map((t) => (
               <button key={t.id} onClick={() => setTab(t.id)} data-testid={`tc-tab-${t.id}`}
@@ -365,7 +371,10 @@ export default function TruckCleaning() {
         <div className="relative">
           {tab === "dashboard" && <Dashboard metrics={metrics} qb={qb} onSync={sync} />}
           {tab === "clients" && <Clients clients={clients} reload={reload} />}
+          {tab === "onboarding" && <TcOnboarding reloadAll={reload} />}
           {tab === "jobs" && <Jobs jobs={jobs} clients={clients} reload={reload} />}
+          {tab === "invoices" && <TcInvoices clients={clients} jobs={jobs} reloadAll={reload} />}
+          {tab === "vault" && <TcVault clients={clients} />}
           {tab === "playbook" && <Playbook pb={pb} />}
           {tab === "docs" && <Docs />}
           {tab === "advisor" && <Advisor />}

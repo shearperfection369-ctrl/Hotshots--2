@@ -107,6 +107,8 @@ import HotShotSales from "@/pages/HotShotSales";
 import TenantCommand from "@/pages/TenantCommand";
 import PlatformReadiness from "@/pages/PlatformReadiness";
 import TruckCleaning from "@/pages/TruckCleaning";
+import TcOnboardPublic from "@/pages/TcOnboardPublic";
+import TcInvoicePublic from "@/pages/TcInvoicePublic";
 import TenantLogin from "@/pages/tenant/TenantLogin";
 import TenantPortal from "@/pages/tenant/TenantPortal";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
@@ -155,6 +157,8 @@ function AppRouter() {
       <Route path="/driver" element={<DriverMobile />} />
       <Route path="/driver/:shipmentId" element={<DriverMobile />} />
       <Route path="/i/:token" element={<PublicIntake />} />
+      <Route path="/tc/onboard/:token" element={<TcOnboardPublic />} />
+      <Route path="/tc/invoice/:invoiceId" element={<TcInvoicePublic />} />
       <Route path="/tour" element={<PublicTour />} />
       <Route path="/get-quote" element={<GetQuote />} />
       <Route path="/carriers/loadboard" element={<CarrierLoadboard />} />

@@ -262,17 +262,26 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
                         headers={"Content-Disposition": f'attachment; filename="{names[doc_id]}.pdf"'})
 
     def _build_doc(doc_id: str) -> bytes:
+        from pathlib import Path
         W, H = letter
         INK, AMBER, CYAN = colors.HexColor("#0D1117"), colors.HexColor("#F59E0B"), colors.HexColor("#22D3EE")
         buf = io.BytesIO()
         c = Canvas(buf, pagesize=letter)
         c.setFillColor(INK); c.rect(0, H - 110, W, 110, fill=1, stroke=0)
         c.setFillColor(AMBER); c.rect(0, H - 116, W, 6, fill=1, stroke=0)
+        x_text = 46
+        logo = Path(__file__).resolve().parent / "_tc_logo_pdf.png"
+        if logo.exists():
+            try:
+                c.drawImage(str(logo), 42, H - 100, width=88, height=88, preserveAspectRatio=True, mask="auto")
+                x_text = 142
+            except Exception:  # noqa: BLE001
+                pass
         c.setFont("Helvetica-Bold", 24); c.setFillColor(colors.white)
-        c.drawString(46, H - 52, "ORISEI")
-        c.setFillColor(AMBER); c.drawString(46 + c.stringWidth("ORISEI ", "Helvetica-Bold", 24), H - 52, "TRUCK CLEANING")
+        c.drawString(x_text, H - 52, "ORISEI")
+        c.setFillColor(AMBER); c.drawString(x_text + c.stringWidth("ORISEI ", "Helvetica-Bold", 24), H - 52, "TRUCK CLEANING")
         c.setFont("Helvetica", 9.5); c.setFillColor(colors.HexColor("#9CA3AF"))
-        c.drawString(46, H - 72, "Your cab. Showroom clean. Every time.  ·  Twin Cities, MN  ·  oliver@oriseifreight.com")
+        c.drawString(x_text, H - 72, "Your cab. Showroom clean. Every time.  ·  Twin Cities, MN  ·  oliver@oriseifreight.com")
         c.setFillColor(colors.HexColor("#FAFAF7")); c.rect(0, 46, W, H - 156, fill=1, stroke=0)
         y = H - 150
 

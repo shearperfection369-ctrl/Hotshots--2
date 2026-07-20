@@ -8655,6 +8655,12 @@ api_router.include_router(build_truck_cleaning_router(
     require_role=require_role,
 ))
 
+from routes.truck_cleaning_biz import build_truck_cleaning_biz_router  # noqa: E402
+api_router.include_router(build_truck_cleaning_biz_router(
+    db=db,
+    require_role=require_role,
+))
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,
