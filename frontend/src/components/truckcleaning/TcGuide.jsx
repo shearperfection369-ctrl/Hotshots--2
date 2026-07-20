@@ -1,18 +1,30 @@
 import React, { useEffect, useState } from "react";
 import { Card } from "../ui/card";
-import { SprayCan, Clock, ShieldCheck, Star, Wrench, CheckCircle2 } from "lucide-react";
+import { SprayCan, Clock, ShieldCheck, Star, Wrench, CheckCircle2, FileDown } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "../../lib/api";
 
 export const TcGuide = () => {
   const [g, setG] = useState(null);
   useEffect(() => { api.get("/truck-cleaning/guide").then((r) => setG(r.data)).catch(() => {}); }, []);
+  const downloadBrochure = async () => {
+    try {
+      const r = await api.get("/truck-cleaning/brochures/cleaning-guide.pdf", { responseType: "blob" });
+      const url = URL.createObjectURL(r.data);
+      const a = document.createElement("a"); a.href = url; a.download = "Orisei_Cleaning_Guide_Brochure.pdf"; a.click(); URL.revokeObjectURL(url);
+    } catch (_) { toast.error("Brochure generation failed"); }
+  };
   if (!g) return <div className="text-slate-500 font-mono text-sm">Loading guide…</div>;
   const totalMin = g.phases.reduce((s, p) => s + p.minutes, 0);
 
   return (
     <div className="space-y-5" data-testid="tc-guide">
       <Card className="p-5 bg-slate-950/70 border-amber-500/30 backdrop-blur">
-        <div className="font-black text-lg text-white flex items-center gap-2"><SprayCan size={18} className="text-amber-400" /> {g.title}</div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="font-black text-lg text-white flex items-center gap-2"><SprayCan size={18} className="text-amber-400" /> {g.title}</div>
+          <button onClick={downloadBrochure} data-testid="tc-guide-brochure-btn"
+                  className="shrink-0 px-4 py-2 rounded-full bg-cyan-500 text-black font-bold text-xs inline-flex items-center gap-1.5"><FileDown size={13} /> Color Brochure PDF</button>
+        </div>
         <p className="text-sm text-slate-300 mt-2">{g.intro}</p>
         <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-cyan-500/40 text-cyan-300 text-[11px] font-mono">
           <Clock size={12} /> {totalMin} minutes total · {g.phases.length} phases

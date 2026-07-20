@@ -1,0 +1,39 @@
+{
+  "summary": "Iter75 — Backend + Frontend verification of Truck Cleaning batch: expanded upsell catalog (9 add_on + 4 freshener = 13), 8-scent menu, color brochure PDFs (services + multi-page cleaning-guide), legacy docs restyled, per-client fleet metrics strip. Backend: 11/11 new pytest tests pass in test_iter75_tc_brochures_catalog.py — /catalog returns 13 upsells with correct shape & 8 scents (auth required 401/403 without token), /jobs POST with new upsells [odor_bomb, vent_diffuser, scent_single] correctly prices as cabs*rate + 35+12+5 and silently drops unknown ids, /brochures/services.pdf and /brochures/cleaning-guide.pdf return valid %PDF (guide 3+ pages confirmed via /Type /Page marker count), /brochures/notreal.pdf → 404 and requires auth, legacy /docs/proposal.pdf|agreement.pdf|report-card.pdf all still return 200 %PDF with restyled h2 bands (no error). Regression: iter72 (31) + iter73 (31) + iter74 (15) = 77/77 pytest still all pass. Frontend: /truck-cleaning admin renders — Docs tab: verified all 5 cards (2 cyan brochure cards + 3 legacy) with correct data-testids (tc-doc-services-btn, tc-doc-cleaning-guide-btn, tc-doc-proposal-btn, tc-doc-agreement-btn, tc-doc-report-card-btn); Services brochure & Cleaning Guide brochure both triggered blob downloads with correct filenames and NO error toast; legacy proposal.pdf also downloaded cleanly. Jobs tab: Schedule Job opened form with 9 add-on chips + 4 freshener chips + scent menu text visible; booking a job with odor_bomb + scent_single on cab=1 client rate=$150 produced $190 job row (150 + 35 + 5) — end-to-end pricing correct. Fleet Registry tab: 3 fleet pills render, ALL FLEETS (6) shows no metrics strip, clicking TC-A3F110 pill reveals tc-fleet-client-metrics with exactly 6 tiles (Units in fleet=3, Overdue=1, Due soon=1, Fresh=1, Lifetime cleans=7, Full-fleet clean=$360 == 3 units × $120 rate), 3 unit cards filter to that client, Add Unit form pre-selects the chosen client, and clicking ALL FLEETS re-hides the strip. Cleaning Guide tab: after fix (see rca), tc-guide-brochure-btn renders and downloads Orisei_Cleaning_Guide_Brochure.pdf with no error toast. FIX APPLIED: /app/frontend/src/pages/TruckCleaning.jsx was missing the {tab === 'guide' && <TcGuide />} render conditional — TcGuide was imported but never rendered, so the Cleaning Guide tab was completely blank in the batch delivered by main agent. Added one line — bug fixed and re-verified.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "TruckCleaning.jsx render switch", "issue": "Cleaning Guide tab was blank — missing {tab === 'guide' && <TcGuide />} conditional despite TcGuide being imported. Now fixed by testing agent (one-line addition on line 418).", "selector": "tc-tab-guide", "priority": "HIGH — user-facing feature broken until fix"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter75_tc_brochures_catalog.py",
+    "/app/test_reports/pytest/iter75_results.xml"
+  ],
+  "action_items": [
+    "None blocking — the missing Cleaning Guide render conditional has been fixed. Main agent should be aware this render switch is easy to miss when adding new tabs; consider a lint or unit assertion that every TABS.id has a matching branch in the render function."
+  ],
+  "critical_code_review_comments": [
+    "TruckCleaning.jsx line 408-421: render switch is a manually-maintained series of `{tab === 'x' && <X />}` — this is fragile (proven by the missing guide branch). Consider mapping TABS.id → component to guarantee coverage.",
+    "TcGuide.jsx silently swallows /guide errors with .catch(() => {}) leaving the component stuck on 'Loading guide…' forever. If the endpoint ever returns 5xx or 401, users see no feedback. Consider showing a retryable error state.",
+    "truck_cleaning_brochure.py `_services_brochure` passes `INK if INK in TINTS else CYAN` to tint_panel — INK is not a TINTS key so this always falls back to CYAN. Works fine but the conditional is dead code and reads confusingly; drop the ternary.",
+    "truck_cleaning_brochure.py has no size cap on inputs like UPSELL_META desc — currently short strings but a longer desc could blow the layout. Consider width-guarded wrap and page-flow ensure() checks (already partial).",
+    "truck_cleaning.py UPSELLS dict duplicates UPSELL_META prices — single source of truth would prevent drift. Consider deriving UPSELLS = {u['id']: u['price'] for u in UPSELL_META}.",
+    "truck_cleaning.py add_job silently drops unknown upsell ids (correct per spec) but does not warn the caller — a debug log line would help ops diagnose typos from external integrations.",
+    "TcGuide brochure button and Docs brochure button both call blob downloads; error handling shows a toast — good — but the docs Docs() component catches with `(_) =>` which silently ignores non-brochure errors too. Same pattern in TcGuide — OK for MVP."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/TruckCleaning.jsx",
+    "/app/backend/tests/test_iter75_tc_brochures_catalog.py",
+    "/app/test_reports/pytest/iter75_results.xml"
+  ],
+  "success_rate": {"backend": "100% (11/11 iter75 + 77/77 regression iter72-74)", "frontend": "100% after 1 fix (Docs 5-card, Jobs booking $190 with upsells, Fleet client metrics strip 6-tile, Cleaning Guide brochure download — all verified)"},
+  "test_credentials": "Admin bearer test_session_admin_1; frontend localStorage tms_session_token=test_session_admin_1.",
+  "seed_data_creation": "One new scheduled job created on TC-CB0AFC client (TEST_iter75 tag in notes, price=$190 with odor_bomb+scent_single). One iter75 seed test job (TEST_iter75, TC- client, 2026-01-15, $190) also persisted from backend pytest run. All test data is prefixed or clearly identifiable.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter75 batch verified end-to-end. NOTE: The Cleaning Guide tab required a one-line fix in /app/frontend/src/pages/TruckCleaning.jsx (added `{tab === 'guide' && <TcGuide />}` on line 418). The batch as delivered by main agent had this critical rendering bug — main agent should be aware and add coverage to prevent recurrence. Brochure PDFs render correctly with poppler-installed rasterization possible but not required. All auth guards work, all legacy PDFs still valid, all pytest suites idempotent. Do not re-run POST /offers/scrub (LLM cost). Mocked APIs (Resend/Twilio/QB) remain unconfigured by design — 400 responses on send endpoints are expected.",
+  "rca_of_the_issue": "ROOT CAUSE: In /app/frontend/src/pages/TruckCleaning.jsx, the render switch under `<div className='relative'>` (lines 408-421) lists 12 conditional render branches, one per TABS entry — BUT the batch inadvertently dropped the `{tab === 'guide' && <TcGuide />}` line while adding the 'fleet' and 'offers' branches. TcGuide was still imported (line 13) and the tab button was rendered from the TABS array (line 27), so clicking 'Cleaning Guide' would set tab=='guide' and highlight the pill, but no matching JSX branch existed — React rendered null and the content area stayed blank. This also explains why zero /truck-cleaning/guide network calls were made after clicking the tab: the component never mounted. REPRODUCTION: 1) load /truck-cleaning as admin, 2) click Cleaning Guide tab, 3) observe blank content area (no 'Loading guide…' fallback either, since TcGuide never mounts). MITIGATION APPLIED: Inserted `{tab === 'guide' && <TcGuide />}` between the vault and playbook branches. Re-verified: button renders and brochure PDF downloads successfully. PREVENTION: Suggest replacing the render switch with `const CONTENT = { dashboard: Dashboard, ..., guide: TcGuide, ... }; return <CONTENT[tab] {...props} />` or add a runtime assertion that every TABS.id resolves to a component."
+}

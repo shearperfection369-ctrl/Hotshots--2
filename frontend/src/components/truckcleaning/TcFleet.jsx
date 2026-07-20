@@ -60,6 +60,25 @@ export const TcFleet = ({ clients }) => {
                 className="px-4 py-2 rounded-full bg-amber-500 text-black font-bold text-xs inline-flex items-center gap-1.5"><Plus size={13} /> Add Unit</button>
       </div>
 
+      {sel && (() => {
+        const f = fleets.find((x) => x.client_id === sel);
+        const cl = clients.find((c) => c.client_id === sel);
+        if (!f) return null;
+        const fresh = f.units - f.overdue - f.due_soon;
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3" data-testid="tc-fleet-client-metrics">
+            {[["Units in fleet", f.units, "#F59E0B"], ["Overdue", f.overdue, "#F87171"], ["Due soon", f.due_soon, "#FBBF24"],
+              ["Fresh", fresh, "#34D399"], ["Lifetime cleans", f.total_cleans, "#22D3EE"],
+              ["Full-fleet clean", cl ? `$${(f.units * cl.rate).toLocaleString()}` : "—", "#A78BFA"]].map(([l, v, c]) => (
+              <div key={l} className="p-3 rounded-2xl border border-white/10 bg-slate-950/70 backdrop-blur">
+                <div className="text-lg font-black tabular-nums" style={{ color: c }}>{v}</div>
+                <div className="text-[8px] font-mono uppercase tracking-wider text-slate-500 mt-0.5">{l}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {addOpen && (
         <form onSubmit={add} className="p-4 rounded-xl border border-white/10 bg-slate-950/70 flex flex-wrap gap-2 items-center" data-testid="tc-unit-form">
           <select required value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })} data-testid="tc-unit-client"

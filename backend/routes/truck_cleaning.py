@@ -17,7 +17,40 @@ from routes.connections import get_connection_credentials
 MODEL = ("anthropic", "claude-sonnet-4-5-20250929")
 PRICE_DEFAULT = 150.0
 COGS_PER_CAB = 46.0
-UPSELLS = {"engine_bay": 25.0, "tire_dressing": 20.0, "cabin_filter": 15.0}
+UPSELLS = {"engine_bay": 25.0, "tire_dressing": 20.0, "cabin_filter": 15.0,
+           "leather_conditioning": 30.0, "headliner_spot": 20.0, "mattress_refresh": 25.0,
+           "chrome_polish": 30.0, "exterior_wash": 45.0, "odor_bomb": 35.0,
+           "scent_single": 5.0, "scent_dual": 9.0, "vent_diffuser": 12.0, "scent_subscription": 8.0}
+UPSELL_META = [
+    {"id": "engine_bay", "label": "Engine Bay Degrease", "price": 25.0, "category": "add_on",
+     "desc": "Full degrease of painted & plastic surfaces, dressed matte. Adds 15 min."},
+    {"id": "tire_dressing", "label": "Tire Dressing", "price": 20.0, "category": "add_on",
+     "desc": "Sidewalls washed and dressed with no-sling water-based finish. Adds 10 min."},
+    {"id": "cabin_filter", "label": "Cabin Air Filter Swap", "price": 15.0, "category": "add_on",
+     "desc": "New filter installed, old one photographed for proof. Adds 5 min."},
+    {"id": "leather_conditioning", "label": "Leather Deep Conditioning", "price": 30.0, "category": "add_on",
+     "desc": "PH-balanced clean + conditioner on all leather surfaces. Adds 15 min."},
+    {"id": "headliner_spot", "label": "Headliner Spot Clean", "price": 20.0, "category": "add_on",
+     "desc": "Low-moisture spot treatment on stains and smoke film. Adds 10 min."},
+    {"id": "mattress_refresh", "label": "Sleeper Mattress Refresh", "price": 25.0, "category": "add_on",
+     "desc": "Strip, vacuum, enzyme treat and deodorize the bunk. Adds 15 min."},
+    {"id": "chrome_polish", "label": "Chrome & Stainless Polish", "price": 30.0, "category": "add_on",
+     "desc": "Interior brightwork, sills and exterior stacks polished. Adds 15 min."},
+    {"id": "exterior_wash", "label": "Exterior Cab Hand Wash", "price": 45.0, "category": "add_on",
+     "desc": "Two-bucket hand wash of the cab exterior + bug removal. Adds 25 min."},
+    {"id": "odor_bomb", "label": "Ozone Odor Bomb", "price": 35.0, "category": "add_on",
+     "desc": "Sealed-cab ozone treatment kills smoke, pet and food odor at the source. Adds 30 min."},
+    {"id": "scent_single", "label": "Single Scent Drop", "price": 5.0, "category": "freshener",
+     "desc": "One premium freshener clipped low — driver's choice from the scent menu."},
+    {"id": "scent_dual", "label": "Dual Scent Pack", "price": 9.0, "category": "freshener",
+     "desc": "Two fresheners: one cab, one sleeper. Mix or match scents."},
+    {"id": "vent_diffuser", "label": "Premium Vent Diffuser", "price": 12.0, "category": "freshener",
+     "desc": "30-day slow-release vent diffuser — refill swapped on every visit."},
+    {"id": "scent_subscription", "label": "Scent Rotation Club", "price": 8.0, "category": "freshener",
+     "desc": "Fresh scent rotated every visit — driver picks from the menu each time."},
+]
+SCENT_MENU = ["New Truck Smell", "Black Ice", "Leather & Cedar", "Pine Forest",
+              "Citrus Shop", "Cool Breeze", "Vanilla Cab", "Odor-Neutral (unscented)"]
 
 
 def _now() -> str:
@@ -251,6 +284,10 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
         return {"answer": answer}
 
     # ---------- Branded documents ----------
+    @router.get("/catalog")
+    async def catalog(_=Depends(guard)) -> Dict[str, Any]:
+        return {"upsells": UPSELL_META, "scents": SCENT_MENU}
+
     @router.get("/docs/{doc_id}.pdf")
     async def doc_pdf(doc_id: str, _=Depends(guard)) -> Response:
         if doc_id not in ("proposal", "agreement", "report-card"):
@@ -286,7 +323,9 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
         y = H - 150
 
         def h2(t, yy):
-            c.setFont("Helvetica-Bold", 13); c.setFillColor(AMBER); c.drawString(46, yy, t); return yy - 20
+            c.setFillColor(AMBER); c.roundRect(40, yy - 6, W - 80, 24, 6, fill=1, stroke=0)
+            c.setFont("Helvetica-Bold", 12); c.setFillColor(INK); c.drawString(52, yy, t)
+            return yy - 26
 
         def li(t, yy, bold=""):
             c.setFillColor(CYAN); c.circle(52, yy + 3, 2, fill=1, stroke=0)

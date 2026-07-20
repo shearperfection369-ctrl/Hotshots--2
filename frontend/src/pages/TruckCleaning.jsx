@@ -163,6 +163,8 @@ function Clients({ clients, reload }) {
 function Jobs({ jobs, clients, reload }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ client_id: "", date: "", cabs: 1, upsells: [] });
+  const [catalog, setCatalog] = useState({ upsells: [], scents: [] });
+  useEffect(() => { api.get("/truck-cleaning/catalog").then((r) => setCatalog(r.data)).catch(() => {}); }, []);
   const toggleUp = (u) => setForm((f) => ({ ...f, upsells: f.upsells.includes(u) ? f.upsells.filter((x) => x !== u) : [...f.upsells, u] }));
   const runReminders = async () => {
     try {
@@ -198,11 +200,22 @@ function Jobs({ jobs, clients, reload }) {
                  className="h-9 rounded-lg bg-slate-950 border border-white/15 px-2 text-xs" />
           <input type="number" min="1" value={form.cabs} onChange={(e) => setForm({ ...form, cabs: e.target.value })} data-testid="tc-job-cabs-input"
                  className="h-9 w-20 rounded-lg bg-slate-950 border border-white/15 px-2 text-xs" />
-          {[["engine_bay", "Engine bay +$25"], ["tire_dressing", "Tires +$20"], ["cabin_filter", "Filter +$15"]].map(([u, l]) => (
-            <button type="button" key={u} onClick={() => toggleUp(u)}
-                    className={`h-9 px-3 rounded-full border text-[11px] font-bold ${form.upsells.includes(u) ? "border-amber-400 text-amber-300 bg-amber-500/10" : "border-white/15 text-slate-400"}`}>{l}</button>
-          ))}
           <button type="submit" data-testid="tc-job-submit" className="h-9 px-5 rounded-full bg-amber-500 text-black font-bold text-xs">Book</button>
+          <div className="w-full flex flex-wrap gap-1.5 items-center">
+            <span className="text-[9px] font-mono uppercase text-slate-500">Add-ons</span>
+            {catalog.upsells.filter((u) => u.category === "add_on").map((u) => (
+              <button type="button" key={u.id} onClick={() => toggleUp(u.id)} title={u.desc} data-testid={`tc-upsell-${u.id}`}
+                      className={`h-7 px-2.5 rounded-full border text-[10px] font-bold ${form.upsells.includes(u.id) ? "border-amber-400 text-amber-300 bg-amber-500/10" : "border-white/15 text-slate-400"}`}>{u.label} +${u.price}</button>
+            ))}
+          </div>
+          <div className="w-full flex flex-wrap gap-1.5 items-center">
+            <span className="text-[9px] font-mono uppercase text-cyan-400">Scent packages</span>
+            {catalog.upsells.filter((u) => u.category === "freshener").map((u) => (
+              <button type="button" key={u.id} onClick={() => toggleUp(u.id)} title={u.desc} data-testid={`tc-upsell-${u.id}`}
+                      className={`h-7 px-2.5 rounded-full border text-[10px] font-bold ${form.upsells.includes(u.id) ? "border-cyan-400 text-cyan-300 bg-cyan-500/10" : "border-white/15 text-slate-400"}`}>{u.label} +${u.price}</button>
+            ))}
+            {catalog.scents.length > 0 && <span className="text-[9px] text-slate-600 font-mono">scents: {catalog.scents.join(" · ")}</span>}
+          </div>
         </form>
       )}
       <Card className="bg-slate-950/70 border-white/10 overflow-x-auto">
@@ -285,27 +298,29 @@ function Playbook({ pb }) {
 }
 
 function Docs() {
-  const download = async (id, name) => {
+  const download = async (id, name, brochure = false) => {
     try {
-      const r = await api.get(`/truck-cleaning/docs/${id}.pdf`, { responseType: "blob" });
+      const r = await api.get(`/truck-cleaning/${brochure ? "brochures" : "docs"}/${id}.pdf`, { responseType: "blob" });
       const url = URL.createObjectURL(r.data);
       const a = document.createElement("a"); a.href = url; a.download = `${name}.pdf`; a.click(); URL.revokeObjectURL(url);
     } catch (_) { toast.error("Failed to generate document"); }
   };
   const docs = [
-    ["proposal", "Fleet Cleaning Proposal", "Client-facing pitch: the 45-min spec, fleet pricing, why Orisei"],
-    ["agreement", "Fleet Services Agreement", "Signable month-to-month contract with billing + quality terms"],
-    ["report-card", "Post-Clean Report Card", "Crew checklist + driver sign-off delivered with photo proof"],
+    ["services", "Services & Pricing Brochure", "Full-color client brochure: plans, add-on menu, air freshener packages + scent menu", true],
+    ["cleaning-guide", "Cleaning Guide Brochure", "Full-color multi-page crew guide: 9 phases, supply kit, upsells, safety — print for every van", true],
+    ["proposal", "Fleet Cleaning Proposal", "Client-facing pitch: the 45-min spec, fleet pricing, why Orisei", false],
+    ["agreement", "Fleet Services Agreement", "Signable month-to-month contract with billing + quality terms", false],
+    ["report-card", "Post-Clean Report Card", "Crew checklist + driver sign-off delivered with photo proof", false],
   ];
   return (
     <div className="grid sm:grid-cols-3 gap-4" data-testid="tc-docs">
-      {docs.map(([id, name, d]) => (
-        <Card key={id} className="p-5 bg-slate-950/70 border-white/10 backdrop-blur hover:border-amber-500/40 transition">
-          <FileDown className="text-amber-400 mb-3" size={22} />
-          <div className="font-black text-white">{name}</div>
+      {docs.map(([id, name, d, brochure]) => (
+        <Card key={id} className={`p-5 bg-slate-950/70 backdrop-blur transition ${brochure ? "border-cyan-500/40 hover:border-cyan-400/70" : "border-white/10 hover:border-amber-500/40"}`}>
+          <FileDown className={brochure ? "text-cyan-300 mb-3" : "text-amber-400 mb-3"} size={22} />
+          <div className="font-black text-white">{name} {brochure && <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-full border border-cyan-500/50 text-cyan-300 align-middle">COLOR</span>}</div>
           <p className="text-[12px] text-slate-400 mt-1 mb-4">{d}</p>
-          <button onClick={() => download(id, name.replace(/ /g, "_"))} data-testid={`tc-doc-${id}-btn`}
-                  className="px-4 py-2 rounded-full bg-amber-500 text-black font-bold text-xs">Download PDF</button>
+          <button onClick={() => download(id, name.replace(/ /g, "_"), brochure)} data-testid={`tc-doc-${id}-btn`}
+                  className={`px-4 py-2 rounded-full font-bold text-xs ${brochure ? "bg-cyan-500 text-black" : "bg-amber-500 text-black"}`}>Download PDF</button>
         </Card>
       ))}
     </div>
@@ -400,6 +415,7 @@ export default function TruckCleaning() {
           {tab === "offers" && <TcOffers />}
           {tab === "invoices" && <TcInvoices clients={clients} jobs={jobs} reloadAll={reload} />}
           {tab === "vault" && <TcVault clients={clients} />}
+          {tab === "guide" && <TcGuide />}
           {tab === "playbook" && <Playbook pb={pb} />}
           {tab === "docs" && <Docs />}
           {tab === "advisor" && <Advisor />}
