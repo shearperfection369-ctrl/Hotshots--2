@@ -51,7 +51,7 @@ export const DriverRoster = () => {
           <select value={form.carrier_id} onChange={(e) => setForm({ ...form, carrier_id: e.target.value })}
                   data-testid="driver-add-carrier" className={`${inputCls} min-w-[190px]`}>
             <option value="">Carrier…</option>
-            {data.carriers.map((c) => <option key={c.carrier_id} value={c.carrier_id}>{c.name} ({c.mc_number})</option>)}
+            {data.carriers.map((c) => <option key={c.carrier_id} value={c.carrier_id}>{`${c.name} (${c.mc_number})`}</option>)}
           </select>
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                  placeholder="Driver name" data-testid="driver-add-name" className={`${inputCls} w-40`} />

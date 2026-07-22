@@ -2130,3 +2130,20 @@ retrains scoring weights from revealed preferences — making the intuitive
   (plan, brochure) regenerate 200 OK.
 - Owner receipts: /api/receipts (routes/receipts.py, capital_receipts collection, seeded
   ORI-RCT-0001/2/3) — UI: Brokerage page → Receipts button (ReceiptsDialog), PDF per receipt.
+
+## Session 2026-06 (fork, cont.) — Backhaul Hunter AI + Driver Roster (user choices: auto-seed drivers, tab in Autopilot page, backhauls exempt from daily cap)
+- `routes/broker_autopilot.py`: dispatch_drivers collection auto-seeded 2-3/carrier (round-robin
+  _pick_driver by last_assigned_at); EVERY booked load requires a driver, embedded on rate con/
+  BOL/POD PDFs + rate-con email; backfill assigns drivers to active driverless loads.
+- Backhaul: outbound load hits 'delivered' + driver home city != dest → backhaul_hunts doc opens;
+  _process_hunts scans boards each cycle (_bh_candidates), books at optimal window (score>=88
+  instant, >=70 after 2 scans, forced at 9 min) → BH- load with same driver/carrier, origin=dest,
+  dest=driver home_base, flows full lifecycle; completion closes hunt ('Driver home — round trip
+  closed'). Backhauls excluded from daily cap (sourced_today filters load_type != backhaul).
+- Endpoints: GET /broker-autopilot/backhaul, GET/POST/PUT/DELETE /broker-autopilot/drivers.
+- Frontend: BrokerAutopilot.jsx tabs (desk/backhaul/drivers); components/autopilot/
+  BackhaulHunter.jsx (stats + hunt cards) & DriverRoster.jsx (add/edit/deactivate, grouped by
+  carrier); driver on pipeline cards + drawer; BACKHAUL badges.
+- Tested: iteration_77 — 19/19 backend, frontend 100%, zero critical. Live E2E verified: 5 hunts
+  opened+booked, BH loads flowing with same drivers, cap held 15/15. daily_limit left at 15,
+  autopilot ENABLED.
