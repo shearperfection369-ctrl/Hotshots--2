@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Card } from "../components/ui/card";
-import { Bot, Zap, Play, FileDown, X, CircleDot, Loader2, Radar } from "lucide-react";
+import { Bot, Zap, Play, FileDown, X, CircleDot, Loader2, Radar, Crosshair, Users, LayoutDashboard, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../lib/api";
+import { BackhaulHunter } from "../components/autopilot/BackhaulHunter";
+import { DriverRoster } from "../components/autopilot/DriverRoster";
 
 const errTxt = (e) => (typeof e?.response?.data?.detail === "string" ? e.response.data.detail : "Something went wrong");
 const STAGE_META = {
@@ -10,11 +11,17 @@ const STAGE_META = {
   bol_received: ["BOL IN", "#F59E0B"], in_transit: ["IN TRANSIT", "#FB923C"], delivered: ["POD IN", "#34D399"], completed: ["CLOSED", "#10B981"],
 };
 const COLUMNS = ["carrier_matched", "ratecon_sent", "bol_received", "in_transit", "delivered", "completed"];
+const TABS = [
+  ["desk", "Autopilot Desk", LayoutDashboard],
+  ["backhaul", "Backhaul Hunter", Crosshair],
+  ["drivers", "Drivers", Users],
+];
 
 export default function BrokerAutopilot() {
   const [data, setData] = useState(null);
   const [detail, setDetail] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState("desk");
 
   const load = useCallback(async () => {
     try { const { data: d } = await api.get("/broker-autopilot/status"); setData(d); } catch (_) {}
@@ -54,7 +61,7 @@ export default function BrokerAutopilot() {
       <div className="relative flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-white flex items-center gap-2"><Bot className="text-cyan-300" size={24} /> AI Broker Autopilot</h1>
-          <p className="text-xs text-slate-500 font-mono mt-1">sources loads → matches carriers → emails rate cons → collects BOL → runs to destination → verifies POD. Hands-free.</p>
+          <p className="text-xs text-slate-500 font-mono mt-1">sources loads → assigns drivers → emails rate cons → collects BOL → runs to destination → hunts the backhaul home. Hands-free.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
@@ -75,49 +82,68 @@ export default function BrokerAutopilot() {
         </div>
       </div>
 
-      <div className="relative grid grid-cols-2 md:grid-cols-6 gap-3">
-        {[["Sourced today", `${stats.sourced_today}/${stats.daily_limit}`, "#22D3EE"], ["Active loads", stats.active, "#F59E0B"],
-          ["Loads closed", stats.completed_total, "#34D399"], ["Revenue booked", `$${stats.revenue_total.toLocaleString()}`, "#A78BFA"],
-          ["Margin banked", `$${stats.margin_total.toLocaleString()}`, "#10B981"], ["Margin today", `$${stats.margin_today.toLocaleString()}`, "#FB923C"]].map(([l, v, c]) => (
-          <div key={l} className="p-3 rounded-2xl border border-white/10 bg-slate-950/70 backdrop-blur">
-            <div className="text-xl font-black tabular-nums" style={{ color: c }}>{v}</div>
-            <div className="text-[9px] font-mono uppercase tracking-wider text-slate-500 mt-0.5">{l}</div>
-          </div>
+      <div className="relative flex gap-1.5" data-testid="bap-tabs">
+        {TABS.map(([key, label, Icon]) => (
+          <button key={key} onClick={() => setTab(key)} data-testid={`bap-tab-${key}`}
+                  className={`px-4 h-9 rounded-full text-xs font-bold inline-flex items-center gap-1.5 border transition ${tab === key ? "border-cyan-400 text-cyan-300 bg-cyan-500/10" : "border-white/10 text-slate-500 hover:text-slate-300"}`}>
+            <Icon size={13} /> {label}
+          </button>
         ))}
       </div>
 
-      <div className="relative grid md:grid-cols-6 gap-2" data-testid="bap-pipeline">
-        {COLUMNS.map((st) => {
-          const [label, color] = STAGE_META[st];
-          const col = loads.filter((l) => l.stage === st);
-          return (
-            <div key={st} className="rounded-2xl border border-white/10 bg-slate-950/60 backdrop-blur p-2 min-h-[200px]" data-testid={`bap-col-${st}`}>
-              <div className="flex items-center gap-1.5 px-1 mb-2">
-                <CircleDot size={11} style={{ color }} />
-                <span className="text-[10px] font-mono font-bold" style={{ color }}>{label}</span>
-                <span className="ml-auto text-[10px] font-mono text-slate-600">{col.length}</span>
-              </div>
-              <div className="space-y-1.5 max-h-[420px] overflow-y-auto">
-                {col.map((l) => (
-                  <button key={l.load_id} onClick={() => setDetail(l)} data-testid={`bap-load-${l.load_id}`}
-                          className="w-full text-left p-2 rounded-xl border border-white/10 bg-white/[0.03] hover:border-cyan-400/50 transition">
-                    <div className="text-[10px] font-mono text-cyan-300">{l.load_id}</div>
-                    <div className="text-[11px] font-bold text-white leading-tight">{l.origin.split(",")[0]} → {l.dest.split(",")[0]}</div>
-                    <div className="text-[9px] font-mono text-slate-500">{l.equipment} · {l.miles}mi · <span className="text-emerald-400">${l.margin.toLocaleString()} mgn</span></div>
-                    <div className="text-[9px] font-mono text-slate-600 truncate">{l.carrier?.name}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {tab === "backhaul" && <div className="relative"><BackhaulHunter /></div>}
+      {tab === "drivers" && <div className="relative"><DriverRoster /></div>}
 
-      {!config.enabled && stats.active === 0 && (
-        <div className="relative p-6 rounded-2xl border border-dashed border-cyan-500/30 text-center">
-          <Radar className="mx-auto text-cyan-300 mb-2" size={26} />
-          <p className="text-sm text-slate-400">Engage autopilot and the AI desk sources up to <b className="text-cyan-300">{config.daily_limit} loads a day</b>, working each one from board to POD — exactly like the sandbox, but live on your carrier pool.</p>
-        </div>
+      {tab === "desk" && (
+        <>
+          <div className="relative grid grid-cols-2 md:grid-cols-6 gap-3">
+            {[["Sourced today", `${stats.sourced_today}/${stats.daily_limit}`, "#22D3EE"], ["Active loads", stats.active, "#F59E0B"],
+              ["Loads closed", stats.completed_total, "#34D399"], ["Revenue booked", `$${stats.revenue_total.toLocaleString()}`, "#A78BFA"],
+              ["Margin banked", `$${stats.margin_total.toLocaleString()}`, "#10B981"], ["Margin today", `$${stats.margin_today.toLocaleString()}`, "#FB923C"]].map(([l, v, c]) => (
+              <div key={l} className="p-3 rounded-2xl border border-white/10 bg-slate-950/70 backdrop-blur">
+                <div className="text-xl font-black tabular-nums" style={{ color: c }}>{v}</div>
+                <div className="text-[9px] font-mono uppercase tracking-wider text-slate-500 mt-0.5">{l}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="relative grid md:grid-cols-6 gap-2" data-testid="bap-pipeline">
+            {COLUMNS.map((st) => {
+              const [label, color] = STAGE_META[st];
+              const col = loads.filter((l) => l.stage === st);
+              return (
+                <div key={st} className="rounded-2xl border border-white/10 bg-slate-950/60 backdrop-blur p-2 min-h-[200px]" data-testid={`bap-col-${st}`}>
+                  <div className="flex items-center gap-1.5 px-1 mb-2">
+                    <CircleDot size={11} style={{ color }} />
+                    <span className="text-[10px] font-mono font-bold" style={{ color }}>{label}</span>
+                    <span className="ml-auto text-[10px] font-mono text-slate-600">{col.length}</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-[420px] overflow-y-auto">
+                    {col.map((l) => (
+                      <button key={l.load_id} onClick={() => setDetail(l)} data-testid={`bap-load-${l.load_id}`}
+                              className="w-full text-left p-2 rounded-xl border border-white/10 bg-white/[0.03] hover:border-cyan-400/50 transition">
+                        <div className="text-[10px] font-mono text-cyan-300 flex items-center gap-1.5">{l.load_id}
+                          {l.load_type === "backhaul" && <span className="px-1.5 rounded bg-purple-500/15 text-purple-300 text-[8px] font-black tracking-wider">BACKHAUL</span>}
+                        </div>
+                        <div className="text-[11px] font-bold text-white leading-tight">{l.origin.split(",")[0]} → {l.dest.split(",")[0]}</div>
+                        <div className="text-[9px] font-mono text-slate-500">{l.equipment} · {l.miles}mi · <span className="text-emerald-400">${l.margin.toLocaleString()} mgn</span></div>
+                        <div className="text-[9px] font-mono text-slate-600 truncate">{l.carrier?.name}</div>
+                        {l.driver && <div className="text-[9px] font-mono text-amber-400/90 truncate flex items-center gap-1"><Truck size={9} /> {l.driver.name}</div>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {!config.enabled && stats.active === 0 && (
+            <div className="relative p-6 rounded-2xl border border-dashed border-cyan-500/30 text-center">
+              <Radar className="mx-auto text-cyan-300 mb-2" size={26} />
+              <p className="text-sm text-slate-400">Engage autopilot and the AI desk sources up to <b className="text-cyan-300">{config.daily_limit} loads a day</b>, assigns a driver to every booking, works each one from board to POD — then hunts a backhaul to bring the driver home.</p>
+            </div>
+          )}
+        </>
       )}
 
       {detail && <LoadDrawer loadId={detail.load_id} onClose={() => setDetail(null)} />}
@@ -141,7 +167,9 @@ function LoadDrawer({ loadId, onClose }) {
     <div className="fixed inset-0 z-50 bg-black/70 flex justify-end" onClick={onClose}>
       <div className="w-full max-w-md h-full bg-slate-950 border-l border-cyan-500/30 p-5 overflow-y-auto" onClick={(e) => e.stopPropagation()} data-testid="bap-drawer">
         <div className="flex justify-between items-start mb-1">
-          <div className="font-black text-white text-lg">{ld.load_id}</div>
+          <div className="font-black text-white text-lg flex items-center gap-2">{ld.load_id}
+            {ld.load_type === "backhaul" && <span className="px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 text-[9px] font-black tracking-wider">BACKHAUL</span>}
+          </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white"><X size={18} /></button>
         </div>
         <div className="text-sm text-slate-300">{ld.origin} → {ld.dest}</div>
@@ -155,11 +183,19 @@ function LoadDrawer({ loadId, onClose }) {
             </div>
           ))}
         </div>
-        <div className="p-3 rounded-xl border border-white/10 bg-white/[0.03] mb-4">
+        <div className="p-3 rounded-xl border border-white/10 bg-white/[0.03] mb-3">
           <div className="text-[10px] font-mono uppercase text-slate-500 mb-1">Carrier</div>
           <div className="font-bold text-white text-sm">{ld.carrier?.name}</div>
           <div className="text-[11px] text-slate-400">MC {ld.carrier?.mc_number} · match score {ld.carrier?.match_score}</div>
         </div>
+        {ld.driver && (
+          <div className="p-3 rounded-xl border border-amber-500/25 bg-amber-500/5 mb-4" data-testid="bap-driver-block">
+            <div className="text-[10px] font-mono uppercase text-slate-500 mb-1 flex items-center gap-1"><Truck size={10} /> Driver — on all load docs</div>
+            <div className="font-bold text-white text-sm">{ld.driver.name}</div>
+            <div className="text-[11px] text-slate-400">CDL {ld.driver.cdl_number} · {ld.driver.phone}</div>
+            <div className="text-[11px] text-slate-500">Home base: {ld.driver.home_base}</div>
+          </div>
+        )}
         {ld.ai_reasoning && <div className="p-3 rounded-xl border border-cyan-500/25 bg-cyan-500/5 text-[12px] text-cyan-100 mb-4" data-testid="bap-ai-reasoning"><Bot size={12} className="inline mr-1.5 text-cyan-300" />{ld.ai_reasoning}</div>}
         <div className="flex gap-2 mb-5">
           {[["ratecon", "Rate Con"], ["bol", "BOL"], ["pod", "POD"]].map(([d, l]) => (

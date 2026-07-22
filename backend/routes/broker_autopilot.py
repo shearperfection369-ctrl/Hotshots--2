@@ -36,6 +36,13 @@ LANES = [("Minneapolis, MN", "Chicago, IL", 408), ("Chicago, IL", "Dallas, TX", 
 COMMODITIES = ["Packaged foods", "Auto parts", "Paper products", "Machinery", "Building materials",
                "Beverages", "Plastics", "Retail freight", "Ag equipment parts", "Electronics"]
 EQUIP = ["Dry Van", "Reefer", "Flatbed"]
+HOME_CITY = {"TX": "Dallas, TX", "FL": "Tampa, FL", "CO": "Denver, CO", "MI": "Detroit, MI",
+             "CA": "Fresno, CA", "PA": "Harrisburg, PA", "SD": "Sioux Falls, SD", "LA": "Baton Rouge, LA",
+             "AZ": "Phoenix, AZ", "NY": "Albany, NY", "MN": "Minneapolis, MN"}
+DRIVER_FIRST = ["Mike", "Tony", "Darnell", "Luis", "Pete", "Ray", "Hank", "Cedric", "Wanda", "Gus",
+                "Earl", "Marcus", "Tina", "Sal", "Dwight", "Rosa", "Vern", "Otis", "Jimmy", "Deb"]
+DRIVER_LAST = ["Kowalski", "Ramirez", "Jackson", "Nguyen", "OBrien", "Turner", "Hodges", "Silva",
+               "Baxter", "Munoz", "Fletcher", "Griggs", "Palmer", "Watts", "Dooley", "Crane"]
 
 
 def _now() -> str:
@@ -54,6 +61,40 @@ class ConfigIn(BaseModel):
     enabled: Optional[bool] = None
     daily_limit: int = Field(0, ge=0, le=25)
     min_margin: float = Field(0, ge=0, le=2000)
+
+
+class DriverIn(BaseModel):
+    carrier_id: str
+    name: str = Field(..., min_length=2, max_length=60)
+    phone: str = ""
+    cdl_number: str = ""
+    home_base: str = ""
+
+
+class DriverPatch(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    cdl_number: Optional[str] = None
+    home_base: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+def _bh_candidates(hunt: Dict[str, Any]) -> List[Dict[str, Any]]:
+    base = 280 + (abs(hash(hunt["stranded_at"] + hunt["home_base"])) % 650)
+    out = []
+    for _ in range(random.randint(4, 7)):
+        miles = int(base * random.uniform(0.85, 1.15))
+        rpm = round(random.uniform(1.95, 3.25), 2)
+        rate = round(miles * rpm, 0)
+        carrier_rate = round(rate * random.uniform(0.80, 0.90), 0)
+        deadhead = random.randint(4, 55)
+        out.append({"board_id": f"DAT-{uuid.uuid4().hex[:7].upper()}", "board": random.choice(["DAT", "Truckstop"]),
+                    "miles": miles, "rpm": rpm, "shipper_rate": rate, "carrier_rate": carrier_rate,
+                    "margin": round(rate - carrier_rate, 2), "deadhead_miles": deadhead,
+                    "commodity": random.choice(COMMODITIES), "weight_lbs": random.randint(12000, 44000),
+                    "score": round(max(5, min(100, rpm * 18 + (rate - carrier_rate) / 8 - deadhead * 0.45 + random.uniform(0, 6))), 1)})
+    return out
+
 
 
 def _gen_board_loads(n: int = 14) -> List[Dict[str, Any]]:
@@ -156,6 +197,7 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
 
     async def _email_carrier(load: Dict[str, Any]) -> str:
         creds = await get_connection_credentials(db, "resend") or {}
+        drv = load.get("driver") or {}
         subject = f"RATE CON {load['load_id']} · {load['origin']} → {load['dest']} · ${load['carrier_rate']:,.0f} · PU {load['pickup_date']}"
         if not creds.get("api_key"):
             return "queued"
@@ -166,6 +208,7 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
                 "from": creds.get("from_email") or "Orisei Freight Dispatch <dispatch@oriseifreight.com>",
                 "to": [load["carrier"].get("email") or "dispatch@example.com"], "subject": subject,
                 "html": f"<p>Rate confirmation + shipping instructions attached for load <b>{load['load_id']}</b>. "
+                        f"Assigned driver on file: <b>{drv.get('name', 'TBD')}</b> (CDL {drv.get('cdl_number', 'N/A')}). "
                         f"Reply with signed rate con and send BOL at pickup. — Orisei AI Broker Desk</p>",
                 "attachments": [{"filename": f"RateCon_{load['load_id']}.pdf", "content": list(pdf)}]})
             return "sent"
@@ -179,6 +222,7 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
             ("---", "CARRIER"),
             ("Carrier", f"{ca['name']} · MC {ca.get('mc_number', 'N/A')}"),
             ("Dispatcher", f"{ca.get('dispatcher_name', 'Dispatch')} · {ca.get('phone', '')} · {ca.get('email', '')}"),
+            ("Driver", f"{(load.get('driver') or {}).get('name', 'TBD')} · CDL {(load.get('driver') or {}).get('cdl_number', 'N/A')} · {(load.get('driver') or {}).get('phone', '')}"),
             ("---", "LOAD"),
             ("Lane", f"{load['origin']} → {load['dest']} ({load['miles']} mi)"),
             ("Equipment", f"{load['equipment']} · {load['commodity']} · {load['weight_lbs']:,} lbs"),
@@ -198,7 +242,8 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
             ("Consignee", f"Receiving DC · {load['dest']}"),
             ("Pieces / Weight", f"{random.randint(8, 26)} pallets · {load['weight_lbs']:,} lbs"),
             ("Carrier", load["carrier"]["name"]),
-            ("Driver signature", "ON FILE (captured at shipper dock)"),
+            ("Driver", f"{(load.get('driver') or {}).get('name', 'TBD')} · CDL {(load.get('driver') or {}).get('cdl_number', 'N/A')}"),
+            ("Driver signature", f"{(load.get('driver') or {}).get('name', 'Driver')} — ON FILE (captured at shipper dock)"),
             ("Received by AI desk", _now()[:16].replace("T", " ") + " UTC"),
         ], "BOL captured from carrier and verified against the rate con by AI Broker Autopilot.")
 
@@ -208,6 +253,7 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
             ("Delivered", load.get("delivered_at", _now())[:16].replace("T", " ") + " UTC"),
             ("Receiver signature", "ON FILE — clean, no OS&D exceptions"),
             ("Carrier", load["carrier"]["name"]),
+            ("Driver", f"{(load.get('driver') or {}).get('name', 'TBD')} · CDL {(load.get('driver') or {}).get('cdl_number', 'N/A')}"),
             ("Invoice status", "Auto-queued to shipper billing"),
             ("Margin booked", f"${load['margin']:,.2f}"),
         ], "POD verified by AI Broker Autopilot — load closed and margin booked automatically.")
@@ -243,12 +289,112 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
                 logger.exception("autopilot AI reasoning failed")
         return picks
 
+    async def _ensure_drivers(carriers: List[Dict[str, Any]]):
+        for ca in carriers:
+            cid = ca.get("carrier_id") or ca.get("mc_number")
+            if not cid or await db.dispatch_drivers.count_documents({"carrier_id": cid}) > 0:
+                continue
+            state = ca.get("home_base_state", "MN")
+            for _ in range(random.randint(2, 3)):
+                await db.dispatch_drivers.insert_one({
+                    "driver_id": f"DRV-{uuid.uuid4().hex[:6].upper()}", "carrier_id": cid,
+                    "carrier_name": ca.get("legal_name", ""), "mc_number": ca.get("mc_number", ""),
+                    "name": f"{random.choice(DRIVER_FIRST)} {random.choice(DRIVER_LAST)}",
+                    "phone": f"+1555{random.randint(1000000, 9999999)}",
+                    "cdl_number": f"CDL-{state}{random.randint(100000, 999999)}",
+                    "home_base": HOME_CITY.get(state, "Minneapolis, MN"),
+                    "is_active": True, "last_assigned_at": "", "created_at": _now()})
+
+    def _driver_brief(d: Dict[str, Any]) -> Dict[str, Any]:
+        return {k: d.get(k, "") for k in ("driver_id", "name", "phone", "cdl_number", "home_base")}
+
+    async def _pick_driver(carrier: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        q = {"is_active": True, "$or": [{"carrier_id": carrier.get("carrier_id")},
+                                        {"mc_number": carrier.get("mc_number", "")}]}
+        d = await db.dispatch_drivers.find_one(q, {"_id": 0}, sort=[("last_assigned_at", 1)])
+        if d:
+            await db.dispatch_drivers.update_one({"driver_id": d["driver_id"]}, {"$set": {"last_assigned_at": _now()}})
+        return d
+
+    async def _open_hunt(ld: Dict[str, Any]) -> Optional[str]:
+        drv = ld.get("driver")
+        if not drv or not drv.get("home_base"):
+            return None
+        if drv["home_base"].split(",")[0].strip() == ld["dest"].split(",")[0].strip():
+            return None
+        if await db.backhaul_hunts.find_one({"outbound_load_id": ld["load_id"]}):
+            return None
+        hunt_id = f"HUNT-{uuid.uuid4().hex[:6].upper()}"
+        await db.backhaul_hunts.insert_one({
+            "hunt_id": hunt_id, "outbound_load_id": ld["load_id"], "carrier": ld["carrier"], "driver": drv,
+            "stranded_at": ld["dest"], "home_base": drv["home_base"], "equipment": ld["equipment"],
+            "status": "hunting", "scans": 0, "best_candidate": None, "opened_at": _now(),
+            "booked_load_id": None, "booked_at": None, "closed_at": None})
+        await _event(ld["load_id"], "delivered",
+                     f"Backhaul Hunter engaged — hunting return loads {ld['dest']} → {drv['home_base']} for {drv['name']}")
+        return f"{ld['dest']} → {drv['home_base']}"
+
+    async def _process_hunts() -> List[str]:
+        acts: List[str] = []
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        hunts = await db.backhaul_hunts.find({"status": "hunting"}).to_list(100)
+        for h in hunts:
+            mins = _minutes_ago(h["opened_at"])
+            cands = _bh_candidates(h)
+            best_new = max(cands, key=lambda c: c["score"])
+            best = h.get("best_candidate")
+            if not best or best_new["score"] > best["score"]:
+                best = best_new
+            scans = h.get("scans", 0) + 1
+            upd: Dict[str, Any] = {"scans": scans, "best_candidate": best,
+                                   "last_scan_at": _now(), "last_scan_count": len(cands)}
+            if best["score"] >= 88 or (scans >= 2 and best["score"] >= 70) or mins >= 9:
+                reason = ("prime score — grabbed immediately" if best["score"] >= 88
+                          else "optimal window — best board rate locked before driver ready-time"
+                          if scans >= 2 and best["score"] >= 70
+                          else "ready-window closing — locked best available return")
+                load_id = f"BH-{uuid.uuid4().hex[:6].upper()}"
+                row = {"load_id": load_id, "board_id": best["board_id"], "board": best["board"],
+                       "origin": h["stranded_at"], "dest": h["home_base"], "miles": best["miles"],
+                       "equipment": h.get("equipment", "Dry Van"), "commodity": best["commodity"],
+                       "weight_lbs": best["weight_lbs"], "shipper_rate": best["shipper_rate"],
+                       "rpm": best["rpm"], "pickup_date": today,
+                       "carrier_rate": best["carrier_rate"], "margin": best["margin"],
+                       "ai_reasoning": f"Backhaul Hunter: score {best['score']} after {scans} board scans, "
+                                       f"{best['deadhead_miles']} mi deadhead — {reason}. Gets {h['driver']['name']} home.",
+                       "carrier": h["carrier"], "driver": h["driver"], "load_type": "backhaul",
+                       "stage": "carrier_matched", "stage_at": _now(), "sourced_date": today,
+                       "created_at": _now(), "delivered_at": None,
+                       "timeline": [
+                           {"at": _now(), "stage": "sourced",
+                            "note": f"Backhaul sourced off {best['board']} after {scans} scans — "
+                                    f"${best['margin']:,.0f} margin @ ${best['rpm']}/mi ({reason})"},
+                           {"at": _now(), "stage": "carrier_matched",
+                            "note": f"Driver {h['driver']['name']} (CDL {h['driver'].get('cdl_number', '')}) rolling home "
+                                    f"{h['stranded_at']} → {h['home_base']} — {best['deadhead_miles']} mi deadhead"}]}
+                await db.autopilot_loads.insert_one(dict(row))
+                upd.update({"status": "booked", "booked_load_id": load_id, "booked_at": _now()})
+                acts.append(f"backhaul booked {load_id} ({h['stranded_at']}→{h['home_base']}, ${best['margin']:,.0f})")
+            await db.backhaul_hunts.update_one({"hunt_id": h["hunt_id"]}, {"$set": upd})
+        return acts
+
     async def run_cycle(force_source: bool = False) -> Dict[str, Any]:
         cfg = await _config()
         actions: List[str] = []
+        carriers = await _carriers()
+        await _ensure_drivers(carriers)
         # 1) advance existing loads through the lifecycle (sandbox-speed)
         active = await db.autopilot_loads.find({"stage": {"$nin": ["completed"]}}, {"_id": 0}).to_list(200)
         for ld in active:
+            if not ld.get("driver"):
+                drv = await _pick_driver(ld.get("carrier") or {})
+                if drv:
+                    ld["driver"] = _driver_brief(drv)
+                    await db.autopilot_loads.update_one(
+                        {"load_id": ld["load_id"]},
+                        {"$set": {"driver": ld["driver"], "load_type": ld.get("load_type", "outbound")}})
+                    await _event(ld["load_id"], ld["stage"],
+                                 f"Driver {drv['name']} (CDL {drv['cdl_number']}) assigned — added to rate con, BOL & POD")
             mins = _minutes_ago(ld.get("stage_at", ld["created_at"]))
             stage = ld["stage"]
             nxt, note = None, ""
@@ -270,17 +416,27 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
                 await db.autopilot_loads.update_one({"load_id": ld["load_id"]}, {"$set": upd})
                 await _event(ld["load_id"], nxt, note)
                 actions.append(f"{ld['load_id']} → {nxt}")
+                if nxt == "delivered" and ld.get("load_type", "outbound") != "backhaul":
+                    opened = await _open_hunt(ld)
+                    if opened:
+                        actions.append(f"backhaul hunt opened ({opened})")
+                if nxt == "completed" and ld.get("load_type") == "backhaul":
+                    await db.backhaul_hunts.update_one({"booked_load_id": ld["load_id"]},
+                                                       {"$set": {"status": "completed", "closed_at": _now()}})
+                    await _event(ld["load_id"], "completed", "Driver home — round trip closed by Backhaul Hunter")
         # 2) source new loads up to the daily limit
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        sourced_today = await db.autopilot_loads.count_documents({"sourced_date": today})
+        sourced_today = await db.autopilot_loads.count_documents({"sourced_date": today, "load_type": {"$ne": "backhaul"}})
         room = cfg["daily_limit"] - sourced_today
         if (cfg["enabled"] or force_source) and room > 0:
             want = min(room, 3 if not force_source else room)
-            carriers = await _carriers()
             picks = await _ai_pick(_gen_board_loads(), carriers, want, cfg["min_margin"])
             for p in picks:
                 carrier = _match_carrier(p, carriers)
                 if not carrier:
+                    continue
+                driver = await _pick_driver(carrier)
+                if not driver:
                     continue
                 load_id = f"AP-{uuid.uuid4().hex[:6].upper()}"
                 row = {"load_id": load_id, **{k: p[k] for k in ("board_id", "board", "origin", "dest", "miles",
@@ -294,16 +450,22 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
                            "phone": carrier.get("contact_phone") or carrier.get("phone", ""),
                            "dispatcher_name": carrier.get("contact_name") or carrier.get("dispatcher_name", ""),
                            "match_score": carrier.get("match_score", 0)},
+                       "load_type": "outbound", "driver": _driver_brief(driver),
                        "stage": "carrier_matched", "stage_at": _now(), "sourced_date": today,
                        "created_at": _now(), "delivered_at": None,
                        "timeline": [
                            {"at": _now(), "stage": "sourced",
                             "note": f"Picked off {p['board']} — ${p['margin']:,.0f} margin @ ${p['rpm']}/mi. {p.get('ai_reasoning', '')}".strip()},
                            {"at": _now(), "stage": "carrier_matched",
-                            "note": f"Matched {carrier.get('legal_name') or carrier.get('name', 'carrier')} (score {carrier.get('match_score')}) — lane + equipment fit"}]}
+                            "note": f"Matched {carrier.get('legal_name') or carrier.get('name', 'carrier')} (score {carrier.get('match_score')}) — lane + equipment fit"},
+                           {"at": _now(), "stage": "carrier_matched",
+                            "note": f"Driver {driver['name']} (CDL {driver['cdl_number']}) assigned — auto-added to rate con, BOL & POD"}]}
                 await db.autopilot_loads.insert_one(dict(row))
                 actions.append(f"sourced {load_id} ({p['origin']}→{p['dest']}, ${p['margin']:,.0f})")
-        return {"ok": True, "actions": actions, "sourced_today": await db.autopilot_loads.count_documents({"sourced_date": today})}
+        # 3) backhaul hunter — scan boards, book returns at the optimal window
+        actions.extend(await _process_hunts())
+        return {"ok": True, "actions": actions,
+                "sourced_today": await db.autopilot_loads.count_documents({"sourced_date": today, "load_type": {"$ne": "backhaul"}})}
 
     # ---------------- endpoints ----------------
     @api_router.get("/broker-autopilot/status")
@@ -311,7 +473,7 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
         cfg = await _config()
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         loads = await db.autopilot_loads.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
-        today_loads = [x for x in loads if x["sourced_date"] == today]
+        today_loads = [x for x in loads if x["sourced_date"] == today and x.get("load_type") != "backhaul"]
         completed = [x for x in loads if x["stage"] == "completed"]
         return {"config": cfg, "stages": STAGES,
                 "stats": {"sourced_today": len(today_loads), "daily_limit": cfg["daily_limit"],
@@ -360,6 +522,61 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
             raise HTTPException(status_code=400, detail=f"{doc} not available yet — load is at '{ld['stage']}'")
         return Response(content=fn(ld), media_type="application/pdf",
                         headers={"Content-Disposition": f'attachment; filename="{doc}_{load_id}.pdf"'})
+
+    @api_router.get("/broker-autopilot/backhaul")
+    async def backhaul_state(_=Depends(get_current_user)) -> Dict[str, Any]:
+        hunts = await db.backhaul_hunts.find({}, {"_id": 0}).sort("opened_at", -1).to_list(100)
+        bh = await db.autopilot_loads.find({"load_type": "backhaul"}, {"_id": 0}).to_list(300)
+        done = [x for x in bh if x["stage"] == "completed"]
+        return {"hunts": hunts,
+                "stats": {"hunting": sum(1 for h in hunts if h["status"] == "hunting"),
+                          "booked": sum(1 for h in hunts if h["status"] in ("booked", "completed")),
+                          "round_trips": len(done),
+                          "backhaul_margin": round(sum(x["margin"] for x in done), 2)}}
+
+    @api_router.get("/broker-autopilot/drivers")
+    async def list_drivers(_=Depends(get_current_user)) -> Dict[str, Any]:
+        carriers = await _carriers()
+        await _ensure_drivers(carriers)
+        rows = await db.dispatch_drivers.find({}, {"_id": 0}).sort([("carrier_name", 1), ("name", 1)]).to_list(500)
+        return {"drivers": rows,
+                "carriers": [{"carrier_id": c.get("carrier_id"), "name": c.get("legal_name"),
+                              "mc_number": c.get("mc_number"), "home_state": c.get("home_base_state")}
+                             for c in carriers]}
+
+    @api_router.post("/broker-autopilot/drivers")
+    async def add_driver(payload: DriverIn, _=Depends(require_role("admin", "dispatcher"))) -> Dict[str, Any]:
+        ca = next((c for c in await _carriers() if c.get("carrier_id") == payload.carrier_id), None)
+        if not ca:
+            raise HTTPException(status_code=404, detail="Carrier not found")
+        state = ca.get("home_base_state", "MN")
+        d = {"driver_id": f"DRV-{uuid.uuid4().hex[:6].upper()}", "carrier_id": payload.carrier_id,
+             "carrier_name": ca.get("legal_name", ""), "mc_number": ca.get("mc_number", ""),
+             "name": payload.name, "phone": payload.phone,
+             "cdl_number": payload.cdl_number or f"CDL-{state}{random.randint(100000, 999999)}",
+             "home_base": payload.home_base or HOME_CITY.get(state, "Minneapolis, MN"),
+             "is_active": True, "last_assigned_at": "", "created_at": _now()}
+        await db.dispatch_drivers.insert_one(dict(d))
+        d.pop("_id", None)
+        return {"ok": True, "driver": d}
+
+    @api_router.put("/broker-autopilot/drivers/{driver_id}")
+    async def edit_driver(driver_id: str, payload: DriverPatch,
+                          _=Depends(require_role("admin", "dispatcher"))) -> Dict[str, Any]:
+        upd = {k: v for k, v in payload.model_dump().items() if v is not None}
+        if not upd:
+            raise HTTPException(status_code=400, detail="Nothing to update")
+        r = await db.dispatch_drivers.update_one({"driver_id": driver_id}, {"$set": upd})
+        if not r.matched_count:
+            raise HTTPException(status_code=404, detail="Driver not found")
+        return {"ok": True}
+
+    @api_router.delete("/broker-autopilot/drivers/{driver_id}")
+    async def remove_driver(driver_id: str, _=Depends(require_role("admin", "dispatcher"))) -> Dict[str, Any]:
+        r = await db.dispatch_drivers.update_one({"driver_id": driver_id}, {"$set": {"is_active": False}})
+        if not r.matched_count:
+            raise HTTPException(status_code=404, detail="Driver not found")
+        return {"ok": True}
 
     return run_cycle
 

@@ -1,0 +1,58 @@
+{
+  "summary": "Iter 77 — Backhaul Hunter AI, driver assignment, driver CRUD, PDF docs with driver embedded, and daily-cap regression. 19/19 pytest cases pass; frontend Desk/Backhaul/Drivers tabs all render and CRUD works end-to-end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Drivers tab · Add Driver <select>", "issues": ["Console hydration warning: `<span>` cannot be child of `<option>` — comes from the preview editor's static instrumentation wrapper around the option children (`{c.name} ({c.mc_number})`). Real source is fine; only a runtime warning caused by the emergent x-* wrapper. Non-blocking but visible in devtools."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter77_broker_autopilot_backhaul.py",
+    "/app/test_reports/pytest/iter77_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backhaul hunter code path verified by reading source: `_open_hunt` fires when outbound load reaches 'delivered' & driver.home_base city != dest city, dedupes by outbound_load_id; `_process_hunts` books after ≥2 scans w/ score≥70, OR score≥88 immediately, OR ≥9 min forced; BH- load carries the same driver+carrier and dest=driver.home_base. Completion path closes the hunt via `booked_load_id` match. All expected.",
+    "`stats.sourced_today` correctly filters `load_type != 'backhaul'` in both `run_cycle` and `/status` — confirmed by tests (15/15 remains 15/15).",
+    "PDF builders (`_ratecon_pdf`, `_bol_pdf`, `_pod_pdf`) embed driver name+CDL rows. Verified by PyMuPDF text extraction on live ratecon.pdf that driver 'Darnell Griggs' is present.",
+    "`/broker-autopilot/loads/{id}/docs/{doc}.pdf` returns 400 with stage-name in detail before the doc is available (STAGES index gate); returns 200 at/past correct stage. Verified.",
+    "`_ensure_drivers` is idempotent (skips carriers that already have drivers). Called from `run_cycle` and `list_drivers` — safe.",
+    "`_pick_driver` sorts by last_assigned_at asc → round-robins across drivers within a carrier. Good.",
+    "MINOR: `edit_driver` accepts empty `is_active=None` but doesn't validate at least one truthy field — currently returns 400 only when whole payload is None-only. Not a blocker.",
+    "MINOR: In `DriverRoster.jsx` line 54, `<option>{c.name} ({c.mc_number})</option>` — under the preview editor's static instrumentation this triggers a `<span> inside <option>` hydration warning. Consider wrapping the label in a template string to keep it purely textual (e.g. `{`${c.name} (${c.mc_number})`}` on one expression) if the warning bothers you; production build is unaffected."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter77_broker_autopilot_backhaul.py (new)"
+  ],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% of interactive flows tested"},
+  "test_credentials": "Authorization: Bearer test_session_admin_1 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created + deleted 1 test driver via backend suite (TEST_Iter77 Driver → renamed → deactivated). Frontend suite created + edited + deactivated 1 UI driver (TEST_UI_Driver77 → TEST_UI_Driver77_Renamed → deactivated). All left in is_active:false state.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Autopilot left ENABLED, daily_limit=15. The 5 fresh outbound loads (AP-A5956C, AP-873DCE, AP-4922DC, AP-0F3A55, AP-4257EC) were all still at 'ratecon_sent' at end of this run, so no backhaul hunts had opened yet — the pipeline needs 15-25 min of wall time to reach delivered→hunt→booked→completed. The code path for the full lifecycle was code-reviewed and confirmed correct. If the next tester wants to verify a live hunt cycle end-to-end, wait for those loads (or the 120s background loop) to reach 'delivered' then re-hit /broker-autopilot/backhaul. Backend suite at /app/backend/tests/test_iter77_broker_autopilot_backhaul.py already covers hunt shape + backhaul-load linkage when hunts exist (currently skipped gracefully when list is empty).",
+  "verified_functionality": [
+    "GET /api/broker-autopilot/status — 200, config.enabled=true, daily_limit=15, stats.sourced_today=15 (backhaul-excluded)",
+    "All 5 fresh outbound loads carry driver{driver_id,name,phone,cdl_number,home_base}",
+    "GET /api/broker-autopilot/drivers — 26 drivers across 10 carriers (2–3 per carrier)",
+    "POST /api/broker-autopilot/drivers — creates driver, auto-fills cdl_number + home_base when blank",
+    "PUT /api/broker-autopilot/drivers/{id} — updates name & phone, persists",
+    "DELETE /api/broker-autopilot/drivers/{id} — sets is_active=false; row disappears from UI byCarrier grouping",
+    "PUT/DELETE unknown driver → 404; POST unknown carrier → 404",
+    "POST /api/broker-autopilot/run-cycle — 200, respects daily cap (sourced_today stays 15)",
+    "GET /api/broker-autopilot/backhaul — 200, correct stats shape (hunting/booked/round_trips/backhaul_margin)",
+    "GET .../docs/ratecon.pdf — 200, application/pdf, %PDF magic, driver name embedded (verified via PyMuPDF)",
+    "GET .../docs/bol.pdf — 200 at bol_received+ (no eligible load at present, deferred until pipeline advances)",
+    "GET .../docs/pod.pdf — 400 before delivered (verified on load at ratecon_sent)",
+    "POST /api/broker-autopilot/config daily_limit toggles 5/10/15 all persist; enabled left ON",
+    "FRONTEND /broker-autopilot renders 3 tabs (bap-tab-desk / -backhaul / -drivers)",
+    "Desk pipeline shows amber driver name w/ truck icon on each fresh load card",
+    "LoadDrawer (bap-drawer) opens with bap-driver-block showing Darnell Griggs / CDL-MI647985 / Detroit, MI",
+    "Backhaul tab shows 4 stat cards + empty-state (bh-empty) currently (no hunts yet)",
+    "Drivers tab: add-driver form submits, edit inline saves, remove deactivates — all with toasts"
+  ]
+}
