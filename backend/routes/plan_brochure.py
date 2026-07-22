@@ -413,8 +413,8 @@ def _page_financials(c: Canvas, page: int, total: int):
         ("Gross margin %", "19.0%", "21.0%", "23.0%", False),
         ("Operating expenses (lean)", "$22,510", "$79,030", "$131,800", False),
         ("Member comp (salary + distributions)", "$30,000", "$90,000", "$180,000", False),
-        ("Net cash to members", "$57,490", "$125,383", "$223,200", True),
-        ("Per-member share (1/3)", "$19,163", "$41,794", "$74,400", True),
+        ("Net cash to members", "$57,490", "$127,983", "$228,000", True),
+        ("Per-member share (1/3)", "$19,163", "$42,661", "$76,000", True),
     ]
     x0, tw = 40, W - 80
     col_w = [tw * 0.37, tw * 0.21, tw * 0.21, tw * 0.21]

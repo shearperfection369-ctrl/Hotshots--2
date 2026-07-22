@@ -49,8 +49,8 @@ The brokerage launches with the operator's playbook, the builder's toolkit, AND 
 | Gross margin % | 19.0% | 21.0% | 23.0% |
 | Operating expenses (lean) | $22,510 | $79,030 | $131,800 |
 | Partner draws (combined) | $30,000 | $90,000 | $180,000 |
-| **Net cash to members (equal thirds)** | **$57,490** | **$125,383** | **$223,200** |
-| **Per-member share (⅓)** | **$19,163** | **$41,794** | **$74,400** |
+| **Net cash to members (equal thirds)** | **$57,490** | **$127,983** | **$228,000** |
+| **Per-member share (⅓)** | **$19,163** | **$42,661** | **$76,000** |
 
 **The capitalization.** Orisei launches on **$30,000 of member capital — $10,000 committed in cash by each of the three members**. Oliver Cummins' $10,000 is **paid in full in-kind** — the design and development of the Orisei Brokerage Command Deck, the structuring and formation of the business, and payment of all Company expenses to date from personal funds (receipt ORI-RCT-0003); Doug Graham additionally contributes 12 years of owner/operator expertise as the Company's carrier-side advisor. There is **no outside-investor ask** — Orisei is designed to be **cash-flow positive by Month 5** on the lean launch budget, with the factoring line carrying working-capital load from Day 28.
 
@@ -448,12 +448,13 @@ The launch runway is tracked live in the **Command Deck → Launch Runway tab**,
 | &nbsp;&nbsp;Misc / contingency | $2,000 | $9,600 | $18,000 |
 | **Total OpEx** | **$22,510** | **$79,030** | **$131,800** |
 | **EBITDA before partner pay** | **$57,490** | **$132,583** | **$302,600** |
-| Member compensation (operator salary + distributions, combined) | $30,000 | $90,000 | $180,000 |
-| Payroll taxes (employer-side, S-Corp Y2+) | $0 | $7,200 | $14,400 |
+| Operator salary — Oliver Cummins (§3.6 · $5,000/mo, starts Mo10 Y1 once margin clears $10K/mo) | $15,000 | $60,000 | $60,000 |
+| Member distributions (combined, per Distribution Waterfall) | $15,000 | $30,000 | $120,000 |
+| Payroll taxes (employer-side FICA on salary, S-Corp Y2+) | $0 | $4,600 | $9,600 |
 | Hire: 1 carrier-sales agent (Y3) | $0 | $0 | $65,000 |
-| **Net income** | **$27,490** | **$35,383** | **$43,200** |
-| **Net cash to members (combined)** | **$57,490** | **$125,383** | **$223,200** |
-| **Per-member share (⅓)** | **$19,163** | **$41,794** | **$74,400** |
+| **Net income** | **$27,490** | **$37,983** | **$48,000** |
+| **Net cash to members (combined)** | **$57,490** | **$127,983** | **$228,000** |
+| **Per-member share (⅓)** | **$19,163** | **$42,661** | **$76,000** |
 
 > **Note on member compensation.** Per the Partnership Agreement (§3.6), **Oliver Cummins is the only salaried member** ($5,000/mo guaranteed payment once monthly gross margin clears $10,000). Daniel and Doug are compensated exclusively through **quarterly equity distributions paid by ACH within 45 days of quarter close** (May 15 · Aug 14 · Nov 14 · Feb 14) under the Agreement's Distribution Waterfall: operating reserve → **15% Company retained earnings** → tax safe-harbor → **10% per-member Reinvestment Holdback** (credited to capital accounts) → equal thirds. All members retain outside income streams in Y1 (Oliver: Tennant W-2 · Daniel: barbershop + studio · Doug: owner/operator runs), which is what makes the lean compensation plan viable. Year 2 elects S-Corp status and splits comp into reasonable salary + distributions. Year 3 funds the first hire.
 

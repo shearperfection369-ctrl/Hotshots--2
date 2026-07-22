@@ -2121,3 +2121,12 @@ retrains scoring weights from revealed preferences — making the intuitive
   compensation note updated to match. Both agreement PDFs regenerate 200 OK. No other 50%
   ownership refs remain (grepped repo-wide).
 - Deferred by user: Upwork portfolio images (skip again, recurrence 7), QuickBooks (next session).
+- **Financial recalc for $5K salary** (same session): 3-Year P&L §10.5 comp line split into
+  Operator salary (Y1 $15,000 = Mo10-12 only, ramp clears $10K/mo margin at Mo10; Y2/Y3 $60,000)
+  + Member distributions ($15K/$30K/$120K). Payroll taxes re-based to employer FICA on actual
+  salary (Y2 $4,600, Y3 $9,600 incl. agent hire). Net income $27,490/$37,983/$48,000; net cash
+  to members $57,490/$127,983/$228,000; per-member $19,163/$42,661/$76,000. Exec summary table
+  + plan_brochure.py stat rows synced. Combined comp totals ($30/90/180K) unchanged. All PDFs
+  (plan, brochure) regenerate 200 OK.
+- Owner receipts: /api/receipts (routes/receipts.py, capital_receipts collection, seeded
+  ORI-RCT-0001/2/3) — UI: Brokerage page → Receipts button (ReceiptsDialog), PDF per receipt.
