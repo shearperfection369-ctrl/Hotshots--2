@@ -2104,3 +2104,20 @@ retrains scoring weights from revealed preferences — making the intuitive
 - **Tests**: iteration_76 — backend 117 checks (1 real bug found → fixed → suite
   test_iter76_tc_batch.py 29/29 pass), frontend 100%. Regression iter72-75 suites pass.
 
+
+## Session 2026-06 (fork) — Broker Autopilot fix + Agreement revisions
+- **AI Broker Autopilot fixed & verified** (`routes/broker_autopilot.py`): root cause of the
+  JSONDecodeError/loop crash was KeyError 'name' — carrier matcher assumed `name/email/equipment/
+  preferred_lanes` but `dispatch_carriers` schema uses `legal_name/contact_email/equipment_types/
+  service_states`. Matcher rewritten against real schema (origin/dest state coverage, equipment map
+  Dry Van→Van, max weight, on_time_pct, days_idle). Verified via curl: config toggle, run-cycle
+  sourced 10/10 loads (daily cap respected), stage advancement carrier_matched→ratecon_sent,
+  status endpoint clean JSON, rate-con PDF gated until stage reached (400 before ratecon_sent —
+  by design). Loop runs every 120s in background. SIMULATION MODE (user choice 1a): loads are
+  generated, emails queue until Resend key present.
+- **Agreements revised** (user request): BROKERAGE_BUSINESS_PLAN.md — Cummins ownership table
+  50%→33⅓% (typo), Karsor "equal 50% stake"→33⅓%; PARTNERSHIP_AGREEMENT.md §3.6 operator salary
+  $1,500→**$5,000/mo** (margin trigger raised $4,000→$10,000 for coherence); business-plan
+  compensation note updated to match. Both agreement PDFs regenerate 200 OK. No other 50%
+  ownership refs remain (grepped repo-wide).
+- Deferred by user: Upwork portfolio images (skip again, recurrence 7), QuickBooks (next session).

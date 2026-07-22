@@ -72,11 +72,11 @@ Oliver Cummins has spent **13 years in supply chain & logistics** across all mod
 | Current role | Transportation Analyst · Tennant Companies (active until brokerage hits 60-load month) |
 | Geography | Minneapolis, MN · Statewide network · National lane coverage |
 | Contribution to LLC | Command Deck IP · operating playbook · full-time brokerage operations · pre-formation regulatory work |
-| Ownership | **50%** |
+| Ownership | **33⅓%** |
 
 ### 2.2 · Daniel W. Karsor — Co-Founder · Technology, Brand & Capital
 
-Daniel W. Karsor is a **serial small-business owner and software developer** based in **Brooklyn Park, Minnesota**. Originally from **West Africa**, Daniel immigrated to Minnesota and built two profitable community businesses from the ground up — a **barbershop** and a **podcast / media production studio** — both of which he continues to own and operate. He is contributing the partnership's **$10,000 launch capital** and takes an equal 50% stake in Orisei Freight Solutions LLC.
+Daniel W. Karsor is a **serial small-business owner and software developer** based in **Brooklyn Park, Minnesota**. Originally from **West Africa**, Daniel immigrated to Minnesota and built two profitable community businesses from the ground up — a **barbershop** and a **podcast / media production studio** — both of which he continues to own and operate. He is contributing **$10,000 of the partnership's launch capital** and takes an equal 33⅓% stake in Orisei Freight Solutions LLC.
 
 > "I've built businesses where the margin lives or dies on showing up every single day — a barber chair doesn't earn if it's empty, and a studio doesn't earn if the mic is off. Freight is the same discipline at a bigger scale. Oliver knows the lanes; I know how to build the machine and tell the story. Together we don't need anyone's permission to grow." *— Daniel W. Karsor*
 
@@ -455,7 +455,7 @@ The launch runway is tracked live in the **Command Deck → Launch Runway tab**,
 | **Net cash to members (combined)** | **$57,490** | **$125,383** | **$223,200** |
 | **Per-member share (⅓)** | **$19,163** | **$41,794** | **$74,400** |
 
-> **Note on member compensation.** Per the Partnership Agreement (§3.6), **Oliver Cummins is the only salaried member** ($1,500/mo guaranteed payment once monthly gross margin clears $4,000). Daniel and Doug are compensated exclusively through **quarterly equity distributions paid by ACH within 45 days of quarter close** (May 15 · Aug 14 · Nov 14 · Feb 14) under the Agreement's Distribution Waterfall: operating reserve → **15% Company retained earnings** → tax safe-harbor → **10% per-member Reinvestment Holdback** (credited to capital accounts) → equal thirds. All members retain outside income streams in Y1 (Oliver: Tennant W-2 · Daniel: barbershop + studio · Doug: owner/operator runs), which is what makes the lean compensation plan viable. Year 2 elects S-Corp status and splits comp into reasonable salary + distributions. Year 3 funds the first hire.
+> **Note on member compensation.** Per the Partnership Agreement (§3.6), **Oliver Cummins is the only salaried member** ($5,000/mo guaranteed payment once monthly gross margin clears $10,000). Daniel and Doug are compensated exclusively through **quarterly equity distributions paid by ACH within 45 days of quarter close** (May 15 · Aug 14 · Nov 14 · Feb 14) under the Agreement's Distribution Waterfall: operating reserve → **15% Company retained earnings** → tax safe-harbor → **10% per-member Reinvestment Holdback** (credited to capital accounts) → equal thirds. All members retain outside income streams in Y1 (Oliver: Tennant W-2 · Daniel: barbershop + studio · Doug: owner/operator runs), which is what makes the lean compensation plan viable. Year 2 elects S-Corp status and splits comp into reasonable salary + distributions. Year 3 funds the first hire.
 
 ### 10.6 · Cash flow & break-even
 

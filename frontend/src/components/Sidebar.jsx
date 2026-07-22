@@ -5,7 +5,7 @@ import {
   Search, Truck, Plug, BarChart3, MessagesSquare, ExternalLink, LogOut, TrendingUp, Lightbulb,
   Receipt, ShieldCheck, Smartphone, Users, Database, Sparkles, Video, Film, Table2,
   DollarSign, Music as MusicIcon, BookOpen, Archive, FileWarning, UserPlus, Globe, Factory, Wrench, Gamepad2, Truck as TrailerIcon,
-  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2, Trophy, Wallet, ShieldAlert, Ship, Rocket, Satellite, FlaskConical, Target, Zap, Droplets
+  PieChart, FolderOpen, Settings as SettingsIcon, Award, IdCard, Activity, Calculator, KeyRound, Send, Briefcase, Megaphone, Building2, Trophy, Wallet, ShieldAlert, Ship, Rocket, Satellite, FlaskConical, Target, Zap, Droplets, Bot
 } from "lucide-react";
 import { TennantLogo } from "./TennantLogo";
 import { useAuth } from "../lib/auth";
@@ -27,6 +27,7 @@ const NAV = [
   { to: "/hotshot-sales", label: "Hot Shot TMS Sales", icon: Zap, tid: "nav-hotshot-sales", roles: ["admin"] },
   { to: "/tenant-command", label: "Tenant Command", icon: Building2, tid: "nav-tenant-command", roles: ["admin"] },
   { to: "/platform-readiness", label: "Platform Readiness", icon: ShieldCheck, tid: "nav-platform-readiness", roles: ["admin"] },
+  { to: "/broker-autopilot", label: "AI Broker Autopilot", icon: Bot, tid: "nav-broker-autopilot", roles: ["admin", "dispatcher"] },
   { to: "/truck-cleaning", label: "Truck Cleaning", icon: Droplets, tid: "nav-truck-cleaning", roles: ["admin"] },
   { to: "/route-optimizer", label: "Route Optimizer", icon: MapPinned, tid: "nav-route-optimizer", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/launch-blast", label: "Launch Email Blast", icon: Megaphone, tid: "nav-launch-blast", roles: ["admin"] },

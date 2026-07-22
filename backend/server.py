@@ -8690,6 +8690,16 @@ api_router.include_router(build_truck_cleaning_brochure_router(
 async def _start_tc_reminders():
     asyncio.create_task(reminders_autorun_loop(db))
 
+from routes.broker_autopilot import build_broker_autopilot_router, autopilot_loop  # noqa: E402
+_autopilot_run_cycle = build_broker_autopilot_router(api_router=api_router, db=db,
+                                                     get_current_user=get_current_user,
+                                                     require_role=require_role)
+
+
+@app.on_event("startup")
+async def _start_broker_autopilot():
+    asyncio.create_task(autopilot_loop(_autopilot_run_cycle))
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,
