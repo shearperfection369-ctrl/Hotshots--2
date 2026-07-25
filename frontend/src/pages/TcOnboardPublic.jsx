@@ -66,8 +66,8 @@ export default function TcOnboardPublic() {
         </div>
 
         {state === "loading" && <div className="text-slate-500 font-mono text-sm flex gap-2 items-center"><Loader2 size={14} className="animate-spin" /> Loading…</div>}
-        {state === "invalid" && <div className="p-6 rounded-2xl border border-red-500/30 bg-red-500/5 text-sm" data-testid="tcp-invalid">This onboarding link is invalid or expired. Contact oliver@oriseifreight.com for a fresh one.</div>}
-        {state === "finalized" && <div className="p-6 rounded-2xl border border-white/10 bg-white/5 text-sm" data-testid="tcp-finalized">This onboarding has already been completed. Questions? oliver@oriseifreight.com</div>}
+        {state === "invalid" && <div className="p-6 rounded-2xl border border-red-500/30 bg-red-500/5 text-sm" data-testid="tcp-invalid">This onboarding link is invalid or expired. Contact oliver@oriseifreightsolutions.com for a fresh one.</div>}
+        {state === "finalized" && <div className="p-6 rounded-2xl border border-white/10 bg-white/5 text-sm" data-testid="tcp-finalized">This onboarding has already been completed. Questions? oliver@oriseifreightsolutions.com</div>}
 
         {state === "done" && (
           <div className="p-8 rounded-2xl border border-emerald-500/40 bg-emerald-500/5 text-center" data-testid="tcp-done">

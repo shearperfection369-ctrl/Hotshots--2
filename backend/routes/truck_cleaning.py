@@ -340,7 +340,7 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
         c.drawString(x_text, H - 52, "ORISEI")
         c.setFillColor(AMBER); c.drawString(x_text + c.stringWidth("ORISEI ", "Helvetica-Bold", 24), H - 52, "TRUCK CLEANING")
         c.setFont("Helvetica", 9.5); c.setFillColor(colors.HexColor("#9CA3AF"))
-        c.drawString(x_text, H - 72, "Your cab. Showroom clean. Every time.  ·  Twin Cities, MN  ·  oliver@oriseifreight.com")
+        c.drawString(x_text, H - 72, "Your cab. Showroom clean. Every time.  ·  Twin Cities, MN  ·  oliver@oriseifreightsolutions.com")
         c.setFillColor(colors.HexColor("#FAFAF7")); c.rect(0, 46, W, H - 156, fill=1, stroke=0)
         y = H - 150
 

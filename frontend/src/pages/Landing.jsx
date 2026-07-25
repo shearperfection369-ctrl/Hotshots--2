@@ -201,7 +201,7 @@ export default function Landing() {
             <div className="mt-6 space-y-2 text-sm text-slate-300">
               <div className="flex items-center gap-3">
                 <Mail size={14} style={{ color: gold }} />
-                <a href="mailto:oliver@oriseifreight.com" data-testid="landing-contact-email" className="hover:underline">oliver@oriseifreight.com</a>
+                <a href="mailto:oliver@oriseifreightsolutions.com" data-testid="landing-contact-email" className="hover:underline">oliver@oriseifreightsolutions.com</a>
               </div>
               <div className="flex items-center gap-3">
                 <Phone size={14} style={{ color: gold }} />

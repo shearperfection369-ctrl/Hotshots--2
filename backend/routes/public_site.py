@@ -161,12 +161,12 @@ def build_public_router(api_router: APIRouter, db) -> None:
 
         creds = await get_connection_credentials(db, "resend") or {}
         api_key = creds.get("api_key")
-        notify_to = creds.get("reply_to") or "oliver@oriseifreight.com"
+        notify_to = creds.get("reply_to") or "oliver@oriseifreightsolutions.com"
         if api_key:
             try:
                 resend.api_key = api_key
                 resp = resend.Emails.send({
-                    "from": creds.get("from_email") or "Orisei Quote <oliver@oriseifreight.com>",
+                    "from": creds.get("from_email") or "Orisei Quote <oliver@oriseifreightsolutions.com>",
                     "to": [notify_to],
                     "reply_to": payload.email,
                     "subject": f"New Quote · {payload.company_name} · "
@@ -209,12 +209,12 @@ def build_public_router(api_router: APIRouter, db) -> None:
         await db.contact_messages.insert_one(dict(rec))
         creds = await get_connection_credentials(db, "resend") or {}
         api_key = creds.get("api_key")
-        notify_to = creds.get("reply_to") or "oliver@oriseifreight.com"
+        notify_to = creds.get("reply_to") or "oliver@oriseifreightsolutions.com"
         if api_key:
             try:
                 resend.api_key = api_key
                 resend.Emails.send({
-                    "from": creds.get("from_email") or "Orisei Contact <oliver@oriseifreight.com>",
+                    "from": creds.get("from_email") or "Orisei Contact <oliver@oriseifreightsolutions.com>",
                     "to": [notify_to],
                     "reply_to": payload.email,
                     "subject": payload.subject or f"Website contact · {payload.name}",
@@ -264,7 +264,7 @@ def build_public_router(api_router: APIRouter, db) -> None:
                 "accent_color": brand.get("accent_color") or "#C9A24A",
                 "owner_name": brand.get("owner_name") or "Oliver Cummins",
                 "headquarters": brand.get("headquarters") or "Minneapolis · Saint Paul, MN",
-                "contact_email": "oliver@oriseifreight.com",
+                "contact_email": "oliver@oriseifreightsolutions.com",
             },
             "market_sizing": MARKET_SIZING,
             "headline_benchmarks": {
@@ -404,7 +404,7 @@ def build_public_router(api_router: APIRouter, db) -> None:
                 ]
                 resend.Emails.send({
                     "from": f"{from_name} <{from_email}>",
-                    "to": ["oliver@oriseifreight.com"],
+                    "to": ["oliver@oriseifreightsolutions.com"],
                     "subject": f"Investor intro · {payload.name} ({payload.firm or 'no firm'})",
                     "html": "<br/>".join(lines),
                 })

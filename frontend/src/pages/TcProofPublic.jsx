@@ -51,7 +51,7 @@ export default function TcProofPublic() {
         </div>
 
         {state === "loading" && <div className="text-slate-500 font-mono text-sm flex gap-2 items-center"><Loader2 size={14} className="animate-spin" /> Loading gallery…</div>}
-        {state === "invalid" && <div className="p-6 rounded-2xl border border-red-500/30 bg-red-500/5 text-sm" data-testid="tcpr-invalid">Gallery not found. Contact oliver@oriseifreight.com.</div>}
+        {state === "invalid" && <div className="p-6 rounded-2xl border border-red-500/30 bg-red-500/5 text-sm" data-testid="tcpr-invalid">Gallery not found. Contact oliver@oriseifreightsolutions.com.</div>}
 
         {state === "ready" && data && (
           <div className="rounded-2xl border border-white/10 bg-slate-950/85 backdrop-blur p-6" data-testid="tcpr-gallery">

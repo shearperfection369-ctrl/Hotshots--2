@@ -110,9 +110,9 @@ export default function Contact() {
             <div className="rounded-xl border p-6 bg-white/[0.02]" style={{ borderColor: `${GOLD}33` }}>
               <h3 className="font-display font-bold text-xl">Direct contact</h3>
               <div className="mt-4 space-y-3 text-sm">
-                <a href="mailto:oliver@oriseifreight.com" data-testid="contact-email" className="flex items-center gap-3 hover:text-amber-300 transition">
+                <a href="mailto:oliver@oriseifreightsolutions.com" data-testid="contact-email" className="flex items-center gap-3 hover:text-amber-300 transition">
                   <Mail size={16} style={{ color: GOLD }} />
-                  <span>oliver@oriseifreight.com</span>
+                  <span>oliver@oriseifreightsolutions.com</span>
                 </a>
                 <a href="tel:+16125550117" data-testid="contact-phone" className="flex items-center gap-3 hover:text-amber-300 transition">
                   <Phone size={16} style={{ color: GOLD }} />
@@ -133,7 +133,7 @@ export default function Contact() {
               <h3 className="font-display font-bold text-lg">Carriers + Drivers</h3>
               <p className="text-sm text-slate-300 mt-2 leading-relaxed">
                 Want to run for Orisei? We're building a vetted carrier pool — quick-pay
-                via factor of your choice, no shadow trucks. Email <a href="mailto:carriers@oriseifreight.com" style={{ color: GOLD }}>carriers@oriseifreight.com</a> with your MC#, COI, and dispatch contact.
+                via factor of your choice, no shadow trucks. Email <a href="mailto:oliver@oriseifreightsolutions.com" style={{ color: GOLD }}>oliver@oriseifreightsolutions.com</a> with your MC#, COI, and dispatch contact.
               </p>
             </div>
           </div>

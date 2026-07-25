@@ -257,9 +257,9 @@ def build_tenant_platform_router(*, db, client, require_role: Callable) -> APIRo
             import resend
             resend.api_key = api_key
             resp = resend.Emails.send({
-                "from": creds.get("from_email") or "Hot Shot TMS <oliver@oriseifreight.com>",
+                "from": creds.get("from_email") or "Hot Shot TMS <oliver@oriseifreightsolutions.com>",
                 "to": [admin_email], "subject": subject, "html": html,
-                "reply_to": creds.get("reply_to") or "oliver@oriseifreight.com"})
+                "reply_to": creds.get("reply_to") or "oliver@oriseifreightsolutions.com"})
             record["status"] = "sent"
             record["message_id"] = (resp or {}).get("id") if isinstance(resp, dict) else None
             await db.tenant_emails.insert_one(dict(record))
@@ -721,7 +721,7 @@ def build_tenant_platform_router(*, db, client, require_role: Callable) -> APIRo
             {"title": "3 · Add your team", "body": "Team tab → Add User. Admins manage everything; dispatchers book and update loads; viewers get read-only access — perfect for accountants."},
             {"title": "4 · Make it yours", "body": "Settings → Branding. Upload your logo and set your colors — the whole portal re-skins instantly for everyone on your team."},
             {"title": "5 · Billing", "body": "Settings → Billing shows your plan. Card payments run through Stripe — you can upgrade any time and it prorates automatically."},
-            {"title": "Need help?", "body": "Email oliver@oriseifreight.com — you'll hear back within one business day. Growth and Done-With-You plans get priority support."},
+            {"title": "Need help?", "body": "Email oliver@oriseifreightsolutions.com — you'll hear back within one business day. Growth and Done-With-You plans get priority support."},
         ]}
 
     return router

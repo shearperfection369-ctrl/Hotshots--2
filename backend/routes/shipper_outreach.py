@@ -151,7 +151,7 @@ def _brand_meta(brand: Optional[Dict[str, Any]]) -> Dict[str, str]:
         "company":  b.get("company_name") or "Orisei Freight Solutions LLC",
         "short":    b.get("short_name")   or "ORISEI",
         "contact":  b.get("contact_email")
-                    or "oliver@oriseifreight.com",
+                    or "oliver@oriseifreightsolutions.com",
         "phone":    b.get("phone")        or "(612) 555-0114",
         "founder":  b.get("founder_name") or "Oliver Cummins",
         "city":     b.get("hq_city")      or "Minneapolis, MN",

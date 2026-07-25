@@ -454,14 +454,14 @@ def build_readiness_router(*, db, require_role: Callable) -> APIRouter:
                 f"<p>Run {run['run_id']} · score {run['score']} · verdict <b>{run['verdict']}</b></p>"
                 f"<p>Failed checks:</p><ul>{''.join(f'<li>{f}</li>' for f in failed[:15])}</ul>"
                 "<p>Open Platform Readiness in your TMS for the full log.</p>")
-        rec = {"id": f"ALERT-{uuid.uuid4().hex[:6].upper()}", "slug": "platform", "to_email": os.environ.get("ADMIN_EMAIL", "oliver@oriseifreight.com"),
+        rec = {"id": f"ALERT-{uuid.uuid4().hex[:6].upper()}", "slug": "platform", "to_email": os.environ.get("ADMIN_EMAIL", "oliver@oriseifreightsolutions.com"),
                "subject": subject, "html": body, "created_at": _now()}
         creds = await get_connection_credentials(db, "resend") or {}
         if creds.get("api_key"):
             try:
                 import resend
                 resend.api_key = creds["api_key"]
-                resend.Emails.send({"from": creds.get("from_email") or "Hot Shot TMS <oliver@oriseifreight.com>",
+                resend.Emails.send({"from": creds.get("from_email") or "Hot Shot TMS <oliver@oriseifreightsolutions.com>",
                                     "to": [rec["to_email"]], "subject": subject, "html": body})
                 rec["status"] = "sent"
             except Exception as exc:  # noqa: BLE001

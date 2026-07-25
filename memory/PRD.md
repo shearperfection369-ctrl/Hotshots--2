@@ -2248,3 +2248,11 @@ retrains scoring weights from revealed preferences — making the intuitive
   verify with grep after batched same-file edits.
 - Tested: iteration_80.json — 11/11 backend, 100% frontend flows. A11y DialogDescription added
   post-test; TEST_ prospect cleaned up.
+
+## Session 2026-06 (fork, cont. 7b) — Email unification
+- All generated-doc emails (oliver/daniel/doug/dispatch/ops/carriers/shippers/sales/billing
+  @oriseifreight.com + ops@orisei.com) → oliver@oriseifreightsolutions.com across backend routes,
+  root *.md docs, public frontend pages (Contact/Landing/Services/HotShotLanding/Brokerage/Tc*Public)
+  AND the active db.company_brand doc (contact_email + contact_emails.*). Internal demo persona
+  emails (CS-*, kirk.juergins Webex sample, director@ Reports) intentionally left as sample data.
+- Verified: 4 generated PDFs + business-plan markdown show 0 old / new address present.

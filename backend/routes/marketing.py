@@ -145,7 +145,7 @@ the upper Midwest to grow with.
 ## Let's talk
 **{founder}** · Founder & Principal Broker
 {company} · Minneapolis · Saint Paul, MN
-oliver@oriseifreight.com · Direct line available on request
+oliver@oriseifreightsolutions.com · Direct line available on request
 """
 
 
@@ -214,7 +214,7 @@ that delivers mega-3PL-grade discipline at small-broker service levels.
 ## Media Contact
 **{founder}** · Founder & Principal Broker
 {company} · Minneapolis · Saint Paul, MN
-oliver@oriseifreight.com
+oliver@oriseifreightsolutions.com
 
 *###*
 
@@ -294,7 +294,7 @@ def _linkedin_posts(brand: Dict[str, Any]) -> List[Dict[str, Any]]:
                 f"• Auto-stamped BOL in your inbox the second your load is booked.\n"
                 f"• Photo POD in your inbox the second your load is delivered.\n"
                 f"• A 90-day pilot at our published rate card. If we don't earn the next load, we don't deserve it.\n\n"
-                f"Reply, DM, or email oliver@oriseifreight.com to set up a 15-minute lane-review call."
+                f"Reply, DM, or email oliver@oriseifreightsolutions.com to set up a 15-minute lane-review call."
             ),
             "hashtags": ["#freight", "#shippers", "#procurement", "#trucking", "#logistics", "#minneapolis",
                          "#midwestbusiness", "#supplychain"],
@@ -328,7 +328,7 @@ def _cold_emails(brand: Dict[str, Any]) -> List[Dict[str, Any]]:
                 f"Would 15 minutes next week work to walk you through how this would feel from your side?\n\n"
                 f"— {founder}\n"
                 f"Founder & Principal Broker · {company}\n"
-                f"oliver@oriseifreight.com"
+                f"oliver@oriseifreightsolutions.com"
             ),
             "merge_tokens": ["first_name", "company_name", "origin_city", "dest_city", "lane"],
             "follow_up_days": 4,
@@ -356,7 +356,7 @@ def _cold_emails(brand: Dict[str, Any]) -> List[Dict[str, Any]]:
                 f"tender in your lanes shows up on your dispatch dashboard.\n\n"
                 f"Worth a 5-minute conversation?\n\n"
                 f"— {founder}\n"
-                f"oliver@oriseifreight.com"
+                f"oliver@oriseifreightsolutions.com"
             ),
             "merge_tokens": ["first_name", "home_state", "MC_number"],
             "follow_up_days": 3,
@@ -387,7 +387,7 @@ def _cold_emails(brand: Dict[str, Any]) -> List[Dict[str, Any]]:
                 f"photo-POD, margin-aware queueing.\n\n"
                 f"Either works. What suits your calendar?\n\n"
                 f"— {founder}\n"
-                f"oliver@oriseifreight.com"
+                f"oliver@oriseifreightsolutions.com"
             ),
             "merge_tokens": ["first_name", "meeting_day_reference"],
             "follow_up_days": 7,
@@ -557,7 +557,7 @@ def build_marketing_router(*, db, get_current_user: Callable, require_role: Call
                         f"- LinkedIn posts are sized for the LinkedIn feed (~150-220 words each).\n"
                         f"- Cold-email templates use merge tokens like {{first_name}}, drop them\n"
                         f"  into any sequencer (Apollo, Lemlist, Instantly).\n\n"
-                        f"Contact: oliver@oriseifreight.com\n")
+                        f"Contact: oliver@oriseifreightsolutions.com\n")
 
         buf.seek(0)
         return StreamingResponse(

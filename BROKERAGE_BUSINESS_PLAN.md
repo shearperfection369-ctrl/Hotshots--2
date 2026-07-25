@@ -5,7 +5,7 @@
 **Headquarters:** Minneapolis · Saint Paul · Minnesota
 **Legal Form:** Three-member, member-managed LLC (MN Chapter 322C) · S-Corp election in Year 2
 **Authority:** US DOT · MC# (Property Broker) · BOC-3 · BMC-84 $75,000 Surety
-**Contact:** oliver@oriseifreight.com · daniel@oriseifreight.com · (612) 555-0117
+**Contact:** oliver@oriseifreightsolutions.com · oliver@oriseifreightsolutions.com · (612) 555-0117
 **Launch Capital:** $30,000 — $10,000 committed by each of the three members
 **Plan Horizon:** 2026 – 2029 (3-year operating window)
 
@@ -800,4 +800,4 @@ Plan Rev-2 sits inside every band: $2,000/load, 14.5% margin, $290 GM/load, DSO 
 
 ---
 
-*Orisei Freight Solutions LLC · Partner-built freight brokerage · Minneapolis · Saint Paul · Brooklyn Park · Minnesota · oliver@oriseifreight.com · daniel@oriseifreight.com · (612) 555-0117*
+*Orisei Freight Solutions LLC · Partner-built freight brokerage · Minneapolis · Saint Paul · Brooklyn Park · Minnesota · oliver@oriseifreightsolutions.com · oliver@oriseifreightsolutions.com · (612) 555-0117*

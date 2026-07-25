@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("orisei.route_optimizer")
-UA = {"User-Agent": "OriseiTMS/1.0 (dispatch@oriseifreight.com)"}
+UA = {"User-Agent": "OriseiTMS/1.0 (oliver@oriseifreightsolutions.com)"}
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
 OSRM = "https://router.project-osrm.org/route/v1/driving"
 

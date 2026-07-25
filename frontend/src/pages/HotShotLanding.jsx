@@ -499,7 +499,7 @@ export default function HotShotLanding() {
       </section>
 
       <footer className="px-5 py-8 border-t border-white/5 text-center text-[11px] text-slate-500 font-mono">
-        HOT SHOT TMS · built &amp; battle-tested by Orisei Freight Solutions LLC · Minnesota · oliver@oriseifreight.com
+        HOT SHOT TMS · built &amp; battle-tested by Orisei Freight Solutions LLC · Minnesota · oliver@oriseifreightsolutions.com
       </footer>
     </div>
   );

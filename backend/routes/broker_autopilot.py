@@ -144,7 +144,7 @@ def _pdf_doc(title: str, load: Dict[str, Any], body_rows: List[tuple], footer_no
     c.drawString(44, 54, footer_note[:110])
     c.setFillColor(colors.HexColor("#0D1117")); c.rect(0, 0, W, 36, fill=1, stroke=0)
     c.setFont("Helvetica", 7.5); c.setFillColor(colors.HexColor("#9CA3AF"))
-    c.drawCentredString(W / 2, 14, "Orisei Freight Solutions LLC · Minneapolis, MN · MC-0000000 · dispatch@oriseifreight.com")
+    c.drawCentredString(W / 2, 14, "Orisei Freight Solutions LLC · Minneapolis, MN · MC-0000000 · oliver@oriseifreightsolutions.com")
     c.save()
     return buf.getvalue()
 
@@ -206,7 +206,7 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
             pdf = _ratecon_pdf(load)
             resend.api_key = creds["api_key"]
             resend.Emails.send({
-                "from": creds.get("from_email") or "Orisei Freight Dispatch <dispatch@oriseifreight.com>",
+                "from": creds.get("from_email") or "Orisei Freight Dispatch <oliver@oriseifreightsolutions.com>",
                 "to": [load["carrier"].get("email") or "dispatch@example.com"], "subject": subject,
                 "html": f"<p>Rate confirmation + shipping instructions attached for load <b>{load['load_id']}</b>. "
                         f"Assigned driver on file: <b>{drv.get('name', 'TBD')}</b> (CDL {drv.get('cdl_number', 'N/A')}). "

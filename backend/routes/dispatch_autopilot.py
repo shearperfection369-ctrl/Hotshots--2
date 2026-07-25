@@ -207,7 +207,7 @@ async def _mock_sms(to: str, body: str) -> Dict[str, Any]:
 
 async def _mock_email(to: str, subject: str, body: str) -> Dict[str, Any]:
     return {"id": f"em-mock-{uuid.uuid4().hex[:14]}",
-            "to": to, "from_": "dispatch@oriseifreight.com",
+            "to": to, "from_": "oliver@oriseifreightsolutions.com",
             "subject": subject, "status": "queued",
             "provider": "resend-mock",
             "delivered_at": datetime.now(timezone.utc).isoformat()}

@@ -190,7 +190,7 @@ def _booking_email_html(load: Dict[str, Any], action: str) -> Tuple[str, str]:
             f"<li>Assigned carrier: {ca.get('name', 'TBD')} (MC {ca.get('mc_number', 'TBD')})</li>"
             f"<li>Assigned driver: {drv.get('name', 'TBD')} (CDL {drv.get('cdl_number', 'TBD')})</li></ul>"
             f"<p>Please confirm by reply. Rate confirmation and shipping instructions issue immediately on confirmation.</p>"
-            f"<p>— Orisei AI Broker Desk · dispatch@oriseifreight.com · Minneapolis, MN</p>")
+            f"<p>— Orisei AI Broker Desk · oliver@oriseifreightsolutions.com · Minneapolis, MN</p>")
     return subject, html
 
 
@@ -204,7 +204,7 @@ async def _send_or_queue_email(db, board: Optional[str], load: Dict[str, Any], a
     if to_email and resend_creds.get("api_key"):
         try:
             resend.api_key = resend_creds["api_key"]
-            resend.Emails.send({"from": resend_creds.get("from_email") or "Orisei Freight Dispatch <dispatch@oriseifreight.com>",
+            resend.Emails.send({"from": resend_creds.get("from_email") or "Orisei Freight Dispatch <oliver@oriseifreightsolutions.com>",
                                 "to": [to_email], "subject": subject, "html": html})
             await db.board_actions.insert_one({"action_id": f"BA-{uuid.uuid4().hex[:6].upper()}",
                                                "load_id": load.get("load_id"), "board": board, "mode": "email",
@@ -260,7 +260,7 @@ async def flush_outbox(db) -> int:
             continue
         try:
             resend.api_key = resend_creds["api_key"]
-            resend.Emails.send({"from": resend_creds.get("from_email") or "Orisei Freight Dispatch <dispatch@oriseifreight.com>",
+            resend.Emails.send({"from": resend_creds.get("from_email") or "Orisei Freight Dispatch <oliver@oriseifreightsolutions.com>",
                                 "to": [to_email], "subject": it["subject"], "html": it["html"]})
             await db.loadboard_outbox.update_one({"outbox_id": it["outbox_id"]},
                                                  {"$set": {"status": "sent", "sent_at": _now(), "to_email": to_email}})

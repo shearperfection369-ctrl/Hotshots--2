@@ -53,7 +53,7 @@ async def _fetch_live_nws_alerts(locations: List[Dict[str, Any]]) -> List[Dict[s
     out: List[Dict[str, Any]] = []
     seen_ids: set[str] = set()
     headers = {
-        "User-Agent": "Orisei-TMS/2.4 (ops@oriseifreight.com)",
+        "User-Agent": "Orisei-TMS/2.4 (oliver@oriseifreightsolutions.com)",
         "Accept": "application/geo+json",
     }
     sev_map = {"Extreme": "high", "Severe": "high", "Moderate": "moderate", "Minor": "low", "Unknown": "low"}

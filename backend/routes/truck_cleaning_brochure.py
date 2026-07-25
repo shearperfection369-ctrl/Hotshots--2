@@ -70,7 +70,7 @@ class Brochure:
         c = self.c
         c.setFillColor(INK); c.rect(0, 0, W, 40, fill=1, stroke=0)
         c.setFont("Helvetica", 7.5); c.setFillColor(GREY)
-        c.drawString(44, 16, "Orisei Truck Cleaning Solutions · Minneapolis–St. Paul, MN · (612) 555-0117 · oliver@oriseifreight.com")
+        c.drawString(44, 16, "Orisei Truck Cleaning Solutions · Minneapolis–St. Paul, MN · (612) 555-0117 · oliver@oriseifreightsolutions.com")
         c.setFillColor(AMBER); c.setFont("Helvetica-Bold", 8)
         c.drawRightString(W - 44, 16, f"PAGE {self.page}")
 

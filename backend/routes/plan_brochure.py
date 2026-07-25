@@ -169,7 +169,7 @@ def _cover(c: Canvas):
 
     c.setFont("Helvetica", 8.5)
     c.setFillColor(colors.HexColor("#7E96B8"))
-    c.drawCentredString(W / 2, 120, "oliver@oriseifreight.com · daniel@oriseifreight.com · doug@oriseifreight.com")
+    c.drawCentredString(W / 2, 120, "oliver@oriseifreightsolutions.com · oliver@oriseifreightsolutions.com · oliver@oriseifreightsolutions.com")
     c.drawCentredString(W / 2, 106, f"Confidential · Prepared {datetime.now(timezone.utc).strftime('%B %Y')}")
     c.showPage()
 
@@ -464,7 +464,7 @@ def _page_financials(c: Canvas, page: int, total: int):
     y -= 118
     c.setFont("Helvetica-Bold", 8.5)
     c.setFillColor(AZURE)
-    c.drawCentredString(W / 2, y, "Oliver Cummins · oliver@oriseifreight.com   |   Daniel W. Karsor · daniel@oriseifreight.com   |   Doug Graham · doug@oriseifreight.com")
+    c.drawCentredString(W / 2, y, "Oliver Cummins · oliver@oriseifreightsolutions.com   |   Daniel W. Karsor · oliver@oriseifreightsolutions.com   |   Doug Graham · oliver@oriseifreightsolutions.com")
     c.setFont("Helvetica", 8)
     c.setFillColor(SLATE)
     c.drawCentredString(W / 2, y - 14, "Confidential — prepared for the members of Orisei Freight Solutions LLC")

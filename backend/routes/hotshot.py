@@ -94,7 +94,7 @@ def _cold_email(contact: str, company: str, landing: str) -> Dict[str, str]:
             f"Now I'm licensing it to a handful of small brokerages like {company}. First 5 get 35% off for life.\n\n"
             f"Worth a 15-minute screen share? You'll watch it book a live load — no slides.\n\n"
             f"Take a look: {landing}\n\n"
-            f"— Oliver Cummins\nOrisei Freight Solutions · Hot Shot TMS\noliver@oriseifreight.com")
+            f"— Oliver Cummins\nOrisei Freight Solutions · Hot Shot TMS\noliver@oriseifreightsolutions.com")
     return {"subject": subject, "body": body}
 
 
@@ -191,7 +191,7 @@ def _one_pager_pdf() -> bytes:
     c.setFillColor(colors.white)
     import os
     base = (os.environ.get("PUBLIC_FRONTEND_URL") or "").replace("https://", "")
-    c.drawCentredString(W / 2, 22, f"{base}/hotshot · oliver@oriseifreight.com · Built & operated by Orisei Freight Solutions LLC, Minnesota")
+    c.drawCentredString(W / 2, 22, f"{base}/hotshot · oliver@oriseifreightsolutions.com · Built & operated by Orisei Freight Solutions LLC, Minnesota")
     c.save()
     return buf.getvalue()
 

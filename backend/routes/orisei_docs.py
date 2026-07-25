@@ -100,7 +100,7 @@ def _brand_footer(brand: Optional[Dict[str, Any]]) -> str:
     if not brand:
         company = "Orisei Freight Solutions LLC"
         hq = "Minneapolis · Saint Paul, MN"
-        contact = "oliver@oriseifreight.com"
+        contact = "oliver@oriseifreightsolutions.com"
     else:
         company = brand.get("company_name") or "Orisei Freight Solutions LLC"
         hq = brand.get("headquarters") or "Minneapolis · Saint Paul, MN"
@@ -113,7 +113,7 @@ def _brand_footer(brand: Optional[Dict[str, Any]]) -> str:
         if not contact:
             # Orisei-specific: keep the founder's email as the canonical contact
             if brand.get("brand_id") in ("orisei", "orisei-freight"):
-                contact = "oliver@oriseifreight.com"
+                contact = "oliver@oriseifreightsolutions.com"
             else:
                 contact = _derive_contact_email(brand)
     return (f"{company}  ·  {hq}  ·  {contact}  ·  "

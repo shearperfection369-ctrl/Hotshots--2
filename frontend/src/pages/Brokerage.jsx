@@ -1282,7 +1282,7 @@ function InvestorPitchDialog({ open, onClose }) {
             <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/oliver-cummins" data-testid="pitch-linkedin" className="bg-slate-950 border-white/10" />
           </Field>
           <Field label="Reply-to (optional)">
-            <Input type="email" value={replyTo} onChange={(e) => setReplyTo(e.target.value)} placeholder="oliver@oriseifreight.com" data-testid="pitch-reply-to" className="bg-slate-950 border-white/10" />
+            <Input type="email" value={replyTo} onChange={(e) => setReplyTo(e.target.value)} placeholder="oliver@oriseifreightsolutions.com" data-testid="pitch-reply-to" className="bg-slate-950 border-white/10" />
           </Field>
           <Field label="Custom subject (optional)">
             <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="defaults to '… Business Plan & Founder Introduction'" data-testid="pitch-subject" className="bg-slate-950 border-white/10" />

@@ -30,7 +30,7 @@ def _footer(c: Canvas, page: int, total: int):
     c.setFont("Helvetica", 7)
     c.setFillColor(SLATE)
     c.drawString(40, 14, "Orisei Freight Solutions LLC · Carrier Partner Program · Minneapolis, Minnesota")
-    c.drawRightString(W - 40, 14, f"carriers@oriseifreight.com · (612) 555-0117 · Page {page} of {total}")
+    c.drawRightString(W - 40, 14, f"oliver@oriseifreightsolutions.com · (612) 555-0117 · Page {page} of {total}")
 
 
 def _cover(c: Canvas):
@@ -82,7 +82,7 @@ def _cover(c: Canvas):
         c.drawString(96, y, t)
     c.setFont("Helvetica", 8.5)
     c.setFillColor(colors.HexColor("#7E96B8"))
-    c.drawCentredString(W / 2, 120, "carriers@oriseifreight.com  ·  (612) 555-0117  ·  oriseifreight.com/carriers")
+    c.drawCentredString(W / 2, 120, "oliver@oriseifreightsolutions.com  ·  (612) 555-0117  ·  oriseifreight.com/carriers")
     c.drawCentredString(W / 2, 106, f"MC pending activation · BMC-84 $75,000 bond · Prepared {datetime.now(timezone.utc).strftime('%B %Y')}")
     c.showPage()
 
@@ -326,7 +326,7 @@ def _page_pay(c: Canvas, page: int, total: int):
     c.drawCentredString(W / 2, y - 26, "READY TO ROLL?")
     c.setFont("Helvetica-Bold", 10)
     c.setFillColor(WHITE)
-    c.drawCentredString(W / 2, y - 44, "carriers@oriseifreight.com   ·   (612) 555-0117   ·   oriseifreight.com/carriers")
+    c.drawCentredString(W / 2, y - 44, "oliver@oriseifreightsolutions.com   ·   (612) 555-0117   ·   oriseifreight.com/carriers")
     c.setFont("Helvetica", 8)
     c.setFillColor(colors.HexColor("#9FB6D4"))
     c.drawCentredString(W / 2, y - 60, "Send your MC# and COI — most carriers are hauling within 24 business hours.")

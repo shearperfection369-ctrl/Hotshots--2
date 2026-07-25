@@ -113,7 +113,7 @@ def _intake_template_md(req: Dict[str, Any], brand: Dict[str, Any]) -> str:
 - **URL**: {submit_url}
 - **Token**: {req['token']}
 - **Or**: complete the fields below, sign, and email back to
-  `ops@oriseifreight.com` — we'll key it in for you.
+  `oliver@oriseifreightsolutions.com` — we'll key it in for you.
 
 ---
 

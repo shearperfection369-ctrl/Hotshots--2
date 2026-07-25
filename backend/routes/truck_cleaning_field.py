@@ -258,12 +258,12 @@ def build_truck_cleaning_field_router(*, db, require_role: Callable) -> APIRoute
     <p style="text-align:center;margin:22px 0;">
       <a href="{proof_url}" style="background:#F59E0B;color:#0D1117;font-weight:800;padding:12px 28px;border-radius:999px;text-decoration:none;">VIEW FULL GALLERY</a>
     </p>
-    <p style="margin-top:20px;">— Oliver Cummins<br><b>Orisei Truck Cleaning Solutions</b><br>oliver@oriseifreight.com · (612) 555-0117</p>
+    <p style="margin-top:20px;">— Oliver Cummins<br><b>Orisei Truck Cleaning Solutions</b><br>oliver@oriseifreightsolutions.com · (612) 555-0117</p>
   </div></div></body></html>"""
         try:
             resend.api_key = api_key
             resp = resend.Emails.send({
-                "from": creds.get("from_email") or "Orisei Truck Cleaning <oliver@oriseifreight.com>",
+                "from": creds.get("from_email") or "Orisei Truck Cleaning <oliver@oriseifreightsolutions.com>",
                 "to": [payload.to_email],
                 "subject": f"Photo proof — {job['company']} cab cleaning {job['date']}",
                 "html": html})

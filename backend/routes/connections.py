@@ -135,7 +135,7 @@ PROVIDERS: List[Dict[str, Any]] = [
         "docs_url": "https://resend.com/docs",
         "fields": [
             {"key": "api_key",   "label": "API Key",   "secret": True,  "required": True},
-            {"key": "from_email","label": "From Email","secret": False, "required": True, "placeholder": "ops@orisei.com"},
+            {"key": "from_email","label": "From Email","secret": False, "required": True, "placeholder": "oliver@oriseifreightsolutions.com"},
         ],
     },
     {

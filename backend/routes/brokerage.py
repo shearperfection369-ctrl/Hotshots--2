@@ -1059,8 +1059,8 @@ def build_brokerage_router(
         api_key = creds.get("api_key")
         if not api_key:
             return {"auto_email_error": "Resend not configured", "doc_id": doc_id}
-        from_addr = creds.get("from_email") or "Orisei Freight <oliver@oriseifreight.com>"
-        reply_to = creds.get("reply_to") or "oliver@oriseifreight.com"
+        from_addr = creds.get("from_email") or "Orisei Freight <oliver@oriseifreightsolutions.com>"
+        reply_to = creds.get("reply_to") or "oliver@oriseifreightsolutions.com"
         subject = f"BOL · {booking.get('load_id') or booking['booked_id']} · {booking.get('origin','')} → {booking.get('destination','')}"
         msg_html = (message_template or "").replace("\n", "<br>")
         body_html = f"""<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#FBF8F0;padding:24px;color:#0B1320;">
@@ -1073,7 +1073,7 @@ def build_brokerage_router(
     <p>Hi {booking.get('customer_contact') or booking.get('customer_name') or 'Team'},</p>
     <p>Attached is the signed BOL for the tendered load. Pickup will be confirmed shortly.</p>
     {f'<p style="background:#FBF8F0;border-left:3px solid #C9A24A;padding:10px 14px;font-style:italic;">{msg_html}</p>' if msg_html else ''}
-    <p style="margin-top:20px;">— Operations<br><b>Orisei Freight Solutions LLC</b><br>oliver@oriseifreight.com · (612) 555-0117</p>
+    <p style="margin-top:20px;">— Operations<br><b>Orisei Freight Solutions LLC</b><br>oliver@oriseifreightsolutions.com · (612) 555-0117</p>
   </div></div></body></html>"""
         try:
             resend.api_key = api_key
@@ -1127,7 +1127,7 @@ def build_brokerage_router(
             "name": booking.get("shipper_name") or brand.get("company_name") or "Orisei Freight Solutions LLC",
             "address": booking.get("shipper_address") or "Operations HQ",
             "city_state_zip": booking.get("origin") or "Minneapolis, MN",
-            "contact": "dispatch@oriseifreight.com  ·  +1 (612) 555-0117",
+            "contact": "oliver@oriseifreightsolutions.com  ·  +1 (612) 555-0117",
         }
         consignee = {
             "name": booking.get("customer_name") or "Customer / Consignee",
@@ -1249,7 +1249,7 @@ def build_brokerage_router(
       </table>
       {f'<p style="background:#FBF8F0; border-left:3px solid #C9A24A; padding:10px 14px; font-style:italic; color:#0B1320;">{message_html}</p>' if message_html else ''}
       <p>If anything looks off — concealed damage, shortage, or a billing question — reply to this email within nine months and we will open a claim immediately.</p>
-      <p style="margin-top:20px;">— Operations<br><b>Orisei Freight Solutions LLC</b><br>oliver@oriseifreight.com · (612) 555-0117</p>
+      <p style="margin-top:20px;">— Operations<br><b>Orisei Freight Solutions LLC</b><br>oliver@oriseifreightsolutions.com · (612) 555-0117</p>
     </div>
     <div style="background:#FBF8F0; color:#94A3B8; font-size:10px; text-align:center; padding:10px; font-family:Courier,monospace;">
       ORISEI FREIGHT SOLUTIONS · MINNEAPOLIS · SAINT PAUL · MN
@@ -1290,8 +1290,8 @@ def build_brokerage_router(
                 "then retry. The POD PDF was generated and is downloadable.",
             )
 
-        from_addr = (creds or {}).get("from_email") or "Orisei Freight <oliver@oriseifreight.com>"
-        reply_to = (creds or {}).get("reply_to") or "oliver@oriseifreight.com"
+        from_addr = (creds or {}).get("from_email") or "Orisei Freight <oliver@oriseifreightsolutions.com>"
+        reply_to = (creds or {}).get("reply_to") or "oliver@oriseifreightsolutions.com"
         try:
             resend.api_key = api_key
             attachment = {

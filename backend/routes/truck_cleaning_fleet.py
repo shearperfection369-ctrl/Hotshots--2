@@ -331,7 +331,7 @@ def build_truck_cleaning_fleet_router(*, db, require_role: Callable) -> APIRoute
         creds = await get_connection_credentials(db, "resend") or {}
         if not creds.get("api_key"):
             raise HTTPException(status_code=400, detail="Resend is not configured — add your Resend API key in Connections · Keys.")
-        from_addr = creds.get("from_email") or "Orisei Truck Cleaning <oliver@oriseifreight.com>"
+        from_addr = creds.get("from_email") or "Orisei Truck Cleaning <oliver@oriseifreightsolutions.com>"
         return await _send_offer(offer, creds["api_key"], from_addr)
 
     @router.post("/offers/send-all")
@@ -339,7 +339,7 @@ def build_truck_cleaning_fleet_router(*, db, require_role: Callable) -> APIRoute
         creds = await get_connection_credentials(db, "resend") or {}
         if not creds.get("api_key"):
             raise HTTPException(status_code=400, detail="Resend is not configured — add your Resend API key in Connections · Keys.")
-        from_addr = creds.get("from_email") or "Orisei Truck Cleaning <oliver@oriseifreight.com>"
+        from_addr = creds.get("from_email") or "Orisei Truck Cleaning <oliver@oriseifreightsolutions.com>"
         drafts = await db.tc_offers.find({"status": "draft"}, {"_id": 0}).to_list(300)
         results = [await _send_offer(o, creds["api_key"], from_addr) for o in drafts]
         return {"ok": True, "results": results,

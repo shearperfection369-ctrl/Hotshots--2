@@ -147,7 +147,7 @@ export default function Services() {
             Get a Quote <ArrowRight size={14} />
           </Link>
           <a
-            href="mailto:oliver@oriseifreight.com"
+            href="mailto:oliver@oriseifreightsolutions.com"
             className="inline-flex items-center justify-center gap-2 px-7 py-3 rounded-md font-bold text-sm tracking-wider uppercase font-mono border border-white/15 text-white"
           >
             <Mail size={14} /> Email Us Direct

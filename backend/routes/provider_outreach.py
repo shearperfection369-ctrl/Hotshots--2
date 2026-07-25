@@ -318,7 +318,7 @@ def _email_html(provider: Dict[str, Any], body_md: str, note_appendix: Optional[
       {body_html}
     </div>
     <div style="background:#FBF8F0;color:#94A3B8;font-size:10px;text-align:center;padding:10px;font-family:Courier,monospace;">
-      ORISEI FREIGHT SOLUTIONS LLC · MINNEAPOLIS · SAINT PAUL · MN · oliver@oriseifreight.com
+      ORISEI FREIGHT SOLUTIONS LLC · MINNEAPOLIS · SAINT PAUL · MN · oliver@oriseifreightsolutions.com
     </div>
   </div>
 </body></html>"""
@@ -365,8 +365,8 @@ def build_provider_outreach_router(api_router: APIRouter, db, get_current_user, 
 
         # Resolve Resend creds (skip when dry-run)
         api_key = None
-        from_addr = "Orisei Freight <oliver@oriseifreight.com>"
-        reply_to = "oliver@oriseifreight.com"
+        from_addr = "Orisei Freight <oliver@oriseifreightsolutions.com>"
+        reply_to = "oliver@oriseifreightsolutions.com"
         if not payload.dry_run:
             creds = await get_connection_credentials(db, "resend") or {}
             api_key = creds.get("api_key")

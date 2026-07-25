@@ -86,7 +86,7 @@ def _page_frame(c: Canvas, W: float, H: float, title: str, subtitle: str):
     c.setFillColor(AMBER)
     c.drawString(x_text + c.stringWidth("ORISEI ", "Helvetica-Bold", 22), H - 50, "TRUCK CLEANING")
     c.setFont("Helvetica", 9.5); c.setFillColor(colors.HexColor("#9CA3AF"))
-    c.drawString(x_text, H - 68, "Your cab. Showroom clean. Every time.  ·  Twin Cities, MN  ·  oliver@oriseifreight.com")
+    c.drawString(x_text, H - 68, "Your cab. Showroom clean. Every time.  ·  Twin Cities, MN  ·  oliver@oriseifreightsolutions.com")
     c.setFont("Helvetica-Bold", 10); c.setFillColor(CYAN)
     c.drawString(x_text, H - 88, title.upper())
     if subtitle:
@@ -141,7 +141,7 @@ def _welcome_packet_pdf(ob: Dict[str, Any]) -> bytes:
     y -= 10; y = h2("LOYALTY", y)
     y = li("Every 10th cleaning is free. Refer a fleet — get $50 off your next service.", y)
     y -= 10; y = h2("YOUR DEDICATED CONTACT", y)
-    y = li("Oliver Cummins · oliver@oriseifreight.com · (612) 555-0117", y, "Owner-operator")
+    y = li("Oliver Cummins · oliver@oriseifreightsolutions.com · (612) 555-0117", y, "Owner-operator")
     c.save()
     return buf.getvalue()
 
@@ -187,7 +187,7 @@ def _invoice_pdf(inv: Dict[str, Any], pay_url: str = "") -> bytes:
         c.drawString(46, y - 28, pay_url[:110])
         y -= 44
     c.setFont("Helvetica", 8.5); c.setFillColor(SLATE)
-    c.drawString(46, y, "Net 15 · Card, ACH, or check accepted · Questions: oliver@oriseifreight.com")
+    c.drawString(46, y, "Net 15 · Card, ACH, or check accepted · Questions: oliver@oriseifreightsolutions.com")
     c.save()
     return buf.getvalue()
 
@@ -424,12 +424,12 @@ def build_truck_cleaning_biz_router(*, db, require_role: Callable) -> APIRouter:
       <a href="{pay_url}" style="background:#F59E0B;color:#0D1117;font-weight:800;padding:12px 28px;border-radius:999px;text-decoration:none;">PAY ${inv['total']:,.2f} NOW</a>
     </p>
     <p style="font-size:12px;color:#64748B;">Due {inv.get('due_date', '')[:10]} · Net 15 · Card, ACH, or check accepted.</p>
-    <p style="margin-top:20px;">— Oliver Cummins<br><b>Orisei Truck Cleaning Solutions</b><br>oliver@oriseifreight.com · (612) 555-0117</p>
+    <p style="margin-top:20px;">— Oliver Cummins<br><b>Orisei Truck Cleaning Solutions</b><br>oliver@oriseifreightsolutions.com · (612) 555-0117</p>
   </div></div></body></html>"""
         try:
             resend.api_key = api_key
             resp = resend.Emails.send({
-                "from": creds.get("from_email") or "Orisei Truck Cleaning <oliver@oriseifreight.com>",
+                "from": creds.get("from_email") or "Orisei Truck Cleaning <oliver@oriseifreightsolutions.com>",
                 "to": [payload.to_email], "subject": f"Invoice {invoice_id} · ${inv['total']:,.2f} · Orisei Truck Cleaning",
                 "html": html, "attachments": [{"filename": f"Orisei_{invoice_id}.pdf", "content": list(pdf)}],
             })
