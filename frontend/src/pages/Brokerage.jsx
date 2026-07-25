@@ -34,6 +34,7 @@ import LtlRateCardsTab from "./LtlRateCardsTab";
 import { ARAgingPanel } from "../components/ARAgingPanel";
 import { ShipperFinder } from "../components/ShipperFinder";
 import { QuoteBuilder } from "../components/QuoteBuilder";
+import { QuickBooksCard } from "../components/QuickBooksCard";
 
 /**
  * Brokerage — single-page hub for the freight-brokerage operation.
@@ -96,7 +97,7 @@ export default function Brokerage() {
         {tab === "drivers"   && <DriversTab />}
         {tab === "shippers"  && <ShipperFinder onQuote={(p) => { setQuotePrefill(p); setTab("quotes"); }} />}
         {tab === "quotes"    && <QuoteBuilder prefill={quotePrefill} onPrefillConsumed={() => setQuotePrefill(null)} />}
-        {tab === "accounting" && <AccountingTab refresh={loadDash} />}
+        {tab === "accounting" && <><QuickBooksCard /><AccountingTab refresh={loadDash} /></>}
         {tab === "forms"     && <FormsTab />}
         {tab === "plan"      && <BusinessPlanTab />}
         {tab === "costs"     && <CostAnalysisTab />}

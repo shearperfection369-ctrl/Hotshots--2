@@ -157,6 +157,53 @@ def build_first_strike_router(*, api_router: APIRouter, db,
                 "win_probability": round(prob, 3), "badges": badges,
                 "lane_adjustment": adjustment, "posted_rate_usd": posted}
 
+    async def _hunter_gates(load: Dict[str, Any]) -> List[str]:
+        """The Hunter's auto-book gates, applied to a won strike bid."""
+        hcfg = await db.hunter_config.find_one({"_id": "default"}) or {}
+        ab = {"enabled": False, "max_rate_usd": 2500.0, "max_per_day": 10, **(hcfg.get("auto_book") or {})}
+        risk_cfg = {"min_payment_score": 60, **(hcfg.get("risk") or {})}
+        reasons = []
+        if not ab.get("enabled"):
+            reasons.append("hunter auto-book disabled")
+        if float(load.get("rate_usd") or 0) > float(ab.get("max_rate_usd") or 0):
+            reasons.append(f"rate exceeds ${ab.get('max_rate_usd'):,.0f} cap")
+        today = datetime.now(timezone.utc).date().isoformat()
+        booked_today = await db.brokerage_bookings.count_documents(
+            {"booked_at": {"$gte": today}, "source": {"$in": ["ai_load_hunter", "first_strike"]},
+             "hunter_auto": True})
+        if booked_today >= int(ab.get("max_per_day") or 10):
+            reasons.append("daily auto-book cap reached")
+        risk = await db.shipper_risk.find_one({"shipper": load.get("shipper") or ""}, {"_id": 0})
+        if risk and (risk.get("blacklisted") or
+                     int(risk.get("payment_score") or 100) < int(risk_cfg["min_payment_score"])):
+            reasons.append("shipper risk gate")
+        return reasons
+
+    async def _strike_book(load: Dict[str, Any], outcome: Dict[str, Any]) -> None:
+        reasons = await _hunter_gates(load)
+        if reasons:
+            outcome["book_blocked"] = reasons
+            return
+        now = _now_iso()
+        booked_id = f"BK-{uuid.uuid4().hex[:10].upper()}"
+        bid = float(outcome.get("suggested_bid_usd") or 0)
+        cpay = float(load.get("carrier_pay_usd") or 0)
+        await db.brokerage_bookings.insert_one({
+            "booked_id": booked_id, "load_id": load.get("load_id"), "board_id": load.get("board_id"),
+            "carrier_name": "TBD — assign carrier", "carrier_mc": None,
+            "customer_name": load.get("shipper"), "customer_email": None,
+            "origin": load.get("origin"), "destination": load.get("destination"),
+            "miles": load.get("miles"), "equipment": load.get("equipment"),
+            "forecast_rate_usd": bid, "forecast_carrier_pay_usd": cpay,
+            "forecast_margin_usd": round(bid - cpay, 2),
+            "settled_rate_usd": None, "settled_carrier_pay_usd": None, "settled_margin_usd": None,
+            "pickup_date": load.get("pickup_date"), "delivery_date": load.get("delivery_date"),
+            "status": "booked", "booked_at": now, "booked_by": "first_strike",
+            "notes": f"STRIKE-TO-BOOK · won bid ${bid:,.0f} ({outcome.get('win_probability', 0) * 100:.0f}% est.) via First Strike",
+            "is_sample": False, "source": "first_strike", "hunter_auto": True,
+        })
+        outcome["booked_id"] = booked_id
+
     async def _fire_bid(load: Dict[str, Any], cfg: Dict[str, Any], lane_stats: Dict[str, Any],
                         known_posters: set, bench: set, auto: bool,
                         response_sec: float) -> Dict[str, Any]:
@@ -175,6 +222,8 @@ def build_first_strike_router(*, api_router: APIRouter, db,
             "response_sec": round(response_sec, 1), "after_hours": after_hours,
             **pricing,
         }
+        if won:
+            await _strike_book(load, outcome)
         await db.hunter_bid_outcomes.insert_one(dict(outcome))
         return outcome
 
@@ -275,6 +324,7 @@ def build_first_strike_router(*, api_router: APIRouter, db,
                 "totals": {"bids": bids, "wins": wins,
                            "win_rate": round(wins / bids, 3) if bids else None,
                            "avg_response_sec": avg_resp,
+                           "booked": sum(1 for o in outcomes if o.get("booked_id")),
                            "revenue_won_usd": round(sum(o.get("suggested_bid_usd") or 0
                                                         for o in outcomes if o.get("won")), 0)},
                 "lane_learning": lanes, "predictions": _predictions_for(top_posters),
@@ -313,6 +363,42 @@ def build_first_strike_router(*, api_router: APIRouter, db,
                           "margin_pct": l.get("margin_pct"), **pricing})
         items.sort(key=lambda x: x["win_probability"], reverse=True)
         return {"items": items[:8], "after_hours_now": after_hours}
+
+    @router.get("/digest")
+    async def digest(_=Depends(get_current_user)) -> Dict[str, Any]:
+        """Morning digest — overnight after-hours wins + today's predicted postings."""
+        ct = _central_now()
+        start_ct = (ct - timedelta(days=1)).replace(hour=17, minute=0, second=0, microsecond=0)
+        start_utc = (start_ct + timedelta(hours=6)).isoformat()
+        rows = await db.hunter_bid_outcomes.find(
+            {"at": {"$gte": start_utc}}, {"_id": 0}).sort("at", -1).to_list(500)
+        wins = [o for o in rows if o.get("won")]
+        overnight = [o for o in wins if o.get("after_hours")]
+        booked = [o for o in wins if o.get("booked_id")]
+        agg: Dict[str, int] = {}
+        for o in rows:
+            if o.get("poster"):
+                agg[o["poster"]] = agg.get(o["poster"], 0) + 1
+        preds = _predictions_for([{"poster": k, "count": v} for k, v in
+                                  sorted(agg.items(), key=lambda x: x[1], reverse=True)[:5]])
+        lines = [f"# First Strike Morning Digest — {ct.strftime('%A %b %d, %Y')} (since {start_ct.strftime('%a %H:%M')} CT)",
+                 "",
+                 f"Bids fired: {len(rows)} · Won: {len(wins)} ({round(len(wins) / len(rows) * 100) if rows else 0}%) · "
+                 f"After-hours wins: {len(overnight)} · Auto-booked: {len(booked)} · "
+                 f"Revenue won: ${sum(o.get('suggested_bid_usd') or 0 for o in wins):,.0f}", ""]
+        if overnight:
+            lines.append("## Overnight after-hours wins (competition was asleep)")
+            for o in overnight[:8]:
+                lines.append(f"- {o['lane']} · {o.get('poster')} · won at ${o.get('suggested_bid_usd'):,.0f}"
+                             + (f" · BOOKED {o['booked_id']}" if o.get("booked_id") else ""))
+            lines.append("")
+        lines.append("## Today's predicted postings — call before the post")
+        for p in preds:
+            lines.append(f"- {p['poster']}: {p['pattern']} → next {p['next_predicted_ct']} · {p['alert']}")
+        return {"window_start_ct": start_ct.isoformat(), "bids": len(rows), "wins": len(wins),
+                "after_hours_wins": overnight[:8], "booked": len(booked),
+                "revenue_won_usd": round(sum(o.get("suggested_bid_usd") or 0 for o in wins), 0),
+                "predictions": preds, "text": "\n".join(lines)}
 
     @router.post("/bid")
     async def manual_bid(payload: BidIn, _=Depends(get_current_user)) -> Dict[str, Any]:

@@ -2306,3 +2306,24 @@ retrains scoring weights from revealed preferences — making the intuitive
   heartbeat in sentinel_heartbeats._id=first_strike_loop.
 - Self-tested: curl status/config/candidates/bid + loop verified running + UI screenshots
   (panel renders, slider, badges, manual fire → WON toast, lane learning + predictions populate).
+
+## Session 2026-06 (fork, cont. 11) — Strike-to-Book + Security + Digest + QuickBooks
+1. STRIKE-TO-BOOK (first_strike.py): won bids route through Hunter auto-book gates (_hunter_gates:
+   hunter_config.auto_book.enabled, rate<=max_rate_usd, daily cap counts ai_load_hunter+first_strike
+   hunter_auto bookings, shipper_risk blacklist/payment_score) → _strike_book inserts
+   brokerage_bookings (source=first_strike, hunter_auto=True, booked_id BK-*). Outcome gets
+   booked_id or book_blocked[]. Verified: BK-195D8BC538 created; gates block correctly.
+   NOTE: POST /load-hunter/config uses FLAT keys (auto_book_max_per_day), not nested auto_book{}.
+2. SECURITY: dev-login/test-session already gated by ENABLE_DEV_LOGIN env (true in preview .env,
+   absent in deploys) + Login.jsx hides Quick Sign In on production hostname. Added defense-in-depth:
+   startup purges test_session_admin_1/dispatcher_1 sessions + test users when flag is OFF.
+3. STRIKE DIGEST: GET /load-hunter/first-strike/digest (window: yesterday 17:00 CT→now; overnight
+   after-hours wins, booked count, revenue, predictions, markdown text). FirstStrikePanel: Morning
+   Digest button (fs-digest-btn) → dialog (fs-digest-text) + copy. Auto-booked stat pill added.
+4. QUICKBOOKS (routes/quickbooks_sync.py per integration playbook, intuit-oauth installed):
+   /api/qbo/status|authorize|callback|disconnect|sync/invoice/{id}|sync/payment/{id}|
+   sync/recent-invoices. Tokens in db.qbo_connections, invoice map db.qbo_invoice_map, auto-refresh.
+   NEEDS USER CREDENTIALS: INTUIT_CLIENT_ID/SECRET/REDIRECT_URI(+INTUIT_ENVIRONMENT) in backend/.env
+   from developer.intuit.com. UI: QuickBooksCard.jsx on Brokerage accounting tab (quickbooks-card,
+   qbo-connect-btn, qbo-sync-btn) — shows needs list until keys provided.
+- Self-tested all four via curl + screenshots. QBO OAuth flow untestable until user provides keys.

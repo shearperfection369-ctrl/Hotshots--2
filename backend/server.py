@@ -8430,6 +8430,11 @@ api_router.include_router(build_quotes_router(
     db=db,
     get_current_user=get_current_user,
 ))
+from routes.quickbooks_sync import build_quickbooks_router  # noqa: E402
+api_router.include_router(build_quickbooks_router(
+    db=db,
+    get_current_user=get_current_user,
+))
 api_router.include_router(build_connections_router(
     db=db,
     require_role=require_role,
@@ -8982,6 +8987,14 @@ async def startup():
                     upsert=True)
         except Exception as e:
             logger.warning(f"Test session seed failed: {e}")
+    else:
+        # Hardening: purge preview test sessions/users when dev login is off
+        try:
+            await db.user_sessions.delete_many(
+                {"session_token": {"$in": ["test_session_admin_1", "test_session_dispatcher_1"]}})
+            await db.users.delete_many({"user_id": {"$in": ["test-admin-1", "test-disp-1"]}})
+        except Exception as e:
+            logger.warning(f"Test session purge failed: {e}")
 
     # ---------- 1.7 Agent Sentinel — 30-min platform health sweeps
     try:

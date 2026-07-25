@@ -26,6 +26,7 @@ dnspython==2.8.0
 ecdsa==0.19.2
 email-validator==2.3.0
 emergentintegrations==0.1.0
+enum-compat==0.0.3
 et_xmlfile==2.0.0
 fastapi==0.110.1
 fastuuid==0.14.0
@@ -53,6 +54,7 @@ huggingface_hub==1.14.0
 idna==3.13
 importlib_metadata==9.0.0
 iniconfig==2.3.0
+intuit-oauth==1.2.7
 isort==8.0.1
 Jinja2==3.1.6
 jiter==0.14.0

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Zap, Loader2, Moon, Crosshair, TrendingUp, Clock3, Radar } from "lucide-react";
+import { Zap, Loader2, Moon, Crosshair, TrendingUp, Clock3, Radar, Sunrise, Copy, BookCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "./ui/card";
 import { Switch } from "./ui/switch";
 import { Slider } from "./ui/slider";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { api } from "../lib/api";
 
 const usd = (n) => (n == null ? "—" : `$${Number(n).toLocaleString()}`);
@@ -19,6 +20,13 @@ export const FirstStrikePanel = () => {
   const [cands, setCands] = useState(null);
   const [busy, setBusy] = useState("");
   const [aggr, setAggr] = useState(null);
+  const [digest, setDigest] = useState(null);
+
+  const openDigest = async () => {
+    setBusy("digest");
+    try { const { data } = await api.get("/load-hunter/first-strike/digest"); setDigest(data); }
+    catch (_) { toast.error("Digest failed"); } finally { setBusy(""); }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -44,7 +52,7 @@ export const FirstStrikePanel = () => {
       const { data } = await api.post("/load-hunter/first-strike/bid", { load_id: c.load_id });
       if (data.ok) {
         const o = data.outcome;
-        o.won ? toast.success(`WON ${o.lane} at ${usd(o.suggested_bid_usd)} (${pct(o.win_probability)} est.)`)
+        o.won ? toast.success(`WON ${o.lane} at ${usd(o.suggested_bid_usd)}${o.booked_id ? ` — BOOKED ${o.booked_id}` : o.book_blocked ? ` (book blocked: ${o.book_blocked[0]})` : ""}`)
               : toast.error(`Lost ${o.lane} — bid ${usd(o.suggested_bid_usd)}. Lane learning updated.`);
         load();
       } else toast.error(data.error);
@@ -68,6 +76,10 @@ export const FirstStrikePanel = () => {
           <span className="text-[9px] font-mono text-slate-600 uppercase">simulated until board keys go live</span>
         </div>
         <div className="flex items-center gap-4">
+          <button onClick={openDigest} disabled={busy === "digest"} data-testid="fs-digest-btn"
+                  className="flex items-center gap-1 px-2.5 h-7 rounded-full border border-amber-400/40 text-amber-300 text-[10px] font-mono font-bold uppercase hover:bg-amber-500/10 disabled:opacity-40">
+            {busy === "digest" ? <Loader2 size={10} className="animate-spin" /> : <Sunrise size={11} />} Morning Digest
+          </button>
           <label className="flex items-center gap-1.5 text-[10px] font-mono uppercase text-slate-400">
             Auto-hunt {config.interval_sec}s
             <Switch checked={!!config.enabled} onCheckedChange={(v) => setConfig({ enabled: v })} data-testid="fs-autohunt-toggle" />
@@ -79,10 +91,11 @@ export const FirstStrikePanel = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3" data-testid="fs-stats">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mb-3" data-testid="fs-stats">
         {[["Bids fired", totals.bids, Crosshair, "#22D3EE"],
           ["Wins", totals.wins, TrendingUp, "#10B981"],
           ["Win rate", totals.win_rate == null ? "—" : pct(totals.win_rate), Radar, "#FBBF24"],
+          ["Auto-booked", totals.booked ?? 0, BookCheck, "#F472B6"],
           ["Avg response", totals.avg_response_sec == null ? "—" : `${totals.avg_response_sec}s`, Clock3, "#A78BFA"],
           ["Revenue won", usd(totals.revenue_won_usd), Zap, "#34D399"]].map(([l, v, Icon, col]) => (
           <div key={l} className="p-2 rounded-xl border border-white/10 bg-slate-950/60 text-center" data-testid={`fs-stat-${l.toLowerCase().replace(/ /g, "-")}`}>
@@ -176,6 +189,39 @@ export const FirstStrikePanel = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!digest} onOpenChange={(o) => !o && setDigest(null)}>
+        <DialogContent className="bg-slate-950 border-white/15 max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-white text-sm font-black uppercase flex items-center gap-2">
+              <Sunrise size={14} className="text-amber-300" /> First Strike Morning Digest
+            </DialogTitle>
+            <DialogDescription className="text-[10px] text-slate-500 font-mono">
+              Overnight after-hours wins + today's predicted postings
+            </DialogDescription>
+          </DialogHeader>
+          {digest && (
+            <>
+              <div className="flex flex-wrap gap-2" data-testid="fs-digest-stats">
+                {[["Bids", digest.bids], ["Wins", digest.wins], ["Overnight wins", digest.after_hours_wins.length],
+                  ["Booked", digest.booked], ["Revenue won", usd(digest.revenue_won_usd)]].map(([l, v]) => (
+                  <span key={l} className="px-2 py-1 rounded-lg border border-white/10 text-[10px] font-mono text-slate-300">
+                    <b className="text-amber-300">{v}</b> {l}
+                  </span>
+                ))}
+              </div>
+              <pre className="whitespace-pre-wrap text-[10px] text-slate-300 bg-slate-900/70 rounded-lg p-3 max-h-[40vh] overflow-y-auto font-mono" data-testid="fs-digest-text">
+                {digest.text}
+              </pre>
+              <button onClick={() => { navigator.clipboard.writeText(digest.text); toast.success("Digest copied"); }}
+                      data-testid="fs-digest-copy"
+                      className="self-end px-3 h-8 rounded-full bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-black uppercase flex items-center gap-1">
+                <Copy size={11} /> Copy Digest
+              </button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
