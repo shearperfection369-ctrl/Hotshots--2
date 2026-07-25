@@ -75,6 +75,55 @@ export const PlanReviewPanel = () => {
         </table>
       </div>
 
+      {data.scenario_b && (
+        <div className="mb-4 p-3 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.04]" data-testid="plan-review-scenario-b">
+          <div className="text-[10px] font-mono uppercase text-cyan-300 mb-1">Scenario B — Automation Case (§15A)</div>
+          <p className="text-[10px] text-slate-500 mb-2">{data.scenario_b.note}</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="text-slate-500 font-mono text-[9px] uppercase">
+                  <th className="text-left py-1">Weekly</th>
+                  {data.scenario_b.columns.map((c) => <th key={c} className="text-right px-1">{c}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {data.scenario_b.rows.map((r) => (
+                  <tr key={r.metric} className={`border-t border-white/5 ${r.bold ? "text-white font-bold" : "text-slate-300"}`}>
+                    <td className="py-1">{r.metric}</td>
+                    <td className="text-right tabular-nums px-1">{r.a}</td>
+                    <td className={`text-right tabular-nums px-1 ${r.bold ? "text-cyan-300" : ""}`}>{r.b}</td>
+                    <td className="text-right tabular-nums px-1 text-slate-400">{r.c}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {data.working_capital && (
+        <div className="mb-4 p-3 rounded-xl border border-purple-500/25 bg-purple-500/[0.04]" data-testid="plan-review-working-capital">
+          <div className="text-[10px] font-mono uppercase text-purple-300 mb-1">Working Capital Plan</div>
+          <p className="text-[10px] font-mono text-slate-500 mb-2">{data.working_capital.formula}</p>
+          <div className="space-y-1.5 mb-2">
+            {data.working_capital.phases.map((p) => (
+              <div key={p.phase} className="p-2 rounded-lg border border-white/10 bg-slate-950/60">
+                <div className="text-[11px] font-bold text-white">{p.phase} <span className="text-slate-500 font-normal">· {p.volume} · {p.revenue}</span></div>
+                <div className="text-[10px] font-mono text-slate-400">AR {p.ar} → cash float <b className="text-purple-300">{p.cash_needed}</b></div>
+                <div className="text-[10px] text-slate-500">{p.funding}</div>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1 mb-2">
+            {data.working_capital.guardrails.map((g) => (
+              <span key={g} className="px-2 py-0.5 rounded-full border border-white/10 text-[9px] font-mono text-slate-400">{g}</span>
+            ))}
+          </div>
+          <p className="text-[11px] text-purple-200" data-testid="plan-review-wc-bottomline">{data.working_capital.bottom_line}</p>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2 mb-3" data-testid="plan-review-acks">
         {PARTNERS.map((p) => {
           const a = ackFor(p);

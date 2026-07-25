@@ -2191,3 +2191,24 @@ retrains scoring weights from revealed preferences — making the intuitive
   Daniel W. Karsor, Doug Graham. Oliver's approval recorded during testing.
 - Self-tested via curl (webhook 401/confirm flows, outbox answered statuses, ack persist) +
   screenshots of both panels. 4 simulated replies confirmed loads; outbox: 5 queued / 4 answered.
+
+## Session 2026-06 (fork, cont. 4) — Scenario B + Working Capital Plan
+- BROKERAGE_BUSINESS_PLAN.md new §15A: 3-scenario table (Conservative $1,106/wk · Automation Case
+  ~$4,500/wk · Sandbox Hot Streak ~$12,100/wk net, provisions charged) + working-capital plan
+  (P1 $15-25K / P2 $90-160K / P3 $250-700K; funding ladder: factor-everything → quick-pay income →
+  25% holdback to $100K retained by Mo12 → bank AR line Mo15; guardrails).
+- /brokerage/plan-review now returns scenario_b + working_capital blocks; PlanReviewPanel renders
+  both (plan-review-scenario-b, plan-review-working-capital testids). Plan PDF regenerates w/ §15A.
+- Verified: curl (6 rows/3 phases), PDF 200, UI screenshot.
+
+## Session 2026-06 (fork, cont. 5) — Plan rev-2: nationwide FTL @ 20 loads/day
+- User misread 'Scenario B ~$234,000' as a LOSS (tilde looked like minus). Fixed: all approx values
+  now use 'est.' prefix in plan-review data + §15A.
+- Full financial recalibration (user: '$2,000-class nationwide loads, 20/day'): exec table, §10.4
+  assumptions, §10.5 P&L, §10.6 break-even, §15A all rebuilt. Y1 3,250 loads/$6.5M rev/EBITDA
+  $356,950; Y2 5,200/$10.4M/$603,400; Y3 6,760/$13.52M/$838,560. Salary $60K/yr all years (trigger
+  clears Mo1). Distributions 60K/240K/420K; retained 232K/299K/354K (funds WC). Per-member
+  $117,450/$199,600/$277,987. Loss provisions 3.5% rev, financing 3.25→1.2%, dispatch staff 2→4→6.
+- WC phases: P1 $40-60K, P2 $90-150K, P3 $250-400K cushion + bank AR line $500-750K Mo12-15.
+- Synced: brokerage.py plan-review (dup blocks removed lines 2213-2255), plan_brochure.py stats.
+  PDFs regenerate 200. Plan Y1-exit weekly ≈ sandbox observed (within 4%).

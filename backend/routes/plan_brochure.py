@@ -406,15 +406,15 @@ def _page_financials(c: Canvas, page: int, total: int):
     c.rect(0, 0, W, H, fill=1, stroke=0)
     _page_head(c, "The Numbers", "3-Year Financial Projections", FOREST)
     rows = [
-        ("Loads brokered", "480", "1,080", "1,920", False),
-        ("Gross revenue", "$432,000", "$1,026,000", "$1,920,000", True),
-        ("Carrier pay", "$349,920", "$810,540", "$1,478,400", False),
-        ("Gross margin", "$82,080", "$215,460", "$441,600", True),
-        ("Gross margin %", "19.0%", "21.0%", "23.0%", False),
-        ("Operating expenses (lean)", "$22,510", "$79,030", "$131,800", False),
-        ("Member comp (salary + distributions)", "$30,000", "$90,000", "$180,000", False),
-        ("Net cash to members", "$57,490", "$127,983", "$228,000", True),
-        ("Per-member share (1/3)", "$19,163", "$42,661", "$76,000", True),
+        ("Loads brokered (ramp to 20/day)", "3,250", "5,200", "6,760", False),
+        ("Gross revenue ($2,000 avg FTL)", "$6,500,000", "$10,400,000", "$13,520,000", True),
+        ("Carrier pay (85.5%)", "$5,557,500", "$8,892,000", "$11,559,600", False),
+        ("Gross margin (14.5%)", "$942,500", "$1,508,000", "$1,960,400", True),
+        ("Factoring / financing", "$211,250", "$208,000", "$162,240", False),
+        ("OpEx (staff, boards, provisions)", "$374,300", "$696,600", "$959,600", False),
+        ("EBITDA before partner pay", "$356,950", "$603,400", "$838,560", True),
+        ("Net cash to members", "$352,350", "$598,800", "$833,960", True),
+        ("Per-member share (1/3)", "$117,450", "$199,600", "$277,987", True),
     ]
     x0, tw = 40, W - 80
     col_w = [tw * 0.37, tw * 0.21, tw * 0.21, tw * 0.21]

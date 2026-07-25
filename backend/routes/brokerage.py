@@ -2147,9 +2147,10 @@ def build_brokerage_router(
     async def plan_review(_=Depends(get_current_user)):
         acks = await db.plan_review_acks.find({}, {"_id": 0}).to_list(10)
         return {
-            "revision_note": "June 2026 revision: operator salary raised $1,500 → $5,000/mo "
-                             "(margin trigger $4,000 → $10,000); ownership typo fixed — all members equal 33⅓%; "
-                             "3-Year P&L recalculated for the new salary.",
+            "revision_note": "June 2026 rev-2: plan recalibrated to nationwide FTL at sandbox scale — "
+                             "$2,000 avg loads, 14.5% margin, volume ramp to 20 loads/day (3,250 loads Y1). "
+                             "Salary $5,000/mo (§3.6, trigger clears Month 1); all members equal 33⅓%; "
+                             "P&L rebuilt with loss provisions, staff and financing fully charged.",
             "ownership": [
                 {"name": "Oliver Cummins", "role": "Operator — ops, carrier vetting, pricing, shipper book",
                  "stake": "33⅓%", "contribution": "$10,000 in-kind — PAID IN FULL (ORI-RCT-0003)"},
@@ -2159,19 +2160,55 @@ def build_brokerage_router(
                  "stake": "33⅓%", "contribution": "$10,000 cash + in-kind — $1,300 received (ORI-RCT-0002)"},
             ],
             "salary": {"recipient": "Oliver Cummins", "amount_monthly": 5000,
-                       "trigger": "Commences the first full month Company gross margin exceeds $10,000/mo "
-                                  "(projected Month 10 of Year 1)",
+                       "trigger": "Trigger (gross margin > $10,000/mo) clears in Month 1 at plan volume — "
+                                  "salaried from launch",
                        "only_salaried_member": True, "reference": "Partnership Agreement §3.6"},
             "pnl": [
-                {"metric": "EBITDA before partner pay", "y1": 57490, "y2": 132583, "y3": 302600},
-                {"metric": "Operator salary — Oliver Cummins", "y1": 15000, "y2": 60000, "y3": 60000},
-                {"metric": "Member distributions (combined)", "y1": 15000, "y2": 30000, "y3": 120000},
-                {"metric": "Payroll taxes (employer FICA)", "y1": 0, "y2": 4600, "y3": 9600},
-                {"metric": "Hire: carrier-sales agent (Y3)", "y1": 0, "y2": 0, "y3": 65000},
-                {"metric": "Net income", "y1": 27490, "y2": 37983, "y3": 48000, "bold": True},
-                {"metric": "Net cash to members (combined)", "y1": 57490, "y2": 127983, "y3": 228000, "bold": True},
-                {"metric": "Per-member share (1/3)", "y1": 19163, "y2": 42661, "y3": 76000, "bold": True},
+                {"metric": "Gross revenue (3,250 / 5,200 / 6,760 loads @ $2,000)", "y1": 6500000, "y2": 10400000, "y3": 13520000},
+                {"metric": "Gross margin (14.5%)", "y1": 942500, "y2": 1508000, "y3": 1960400},
+                {"metric": "Factoring / financing", "y1": 211250, "y2": 208000, "y3": 162240},
+                {"metric": "OpEx (staff, boards, loss provisions)", "y1": 374300, "y2": 696600, "y3": 959600},
+                {"metric": "EBITDA before partner pay", "y1": 356950, "y2": 603400, "y3": 838560, "bold": True},
+                {"metric": "Operator salary — Oliver Cummins", "y1": 60000, "y2": 60000, "y3": 60000},
+                {"metric": "Member distributions (combined)", "y1": 60000, "y2": 240000, "y3": 420000},
+                {"metric": "Net income (retained → working capital)", "y1": 232350, "y2": 298800, "y3": 353960, "bold": True},
+                {"metric": "Net cash to members (combined)", "y1": 352350, "y2": 598800, "y3": 833960, "bold": True},
+                {"metric": "Per-member share (1/3)", "y1": 117450, "y2": 199600, "y3": 277987, "bold": True},
             ],
+            "scenario_b": {
+                "note": "All figures POSITIVE — 'est.' means estimate. Rev-2 adopts sandbox-scale volume: "
+                        "at 20 loads/day the plan's weekly economics land within ~4% of the observed sandbox run. "
+                        "Net desk profit is after loss provisions (claims 1.5% + bad debt 2%), financing, staff & overhead.",
+                "columns": ["Plan Y1 exit / Y2 (20/day)", "Sandbox Day-6 observed (~17.5/day)", "Plan Y3 (26/day)"],
+                "rows": [
+                    {"metric": "Loads / week", "a": "100", "b": "68 closed", "c": "130"},
+                    {"metric": "Avg revenue / load", "a": "$2,000", "b": "$3,141", "c": "$2,000"},
+                    {"metric": "Gross margin / load", "a": "$290 (14.5%)", "b": "$423 (13.5%)", "c": "$290 (14.5%)"},
+                    {"metric": "Gross margin / week", "a": "$29,000", "b": "$28,600", "c": "$37,700"},
+                    {"metric": "Net desk profit / week", "a": "est. $11,600", "b": "est. $12,100", "c": "est. $16,100", "bold": True},
+                    {"metric": "Annualized EBITDA", "a": "est. $603,400", "b": "est. $630,000", "c": "$838,560", "bold": True},
+                ],
+            },
+            "working_capital": {
+                "formula": "Cash need ≈ (DSO 37 − blended DPO 19) ÷ 365 × annual revenue · factor advances 92%",
+                "phases": [
+                    {"phase": "P1 · Launch (Mo 1-3)", "volume": "25 loads/wk", "revenue": "$2.6M run-rate",
+                     "ar": "≈ $265K", "cash_needed": "$40-60K",
+                     "funding": "$30K partner capital + Month 1-2 retained profit + factor 92% advance"},
+                    {"phase": "P2 · Ramp (Mo 4-9)", "volume": "50-75 loads/wk", "revenue": "$5.2-7.8M",
+                     "ar": "$530-790K", "cash_needed": "$90-150K",
+                     "funding": "Year-1 retained earnings ($232K) + factoring volume tier (~3.0%)"},
+                    {"phase": "P3 · Full volume (Mo 10+)", "volume": "100-130 loads/wk", "revenue": "$10.4-13.5M",
+                     "ar": "$1.05-1.4M", "cash_needed": "$250-400K cushion",
+                     "funding": "Bank AR line $500-750K by Mo 12-15 (saves ≈ $150K/yr vs factoring)"},
+                ],
+                "guardrails": ["Credit-check every new shipper", "Max 20% of AR in any one shipper",
+                               "2% bad-debt reserve held monthly", "Quick-pay 2% fee = profit center",
+                               "No fuel advances", "DSO reviewed weekly"],
+                "bottom_line": "No new equity required: $30K capital + factoring funds the launch quarter; "
+                               "Year-1 retained earnings ($232K) fund the ramp; bank AR line by Month 12-15 "
+                               "carries full volume.",
+            },
             "acks": acks,
         }
 
