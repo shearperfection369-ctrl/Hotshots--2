@@ -78,6 +78,7 @@ export const ShipperFinder = ({ onQuote }) => {
   if (!data) return <div className="p-8 text-center text-slate-500 font-mono text-xs" data-testid="shipper-finder-loading">Loading shipper pipeline…</div>;
 
   const BOOK_SECTIONS = playbook ? [
+    ["wants", "What Shippers Want (top 10)", playbook.what_shippers_want || []],
     ["advantages", "Competitive Advantages", playbook.competitive_advantages.map((a) => `${a.title} — ${a.detail}`)],
     ["offers", "The Offer Stack (what to pitch)", playbook.offer_stack.map((o) => `${o.offer} — ${o.detail}`)],
     ["channels", "Where to Find Shippers", playbook.sourcing_channels.map((s) => `${s.channel} — ${s.how}`)],

@@ -230,16 +230,40 @@ def _page_contact(c: Canvas, page: int, total: int):
     c.showPage()
 
 
+def _page_service_standard(c: Canvas, page: int, total: int):
+    from .shipper_scorecard_pdf import SERVICE_STANDARD
+    c.setFillColor(PAPER)
+    c.rect(0, 0, W, H, fill=1, stroke=0)
+    _page_head(c, "The Service Standard", "Ten Commitments. Measured. Published.", CORAL)
+    accents = [TEAL, CORAL, GOLD, PLUM, FOREST, TEAL, CORAL, GOLD, PLUM, FOREST]
+    y = H - 108
+    for i, s in enumerate(SERVICE_STANDARD):
+        _card(c, 40, y - 54, W - 80, 56, WHITE, stroke=colors.HexColor("#E2D9C3"), radius=8)
+        c.setFillColor(accents[i])
+        c.rect(40, y - 54, 5, 56, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 9.5)
+        c.setFillColor(AZURE)
+        c.drawString(56, y - 15, s["want"].upper())
+        c.setFont("Helvetica-Bold", 8)
+        c.setFillColor(accents[i])
+        c.drawRightString(W - 52, y - 15, s["target"])
+        _para(c, s["commitment"], 56, y - 30, "Helvetica", 8, W - 120, INK, leading=10.5)
+        y -= 62
+    _footer(c, page, total)
+    c.showPage()
+
+
 def build_shipper_brochure_pdf() -> bytes:
     buf = io.BytesIO()
     c = Canvas(buf, pagesize=letter)
     c.setTitle("Ship With Orisei · Shipper Partner Program 2026")
-    total = 6
+    total = 7
     _cover(c)
     _page_why(c, 2, total)
     _page_offer(c, 3, total)
-    _page_platform(c, 4, total)
-    _page_onboarding(c, 5, total)
-    _page_contact(c, 6, total)
+    _page_service_standard(c, 4, total)
+    _page_platform(c, 5, total)
+    _page_onboarding(c, 6, total)
+    _page_contact(c, 7, total)
     c.save()
     return buf.getvalue()

@@ -46,6 +46,7 @@ const INCENTIVE_ICON = {
 const TABS = [
   { id: "deck",       label: "Command Deck",  icon: Radio },
   { id: "accounts",   label: "Accounts",      icon: Users },
+  { id: "standard",   label: "Service Standard", icon: BadgeCheck },
   { id: "rates",      label: "Rate Cards",    icon: DollarSign },
   { id: "incentives", label: "Incentives",    icon: Gift },
   { id: "qbrs",       label: "QBRs",          icon: TrendingUp },
@@ -140,6 +141,7 @@ export default function ShipperRelations() {
 
         {tab === "deck"       && <CommandDeckTab dashboard={dashboard} brand={brand} accounts={accounts} />}
         {tab === "accounts"   && <AccountsTab accounts={accounts} incentives={incentives} onChange={loadAll} />}
+        {tab === "standard"   && <ServiceStandardTab />}
         {tab === "rates"      && <RateCardsTab cards={rateCards} onChange={loadAll} />}
         {tab === "incentives" && <IncentivesTab incentives={incentives} onChange={loadAll} />}
         {tab === "qbrs"       && <QbrsTab accounts={accounts} onChange={loadAll} />}
@@ -354,7 +356,22 @@ function AccountsTab({ accounts, incentives, onChange }) {
                   <td className="px-3 py-2 text-slate-300">{a.dedicated_am || "—"}</td>
                   <td className="px-3 py-2 text-slate-300 font-mono">{(a.assigned_incentives || []).length}</td>
                   <td className="px-3 py-2"><LifecyclePill v={a.lifecycle} /></td>
-                  <td className="px-3 py-2 text-right"><ChevronRight size={14} className="text-slate-500 inline" /></td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    <button title="Service Scorecard PDF" data-testid={`shipper-scorecard-${a.account_id}`}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          const res = await api.get(`/shipper-relations/accounts/${a.account_id}/scorecard.pdf`, { responseType: "blob" });
+                          const url = URL.createObjectURL(res.data);
+                          const el = document.createElement("a");
+                          el.href = url; el.download = `Orisei_Scorecard_${a.company_name.replace(/ /g, "_")}.pdf`; el.click();
+                          URL.revokeObjectURL(url);
+                          toast.success("Scorecard PDF downloaded");
+                        } catch (_) { toast.error("Scorecard failed"); }
+                      }}
+                      className="p-1 rounded text-amber-300 hover:bg-amber-500/10 mr-1"><FileText size={13} className="inline" /></button>
+                    <ChevronRight size={14} className="text-slate-500 inline" />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -364,6 +381,39 @@ function AccountsTab({ accounts, incentives, onChange }) {
 
       <AddAccountDialog open={addOpen} onClose={() => setAddOpen(false)} onSaved={onChange} />
       <AccountDetailDialog account={selected} incentives={incentives} onClose={() => setSelected(null)} onChange={onChange} />
+    </div>
+  );
+}
+
+function ServiceStandardTab() {
+  const [std, setStd] = useState(null);
+  useEffect(() => {
+    api.get("/shipper-relations/service-standard").then(({ data }) => setStd(data)).catch(() => {});
+  }, []);
+  if (!std) return <div className="p-8 text-center text-slate-500 font-mono text-xs" data-testid="service-standard-loading">Loading service standard…</div>;
+  const ACCENTS = ["#0E7C7B", "#E2725B", "#C9A24A", "#6D3B8E", "#2E7D46"];
+  return (
+    <div className="space-y-4" data-testid="service-standard-tab">
+      <div className="flex items-center gap-2">
+        <BadgeCheck size={16} className="text-emerald-300" />
+        <h3 className="text-sm font-black text-white uppercase tracking-wider">The Orisei Service Standard — what shippers want, codified</h3>
+      </div>
+      <p className="text-[11px] text-slate-400 max-w-3xl">{std.note}</p>
+      <div className="grid md:grid-cols-2 gap-3" data-testid="service-standard-grid">
+        {std.standard.map((s, i) => (
+          <Card key={s.metric} className="hud-surface p-4 border-white/10" data-testid={`sla-card-${s.metric}`}>
+            <div className="flex items-start justify-between gap-2 mb-1.5">
+              <div className="text-[12px] font-black text-white uppercase tracking-wide">{s.want}</div>
+              <span className="px-2 py-0.5 rounded-full border text-[9px] font-mono font-bold whitespace-nowrap"
+                    style={{ color: ACCENTS[i % 5], borderColor: `${ACCENTS[i % 5]}66` }}>{s.target}</span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">{s.commitment}</p>
+          </Card>
+        ))}
+      </div>
+      <p className="text-[10px] font-mono text-slate-500">
+        Printed on page 4 of the shipper brochure · proven per account via the Service Scorecard PDF (Accounts tab → document icon).
+      </p>
     </div>
   );
 }

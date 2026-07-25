@@ -2272,3 +2272,17 @@ retrains scoring weights from revealed preferences — making the intuitive
 - User choices: market-rate reference ON (simulated), PDF-only (no Resend send).
 - Self-tested end-to-end: curl CRUD+benchmark+PDF+404, browser flow (prefill from prospect,
   market check, save), PDF visually verified (fixed header/column overlaps). Test quote deleted.
+
+## Session 2026-06 (fork, cont. 9) — "What Shippers Want" service layer
+- NEW routes/shipper_scorecard_pdf.py: SERVICE_STANDARD (10 shipper wants codified as Orisei SLAs:
+  98% tender acceptance, OTP≥96/OTD≥95, quotes ≤15min, proactive alerts, POD ≤1hr, zero fee creep,
+  claims ack ≤24h, ≥99% invoice accuracy, 100% vetted carriers, 24/7 human) + build_scorecard_pdf
+  (per-account branded scorecard: metric cards vs targets from latest QBR, QBR history, action
+  items, SLA strip).
+- shipper_relations.py: GET /shipper-relations/service-standard + GET /accounts/{id}/scorecard.pdf.
+- shipper_brochure.py: new page 4 "Ten Commitments. Measured. Published." (now 7 pages).
+- shipper_finder.py PLAYBOOK["what_shippers_want"] (10 items) + ShipperFinder.jsx section.
+- ShipperRelations.jsx: new "Service Standard" tab (shipper-tab-standard, sla-card-{metric}) +
+  scorecard download icon per account row (shipper-scorecard-{account_id}).
+- Self-tested: curl (standard 10 items, scorecard 200, brochure 7pp, playbook 10) + PDF visual
+  check + UI screenshots (10 SLA cards render, wants accordion toggles).

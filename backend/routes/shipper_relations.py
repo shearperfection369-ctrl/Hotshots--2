@@ -811,4 +811,26 @@ def build_shipper_relations_router(
             {"account_id": account_id}, {"_id": 0}).sort("sent_at", -1).to_list(50)
         return {"items": rows, "count": len(rows)}
 
+    # ------------------ SERVICE STANDARD & SCORECARDS ------------------
+    @router.get("/service-standard")
+    async def service_standard(_=user_dep) -> Dict[str, Any]:
+        from .shipper_scorecard_pdf import SERVICE_STANDARD
+        return {"standard": SERVICE_STANDARD,
+                "note": "The ten things shippers want from a broker, codified as measurable Orisei SLAs — "
+                        "printed in the shipper brochure and proven per-account via the Service Scorecard PDF."}
+
+    @router.get("/accounts/{account_id}/scorecard.pdf")
+    async def account_scorecard(account_id: str, _=user_dep):
+        acc = await db.shipper_accounts.find_one({"account_id": account_id}, {"_id": 0})
+        if not acc:
+            raise HTTPException(status_code=404, detail="Account not found")
+        qbrs = await db.shipper_qbrs.find(
+            {"account_id": account_id}, {"_id": 0}).sort("created_at", -1).to_list(8)
+        from .shipper_scorecard_pdf import build_scorecard_pdf
+        pdf = build_scorecard_pdf(acc, qbrs)
+        safe = (acc.get("company_name") or "account").replace(" ", "_")
+        return StreamingResponse(
+            io.BytesIO(pdf), media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="Orisei_Scorecard_{safe}.pdf"'})
+
     api_router.include_router(router)

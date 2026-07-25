@@ -52,6 +52,18 @@ PLAYBOOK = {
         {"channel": "Referral partnerships", "how": "Customs brokers, freight forwarders, 3PL warehouses and packaging suppliers all get asked 'know a good truck broker?' — build a 10% referral circle."},
         {"channel": "Podcast + inbound", "how": "Orisei Freight Brief positions the desk as the MN freight authority; every guest is a prospect or a referrer."},
     ],
+    "what_shippers_want": [
+        "Capacity that shows up — shippers rank tender acceptance #1. Orisei answer: committed carriers on recurring lanes + surge capacity from the owner-operator network (98% acceptance target).",
+        "On-time performance — OTP/OTD is the scorecard metric that gets you fired or promoted on the routing guide. Orisei answer: ≥96% OTP / ≥95% OTD, tracked per load, published in the QBR scorecard.",
+        "Speed-to-quote — the #1 stated reason shippers switch brokers. Orisei answer: 15-minute quote SLA, market-benchmarked via the Quote Builder.",
+        "Proactive communication — shippers hate chasing updates. Orisei answer: exception alerts before they ask, at pickup / transit / delivery, from a named human.",
+        "Real-time visibility — 'where's my truck?' should never need a phone call. Orisei answer: free portal with live GPS, ETAs, and POD within 1 hour.",
+        "Honest, stable pricing — no gouging when the market tightens. Orisei answer: 90-day fixed pricing on primary lanes, indexed FSC, open-book margin at QBR.",
+        "Painless claims — one bad claim experience ends relationships. Orisei answer: acknowledged ≤24h, resolved ≤30 days target, funded reserve.",
+        "Billing accuracy — invoice disputes burn more goodwill than late trucks. Orisei answer: quote = invoice, ≥99% accuracy, disputes answered in 1 business day.",
+        "Compliance & financial stability — shippers vet the broker's bond, insurance and carrier standards. Orisei answer: BMC-84 $75K, 100% vetted carriers, written no-double-broker pledge.",
+        "A single accountable human — not a rotating rep or ticket queue. Orisei answer: dedicated AM, founder's cell on the rate con, 24/7 escalation.",
+    ],
     "outreach_tips": [
         "Call 7:15–8:30 AM — logistics managers plan their day early and gatekeepers aren't in yet.",
         "Lead with a specific lane and rate, never a capability pitch: 'I can cover your Minneapolis→Chicago dry van at $1,850 all-in this week.'",
