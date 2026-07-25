@@ -285,8 +285,8 @@ async def ingest_tick(db) -> Dict[str, Any]:
         if loads:
             batches.extend(loads)
     open_count = await db.board_loads.count_documents({"status": "open"})
-    if not batches and open_count < SIM_FEED_FLOOR:
-        batches = _sim_loads(10)
+    if open_count + len(batches) < SIM_FEED_FLOOR:
+        batches.extend(_sim_loads(10))
         await db.loadboard_health.update_one(
             {"board": "internal_sim"},
             {"$set": {"board": "internal_sim", "label": "Internal Sim Board", "status": "healthy",

@@ -2147,3 +2147,30 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Tested: iteration_77 — 19/19 backend, frontend 100%, zero critical. Live E2E verified: 5 hunts
   opened+booked, BH loads flowing with same drivers, cap held 15/15. daily_limit left at 15,
   autopilot ENABLED.
+
+## Session 2026-06 (fork, cont. 2) — Resilience Stack + Load Board Integration Layer
+- **Resilience Center** (/resilience, Sidebar nav-resilience, 5 tabs):
+  1. Sentinel self-repair (routes/orisei_sentinel.py): 6 checks every 120s (stalled loads,
+     driverless bookings, dead hunts, config drift, loop heartbeat -> runs cycle directly,
+     orphan hunts), auto-patches + sentinel_repairs log. /self-repair/status|sweep.
+     broker_autopilot run_cycle writes sentinel_heartbeats.
+  2. Load Boards (was gateway): see below.
+  3. Decision Engine (routes/decision_engine.py): standalone deterministic matcher
+     /decision-engine/match|info, component score breakdown, driver availability.
+  4. Manual Ops Runbook (routes/ops_runbook.py): branded PDF w/ live carrier contacts +
+     driver roster appendices, printable load-sheets PDF.
+  5. Backups (routes/ops_backup.py): mongodump gz every 7 days keep 4 (/app/backups),
+     daily log-collection pruning caps, /ops-backups list|run|prune|download. Loops in server.py.
+- **Load Board Integration Layer** (routes/loadboard_gateway.py REWRITTEN): 5-board adapter
+  registry (dat/truckstop/123loadboard/convoy/uberfreight -> provider ids dat/truckstop/
+  loadboard_123/convoy/uber_freight), auth builders, retry + 5-min circuit breaker,
+  _valid_key (iter78 fix). API-first booking book_on_board(): accept POST -> booking EMAIL to
+  board's booking_email via Resend -> loadboard_outbox queue; board_actions audit (api/email/
+  queued). 60s ingestion loop -> deduped board_loads feed (fingerprint, multi-source merge
+  highest rate, 15-min expiry, sim floor 20). Autopilot sources from feed (gateway_fetch_loads).
+  Connections: +convoy provider, booking_email field on ALL 5 boards. UI: components/resilience/
+  LoadBoardCommand.jsx (board cards + setup guides, feed, outbox w/ flush, actions).
+- Tested: iter78 18/18 + live anomaly injection (3 injected, 3 auto-patched); iter79 13/13
+  after truckstop booking_email fix. Autopilot ENABLED, daily_limit 15.
+- NOTE: a prior broker_autopilot gateway-sourcing edit silently reverted once (verify line ~438
+  uses gateway_fetch_loads if touching that file).

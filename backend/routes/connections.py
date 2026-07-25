@@ -72,6 +72,7 @@ PROVIDERS: List[Dict[str, Any]] = [
             {"key": "client_id",     "label": "Client ID",     "secret": False, "required": True},
             {"key": "client_secret", "label": "Client Secret", "secret": True,  "required": True},
             {"key": "integration_id","label": "Integration ID","secret": False, "required": True},
+            {"key": "booking_email", "label": "Booking Email (fallback channel)", "secret": False, "required": False},
         ],
     },
     {
