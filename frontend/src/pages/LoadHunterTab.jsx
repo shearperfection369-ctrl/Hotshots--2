@@ -11,6 +11,7 @@ import {
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import { MisalignmentMonitor } from "../components/MisalignmentMonitor";
+import { FirstStrikePanel } from "../components/FirstStrikePanel";
 
 const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }));
 
@@ -382,6 +383,9 @@ export default function LoadHunterTab() {
           </div>
         )}
       </Card>
+
+      {/* First Strike — competitive edge layer */}
+      <FirstStrikePanel />
 
       {/* Alignment Guardian */}
       <AlignmentGuardian />

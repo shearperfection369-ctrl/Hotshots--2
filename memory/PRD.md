@@ -2286,3 +2286,23 @@ retrains scoring weights from revealed preferences — making the intuitive
   scorecard download icon per account row (shipper-scorecard-{account_id}).
 - Self-tested: curl (standard 10 items, scorecard 200, brochure 7pp, playbook 10) + PDF visual
   check + UI screenshots (10 SLA cards render, wants accordion toggles).
+
+## Session 2026-06 (fork, cont. 10) — "First Strike" package for AI Load Hunter
+- NEW routes/first_strike.py (/api/load-hunter/first-strike/*, registered in server.py with
+  startup loop first_strike_loop, mirrors autopilot pattern). SIMULATED outcomes until board keys.
+- 7 features: (1) continuous auto-scan loop (45s default, config interval), (2) dynamic bid
+  calculator — aggressiveness dial 0-100 → up to −6% off posted, (3) per-lane win/loss learning
+  (db.hunter_bid_outcomes; <30% win rate over ≥3 bids → tighten −2%, >70% → harvest +1.5%),
+  (4) carrier-proximity boost (bench states from dispatch_carriers vs origin), (5) poster-pattern
+  predictions (deterministic md5 hour pattern + call-before-post alerts), (6) after-hours
+  aggression (UTC-6, outside 8-17 or weekend → +12% win prob, less discount), (7) relationship
+  scoring (known posters from brokerage_bookings → +10% win prob).
+- Endpoints: GET /status (totals, lane_learning, predictions, cycles), POST /config,
+  GET /candidates (top 8 priced-to-win), POST /bid (manual fire, simulated resolve).
+- Frontend: components/FirstStrikePanel.jsx rendered in LoadHunterTab above AlignmentGuardian.
+  Testids: first-strike-panel, fs-autohunt-toggle, fs-learning-toggle, fs-aggressiveness-slider,
+  fs-stats, fs-candidate-{id}, fs-fire-{id}, fs-lane-learning, fs-predictions, fs-afterhours-badge.
+- Collections: first_strike_config, hunter_bid_outcomes, fs_cycles, first_strike_seen (capped 3000),
+  heartbeat in sentinel_heartbeats._id=first_strike_loop.
+- Self-tested: curl status/config/candidates/bid + loop verified running + UI screenshots
+  (panel renders, slider, badges, manual fire → WON toast, lane learning + predictions populate).
