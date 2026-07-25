@@ -2209,6 +2209,62 @@ def build_brokerage_router(
                                "Year-1 retained earnings ($232K) fund the ramp; bank AR line by Month 12-15 "
                                "carries full volume.",
             },
+            "industry_benchmarks": {
+                "source": "FreightWaves / DAT / industry surveys — 2025 benchmarks",
+                "rows": [
+                    {"metric": "Avg revenue / load", "industry": "$1,912 avg · $1,500–2,500 range", "plan": "$2,000", "sandbox": "$3,141"},
+                    {"metric": "Gross margin %", "industry": "12–18% · mainstream ≈15%", "plan": "14.5%", "sandbox": "13.5%"},
+                    {"metric": "Gross profit / load", "industry": "$150–300 · avg $189", "plan": "$290", "sandbox": "$423"},
+                    {"metric": "DSO (shipper pays)", "industry": "30–45 days · net-60 for large shippers", "plan": "37 days", "sandbox": "instant (simulated)"},
+                    {"metric": "Loads / rep / day", "industry": "3–5 avg · 10+ top performers", "plan": "20/day via autopilot", "sandbox": "17.5 observed"},
+                    {"metric": "Operating ratio", "industry": "90–97% (net 2–6%)", "plan": "≈94.5% Y1", "sandbox": "≈94%"},
+                ],
+            },
+            "dso_playbook": {
+                "question": "Will factoring be enough to carry the weight?",
+                "verdict": "YES for cash — through Month 9. Non-recourse factoring at 92% advance cuts the cash "
+                           "float at full volume from ≈$513K (self-funded, 18-day gap) to ≈$85–130K (holdbacks + "
+                           "fees + 1-2 day advance lag), which partner capital + retained earnings cover. BUT it is "
+                           "NOT a complete DSO strategy: it costs ≈$210K/yr at $10.4M revenue (22% of gross margin), "
+                           "and it does not cover disputed invoices, shippers who prohibit assignment, chargebacks, "
+                           "or overhead in slow weeks. Factoring carries the weight — at a price. The playbook "
+                           "below shrinks DSO itself so the plan can graduate to a bank AR line by Month 12-15 "
+                           "and reclaim ≈$150K/yr.",
+                "factoring_limits": [
+                    "8% holdback reserve stays illiquid until the shipper actually pays (≈$84K at full volume)",
+                    "Fees compound at volume: 3.25% of $10.4M ≈ $210K/yr — vs $60-80K on a bank AR line",
+                    "Disputed / short-paid invoices get charged back even on 'non-recourse' (fraud/dispute carve-outs)",
+                    "Some enterprise shippers prohibit invoice assignment — those loads self-fund",
+                    "Factor concentration limits can freeze advances if one shipper exceeds ~25% of the book",
+                ],
+                "levers": [
+                    {"stage": "1 · Prevent (before the load)", "actions": [
+                        "Credit-check every new shipper via board credit data (DAT CreditScore / Ansonia) — floor score 87",
+                        "Written net-30 terms + late-fee clause in every broker-shipper agreement",
+                        "Credit limit per shipper = 2 weeks of volume max until 3 clean payment cycles",
+                        "Cap any single shipper at 20% of total AR (guardrail already live)"]},
+                    {"stage": "2 · Accelerate (day 0-5)", "actions": [
+                        "Same-day invoicing: invoice auto-fires the moment POD lands (TMS already generates docs)",
+                        "Complete paperwork first-pass: POD + rate con + lumper receipts in one packet — 40% of slow-pays are missing-doc holds",
+                        "E-invoicing / EDI for shippers that support it — shaves 3-7 days vs email PDF",
+                        "Offer 1% 10 / net 30 selectively to the two largest accounts (costs less than factoring the same dollars)"]},
+                    {"stage": "3 · Collect (day 25-50)", "actions": [
+                        "Automated dunning cadence: day-25 reminder → day-32 call → day-40 escalation letter → day-50 stop new loads",
+                        "Weekly AR aging review on the Command Deck (0-30 / 31-45 / 46-60 / 60+ buckets)",
+                        "60+ days: turn over to factor's collections or a 3rd-party agency; write to the 2% bad-debt reserve"]},
+                    {"stage": "4 · Finance (the backstop)", "actions": [
+                        "Months 0-6: non-recourse factoring, 92% advance, renegotiate to ~3.0% at Month 4 volume tier",
+                        "Quick-pay to carriers at 2% fee = profit center that offsets ≈⅓ of factoring cost",
+                        "Month 12-15: graduate to $500-750K bank AR line at prime+2-3 — saves ≈$150K/yr",
+                        "Keep a $50K minimum operating cash buffer at all times (covers 2 weeks of overhead + slippage)"]},
+                ],
+                "kpis": [
+                    {"kpi": "DSO", "target": "≤ 38 Y1 → ≤ 35 Y2 → ≤ 32 Y3", "alert": "> 45 days"},
+                    {"kpi": "AR > 60 days", "target": "< 3% of book", "alert": "> 5%"},
+                    {"kpi": "Bad debt", "target": "< 0.5% of revenue (2% reserved)", "alert": "> 1%"},
+                    {"kpi": "Factoring cost / gross margin", "target": "< 25%", "alert": "> 30% — accelerate bank line"},
+                ],
+            },
             "acks": acks,
         }
 
@@ -2221,6 +2277,38 @@ def build_brokerage_router(
                "at": datetime.now(timezone.utc).isoformat()}
         await db.plan_review_acks.update_one({"partner": payload.partner}, {"$set": doc}, upsert=True)
         return {"ok": True, "ack": doc}
+
+    @router.get("/plan-vs-actual")
+    async def plan_vs_actual(_=Depends(get_current_user)):
+        sim = await db.sim_state.find_one({}, {"_id": 0}, sort=[("started_at", -1)])
+        if not sim:
+            return {"available": False}
+        rows = await db.sim_loads.find(
+            {"sim_id": sim["sim_id"], "status": {"$nin": ["open", "posted", "cancelled", "expired"]}},
+            {"_id": 0, "sell_usd": 1, "margin_usd": 1}).to_list(3000)
+        days = max(1, int(sim.get("sim_day", 1)))
+        weeks = days / 7
+        booked = len(rows)
+        revenue = sum(r.get("sell_usd", 0) or 0 for r in rows)
+        margin = sum(r.get("margin_usd", 0) or 0 for r in rows)
+        rev_wk = revenue / weeks
+        net_wk = margin / weeks - rev_wk * 0.035 - rev_wk * 0.0325 - 2825
+        actual = {"loads_per_week": round(booked / weeks, 1),
+                  "avg_rev_per_load": round(revenue / booked, 0) if booked else 0,
+                  "margin_per_week": round(margin / weeks, 0),
+                  "margin_pct": round(margin / revenue * 100, 1) if revenue else 0,
+                  "est_net_per_week": round(net_wk, 0)}
+        plan = {"loads_per_week": 100, "avg_rev_per_load": 2000, "margin_per_week": 29000,
+                "margin_pct": 14.5, "est_net_per_week": 11600}
+        labels = [("loads_per_week", "Loads / week"), ("avg_rev_per_load", "Avg revenue / load ($)"),
+                  ("margin_per_week", "Gross margin / week ($)"), ("margin_pct", "Margin %"),
+                  ("est_net_per_week", "Est. net desk profit / week ($)")]
+        metrics = [{"metric": lbl, "plan": plan[k], "actual": actual[k],
+                    "variance_pct": round((actual[k] - plan[k]) / plan[k] * 100, 1) if plan[k] else 0}
+                   for k, lbl in labels]
+        return {"available": True, "sim_id": sim["sim_id"], "sim_day": days,
+                "sim_status": sim.get("status"), "loads_per_day_setting": sim.get("loads_per_day"),
+                "loads_booked": booked, "as_of": sim.get("last_tick_at"), "metrics": metrics}
 
     @router.get("/business-plan")
     async def business_plan(_=Depends(get_current_user)):

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ClipboardCheck, Check, MessageSquareWarning, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
+import { CashFlowSimulator } from "./CashFlowSimulator";
 import { api } from "../lib/api";
 
 const usd = (n) => `$${Number(n).toLocaleString()}`;
@@ -9,14 +10,19 @@ const PARTNERS = ["Oliver Cummins", "Daniel W. Karsor", "Doug Graham"];
 
 export const PlanReviewPanel = () => {
   const [data, setData] = useState(null);
+  const [pva, setPva] = useState(null);
   const [partner, setPartner] = useState(PARTNERS[0]);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState("");
 
   const load = useCallback(async () => {
-    try { const { data: d } = await api.get("/brokerage/plan-review"); setData(d); } catch (_) {}
+    try {
+      const [{ data: d }, { data: p }] = await Promise.all([
+        api.get("/brokerage/plan-review"), api.get("/brokerage/plan-vs-actual")]);
+      setData(d); setPva(p);
+    } catch (_) {}
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, [load]);
 
   const ack = async (decision) => {
     setBusy(decision);
@@ -75,6 +81,40 @@ export const PlanReviewPanel = () => {
         </table>
       </div>
 
+      {pva?.available && (
+        <div className="mb-4 p-3 rounded-xl border border-cyan-500/30 bg-cyan-500/[0.05]" data-testid="plan-vs-actual">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[10px] font-mono uppercase text-cyan-300">Plan vs Actual — live sandbox feed</div>
+            <span className="text-[9px] font-mono text-slate-500">{pva.sim_id} · Day {pva.sim_day}/30 · {pva.loads_booked} loads booked · {pva.sim_status}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="text-slate-500 font-mono text-[9px] uppercase">
+                  <th className="text-left py-1">Weekly metric</th><th className="text-right">Plan (Y1 exit)</th>
+                  <th className="text-right">Sandbox actual</th><th className="text-right">Variance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pva.metrics.map((m) => (
+                  <tr key={m.metric} className="border-t border-white/5 text-slate-300">
+                    <td className="py-1">{m.metric}</td>
+                    <td className="text-right tabular-nums">{m.plan.toLocaleString()}</td>
+                    <td className="text-right tabular-nums text-white font-bold">{m.actual.toLocaleString()}</td>
+                    <td className={`text-right tabular-nums font-bold ${m.variance_pct >= 0 ? "text-emerald-300" : "text-red-400"}`}
+                        data-testid={`pva-var-${m.metric.split(" ")[0].toLowerCase().replace(/[^a-z]/g, "")}`}>
+                      {m.variance_pct >= 0 ? "+" : ""}{m.variance_pct}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <CashFlowSimulator />
+
       {data.scenario_b && (
         <div className="mb-4 p-3 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.04]" data-testid="plan-review-scenario-b">
           <div className="text-[10px] font-mono uppercase text-cyan-300 mb-1">Scenario B — Automation Case (§15A)</div>
@@ -121,6 +161,66 @@ export const PlanReviewPanel = () => {
             ))}
           </div>
           <p className="text-[11px] text-purple-200" data-testid="plan-review-wc-bottomline">{data.working_capital.bottom_line}</p>
+        </div>
+      )}
+
+      {data.industry_benchmarks && (
+        <div className="mb-4 p-3 rounded-xl border border-sky-500/25 bg-sky-500/[0.04]" data-testid="plan-review-benchmarks">
+          <div className="text-[10px] font-mono uppercase text-sky-300 mb-1">Industry Benchmarks — {data.industry_benchmarks.source}</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="text-slate-500 font-mono text-[9px] uppercase">
+                  <th className="text-left py-1">Metric</th><th className="text-right px-1">Industry std</th>
+                  <th className="text-right px-1">Plan Rev-2</th><th className="text-right px-1">Sandbox</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.industry_benchmarks.rows.map((r) => (
+                  <tr key={r.metric} className="border-t border-white/5 text-slate-300">
+                    <td className="py-1">{r.metric}</td>
+                    <td className="text-right px-1 text-sky-200">{r.industry}</td>
+                    <td className="text-right px-1 text-white font-bold">{r.plan}</td>
+                    <td className="text-right px-1 text-slate-400">{r.sandbox}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {data.dso_playbook && (
+        <div className="mb-4 p-3 rounded-xl border border-rose-500/25 bg-rose-500/[0.04]" data-testid="plan-review-dso-playbook">
+          <div className="text-[10px] font-mono uppercase text-rose-300 mb-1">DSO Playbook — {data.dso_playbook.question}</div>
+          <p className="text-[10px] text-slate-300 mb-2 leading-relaxed" data-testid="dso-verdict">{data.dso_playbook.verdict}</p>
+          <div className="mb-2">
+            <div className="text-[9px] font-mono uppercase text-slate-500 mb-1">What factoring does NOT cover</div>
+            <ul className="space-y-0.5">
+              {data.dso_playbook.factoring_limits.map((l) => (
+                <li key={l} className="text-[10px] text-slate-400 flex gap-1.5"><span className="text-rose-400">✕</span>{l}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="grid md:grid-cols-2 gap-2 mb-2">
+            {data.dso_playbook.levers.map((lv) => (
+              <div key={lv.stage} className="p-2 rounded-lg border border-white/10 bg-slate-950/60">
+                <div className="text-[10px] font-bold text-rose-200 mb-1">{lv.stage}</div>
+                <ul className="space-y-0.5">
+                  {lv.actions.map((a) => (
+                    <li key={a} className="text-[9px] text-slate-400 flex gap-1"><span className="text-emerald-400">▸</span>{a}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1" data-testid="dso-kpis">
+            {data.dso_playbook.kpis.map((k) => (
+              <span key={k.kpi} className="px-2 py-0.5 rounded-full border border-white/10 text-[9px] font-mono text-slate-400">
+                <b className="text-white">{k.kpi}</b> {k.target} · <span className="text-rose-300">alert {k.alert}</span>
+              </span>
+            ))}
+          </div>
         </div>
       )}
 

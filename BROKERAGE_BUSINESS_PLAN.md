@@ -658,6 +658,55 @@ Assumptions: shippers pay net-30 with 7 days slippage (DSO 37); carriers paid ne
 **Bottom line:** No new equity required. $30K partner capital + factoring funds the launch quarter;
 Year-1 retained earnings (**$232K**) fund the ramp; a **bank AR line by Month 12-15** carries full volume.
 
+### 15A.4 DSO Management Playbook — will factoring carry the weight?
+
+**Short answer: yes for cash, through Month 9 — but at a price, and with gaps.** Non-recourse factoring at a
+92% advance cuts the full-volume cash float from ≈ **$513K** (self-funded, 18-day DSO–DPO gap on $10.4M) to
+≈ **$85–130K** (8% holdbacks + fees + 1–2 day advance lag) — comfortably inside partner capital plus retained
+earnings. What factoring does **not** solve:
+
+| Gap | Exposure |
+| --- | --- |
+| 8% holdback reserve stays illiquid until the shipper pays | ≈ $84K locked at full volume |
+| Fees compound at volume | 3.25% × $10.4M ≈ **$210K/yr** — 22% of gross margin — vs $60–80K on a bank AR line |
+| Disputed / short-paid invoices charged back (fraud & dispute carve-outs survive "non-recourse") | Case-by-case |
+| Enterprise shippers that prohibit invoice assignment | Those loads self-fund |
+| Factor concentration limits (~25% per shipper) can freeze advances | Volume-dependent |
+
+So the plan treats factoring as the **backstop**, not the strategy — the strategy is to shrink DSO itself:
+
+**Lever 1 · Prevent (before the load).** Credit-check every new shipper via board credit data (floor score 87);
+written net-30 terms + late-fee clause in every broker-shipper agreement; credit limit = 2 weeks of volume until
+3 clean payment cycles; cap any one shipper at 20% of AR.
+
+**Lever 2 · Accelerate (day 0–5).** Same-day invoicing the moment POD lands; first-pass-complete doc packets
+(POD + rate con + lumper receipts — missing docs cause ~40% of slow-pays); EDI/e-invoicing where supported
+(saves 3–7 days); selective 1%/10-net-30 early-pay discount for the two largest accounts (cheaper than factoring
+the same dollars).
+
+**Lever 3 · Collect (day 25–50).** Automated dunning cadence: day-25 reminder → day-32 call → day-40 escalation
+→ day-50 stop new loads. Weekly AR aging on the Command Deck (0-30 / 31-45 / 46-60 / 60+). At 60+ days: factor
+collections or third-party agency; write against the 2% bad-debt reserve.
+
+**Lever 4 · Finance (the backstop).** Months 0–6 factor everything at 92% advance, renegotiate to ~3.0% at the
+Month-4 volume tier; run carrier quick-pay at 2% as a profit center (offsets ≈⅓ of factoring cost); graduate to
+a $500–750K bank AR line by Month 12–15 (≈ $150K/yr saving); hold a $50K minimum operating cash buffer at all
+times.
+
+**DSO KPIs & alert thresholds**
+
+| KPI | Target | Alert |
+| --- | --- | --- |
+| DSO | ≤ 38 (Y1) → ≤ 35 (Y2) → ≤ 32 (Y3) | > 45 days |
+| AR > 60 days | < 3% of book | > 5% |
+| Bad debt | < 0.5% of revenue (2% reserved) | > 1% |
+| Factoring cost ÷ gross margin | < 25% | > 30% — accelerate the bank line |
+
+**Industry context (2025 benchmarks — FreightWaves / DAT):** avg revenue/load $1,912 ($1.5–2.5K range); gross
+margin 12–18% (mainstream ≈15%, sub-10% widely cited as unsustainable); gross profit/load $150–300 (avg $189);
+DSO 30–45 days (net-60 for large shippers); 3–5 loads/rep/day (10+ top performers); operating ratio 90–97%.
+Plan Rev-2 sits inside every band: $2,000/load, 14.5% margin, $290 GM/load, DSO 37.
+
 ## 16 · Appendix
 
 ### 16.1 · Glossary

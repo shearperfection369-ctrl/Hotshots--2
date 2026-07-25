@@ -2212,3 +2212,19 @@ retrains scoring weights from revealed preferences — making the intuitive
 - WC phases: P1 $40-60K, P2 $90-150K, P3 $250-400K cushion + bank AR line $500-750K Mo12-15.
 - Synced: brokerage.py plan-review (dup blocks removed lines 2213-2255), plan_brochure.py stats.
   PDFs regenerate 200. Plan Y1-exit weekly ≈ sandbox observed (within 4%).
+
+## Session 2026-06 (fork, cont. 6) — Sandbox Sync verified + Industry Benchmarks + DSO Playbook
+- Verified prior session's Sandbox Sync: GET /brokerage/plan-vs-actual live (plan-vs-actual testid,
+  auto-refresh 60s; observed 80.5 loads/wk, +227.5% net variance vs plan) + CashFlowSimulator.
+- CashFlowSimulator.jsx upgraded: 3 presets (cfs-preset-industry $1,900/15%/DSO35, cfs-preset-plan
+  $2,000/14.5%/DSO37, cfs-preset-sandbox $3,150/13.5%), per-slider 2025 industry benchmark hints
+  (FreightWaves/DAT), sub-10% margin warning badge (cfs-margin-warning).
+- /brokerage/plan-review now returns industry_benchmarks (6-row industry vs plan vs sandbox table)
+  + dso_playbook (verdict: factoring carries cash through Mo9 — cuts float $513K→$85-130K — but
+  costs $210K/yr = 22% of GM; 5 factoring gaps; 4 levers Prevent/Accelerate/Collect/Finance;
+  4 KPI alert thresholds). PlanReviewPanel renders both (plan-review-benchmarks,
+  plan-review-dso-playbook, dso-verdict, dso-kpis testids).
+- BROKERAGE_BUSINESS_PLAN.md §15A.4 added: DSO Management Playbook + factoring stress-test table +
+  industry benchmark context. PDF regenerates from same markdown.
+- Tested: curl plan-review (all keys/rows verified) + live browser screenshots (both panels render,
+  presets clickable). No regressions to acks/scenario_b/working_capital blocks.
