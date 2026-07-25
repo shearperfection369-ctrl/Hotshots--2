@@ -8425,6 +8425,11 @@ api_router.include_router(build_shipper_finder_router(
     LlmChat=LlmChat,
     UserMessage=UserMessage,
 ))
+from routes.quotes import build_quotes_router  # noqa: E402
+api_router.include_router(build_quotes_router(
+    db=db,
+    get_current_user=get_current_user,
+))
 api_router.include_router(build_connections_router(
     db=db,
     require_role=require_role,

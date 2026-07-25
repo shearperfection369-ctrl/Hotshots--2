@@ -33,6 +33,7 @@ import LoadHunterTab from "./LoadHunterTab";
 import LtlRateCardsTab from "./LtlRateCardsTab";
 import { ARAgingPanel } from "../components/ARAgingPanel";
 import { ShipperFinder } from "../components/ShipperFinder";
+import { QuoteBuilder } from "../components/QuoteBuilder";
 
 /**
  * Brokerage — single-page hub for the freight-brokerage operation.
@@ -47,6 +48,7 @@ const TABS = [
   { id: "news",      label: "Industry News", icon: Newspaper },
   { id: "drivers",   label: "Drivers", icon: Users },
   { id: "shippers",  label: "Shipper Finder", icon: Crosshair },
+  { id: "quotes",    label: "Quotes", icon: FileSpreadsheet },
   { id: "accounting", label: "Accounting", icon: Calculator },
   { id: "forms",     label: "Forms Library", icon: FileText },
   { id: "plan",      label: "Business Plan", icon: BookOpen },
@@ -57,6 +59,7 @@ const TABS = [
 
 export default function Brokerage() {
   const [tab, setTab] = useState("dashboard");
+  const [quotePrefill, setQuotePrefill] = useState(null);
   const [dash, setDash] = useState(null);
   const loadDash = () => api.get("/brokerage/dashboard").then(({ data }) => setDash(data)).catch(() => {});
   useEffect(() => { loadDash(); const t = setInterval(loadDash, 30_000); return () => clearInterval(t); }, []);
@@ -91,7 +94,8 @@ export default function Brokerage() {
         {tab === "boards"    && <BoardsTab refresh={loadDash} />}
         {tab === "news"      && <NewsTab />}
         {tab === "drivers"   && <DriversTab />}
-        {tab === "shippers"  && <ShipperFinder />}
+        {tab === "shippers"  && <ShipperFinder onQuote={(p) => { setQuotePrefill(p); setTab("quotes"); }} />}
+        {tab === "quotes"    && <QuoteBuilder prefill={quotePrefill} onPrefillConsumed={() => setQuotePrefill(null)} />}
         {tab === "accounting" && <AccountingTab refresh={loadDash} />}
         {tab === "forms"     && <FormsTab />}
         {tab === "plan"      && <BusinessPlanTab />}

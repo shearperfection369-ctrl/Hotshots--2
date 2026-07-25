@@ -2256,3 +2256,19 @@ retrains scoring weights from revealed preferences — making the intuitive
   AND the active db.company_brand doc (contact_email + contact_emails.*). Internal demo persona
   emails (CS-*, kirk.juergins Webex sample, director@ Reports) intentionally left as sample data.
 - Verified: 4 generated PDFs + business-plan markdown show 0 old / new address present.
+
+## Session 2026-06 (fork, cont. 8) — Quote Builder (branded quotes)
+- NEW /app/backend/routes/quotes.py (prefix /api/freight-quotes — NOTE: /api/quotes was taken by a
+  motivational-quotes endpoint in server.py line ~7685, caused route collision crash, renamed) +
+  quote_pdf.py (branded one-page PDF: blue/gold header, prepared for/by, lane table w/ market ref
+  column, totals card w/ under/over-market line, terms+pledge, oliver@oriseifreightsolutions.com).
+- CRUD: GET/POST /freight-quotes, GET/PATCH/DELETE /{id}, POST /benchmark (deterministic DAT-style
+  market rate per lane: equipment base $/mi + md5 jitter), GET /{id}/pdf. Quote ids ORQ-YYYY-NNNN.
+  Statuses draft/sent/accepted/declined/expired. Totals auto: rate*(1+fsc%)+accessorials.
+- Frontend: components/QuoteBuilder.jsx (Quotes tab in Brokerage.jsx), status pills, table with
+  status select/edit/delete/PDF download, create-edit dialog with dynamic lanes + Check Market
+  Rates button. ShipperFinder rows have quote button (prospect-quote-{id}) → prefills new quote
+  via Brokerage quotePrefill state.
+- User choices: market-rate reference ON (simulated), PDF-only (no Resend send).
+- Self-tested end-to-end: curl CRUD+benchmark+PDF+404, browser flow (prefill from prospect,
+  market check, save), PDF visually verified (fixed header/column overlaps). Test quote deleted.

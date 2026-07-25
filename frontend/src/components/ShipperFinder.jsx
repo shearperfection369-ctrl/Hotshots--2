@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Radar, Plus, Loader2, Download, Sparkles, Phone, Mail, Linkedin, Trash2, BookOpen, ChevronDown, Copy } from "lucide-react";
+import { Radar, Plus, Loader2, Download, Sparkles, Phone, Mail, Linkedin, Trash2, BookOpen, ChevronDown, Copy, FileSignature } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -13,7 +13,7 @@ const STAGE_META = {
 
 const EMPTY = { company: "", contact_name: "", title: "", email: "", phone: "", city: "", state: "MN", industry: "", est_loads_per_week: 0, lanes: "", source: "cold", notes: "", next_action: "" };
 
-export const ShipperFinder = () => {
+export const ShipperFinder = ({ onQuote }) => {
   const [data, setData] = useState(null);
   const [playbook, setPlaybook] = useState(null);
   const [openBook, setOpenBook] = useState("");
@@ -167,6 +167,8 @@ export const ShipperFinder = () => {
                 </td>
                 <td className="px-2 text-[10px] text-slate-400 max-w-[150px]">{p.next_action}</td>
                 <td className="px-3 text-right whitespace-nowrap">
+                  <button onClick={() => onQuote?.(p)} title="Create quote" data-testid={`prospect-quote-${p.id}`}
+                          className="p-1.5 rounded hover:bg-amber-500/10 text-amber-300"><FileSignature size={12} /></button>
                   {[["email", Mail], ["call", Phone], ["linkedin", Linkedin]].map(([ch, Icon]) => (
                     <button key={ch} onClick={() => genOutreach(p, ch)} disabled={busy === `out-${p.id}`} title={`AI ${ch} script`}
                             data-testid={`outreach-${ch}-${p.id}`}
