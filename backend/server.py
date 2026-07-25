@@ -8700,8 +8700,13 @@ _autopilot_run_cycle = build_broker_autopilot_router(api_router=api_router, db=d
 async def _start_broker_autopilot():
     asyncio.create_task(autopilot_loop(_autopilot_run_cycle))
 
-from routes.loadboard_gateway import build_loadboard_gateway_router  # noqa: E402
+from routes.loadboard_gateway import build_loadboard_gateway_router, ingestion_loop as _lb_ingestion_loop  # noqa: E402
 build_loadboard_gateway_router(api_router=api_router, db=db, get_current_user=get_current_user)
+
+
+@app.on_event("startup")
+async def _start_loadboard_ingestion():
+    asyncio.create_task(_lb_ingestion_loop(db))
 
 from routes.decision_engine import build_decision_engine_router  # noqa: E402
 build_decision_engine_router(api_router=api_router, db=db, get_current_user=get_current_user)

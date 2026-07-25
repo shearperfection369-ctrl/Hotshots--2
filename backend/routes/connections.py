@@ -58,6 +58,7 @@ PROVIDERS: List[Dict[str, Any]] = [
             {"key": "username",   "label": "Username", "secret": False, "required": True},
             {"key": "password",   "label": "Password", "secret": True,  "required": True},
             {"key": "service_id", "label": "Service Account ID", "secret": False, "required": False},
+            {"key": "booking_email", "label": "Booking Email (fallback channel)", "secret": False, "required": False},
         ],
     },
     {
@@ -83,6 +84,7 @@ PROVIDERS: List[Dict[str, Any]] = [
         "fields": [
             {"key": "api_key",     "label": "API Key",     "secret": True, "required": True},
             {"key": "shipper_id",  "label": "Shipper ID",  "secret": False, "required": True},
+            {"key": "booking_email", "label": "Booking Email (fallback channel)", "secret": False, "required": False},
         ],
     },
     {
@@ -95,6 +97,19 @@ PROVIDERS: List[Dict[str, Any]] = [
         "fields": [
             {"key": "api_key",    "label": "API Key", "secret": True, "required": True},
             {"key": "subscriber", "label": "Subscriber Email", "secret": False, "required": True},
+            {"key": "booking_email", "label": "Booking Email (fallback channel)", "secret": False, "required": False},
+        ],
+    },
+    {
+        "id": "convoy",
+        "name": "Convoy",
+        "category": "Load Board",
+        "description": "Digital freight network — shipments API with real-time tracking.",
+        "logo": "CV",
+        "docs_url": "https://developer.convoy.com",
+        "fields": [
+            {"key": "api_key",    "label": "API Key (OAuth Bearer)", "secret": True, "required": True},
+            {"key": "booking_email", "label": "Booking Email (fallback channel)", "secret": False, "required": False},
         ],
     },
     {

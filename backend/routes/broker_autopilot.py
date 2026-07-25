@@ -24,7 +24,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen.canvas import Canvas
 
 from routes.connections import get_connection_credentials
-from routes.loadboard_gateway import gateway_fetch_loads
+from routes.loadboard_gateway import gateway_fetch_loads, book_on_board
 
 logger = logging.getLogger(__name__)
 LOGO = Path(__file__).resolve().parent / "_orisei_logo_pdf.png"
@@ -374,6 +374,9 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
                             "note": f"Driver {h['driver']['name']} (CDL {h['driver'].get('cdl_number', '')}) rolling home "
                                     f"{h['stranded_at']} → {h['home_base']} — {best['deadhead_miles']} mi deadhead"}]}
                 await db.autopilot_loads.insert_one(dict(row))
+                mode = await book_on_board(db, row)
+                await _event(load_id, "carrier_matched",
+                             f"Backhaul claimed on {row['board']} via {'board API' if mode == 'api' else 'booking email' if mode == 'email' else 'email outbox'}")
                 upd.update({"status": "booked", "booked_load_id": load_id, "booked_at": _now()})
                 acts.append(f"backhaul booked {load_id} ({h['stranded_at']}→{h['home_base']}, ${best['margin']:,.0f})")
             await db.backhaul_hunts.update_one({"hunt_id": h["hunt_id"]}, {"$set": upd})
@@ -432,7 +435,8 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
         room = cfg["daily_limit"] - sourced_today
         if (cfg["enabled"] or force_source) and room > 0:
             want = min(room, 3 if not force_source else room)
-            picks = await _ai_pick(_gen_board_loads(), carriers, want, cfg["min_margin"])
+            fetched = await gateway_fetch_loads(db)
+            picks = await _ai_pick(fetched["loads"], carriers, want, cfg["min_margin"])
             for p in picks:
                 carrier = _match_carrier(p, carriers)
                 if not carrier:
@@ -463,6 +467,9 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
                            {"at": _now(), "stage": "carrier_matched",
                             "note": f"Driver {driver['name']} (CDL {driver['cdl_number']}) assigned — auto-added to rate con, BOL & POD"}]}
                 await db.autopilot_loads.insert_one(dict(row))
+                mode = await book_on_board(db, row)
+                await _event(load_id, "carrier_matched",
+                             f"Load claimed on {row['board']} via {'board API' if mode == 'api' else 'booking email' if mode == 'email' else 'email outbox (queued until keys configured)'}")
                 actions.append(f"sourced {load_id} ({p['origin']}→{p['dest']}, ${p['margin']:,.0f})")
         # 3) backhaul hunter — scan boards, book returns at the optimal window
         actions.extend(await _process_hunts())

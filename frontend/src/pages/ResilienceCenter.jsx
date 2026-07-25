@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ShieldCheck, Radar, Cpu, BookOpen, DatabaseBackup, Play, FileDown, Wrench, HeartPulse, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../lib/api";
+import { LoadBoardCommand } from "../components/resilience/LoadBoardCommand";
 
 const errTxt = (e) => (typeof e?.response?.data?.detail === "string" ? e.response.data.detail : "Something went wrong");
 const SEV = { critical: "#EF4444", high: "#F59E0B", medium: "#22D3EE", low: "#94A3B8" };
@@ -11,7 +12,7 @@ const BOARD_STATUS = {
 };
 const TABS = [
   ["sentinel", "Sentinel · Self-Repair", ShieldCheck],
-  ["gateway", "Load Board Gateway", Radar],
+  ["gateway", "Load Boards", Radar],
   ["engine", "Decision Engine", Cpu],
   ["runbook", "Manual Ops Runbook", BookOpen],
   ["backups", "Backups", DatabaseBackup],
@@ -40,7 +41,7 @@ export default function ResilienceCenter() {
         ))}
       </div>
       {tab === "sentinel" && <SentinelTab />}
-      {tab === "gateway" && <GatewayTab />}
+      {tab === "gateway" && <LoadBoardCommand />}
       {tab === "engine" && <EngineTab />}
       {tab === "runbook" && <RunbookTab />}
       {tab === "backups" && <BackupsTab />}
@@ -107,59 +108,6 @@ function SentinelTab() {
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-function GatewayTab() {
-  const [data, setData] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [last, setLast] = useState(null);
-  const load = useCallback(async () => {
-    try { const { data: d } = await api.get("/loadboard-gateway/status"); setData(d); } catch (_) {}
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  const fetchNow = async () => {
-    setBusy(true);
-    try {
-      const { data: r } = await api.post("/loadboard-gateway/fetch");
-      setLast(r); toast.success(`${r.count} loads via ${r.source_label}`); load();
-    } catch (e) { toast.error(errTxt(e)); } finally { setBusy(false); }
-  };
-  if (!data) return <div className="p-6 text-slate-500 font-mono text-sm">Loading gateway…</div>;
-  return (
-    <div className="space-y-4" data-testid="gateway-tab">
-      <p className="text-xs text-slate-400 max-w-2xl">The autopilot sources loads through this failover chain — the first healthy board wins. Real DAT / Truckstop / Convoy connectors activate automatically the moment API keys are saved in Connections.</p>
-      <div className="flex flex-wrap items-center gap-2" data-testid="gateway-chain">
-        {data.chain.map((b, i) => {
-          const [label, color] = BOARD_STATUS[b.status] || ["ERROR", "#EF4444"];
-          return (
-            <React.Fragment key={b.board}>
-              {i > 0 && <span className="text-slate-600 font-mono text-xs">→</span>}
-              <div className="p-3 rounded-2xl border border-white/10 bg-slate-950/70 min-w-[150px]" data-testid={`gateway-board-${b.board}`}>
-                <div className="text-[12px] font-bold text-white">{b.label}</div>
-                <div className="text-[9px] font-mono font-bold mt-1" style={{ color }}>{label}</div>
-                <div className="text-[8px] font-mono text-slate-600">{b.checked_at ? "checked " + b.checked_at.slice(11, 16) + " UTC" : "not yet probed"}</div>
-              </div>
-            </React.Fragment>
-          );
-        })}
-      </div>
-      <div className="flex items-center gap-3">
-        <button onClick={fetchNow} disabled={busy} data-testid="gateway-fetch-btn"
-                className="px-4 h-10 rounded-full border border-cyan-500/50 text-cyan-300 font-bold text-xs inline-flex items-center gap-1.5 hover:bg-cyan-500/10 disabled:opacity-50">
-          {busy ? <Loader2 size={13} className="animate-spin" /> : <Radar size={13} />} Test Fetch Through Chain
-        </button>
-        {data.state.last_fetch_at && <span className="text-[11px] font-mono text-slate-500">last fetch via <b className="text-cyan-300">{data.state.last_source}</b> · {data.state.total_fetches || 0} total fetches</span>}
-      </div>
-      {last && (
-        <div className="p-3 rounded-2xl border border-white/10 bg-slate-950/70" data-testid="gateway-fetch-result">
-          <div className="text-[10px] font-mono uppercase text-slate-500 mb-2">Fetched {last.count} loads via {last.source_label}</div>
-          {last.sample.map((l) => (
-            <div key={l.board_id} className="text-[11px] font-mono text-slate-300">{l.board_id} · {l.origin} → {l.dest} · {l.equipment} · ${l.shipper_rate.toLocaleString()} (${l.rpm}/mi)</div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
