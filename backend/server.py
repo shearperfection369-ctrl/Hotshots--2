@@ -8700,6 +8700,32 @@ _autopilot_run_cycle = build_broker_autopilot_router(api_router=api_router, db=d
 async def _start_broker_autopilot():
     asyncio.create_task(autopilot_loop(_autopilot_run_cycle))
 
+from routes.loadboard_gateway import build_loadboard_gateway_router  # noqa: E402
+build_loadboard_gateway_router(api_router=api_router, db=db, get_current_user=get_current_user)
+
+from routes.decision_engine import build_decision_engine_router  # noqa: E402
+build_decision_engine_router(api_router=api_router, db=db, get_current_user=get_current_user)
+
+from routes.ops_runbook import build_ops_runbook_router  # noqa: E402
+build_ops_runbook_router(api_router=api_router, db=db, get_current_user=get_current_user)
+
+from routes.orisei_sentinel import build_sentinel_router, sentinel_loop  # noqa: E402
+_sentinel_sweep = build_sentinel_router(api_router=api_router, db=db,
+                                        get_current_user=get_current_user,
+                                        require_role=require_role,
+                                        run_cycle=_autopilot_run_cycle)
+
+from routes.ops_backup import build_ops_backup_router, backup_loop  # noqa: E402
+_ops_maintenance_tick = build_ops_backup_router(api_router=api_router, db=db,
+                                                get_current_user=get_current_user,
+                                                require_role=require_role)
+
+
+@app.on_event("startup")
+async def _start_resilience_stack():
+    asyncio.create_task(sentinel_loop(_sentinel_sweep))
+    asyncio.create_task(backup_loop(_ops_maintenance_tick))
+
 from routes.tms_competitive import build_tms_competitive_router, build_driver_pwa_router  # noqa: E402
 build_tms_competitive_router(api_router=api_router, db=db,
                               get_current_user=get_current_user,

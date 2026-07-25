@@ -108,6 +108,7 @@ import TenantCommand from "@/pages/TenantCommand";
 import PlatformReadiness from "@/pages/PlatformReadiness";
 import TruckCleaning from "@/pages/TruckCleaning";
 import BrokerAutopilot from "@/pages/BrokerAutopilot";
+import ResilienceCenter from "@/pages/ResilienceCenter";
 import TcOnboardPublic from "@/pages/TcOnboardPublic";
 import TcInvoicePublic from "@/pages/TcInvoicePublic";
 import TcReschedulePublic from "@/pages/TcReschedulePublic";
@@ -211,6 +212,7 @@ function AppRouter() {
         <Route path="/platform-readiness" element={<PlatformReadiness />} />
         <Route path="/truck-cleaning" element={<TruckCleaning />} />
         <Route path="/broker-autopilot" element={<BrokerAutopilot />} />
+        <Route path="/resilience" element={<ResilienceCenter />} />
         <Route path="/document-archive" element={<DocumentArchive />} />
         <Route path="/launch-plan" element={<LaunchPlan />} />
         <Route path="/launch-runway" element={<LaunchPlan />} />

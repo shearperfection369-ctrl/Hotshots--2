@@ -28,6 +28,7 @@ const NAV = [
   { to: "/tenant-command", label: "Tenant Command", icon: Building2, tid: "nav-tenant-command", roles: ["admin"] },
   { to: "/platform-readiness", label: "Platform Readiness", icon: ShieldCheck, tid: "nav-platform-readiness", roles: ["admin"] },
   { to: "/broker-autopilot", label: "AI Broker Autopilot", icon: Bot, tid: "nav-broker-autopilot", roles: ["admin", "dispatcher"] },
+  { to: "/resilience", label: "Resilience Center", icon: Satellite, tid: "nav-resilience", roles: ["admin", "dispatcher"] },
   { to: "/truck-cleaning", label: "Truck Cleaning", icon: Droplets, tid: "nav-truck-cleaning", roles: ["admin"] },
   { to: "/route-optimizer", label: "Route Optimizer", icon: MapPinned, tid: "nav-route-optimizer", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/launch-blast", label: "Launch Email Blast", icon: Megaphone, tid: "nav-launch-blast", roles: ["admin"] },

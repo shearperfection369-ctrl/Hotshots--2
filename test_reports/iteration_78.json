@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 78 — Resilience Stack backend + frontend verified. All 18 pytest cases pass (Sentinel status/sweep + injected-anomaly auto-patch on stalled/driverless/heartbeat, Loadboard Gateway status chain of 4 + failover to internal_sim, Decision Engine info/match/validation, Ops Runbook markdown + PDF + load-sheets PDF, Backups list/run/download/path-traversal-block/prune, Broker Autopilot regression). Frontend /resilience renders all 5 tabs with correct data-testids; sidebar nav visible; sweep, gateway fetch, engine match, runbook preview, backup list + Back Up Now + Prune all functional. Injected Mongo docs were cleaned up.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/loadboard-gateway/status", "issue": "DAT/Truckstop/Convoy show 'error: HTTPStatusError' instead of 'no_credentials' in this preview env because prior iterations left encrypted-but-invalid api_key rows in the connections collection. get_connection_credentials treats a decrypt to any truthy value as 'has creds', so the gateway attempts a real API call and gets an HTTP error. Failover still lands on internal_sim so functionally correct, but per spec these should report 'no_credentials' when no real credentials exist. Consider treating empty/blank decrypted api_key as absent."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter78_resilience_stack.py",
+    "/app/test_reports/pytest/iter78_results.xml"
+  ],
+  "action_items": [
+    "(Minor) In routes/loadboard_gateway.py::_try_real_board, coerce blank/whitespace decrypted api_key to no_credentials so the gateway status accurately reports 'no_credentials' when connections rows are placeholders. Doesn't affect functionality (failover already works)."
+  ],
+  "critical_code_review_comments": [
+    "Sentinel STALL_MINUTES=25 combined with STALE timestamp '2020-01-01' plus the background sentinel_loop running every 120s means a re-armed load will be re-swept and re-logged on every 120s tick until it advances — could inflate sentinel_repairs. Mitigated by the 3000-doc prune cap.",
+    "ops_backup.download_backup uses substring checks ('/' in name, '..' in name) — safe but startswith('orisei_backup_') already narrows this to the intended pattern. OK.",
+    "loadboard_gateway.gateway_fetch_loads always overwrites internal_sim health to 'healthy' regardless of whether it was actually used — cosmetic since sim is in-process.",
+    "Decision engine match: ranked list may include unqualified carriers with score 0; response caps at 15 which is fine, but 'recommended' picks first qualified carrier with drivers_available>0 — good deterministic fallback.",
+    "ops_runbook load-sheets.pdf iterates loads without pagination header repetition — long lists get column labels only on first page (minor)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter78_resilience_stack.py (new)"
+  ],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% (all data-testids present and interactive)"},
+  "test_credentials": "Authorization: Bearer test_session_admin_1 (admin). Localstorage key tms_session_token for frontend.",
+  "seed_data_creation": "Injected 2 autopilot_loads (TEST_STALL_*, TEST_NODRV_*) and set sentinel_heartbeats._id='autopilot_loop' to 2h old. All injected loads deleted in test teardown. Heartbeat doc left in place — the sentinel_loop auto-refreshes it on next cycle.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 78 built the Resilience Stack. Existing seed backup at /app/backups/orisei_backup_20260725_100044.gz plus 2 new backups created during testing (still within KEEP=4). Frontend testid for per-backup download is 'backup-dl-{name}' (not 'backup-download-*'). Encrypted-but-empty DAT/Truckstop/Convoy credentials exist in the connections collection from prior iterations — this causes gateway status to report 'error: HTTPStatusError' instead of 'no_credentials'; failover to internal_sim still works. All 18 tests reusable as regression suite.",
+  "rca of the issue": "Gateway status minor discrepancy RCA: _try_real_board only checks `if not creds or not creds.get('api_key')` — but existing rows have a decrypted api_key value (short/invalid), so the code proceeds to hit the real board URL and captures HTTPStatusError. Fix: also treat api_key of length < ~10 or whitespace-only as absent."
+}

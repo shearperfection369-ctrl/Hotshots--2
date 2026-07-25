@@ -24,6 +24,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen.canvas import Canvas
 
 from routes.connections import get_connection_credentials
+from routes.loadboard_gateway import gateway_fetch_loads
 
 logger = logging.getLogger(__name__)
 LOGO = Path(__file__).resolve().parent / "_orisei_logo_pdf.png"
@@ -381,6 +382,7 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
     async def run_cycle(force_source: bool = False) -> Dict[str, Any]:
         cfg = await _config()
         actions: List[str] = []
+        await db.sentinel_heartbeats.update_one({"_id": "autopilot_loop"}, {"$set": {"at": _now()}}, upsert=True)
         carriers = await _carriers()
         await _ensure_drivers(carriers)
         # 1) advance existing loads through the lifecycle (sandbox-speed)
