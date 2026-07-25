@@ -2174,3 +2174,20 @@ retrains scoring weights from revealed preferences — making the intuitive
   after truckstop booking_email fix. Autopilot ENABLED, daily_limit 15.
 - NOTE: a prior broker_autopilot gateway-sourcing edit silently reverted once (verify line ~438
   uses gateway_fetch_loads if touching that file).
+
+## Session 2026-06 (fork, cont. 3) — Board Reply Inbox + Plan Review
+- **Board Reply Inbox** (routes/board_inbox.py, wired in server.py): POST /board-inbox/inbound?token=
+  (public webhook, token in board_inbox_config collection, 401 on bad token) parses reply emails —
+  regex load refs (AP|BH|SIM|DAT|OB)-xxx, keyword classify confirmation/rejection/unclear. Confirm:
+  board_confirmed flag + timeline + auto-advance (stage_at back-dated if carrier_matched) + outbox
+  items marked 'answered'. Reject: board_rejected flag + re-booking timeline note. GET /board-inbox
+  (list+stats+webhook path), POST /board-inbox/log (manual), POST /board-inbox/simulate (sim reply
+  85% confirm for oldest unanswered outbox booking). UI: Reply Inbox panel in LoadBoardCommand.jsx
+  (lbc-inbox, lbc-simulate-reply-btn, webhook path shown).
+- **Plan Review** (brokerage.py + components/PlanReviewPanel.jsx rendered atop Business Plan tab at
+  /brokerage → Business Plan): GET /brokerage/plan-review (structured ownership 3×33⅓%, salary
+  $5k/mo §3.6, revised 8-row P&L), POST /brokerage/plan-review/ack {partner, decision approved|
+  changes_requested, note} upsert per partner (plan_review_acks). Partners: Oliver Cummins,
+  Daniel W. Karsor, Doug Graham. Oliver's approval recorded during testing.
+- Self-tested via curl (webhook 401/confirm flows, outbox answered statuses, ack persist) +
+  screenshots of both panels. 4 simulated replies confirmed loads; outbox: 5 queued / 4 answered.

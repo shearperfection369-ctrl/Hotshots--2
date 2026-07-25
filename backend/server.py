@@ -8714,6 +8714,10 @@ build_decision_engine_router(api_router=api_router, db=db, get_current_user=get_
 from routes.ops_runbook import build_ops_runbook_router  # noqa: E402
 build_ops_runbook_router(api_router=api_router, db=db, get_current_user=get_current_user)
 
+from routes.board_inbox import build_board_inbox_router  # noqa: E402
+build_board_inbox_router(api_router=api_router, db=db, get_current_user=get_current_user,
+                         require_role=require_role)
+
 from routes.orisei_sentinel import build_sentinel_router, sentinel_loop  # noqa: E402
 _sentinel_sweep = build_sentinel_router(api_router=api_router, db=db,
                                         get_current_user=get_current_user,

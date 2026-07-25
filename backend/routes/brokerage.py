@@ -696,6 +696,12 @@ def _build_investor_email_html(*, brand: Dict[str, Any], to_name: Optional[str],
 
 
 # ---------- Router builder ----------
+class PlanReviewAckIn(BaseModel):
+    partner: str = Field(..., min_length=2, max_length=60)
+    decision: str = Field("approved", pattern="^(approved|changes_requested)$")
+    note: str = Field("", max_length=500)
+
+
 def build_brokerage_router(
     *,
     db,
@@ -2137,6 +2143,48 @@ def build_brokerage_router(
 
     # ============================ DASHBOARD ROLLUP ============================
     # ============================ BUSINESS PLAN ============================
+    @router.get("/plan-review")
+    async def plan_review(_=Depends(get_current_user)):
+        acks = await db.plan_review_acks.find({}, {"_id": 0}).to_list(10)
+        return {
+            "revision_note": "June 2026 revision: operator salary raised $1,500 → $5,000/mo "
+                             "(margin trigger $4,000 → $10,000); ownership typo fixed — all members equal 33⅓%; "
+                             "3-Year P&L recalculated for the new salary.",
+            "ownership": [
+                {"name": "Oliver Cummins", "role": "Operator — ops, carrier vetting, pricing, shipper book",
+                 "stake": "33⅓%", "contribution": "$10,000 in-kind — PAID IN FULL (ORI-RCT-0003)"},
+                {"name": "Daniel W. Karsor", "role": "Software & media — Command Deck, brand engine",
+                 "stake": "33⅓%", "contribution": "$10,000 cash — $2,500 received (ORI-RCT-0001)"},
+                {"name": "Doug Graham", "role": "Member — capital + in-kind (§2.5)",
+                 "stake": "33⅓%", "contribution": "$10,000 cash + in-kind — $1,300 received (ORI-RCT-0002)"},
+            ],
+            "salary": {"recipient": "Oliver Cummins", "amount_monthly": 5000,
+                       "trigger": "Commences the first full month Company gross margin exceeds $10,000/mo "
+                                  "(projected Month 10 of Year 1)",
+                       "only_salaried_member": True, "reference": "Partnership Agreement §3.6"},
+            "pnl": [
+                {"metric": "EBITDA before partner pay", "y1": 57490, "y2": 132583, "y3": 302600},
+                {"metric": "Operator salary — Oliver Cummins", "y1": 15000, "y2": 60000, "y3": 60000},
+                {"metric": "Member distributions (combined)", "y1": 15000, "y2": 30000, "y3": 120000},
+                {"metric": "Payroll taxes (employer FICA)", "y1": 0, "y2": 4600, "y3": 9600},
+                {"metric": "Hire: carrier-sales agent (Y3)", "y1": 0, "y2": 0, "y3": 65000},
+                {"metric": "Net income", "y1": 27490, "y2": 37983, "y3": 48000, "bold": True},
+                {"metric": "Net cash to members (combined)", "y1": 57490, "y2": 127983, "y3": 228000, "bold": True},
+                {"metric": "Per-member share (1/3)", "y1": 19163, "y2": 42661, "y3": 76000, "bold": True},
+            ],
+            "acks": acks,
+        }
+
+    @router.post("/plan-review/ack")
+    async def plan_review_ack(payload: PlanReviewAckIn, _=Depends(get_current_user)):
+        valid = {"Oliver Cummins", "Daniel W. Karsor", "Doug Graham"}
+        if payload.partner not in valid:
+            raise HTTPException(status_code=400, detail="Unknown partner")
+        doc = {"partner": payload.partner, "decision": payload.decision, "note": payload.note,
+               "at": datetime.now(timezone.utc).isoformat()}
+        await db.plan_review_acks.update_one({"partner": payload.partner}, {"$set": doc}, upsert=True)
+        return {"ok": True, "ack": doc}
+
     @router.get("/business-plan")
     async def business_plan(_=Depends(get_current_user)):
         """Return the freight-brokerage business plan markdown (rendered in the UI tab)."""

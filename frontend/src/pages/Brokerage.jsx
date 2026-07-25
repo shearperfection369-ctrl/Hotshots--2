@@ -20,6 +20,7 @@ import { Landmark } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBrandRefresh } from "../lib/branding";
 import { ReceiptsDialog } from "../components/ReceiptsDialog";
+import { PlanReviewPanel } from "../components/PlanReviewPanel";
 import { CapitalAccountsDialog } from "../components/CapitalAccountsDialog";
 import { CarrierCombobox } from "../components/CarrierCombobox";
 import { CustomerCombobox } from "../components/CustomerCombobox";
@@ -855,6 +856,7 @@ function BusinessPlanTab() {
   );
   return (
     <>
+      <PlanReviewPanel />
       <MarkdownDocTab
         endpoint="/brokerage/business-plan"
         eyebrow="Operating Document"

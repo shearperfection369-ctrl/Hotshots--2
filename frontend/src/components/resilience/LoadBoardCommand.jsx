@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Radar, Mail, KeyRound, Send, RefreshCw, Loader2, ExternalLink, Layers } from "lucide-react";
+import { Radar, Mail, KeyRound, Send, RefreshCw, Loader2, ExternalLink, Layers, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 
@@ -9,20 +9,23 @@ const STATUS_META = {
   no_credentials: ["NO KEYS", "#64748B"], connected_empty: ["EMPTY", "#F59E0B"], benched: ["BENCHED", "#F59E0B"],
 };
 const MODE_META = { api: ["API", "#10B981"], email: ["EMAIL", "#22D3EE"], queued: ["QUEUED", "#F59E0B"] };
+const CLASS_META = { confirmation: ["CONFIRMED", "#10B981"], rejection: ["REJECTED", "#EF4444"], unclear: ["UNCLEAR", "#94A3B8"] };
 
 export const LoadBoardCommand = () => {
   const [boards, setBoards] = useState(null);
   const [feed, setFeed] = useState(null);
   const [outbox, setOutbox] = useState(null);
   const [actions, setActions] = useState(null);
+  const [inbox, setInbox] = useState(null);
   const [busy, setBusy] = useState("");
 
   const load = useCallback(async () => {
     try {
-      const [b, f, o, a] = await Promise.all([
+      const [b, f, o, a, i] = await Promise.all([
         api.get("/loadboard-gateway/boards"), api.get("/loadboard-gateway/feed"),
-        api.get("/loadboard-gateway/outbox"), api.get("/loadboard-gateway/actions")]);
-      setBoards(b.data.boards); setFeed(f.data); setOutbox(o.data); setActions(a.data.actions);
+        api.get("/loadboard-gateway/outbox"), api.get("/loadboard-gateway/actions"),
+        api.get("/board-inbox")]);
+      setBoards(b.data.boards); setFeed(f.data); setOutbox(o.data); setActions(a.data.actions); setInbox(i.data);
     } catch (_) {}
   }, []);
   useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, [load]);
@@ -40,6 +43,14 @@ export const LoadBoardCommand = () => {
   const flush = async () => {
     try { const { data: r } = await api.post("/loadboard-gateway/outbox/flush"); toast.success(r.sent ? `${r.sent} emails sent` : "Nothing sendable — add Resend key + booking emails"); load(); }
     catch (e) { toast.error(errTxt(e)); }
+  };
+  const simulateReply = async () => {
+    setBusy("sim");
+    try {
+      const { data: r } = await api.post("/board-inbox/simulate");
+      toast.success(`${r.reply.classification.toUpperCase()} reply for ${r.reply.load_id || "unmatched"} — ${r.reply.action}`);
+      load();
+    } catch (e) { toast.error(errTxt(e)); } finally { setBusy(""); }
   };
 
   if (!boards) return <div className="p-6 text-slate-500 font-mono text-sm">Loading load board command…</div>;
@@ -117,6 +128,30 @@ export const LoadBoardCommand = () => {
               ))}
               {(outbox?.outbox || []).length === 0 && <div className="text-[11px] text-slate-600 font-mono">No booking emails yet — book a load and they appear here.</div>}
             </div>
+          </div>
+
+          <div className="p-4 rounded-2xl border border-white/10 bg-slate-950/60" data-testid="lbc-inbox">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] font-mono uppercase text-slate-500 flex items-center gap-1.5"><Inbox size={11} /> Board reply inbox · {inbox?.stats?.confirmations ?? 0} confirmed · {inbox?.stats?.rejections ?? 0} rejected</div>
+              <button onClick={simulateReply} disabled={busy === "sim"} data-testid="lbc-simulate-reply-btn"
+                      className="px-3 h-7 rounded-full border border-purple-500/40 text-purple-300 text-[10px] font-bold hover:bg-purple-500/10 inline-flex items-center gap-1 disabled:opacity-50">
+                {busy === "sim" ? <Loader2 size={10} className="animate-spin" /> : <Mail size={10} />} Simulate Board Reply
+              </button>
+            </div>
+            <div className="space-y-1 max-h-[150px] overflow-y-auto">
+              {(inbox?.replies || []).slice(0, 8).map((r) => {
+                const [cl, cc] = CLASS_META[r.classification] || CLASS_META.unclear;
+                return (
+                  <div key={r.inbox_id} className="text-[10px] font-mono flex items-center gap-2" data-testid={`lbc-reply-${r.inbox_id}`}>
+                    <span className="px-1.5 rounded text-[8px] font-black shrink-0" style={{ color: cc, border: `1px solid ${cc}55` }}>{cl}</span>
+                    <span className="text-cyan-300 shrink-0">{r.load_id || "UNMATCHED"}</span>
+                    <span className="text-slate-400 truncate">{r.action}</span>
+                  </div>
+                );
+              })}
+              {(inbox?.replies || []).length === 0 && <div className="text-[11px] text-slate-600 font-mono">No board replies yet. Point your email provider's inbound webhook at the desk, or simulate one.</div>}
+            </div>
+            {inbox?.webhook && <div className="mt-2 text-[9px] font-mono text-slate-600 truncate" data-testid="lbc-webhook-path">webhook: POST {inbox.webhook.path}</div>}
           </div>
 
           <div className="p-4 rounded-2xl border border-white/10 bg-slate-950/60" data-testid="lbc-actions">
