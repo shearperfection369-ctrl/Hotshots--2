@@ -32,6 +32,7 @@ import BrokerageAggregatorTab from "./BrokerageAggregatorTab";
 import LoadHunterTab from "./LoadHunterTab";
 import LtlRateCardsTab from "./LtlRateCardsTab";
 import { ARAgingPanel } from "../components/ARAgingPanel";
+import { ShipperFinder } from "../components/ShipperFinder";
 
 /**
  * Brokerage — single-page hub for the freight-brokerage operation.
@@ -45,6 +46,7 @@ const TABS = [
   { id: "boards",    label: "Load Boards", icon: Truck },
   { id: "news",      label: "Industry News", icon: Newspaper },
   { id: "drivers",   label: "Drivers", icon: Users },
+  { id: "shippers",  label: "Shipper Finder", icon: Crosshair },
   { id: "accounting", label: "Accounting", icon: Calculator },
   { id: "forms",     label: "Forms Library", icon: FileText },
   { id: "plan",      label: "Business Plan", icon: BookOpen },
@@ -89,6 +91,7 @@ export default function Brokerage() {
         {tab === "boards"    && <BoardsTab refresh={loadDash} />}
         {tab === "news"      && <NewsTab />}
         {tab === "drivers"   && <DriversTab />}
+        {tab === "shippers"  && <ShipperFinder />}
         {tab === "accounting" && <AccountingTab refresh={loadDash} />}
         {tab === "forms"     && <FormsTab />}
         {tab === "plan"      && <BusinessPlanTab />}

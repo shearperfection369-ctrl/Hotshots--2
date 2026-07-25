@@ -8417,6 +8417,14 @@ api_router.include_router(build_brokerage_router(
     LlmChat=LlmChat,
     UserMessage=UserMessage,
 ))
+from routes.shipper_finder import build_shipper_finder_router  # noqa: E402
+api_router.include_router(build_shipper_finder_router(
+    db=db,
+    get_current_user=get_current_user,
+    emergent_llm_key=EMERGENT_LLM_KEY,
+    LlmChat=LlmChat,
+    UserMessage=UserMessage,
+))
 api_router.include_router(build_connections_router(
     db=db,
     require_role=require_role,

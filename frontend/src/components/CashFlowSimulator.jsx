@@ -6,7 +6,7 @@ const usd = (n) => `$${Math.round(n).toLocaleString()}`;
 
 const PRESETS = {
   industry: { label: "Industry Avg '25", loads: 20, rate: 1900, margin: 15, dso: 35, dpo: 20 },
-  plan: { label: "Plan Rev-2", loads: 20, rate: 2000, margin: 14.5, dso: 37, dpo: 19 },
+  plan: { label: "Plan Rev-3 Y1 exit", loads: 14, rate: 2000, margin: 14.5, dso: 37, dpo: 19 },
   sandbox: { label: "Sandbox Actual", loads: 18, rate: 3150, margin: 13.5, dso: 37, dpo: 19 },
 };
 

@@ -172,7 +172,7 @@ export const PlanReviewPanel = () => {
               <thead>
                 <tr className="text-slate-500 font-mono text-[9px] uppercase">
                   <th className="text-left py-1">Metric</th><th className="text-right px-1">Industry std</th>
-                  <th className="text-right px-1">Plan Rev-2</th><th className="text-right px-1">Sandbox</th>
+                  <th className="text-right px-1">Plan Rev-3</th><th className="text-right px-1">Sandbox</th>
                 </tr>
               </thead>
               <tbody>

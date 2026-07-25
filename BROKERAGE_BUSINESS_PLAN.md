@@ -42,17 +42,17 @@ The brokerage launches with the operator's playbook, the builder's toolkit, AND 
 
 | | Year 1 | Year 2 | Year 3 |
 | --- | ---: | ---: | ---: |
-| Loads brokered (ramp to 20/day) | 3,250 | 5,200 | 6,760 |
-| Gross revenue (nationwide FTL · $2,000 avg) | **$6,500,000** | **$10,400,000** | **$13,520,000** |
-| Carrier pay (85.5%) | $5,557,500 | $8,892,000 | $11,559,600 |
-| Gross margin (14.5%) | **$942,500** | **$1,508,000** | **$1,960,400** |
-| Factoring / financing | $211,250 | $208,000 | $162,240 |
-| Operating expenses (staff, boards, loss provisions) | $374,300 | $696,600 | $959,600 |
-| **EBITDA before partner pay** | **$356,950** | **$603,400** | **$838,560** |
-| **Net cash to members (salary + distributions + retained)** | **$352,350** | **$598,800** | **$833,960** |
-| **Per-member share (⅓)** | **$117,450** | **$199,600** | **$277,987** |
+| Loads brokered (shipper-led ramp · exit 14/day Y1) | 2,000 | 5,200 | 6,760 |
+| Gross revenue (nationwide FTL · $2,000 avg) | **$4,000,000** | **$10,400,000** | **$13,520,000** |
+| Carrier pay (85.5%) | $3,420,000 | $8,892,000 | $11,559,600 |
+| Gross margin (14.5%) | **$580,000** | **$1,508,000** | **$1,960,400** |
+| Factoring / financing | $130,000 | $208,000 | $162,240 |
+| Operating expenses (staff, boards, loss provisions) | $249,600 | $696,600 | $959,600 |
+| **EBITDA before partner pay** | **$200,400** | **$603,400** | **$838,560** |
+| **Net cash to members (salary + distributions)** | **$140,000** | **$350,000** | **$530,000** |
+| **Per-member share (⅓)** | **$46,667** | **$116,667** | **$176,667** |
 
-**The capitalization.** Orisei launches on **$30,000 of member capital — $10,000 committed in cash by each of the three members**. Oliver Cummins' $10,000 is **paid in full in-kind** — the design and development of the Orisei Brokerage Command Deck, the structuring and formation of the business, and payment of all Company expenses to date from personal funds (receipt ORI-RCT-0003); Doug Graham additionally contributes 12 years of owner/operator expertise as the Company's carrier-side advisor. There is **no outside-investor ask** — Orisei is designed to be **cash-flow positive by Month 2** at plan volume, with the factoring line carrying working-capital load from Day 28.
+**The capitalization.** Orisei launches on **$30,000 of member capital — $10,000 committed in cash by each of the three members**. Oliver Cummins' $10,000 is **paid in full in-kind** — the design and development of the Orisei Brokerage Command Deck, the structuring and formation of the business, and payment of all Company expenses to date from personal funds (receipt ORI-RCT-0003); Doug Graham additionally contributes 12 years of owner/operator expertise as the Company's carrier-side advisor. There is **no outside-investor ask** — Orisei is designed to be **cash-flow positive by Month 4** at the shipper-led ramp, with the factoring line carrying working-capital load from Day 28. **Rev-3 recalibration:** Year 1 volume is now built on the **shipper book, not the load boards** — boards are a carrier-sourcing and prospecting tool, never the freight engine (§8.4). The Operator's time is materially committed to shipper acquisition, reflected in the revised salary (§3.6 · $110,000/yr) and the dedicated Shipper Acquisition Playbook (§8.5).
 
 ---
 
@@ -284,6 +284,62 @@ Minnesota generates **~125M outbound freight tons annually** and consumes a near
 - **Collateral:** One-page services PDF, lane intelligence weekly email, brochure-format business plan, founder LinkedIn ×3.
 - **Media:** Orisei Freight Brief podcast (produced at Daniel's Brooklyn Park studio).
 
+### 8.4 · Freight Sourcing Mix — boards are the garnish, the shipper book is the engine
+
+**The board reality (rev-3).** Load boards are, for a broker, a **carrier-sourcing and market-intelligence tool
+— not a freight source**. Roughly 90%+ of postings on DAT/Truckstop were posted by other brokers; moving those
+loads without written consent is **double-brokering** — illegal, banned by every board, and the #1 fraud pattern
+under FMCSA enforcement. Shipper-direct board postings exist but are a small, hyper-contested slice at 3–8%
+margins with zero relationship stickiness. Market data (FreightWaves): only ~14% of loads move via boards;
+~63% come from direct shipper relationships.
+
+**Orisei's sourcing mix by phase:**
+
+| Phase | Shipper-direct /day | Board & spot supplemental /day | Total /day |
+| --- | ---: | ---: | ---: |
+| Mo 1–3 (launch) | 1–3 | 1–2 | **2–5** |
+| Mo 4–9 (ramp) | 4–8 | 1–2 | **5–10** |
+| Mo 10+ (scale) | 10–16 | 2–4 | **12–20** |
+
+**What the boards ARE for:** (1) posting our shipper freight to source carriers in minutes; (2) DAT RateView
+market pricing to quote credibly from day 1; (3) **prospecting intelligence** — seeing which shippers post
+direct, then calling them to go direct; (4) legitimate backhaul/co-brokered supplemental volume via the
+Backhaul Hunter, always with written co-broker agreements.
+
+**Compliance guardrail:** Orisei never re-brokers another broker's posted load. Every load on our book has a
+direct broker-shipper agreement or a written co-brokerage agreement. No exceptions — the MC's reputation is the
+company's single most valuable asset.
+
+### 8.5 · Shipper Acquisition Playbook
+
+Shipper acquisition is the Operator's **primary time commitment** in Year 1 (§9.1) and the reason the desk runs
+on the Command Deck's **Shipper Finder** pipeline (lead → contacted → meeting → quoted → trial → contracted).
+
+**Where the shippers come from (10 channels):** founder warm network (60 1:1 outreaches — the highest-converting
+channel); board intelligence (call shippers who post direct); carrier referrals via Doug's network (drivers know
+which docks are underserved); MN Manufacturers Register / MNI directory pulls by SIC code; customs import
+records for inbound-heavy prospects; industrial-park canvassing (Brooklyn Park · Rogers · Shakopee) with the
+branded shipper brochure; MN Trucking Assoc / CSCMP / MHEDA events; LinkedIn outbound to logistics managers
+within 50 miles; referral partnerships with customs brokers, forwarders and 3PL warehouses; the Orisei Freight
+Brief podcast for inbound authority.
+
+**The industry's conversion rules:** call 7:15–8:30 AM before gatekeepers arrive; lead with a specific lane and
+rate, never a capabilities pitch; ask for the **overflow/backup slot** on the routing guide, not the primary —
+then out-service the incumbent; it takes **8–12 touches** to convert a cold shipper (most brokers quit at 3);
+quote in **under 15 minutes** — speed-to-quote is the #1 stated reason shippers switch; win the trial load and
+be flawless, then ask for the next load AND one referral; never bad-mouth the incumbent; re-touch dormant leads
+quarterly with a fresh lane-rate benchmark.
+
+**The Orisei offer stack (why a shipper signs):** fixed-rate 4-load trial with a **money-back margin guarantee**;
+free 24-hour lane benchmark PDF against DAT market data with our margin disclosed; 24-hour onboarding; 90-day
+fixed pricing on primary lanes; dedicated capacity from Doug's vetted bench; honest detention advocacy; net-30
+respected with zero fee creep; free Command Deck shipper portal (live tracking, PODs, lane analytics); and a
+quarterly business review with open-book margin.
+
+**The competitive advantage in one sentence:** *Orisei is the only Minneapolis brokerage where the person
+quoting your freight spent 13 years on your side of the dock, the person vetting your carrier spent 12 years
+driving one, and the software tracking your load was built in-house — with our margin on the table at every QBR.*
+
 ---
 
 ## 9 · Operations Plan
@@ -416,48 +472,49 @@ The launch runway is tracked live in the **Command Deck → Launch Runway tab**,
 > Revenue per load = **Linehaul × markup** where markup is set at the lane's spot-DAT benchmark ±10%.
 > Orisei tracks **margin %**, not flat fees.
 
-**Year-1 assumptions (rev-2 · nationwide · sandbox-calibrated):**
+**Year-1 assumptions (rev-3 · shipper-led ramp · nationwide):**
 
 - Avg load value: **$2,000 nationwide full-truckload** (sandbox observed $3,141; plan uses the conservative figure)
 - Avg gross margin: **14.5% ($290 / load)** — sandbox observed 13.5%
-- Volume ramp (AI Broker Autopilot + Backhaul Hunter + live boards): Mo1–3 = **25/wk (5/day)** · Mo4–6 = **50/wk (10/day)** · Mo7–9 = **75/wk (15/day)** · Mo10–12 = **100/wk (20/day)**
-- Total Y1 loads ≈ **3,250** → Revenue ≈ **$6.5M** → Gross margin ≈ **$942.5K**
+- Volume ramp (shipper-book-led per §8.4; boards supplemental only): Mo1–3 = **15/wk (3/day)** · Mo4–6 = **30/wk (6/day)** · Mo7–9 = **42/wk (8.5/day)** · Mo10–12 = **67/wk (13.5/day · exit ≈14/day)**
+- Total Y1 loads ≈ **2,000** → Revenue ≈ **$4.0M** → Gross margin ≈ **$580K**
+- The sandbox validates the desk can process 17.5/day; the plan schedules that capability for Y2 because **shipper-book acquisition — not system throughput — is the constraint**.
 
-### 10.5 · 3-Year P&L (rev-2 · 20 loads/day · nationwide FTL)
+### 10.5 · 3-Year P&L (rev-3 · shipper-led ramp · nationwide FTL)
 
 | Line | Y1 (2026) | Y2 (2027) | Y3 (2028) |
 | --- | ---: | ---: | ---: |
 | **Revenue** | | | |
-| &nbsp;&nbsp;Brokered freight revenue (3,250 / 5,200 / 6,760 loads @ $2,000) | $6,500,000 | $10,400,000 | $13,520,000 |
+| &nbsp;&nbsp;Brokered freight revenue (2,000 / 5,200 / 6,760 loads @ $2,000) | $4,000,000 | $10,400,000 | $13,520,000 |
 | **COGS** | | | |
-| &nbsp;&nbsp;Carrier pay (85.5%) | $5,557,500 | $8,892,000 | $11,559,600 |
-| &nbsp;&nbsp;Factoring / financing (3.25% → 2.0% → 1.2% of revenue) | $211,250 | $208,000 | $162,240 |
-| **Gross profit (after financing)** | **$731,250** | **$1,300,000** | **$1,798,160** |
+| &nbsp;&nbsp;Carrier pay (85.5%) | $3,420,000 | $8,892,000 | $11,559,600 |
+| &nbsp;&nbsp;Factoring / financing (3.25% → 2.0% → 1.2% of revenue) | $130,000 | $208,000 | $162,240 |
+| **Gross profit (after financing)** | **$450,000** | **$1,300,000** | **$1,798,160** |
 | **Operating expenses** | | | |
-| &nbsp;&nbsp;Dispatch staff — AI-leveraged (2 → 4 → 6) | $85,000 | $220,000 | $330,000 |
-| &nbsp;&nbsp;Staff payroll taxes & benefits | $6,800 | $17,600 | $26,400 |
+| &nbsp;&nbsp;Dispatch staff — AI-leveraged (1 from Mo7 → 4 → 6) | $45,000 | $220,000 | $330,000 |
+| &nbsp;&nbsp;Staff payroll taxes & benefits | $3,600 | $17,600 | $26,400 |
 | &nbsp;&nbsp;Load boards, data & SaaS | $14,000 | $22,000 | $28,000 |
 | &nbsp;&nbsp;Insurance (GL, Cargo, E&O) + bond | $9,500 | $14,000 | $18,000 |
-| &nbsp;&nbsp;Claims & bad-debt provision (3.5% of revenue) | $227,500 | $364,000 | $473,200 |
+| &nbsp;&nbsp;Claims & bad-debt provision (3.5% of revenue) | $140,000 | $364,000 | $473,200 |
 | &nbsp;&nbsp;Office, legal & accounting | $12,000 | $26,000 | $38,000 |
-| &nbsp;&nbsp;Marketing & travel | $12,000 | $22,000 | $32,000 |
+| &nbsp;&nbsp;Marketing & travel (shipper-acquisition program §8.5) | $18,000 | $22,000 | $32,000 |
 | &nbsp;&nbsp;Misc / contingency | $7,500 | $11,000 | $14,000 |
-| **Total OpEx** | **$374,300** | **$696,600** | **$959,600** |
-| **EBITDA before partner pay** | **$356,950** | **$603,400** | **$838,560** |
-| Operator salary — Oliver Cummins (§3.6 · $5,000/mo — trigger clears in Month 1 at plan volume) | $60,000 | $60,000 | $60,000 |
-| Payroll taxes (employer FICA on salary) | $4,600 | $4,600 | $4,600 |
-| Member distributions (combined) | $60,000 | $240,000 | $420,000 |
-| **Net income (retained — funds working capital)** | **$232,350** | **$298,800** | **$353,960** |
-| **Net cash to members (combined)** | **$352,350** | **$598,800** | **$833,960** |
-| **Per-member share (⅓)** | **$117,450** | **$199,600** | **$277,987** |
+| **Total OpEx** | **$249,600** | **$696,600** | **$959,600** |
+| **EBITDA before partner pay** | **$200,400** | **$603,400** | **$838,560** |
+| Operator salary — Oliver Cummins (§3.6 · $9,166.67/mo = $110,000/yr — trigger clears Month 1) | $110,000 | $110,000 | $110,000 |
+| Payroll taxes (employer FICA on salary) | $8,400 | $8,400 | $8,400 |
+| Member distributions (combined) | $30,000 | $240,000 | $420,000 |
+| **Net income (retained — funds working capital)** | **$52,000** | **$245,000** | **$300,160** |
+| **Net cash to members (combined)** | **$140,000** | **$350,000** | **$530,000** |
+| **Per-member share (⅓)** | **$46,667** | **$116,667** | **$176,667** |
 
-> **Note on member compensation.** Per the Partnership Agreement (§3.6), **Oliver Cummins is the only salaried member** ($5,000/mo guaranteed payment once monthly gross margin clears $10,000). Daniel and Doug are compensated exclusively through **quarterly equity distributions paid by ACH within 45 days of quarter close** (May 15 · Aug 14 · Nov 14 · Feb 14) under the Agreement's Distribution Waterfall: operating reserve → **15% Company retained earnings** → tax safe-harbor → **10% per-member Reinvestment Holdback** (credited to capital accounts) → equal thirds. All members retain outside income streams in Y1 (Oliver: Tennant W-2 · Daniel: barbershop + studio · Doug: owner/operator runs), which is what makes the lean compensation plan viable. Year 2 elects S-Corp status and splits comp into reasonable salary + distributions. Year 3 funds the first hire.
+> **Note on member compensation.** Per the Partnership Agreement (§3.6), **Oliver Cummins is the only salaried member** ($9,166.67/mo = **$110,000/yr** guaranteed payment once monthly gross margin clears $10,000 — reflecting that shipper acquisition and day-to-day operations are the Operator's full-time commitment under the rev-3 shipper-led model). Daniel and Doug are compensated exclusively through **quarterly equity distributions paid by ACH within 45 days of quarter close** (May 15 · Aug 14 · Nov 14 · Feb 14) under the Agreement's Distribution Waterfall: operating reserve → **15% Company retained earnings** → tax safe-harbor → **10% per-member Reinvestment Holdback** (credited to capital accounts) → equal thirds. All members retain outside income streams in Y1 (Daniel: barbershop + studio · Doug: owner/operator runs). Year 2 elects S-Corp status and splits comp into reasonable salary + distributions.
 
 ### 10.6 · Cash flow & break-even
 
-- **Break-even loads / month:** contribution per load net of variable costs ≈ **$155** ($290 margin − $70 provisions − $65 financing). Fixed costs ≈ $12,250/mo → break-even ≈ **79 loads/mo (~18/wk)** — cleared in **Month 1** at the 25/wk launch pace.
-- **Working capital pressure point:** at 20 loads/day, AR outstanding runs ≈ **$1.05M**. Mitigation: factoring advances 92% from Day 28; Year-1 retains **$232K** of net income as the cushion; bank AR line by Month 12–15 (§15A.2).
-- **Cash-flow positive month:** **Month 2** at plan volume.
+- **Break-even loads / month:** contribution per load net of variable costs ≈ **$155** ($290 margin − $70 provisions − $65 financing). Fixed costs ≈ $19,000/mo (salary + non-variable OpEx) → break-even ≈ **123 loads/mo (~28/wk)** — cleared in **Month 4** at the shipper-led ramp.
+- **Working capital pressure point:** at the Y1-exit 14/day pace, AR outstanding runs ≈ **$740K**; at Y2's 20/day it reaches ≈ **$1.05M**. Mitigation: factoring advances 92% from Day 28; retained earnings build the cushion ($52K Y1 → $245K Y2); bank AR line by Month 15–18 (§15A.2).
+- **Cash-flow positive month:** **Month 4–5** at the shipper-led ramp (salary trigger clears Month 1; the desk carries the acquisition quarter on factoring + partner capital).
 - **Funded entirely by the three members.** No outside investor.
 
 ### 10.7 · Funding strategy
@@ -520,8 +577,10 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 
 | KPI | Y1 target | Y2 target | Y3 target |
 | --- | ---: | ---: | ---: |
-| Gross margin % | ≥ 18% | ≥ 20% | ≥ 22% |
-| Loads booked / week | 9 | 21 | 37 |
+| Gross margin % | ≥ 14% | ≥ 14.5% | ≥ 15% |
+| Loads booked / week | 15 → 67 (ramp) | 100 | 130 |
+| New shipper meetings / week | ≥ 5 | ≥ 3 | ≥ 3 |
+| Active shipper accounts | 8 | 14 | 20 |
 | On-time pickup % | ≥ 96% | ≥ 97% | ≥ 98% |
 | On-time delivery % | ≥ 95% | ≥ 96% | ≥ 97% |
 | Days sales outstanding (DSO) | ≤ 38 | ≤ 35 | ≤ 32 |
@@ -559,20 +618,20 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 
 ### Phase 1 · Launch (Month 1 – Month 3 · Apr – Jun 2026)
 
-- **Mo1:** Execute Launch Runway Phases 1–3 (§10.3). First load brokered target: Mo1 day 5. Goal: 100 loads (25/wk) · $29,000 gross margin · 100% claim-free.
-- **Mo2:** Factoring live. Onboard customer #4. Add reefer lane. Goal: 130 loads · $37,700 GM.
-- **Mo3:** First quarterly business review with anchor customer + first quarterly partner review. Goal: 160 loads · $46,400 GM.
+- **Mo1:** Execute Launch Runway Phases 1–3 (§10.3). First load brokered target: Mo1 day 5. Goal: 60 loads (15/wk) · $17,400 gross margin · 100% claim-free · 12 shipper discovery calls held.
+- **Mo2:** Factoring live. Onboard customers #3–4 from the trial pipeline. Goal: 65 loads · $18,850 GM · 5 new shipper meetings/wk (§8.5 cadence).
+- **Mo3:** First quarterly business review with anchor customer + first quarterly partner review. Goal: 70 loads · $20,300 GM · 6 active accounts.
 
 ### Phase 2 · Stabilize (Month 4 – Month 6 · Jul – Sep 2026)
 
-- Goal: ramp 50 loads/wk (10/day) · $63,000 GM/mo · 8 active customers.
+- Goal: ramp 30 loads/wk (6/day) · $37,700 GM/mo · 8 active customers.
 - Fund deferred tech (Truckstop, RMIS, Macropoint) from operating margin.
 - Launch **lane intelligence weekly email** (35 ICP recipients) + weekly podcast cadence.
 - Attend **MN Trucking Association mid-year meeting**.
 
 ### Phase 3 · Scale (Month 7 – Month 12 · Oct 2026 – Mar 2027)
 
-- Goal: 400+ loads/mo (20/day) by Mo12 · $116K GM/mo · 15+ active customers · Q4 retail surge captured.
+- Goal: 290 loads/mo (67/wk · exit ≈14/day) by Mo12 · $84K GM/mo · 12+ active customers · Q4 retail surge captured · hire dispatcher #1 (Mo7).
 - Apply **S-Corp tax election** effective Jan 1, 2027.
 - Document **SOPs** in Command Deck (carrier vetting, billing, claims).
 - Hire **part-time night-dispatch contractor** for 24/7 coverage.
@@ -614,19 +673,20 @@ funds the gap.*
 
 ### 15A.1 Plan vs. sandbox — now aligned
 
-*Rev-2 recalibrated the base plan to nationwide FTL economics ($2,000 avg load · 14.5% margin) and
-sandbox-scale volume (ramp to 20 loads/day). At Year-1 exit, the plan's weekly economics land within ~4%
-of the observed sandbox run. All figures below are POSITIVE — "est." denotes an estimate, and net desk
+*Rev-3 recalibrated the base plan to nationwide FTL economics ($2,000 avg load · 14.5% margin) with a
+**shipper-led volume ramp** (§8.4): the sandbox proves the desk can process 17.5/day, but shipper-book
+acquisition — not system throughput — sets the pace, so the plan exits Y1 at 14/day and schedules
+sandbox-scale volume for Y2. All figures below are POSITIVE — "est." denotes an estimate, and net desk
 profit is stated after loss provisions (claims 1.5% + bad debt 2%), financing, staff and overhead.*
 
-| Weekly metric | Plan Y1 exit / Y2 (20 loads/day) | Sandbox Day-6 observed (~17.5/day) | Plan Y3 (26 loads/day) |
+| Weekly metric | Plan Y1 exit (14 loads/day) | Sandbox Day-6 observed (~17.5/day) | Plan Y2–Y3 (20–26 loads/day) |
 | --- | ---: | ---: | ---: |
-| Loads / week | 100 | 68 closed | 130 |
+| Loads / week | 70 (Y1 exit) | 68 closed | 100–130 |
 | Avg revenue / load | $2,000 | $3,141 | $2,000 |
 | Gross margin / load | $290 (14.5%) | $423 (13.5%) | $290 (14.5%) |
-| Gross margin / week | $29,000 | $28,600 | $37,700 |
-| **Net desk profit / week** | **est. $11,600** | **est. $12,100 (provisions applied)** | **est. $16,100** |
-| Annualized EBITDA | est. $603,400 | est. $630,000 | $838,560 |
+| Gross margin / week | $20,300 | $28,600 | $29,000–37,700 |
+| **Net desk profit / week** | **est. $6,300** | **est. $12,100 (provisions applied)** | **est. $11,600–16,100** |
+| Annualized EBITDA | est. $328,000 (exit pace) | est. $630,000 | $603,400–838,560 |
 
 ### 15A.2 Working capital — the real constraint
 
@@ -636,9 +696,9 @@ Assumptions: shippers pay net-30 with 7 days slippage (DSO 37); carriers paid ne
 
 | Phase | Volume | Annual revenue | AR outstanding | Cash float needed | Funding |
 | --- | --- | ---: | ---: | ---: | --- |
-| P1 · Launch (Mo 1-3) | 25 loads/wk | $2.6M run-rate | ≈ $265K | **$40-60K** | $30K partner capital + Month 1-2 retained profit + factor 92% advance |
-| P2 · Ramp (Mo 4-9) | 50-75 loads/wk | $5.2-7.8M | $530-790K | **$90-150K** | Year-1 retained earnings ($232K) + factoring volume tier (~3.0%) |
-| P3 · Full volume (Mo 10+) | 100-130 loads/wk | $10.4-13.5M | $1.05-1.4M | **$250-400K cushion** | Bank AR line $500-750K by Mo 12-15 (saves ≈ $150K/yr vs factoring) |
+| P1 · Launch (Mo 1-3) | 15-25 loads/wk | $1.6-2.6M run-rate | ≈ $160-265K | **$25-45K** | $30K partner capital + factor 92% advance |
+| P2 · Ramp (Mo 4-9) | 30-45 loads/wk | $3.1-4.7M | $315-475K | **$55-90K** | Factoring volume tier (~3.0%) + early retained earnings |
+| P3 · Scale (Mo 10+) | 67-100 loads/wk | $7.0-10.4M | $705K-1.05M | **$170-300K cushion** | Bank AR line $400-700K by Mo 15-18 (saves ≈ $150K/yr vs factoring) |
 
 ### 15A.3 The funding ladder
 
@@ -647,16 +707,17 @@ Assumptions: shippers pay net-30 with 7 days slippage (DSO 37); carriers paid ne
    at Month 4.
 2. **Quick-pay as a profit center.** Charge carriers 2% for 2-day pay (sandbox already books quick-pay income).
    At Scenario B volume, ~40% uptake yields ~$33K/yr income, offsetting roughly a third of factoring cost.
-3. **Year 1 — retain aggressively.** Distributions are capped at $60K combined in Year 1; the plan retains
-   **$232,350** of Year-1 net income as the working-capital cushion.
-4. **Month 12-15 — graduate to a bank AR line.** At a $10M+ run-rate with 12 months of clean AR aging, a
-   $500-750K asset-based line at prime+2-3% costs ≈ $60-80K/yr versus ≈ $210K/yr of factoring on the same
+3. **Year 1 — retain what the ramp allows.** Distributions are capped at $30K combined in Year 1; the plan
+   retains **$52,000** of Year-1 net income, with Year-2 retention (**$245,000**) building the full cushion.
+4. **Month 15-18 — graduate to a bank AR line.** At a $10M+ run-rate with 12+ months of clean AR aging, a
+   $400-700K asset-based line at prime+2-3 costs ≈ $60-80K/yr versus ≈ $210K/yr of factoring on the same
    book — a ~$150K/yr saving that drops straight to net.
 5. **Guardrails.** Credit-check every new shipper (board credit data); cap any one shipper at 20% of AR; bad-debt
    reserve 2% of revenue held monthly; no fuel advances; DSO reviewed weekly on the Command Deck.
 
 **Bottom line:** No new equity required. $30K partner capital + factoring funds the launch quarter;
-Year-1 retained earnings (**$232K**) fund the ramp; a **bank AR line by Month 12-15** carries full volume.
+factoring plus Y1-Y2 retained earnings ($52K → $245K) fund the ramp; a **bank AR line by Month 15-18**
+carries full volume.
 
 ### 15A.4 DSO Management Playbook — will factoring carry the weight?
 
