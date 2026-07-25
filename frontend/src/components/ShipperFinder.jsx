@@ -3,7 +3,7 @@ import { Radar, Plus, Loader2, Download, Sparkles, Phone, Mail, Linkedin, Trash2
 import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 import { api } from "../lib/api";
 
 const STAGE_META = {
@@ -185,7 +185,8 @@ export const ShipperFinder = () => {
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="bg-slate-950 border-white/15 max-w-lg">
-          <DialogHeader><DialogTitle className="text-white text-sm font-black uppercase">Add Shipper Prospect</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-white text-sm font-black uppercase">Add Shipper Prospect</DialogTitle>
+            <DialogDescription className="text-[10px] text-slate-500 font-mono">New shipper for the acquisition pipeline</DialogDescription></DialogHeader>
           <div className="grid grid-cols-2 gap-2">
             {[["company", "Company *"], ["contact_name", "Contact name"], ["title", "Title"], ["email", "Email"],
               ["phone", "Phone"], ["city", "City"], ["industry", "Industry"], ["est_loads_per_week", "Est loads/wk"],
@@ -212,6 +213,7 @@ export const ShipperFinder = () => {
             <DialogTitle className="text-white text-sm font-black uppercase flex items-center gap-2">
               <Sparkles size={14} className="text-cyan-300" /> AI {outreach?.channel} script — {outreach?.prospect?.company}
             </DialogTitle>
+            <DialogDescription className="text-[10px] text-slate-500 font-mono">Personalized outreach generated from the prospect's profile</DialogDescription>
           </DialogHeader>
           {outreach?.loading ? (
             <div className="py-8 text-center text-slate-500 font-mono text-xs" data-testid="outreach-loading">

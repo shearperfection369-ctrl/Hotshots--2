@@ -2228,3 +2228,23 @@ retrains scoring weights from revealed preferences — making the intuitive
   industry benchmark context. PDF regenerates from same markdown.
 - Tested: curl plan-review (all keys/rows verified) + live browser screenshots (both panels render,
   presets clickable). No regressions to acks/scenario_b/working_capital blocks.
+
+## Session 2026-06 (fork, cont. 7) — Rev-3: Shipper-Led Model + $110K Salary + Shipper Finder CRM
+- User decision: load boards are NOT the freight engine (double-brokering risk, ~90% broker-posted,
+  3-8% margins on shipper-direct posts). Plan rebuilt shipper-led: Y1 2,000 loads ($4.0M rev, exit
+  14/day), Y2 5,200, Y3 6,760. Operator salary $60K → $110K/yr ($9,167/mo, §3.6 updated in
+  PARTNERSHIP_AGREEMENT.md). New Y1: EBITDA $200,400, dist $30K, retained $52K, per-member $46,667.
+  Break-even Mo4, cash-flow+ Mo4-5, bank AR line Mo15-18. Updated: BROKERAGE_BUSINESS_PLAN.md
+  (§1, §8.4 sourcing mix + §8.5 acquisition playbook NEW, §10.4-10.6, §13 KPIs, §14 phases, §15A),
+  plan_brochure.py stats, brokerage.py plan-review/plan-vs-actual, CashFlowSimulator plan preset.
+- NEW Shipper Finder CRM: /app/backend/routes/shipper_finder.py (registered in server.py) —
+  prospects CRUD + pipeline (lead→contacted→meeting→quoted→trial→contracted→lost), 6 seeded MN
+  prospects (idempotent), GET /playbook (7 advantages, 8 offers, 10 channels, 12 tips),
+  POST /prospects/{id}/outreach AI scripts (Claude Sonnet 4.5, email/call/linkedin),
+  GET /brochure.pdf. Frontend: components/ShipperFinder.jsx, Brokerage.jsx tab id 'shippers'.
+- NEW shipper brochure: routes/shipper_brochure.py — 6-page color PDF (Ship With Orisei: promise,
+  why/founders, offer stack + guarantee, platform, 24hr onboarding, contact).
+- LEARNING: parallel search_replace calls on the SAME file can race and silently drop one edit —
+  verify with grep after batched same-file edits.
+- Tested: iteration_80.json — 11/11 backend, 100% frontend flows. A11y DialogDescription added
+  post-test; TEST_ prospect cleaned up.
