@@ -7,7 +7,7 @@ margin floor — not off spot-market guesswork.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -95,12 +95,24 @@ def build_rate_cards_router(*, db, get_current_user: Callable) -> APIRouter:
     @router.get("")
     async def list_cards(_=Depends(get_current_user)) -> Dict[str, Any]:
         rows = await db.carrier_lane_rate_cards.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+        # utilization: loads booked against each card since Monday
+        now = datetime.now(timezone.utc)
+        week_start = (now - timedelta(days=now.weekday())).date().isoformat()
+        pipe = [{"$match": {"rate_card_id": {"$ne": None}, "booked_at": {"$gte": week_start}}},
+                {"$group": {"_id": "$rate_card_id", "n": {"$sum": 1}}}]
+        moved = {r["_id"]: r["n"] async for r in db.brokerage_bookings.aggregate(pipe)}
+        total_moved = 0
         for r in rows:
             r["live"] = _is_live(r)
+            r["moved_this_week"] = int(moved.get(r["id"], 0))
+            total_moved += r["moved_this_week"]
+            committed = int(r.get("loads_per_week") or 0)
+            r["utilization_pct"] = round(r["moved_this_week"] / committed * 100) if committed else None
         live = [r for r in rows if r["live"]]
         return {"cards": rows, "count": len(rows), "live_count": len(live),
                 "lanes_covered": len({r["lane_key"] for r in live}),
-                "weekly_capacity_committed": sum(int(r.get("loads_per_week") or 0) for r in live)}
+                "weekly_capacity_committed": sum(int(r.get("loads_per_week") or 0) for r in live),
+                "moved_this_week_total": total_moved, "week_start": week_start}
 
     @router.post("")
     async def create_card(payload: RateCardIn, _=Depends(get_current_user)) -> Dict[str, Any]:

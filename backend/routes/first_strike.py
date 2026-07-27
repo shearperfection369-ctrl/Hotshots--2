@@ -219,6 +219,7 @@ def build_first_strike_router(*, api_router: APIRouter, db,
             "booked_id": booked_id, "load_id": load.get("load_id"), "board_id": load.get("board_id"),
             "carrier_name": outcome.get("contract_carrier") or "TBD — assign carrier",
             "carrier_mc": outcome.get("contract_mc"),
+            "rate_card_id": outcome.get("contract_card_id"),
             "customer_name": load.get("shipper"), "customer_email": None,
             "origin": load.get("origin"), "destination": load.get("destination"),
             "miles": load.get("miles"), "equipment": load.get("equipment"),
@@ -235,13 +236,17 @@ def build_first_strike_router(*, api_router: APIRouter, db,
     async def _fire_bid(load: Dict[str, Any], cfg: Dict[str, Any], lane_stats: Dict[str, Any],
                         known_posters: set, bench: set, auto: bool,
                         response_sec: float,
-                        contract: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                        contract: Optional[Dict[str, Any]] = None,
+                        backhaul: bool = False) -> Dict[str, Any]:
         lane = _lane_key(load)
         after_hours = _is_after_hours()
         known = (load.get("shipper") or "") in known_posters
         proximate = bool(_states_of(load.get("origin") or "") & bench)
         pricing = _price_bid(load, cfg, lane_stats.get(lane), after_hours, known, proximate,
                              contract=contract)
+        if backhaul:
+            pricing["badges"].append("backhaul")
+            pricing["win_probability"] = round(min(pricing["win_probability"] + 0.06, 0.97), 3)
         won = random.random() < pricing["win_probability"]
         outcome = {
             "id": str(uuid.uuid4()), "at": _now_iso(), "auto": auto,
@@ -268,6 +273,14 @@ def build_first_strike_router(*, api_router: APIRouter, db,
         bench = await _bench_states()
         from routes.carrier_rate_cards import load_active_rate_cards, best_contract_for
         rate_cards = await load_active_rate_cards(db)
+        # backhaul lanes: trucks currently out — their return leg is free margin
+        _bh_since = (now := datetime.now(timezone.utc)) - timedelta(days=7)
+        _bh_rows = await db.brokerage_bookings.find(
+            {"status": {"$in": ["booked", "in_transit", "dispatched"]},
+             "booked_at": {"$gte": _bh_since.isoformat()}},
+            {"_id": 0, "origin": 1, "destination": 1}).to_list(100)
+        backhaul_lanes = {f"{(b.get('destination') or '')[-2:].upper()}-{(b.get('origin') or '')[-2:].upper()}"
+                          for b in _bh_rows}
 
         seen_row = await db.first_strike_seen.find_one({"_id": "seen"}) or {}
         first_seen: Dict[str, str] = seen_row.get("map") or {}
@@ -293,9 +306,12 @@ def build_first_strike_router(*, api_router: APIRouter, db,
                 l["margin_pct"] = round(c_margin_pct, 1)
             elif float(l.get("margin_pct") or 0) < float(cfg.get("min_margin_pct", 10)):
                 continue
+            if _lane_key(l) in backhaul_lanes:
+                l["_backhaul"] = True
             candidates.append(l)
-        # contracted lanes strike first — cost certainty beats estimated spread
-        candidates.sort(key=lambda l: (bool(l.get("_contract")), float(l.get("margin_pct") or 0)),
+        # contract certainty first, then backhauls (a truck is already headed there)
+        candidates.sort(key=lambda l: (bool(l.get("_contract")), bool(l.get("_backhaul")),
+                                       float(l.get("margin_pct") or 0)),
                         reverse=True)
 
         fired = []
@@ -304,7 +320,8 @@ def build_first_strike_router(*, api_router: APIRouter, db,
             response_sec = max(0.8, (now - seen_at).total_seconds())
             fired.append(await _fire_bid(l, cfg, lane_stats, known, bench, auto=True,
                                          response_sec=min(response_sec, 300),
-                                         contract=l.get("_contract")))
+                                         contract=l.get("_contract"),
+                                         backhaul=bool(l.get("_backhaul"))))
 
         if len(first_seen) > 3000:
             first_seen = dict(list(first_seen.items())[-3000:])

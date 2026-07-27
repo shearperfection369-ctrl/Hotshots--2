@@ -229,6 +229,8 @@ function PipelineTab({ playbook, onChanged }) {
 function ProspectDetail({ p, playbook, onClose }) {
   const [answers, setAnswers] = useState(p.discovery || {});
   const [notes, setNotes] = useState(p.notes || "");
+  const [email, setEmail] = useState(p.contact_email || "");
+  const [sending, setSending] = useState(false);
   const questions = playbook?.discovery_questions || [];
   const save = async () => {
     try {
@@ -236,6 +238,17 @@ function ProspectDetail({ p, playbook, onClose }) {
       toast.success("Discovery saved");
       onClose();
     } catch (e) { toast.error("Save failed"); }
+  };
+  const sendPitch = async () => {
+    if (!email || !email.includes("@")) { toast.error("Enter the contact's email first"); return; }
+    setSending(true);
+    try {
+      const { data } = await api.post(`/carrier-network/outreach/${p.id}`, { email });
+      if (data.sent) toast.success(`Pitch emailed to ${email}${data.packet_attached ? " with carrier packet attached" : ""}`);
+      else toast.warning("Email recorded but NOT sent — add your Resend API key in Connections to send for real");
+      if (data.stage === "contacted" && p.stage === "target") toast.info(`${p.name} moved to CONTACTED`);
+    } catch (e) { toast.error(e.response?.data?.detail || "Send failed"); }
+    finally { setSending(false); }
   };
   const pitch = (playbook?.categories || []).find((c) => c.key === p.category)?.pitch;
   return (
@@ -251,6 +264,15 @@ function ProspectDetail({ p, playbook, onClose }) {
             “{pitch}”
           </div>
         )}
+        <div className="p-3 rounded border border-cyan-500/30 bg-cyan-500/5 space-y-2" data-testid="cn-outreach-block">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-cyan-400">One-click outreach — branded pitch email + carrier packet PDF</div>
+          <div className="flex gap-2">
+            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@carrier.com" className="bg-[#11151F] border-white/10" data-testid="cn-outreach-email" />
+            <Button onClick={sendPitch} disabled={sending} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold shrink-0" data-testid="cn-outreach-send-btn">
+              {sending ? "Sending…" : "Send Pitch"}
+            </Button>
+          </div>
+        </div>
         <div className="space-y-3">
           <div className="text-[9px] font-mono uppercase tracking-widest text-cyan-400">What to ask them (log the answers)</div>
           {questions.map((q) => (
@@ -362,6 +384,7 @@ function RateCardsTab() {
             <span><b className="text-cyan-300">{data.live_count}</b> live cards</span>
             <span><b className="text-cyan-300">{data.lanes_covered}</b> lanes covered</span>
             <span><b className="text-cyan-300">{data.weekly_capacity_committed}</b> loads/wk committed capacity</span>
+            <span><b className="text-emerald-300">{data.moved_this_week_total}</b> moved this week</span>
           </div>
         )}
       </Card>
@@ -413,7 +436,7 @@ function RateCardsTab() {
               <thead className="sticky top-0 bg-[#0B0E14]">
                 <tr className="text-left text-[9px] font-mono uppercase tracking-widest text-slate-500 border-b border-white/10">
                   <th className="py-2 pr-3">Lane</th><th className="py-2 pr-3">Carrier</th><th className="py-2 pr-3">Equip</th>
-                  <th className="py-2 pr-3">Rate</th><th className="py-2 pr-3">Cap/Wk</th><th className="py-2 pr-3">Status</th><th className="py-2"></th>
+                  <th className="py-2 pr-3">Rate</th><th className="py-2 pr-3">Wk Util</th><th className="py-2 pr-3">Status</th><th className="py-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -423,7 +446,15 @@ function RateCardsTab() {
                     <td className="py-2 pr-3 text-slate-300">{c.carrier_name}{c.carrier_mc && <div className="text-[8px] font-mono text-slate-600">MC {c.carrier_mc}</div>}</td>
                     <td className="py-2 pr-3 font-mono text-slate-400">{c.equipment}</td>
                     <td className="py-2 pr-3 font-mono text-cyan-300">{c.rate_type === "per_mile" ? `$${c.rpm_usd}/mi` : `$${Number(c.rate_usd).toLocaleString()}`}</td>
-                    <td className="py-2 pr-3 font-mono text-slate-400">{c.loads_per_week || "—"}</td>
+                    <td className="py-2 pr-3" data-testid={`rc-util-${c.id}`}>
+                      <div className="font-mono text-slate-300">{c.moved_this_week || 0}<span className="text-slate-600">/{c.loads_per_week || "—"}</span></div>
+                      {c.utilization_pct != null && (
+                        <div className="h-1 w-16 rounded bg-white/5 overflow-hidden mt-0.5">
+                          <div className={`h-full rounded ${c.utilization_pct >= 100 ? "bg-emerald-400" : c.utilization_pct >= 50 ? "bg-cyan-400" : "bg-amber-400"}`}
+                            style={{ width: `${Math.min(c.utilization_pct, 100)}%` }} />
+                        </div>
+                      )}
+                    </td>
                     <td className="py-2 pr-3">
                       <button onClick={() => toggle(c)} data-testid={`rc-toggle-${c.id}`}>
                         <Badge className={c.live ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[8px] font-mono" : "bg-slate-500/15 text-slate-400 border-slate-500/30 text-[8px] font-mono"}>

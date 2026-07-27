@@ -8966,6 +8966,13 @@ api_router.include_router(build_rate_cards_router(
     get_current_user=get_current_user,
 ))
 
+# Mount Backhaul Matcher (empty return legs → paid loads)
+from routes.backhaul_matcher import build_backhaul_router  # noqa: E402
+api_router.include_router(build_backhaul_router(
+    db=db,
+    get_current_user=get_current_user,
+))
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 

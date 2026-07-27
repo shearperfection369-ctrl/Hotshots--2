@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend UI verification for 3 new Orisei TMS features: (1) Backhaul Radar on /brokerage Hunter tab, (2) Rate Card Utilization on /carrier-network Rate Cards tab, (3) Outreach Emails from Pipeline prospect detail. All flows passed end-to-end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_flows": [
+    "Hunter tab → Backhaul Radar panel renders below First Strike (16 trucks out · 3 standing deadheads · 9 matches). backhaul-match-* rows show quality badge (REPOSITION observed). backhaul-rescan-btn re-fetches without error. First Strike panel co-exists and loads.",
+    "Rate Cards tab → banner shows live cards / lanes covered / weekly committed / moved this week. Created card (TEST Backhaul Carrier LLC, San Antonio TX → Jacksonville FL, $2000, 5 loads/wk) via rc-save-btn (POST /api/carrier-rate-cards → 200, id RC-FF6F68D6). Row displayed with rc-util cell '0/5'. rc-toggle flipped 'LIVE — FEEDING FIRST STRIKE' → 'PAUSED'. rc-delete removed the card cleanly (toast 'Deleted').",
+    "Pipeline tab → clicked prospect 'Twin Ports Trucking' (CN-F9272035), cn-detail-dialog opened with cn-outreach-block. Entered test@example.com, clicked cn-outreach-send-btn → POST /api/carrier-network/outreach/{pid} returned {sent:false, status:'recorded_no_key', packet_attached:true, stage:'contacted'}. Warning toast surfaced: 'Email recorded but NOT sent — add your Resend API key in Connections to send for real'. After reload, prospect badge advanced target → CONTACTED. Cleanup PATCH reset stage back to 'target' and blanked contact_email (200 OK).",
+    "Regression: /brokerage dashboard, Hunter tab and /carrier-network scoreboard load without non-auth console errors. Only 4 initial 401s observed while token bootstrap runs (pre-localStorage) — benign, resolved after token injection."
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CarrierCombobox uses prop name `testid` (not `data-testid`) for the input — works correctly (line 93 CarrierCombobox.jsx spreads it as data-testid), but the inconsistency vs other fields (rc-origin uses data-testid) may confuse future testers. Consider standardizing on data-testid prop.",
+    "Playwright note: page.fill on the CarrierCombobox input does not fire React onChange reliably (input became controlled but state stayed empty). press_sequentially works. Not a bug — just a testability quirk if future automation relies on fill()."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (backend testing skipped per request)", "frontend": "100%"},
+  "test_credentials": "localStorage tms_session_token = test_session_admin_1 (admin)",
+  "seed_data_creation": "Created rate card RC-FF6F68D6 during test; deleted at end. Prospect CN-F9272035 stage advanced target→contacted during test; PATCH reset back to target with blank contact_email.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 3 features (Backhaul Radar, Rate Card Utilization, Outreach Emails) are fully functional end-to-end. Backend endpoints already spot-checked by main agent. No open issues.",
+  "rca of the issue": "n/a — no issues found"
+}

@@ -169,6 +169,10 @@ class CapacityWindowIn(BaseModel):
     expires: str = ""                            # ISO date optional
 
 
+class OutreachIn(BaseModel):
+    email: Optional[str] = None
+
+
 def build_carrier_network_router(*, db, get_current_user: Callable,
                                  require_role: Callable) -> APIRouter:
     router = APIRouter(prefix="/carrier-network", tags=["carrier-network"])
@@ -248,6 +252,67 @@ def build_carrier_network_router(*, db, get_current_user: Callable,
         if r.deleted_count == 0:
             raise HTTPException(404, "Prospect not found")
         return {"ok": True}
+
+    # ---------------- One-click branded outreach email (pitch + carrier packet)
+    @router.post("/outreach/{pid}")
+    async def send_outreach(pid: str, payload: OutreachIn,
+                            user=Depends(get_current_user)):
+        p = await db.carrier_network_prospects.find_one({"id": pid}, {"_id": 0})
+        if not p:
+            raise HTTPException(404, "Prospect not found")
+        to = (payload.email or p.get("contact_email") or "").strip()
+        if not to or "@" not in to:
+            raise HTTPException(400, "No contact email on file — provide one to send the pitch.")
+        meta = CATEGORIES.get(p.get("category")) or {}
+        brand = await db.company_brand.find_one({}, {"_id": 0}) or {}
+        company = brand.get("company_name") or "Orisei Freight Solutions"
+        accent = brand.get("accent_color") or "#0891b2"
+        reply_to = brand.get("contact_email") or "oliver@oriseifreightsolutions.com"
+        contact = (p.get("contact_name") or "").split("(")[0].strip() or "there"
+        lanes = " · ".join((p.get("lanes") or [])[:3])
+        subject = f"{company} × {p['name']} — consistent freight for your trucks"
+        html = f"""
+        <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#1a202c">
+          <div style="background:#0b0e14;padding:20px 28px;border-radius:8px 8px 0 0">
+            <span style="color:{accent};font-size:20px;font-weight:800;letter-spacing:1px">{company.upper()}</span>
+          </div>
+          <div style="border:1px solid #e2e8f0;border-top:none;padding:28px;border-radius:0 0 8px 8px">
+            <p>Hi {contact},</p>
+            <p>{meta.get('pitch', '')}</p>
+            {f'<p style="font-size:13px;color:#475569"><b>Lanes we have in mind for you:</b> {lanes}</p>' if lanes else ''}
+            <p style="font-size:13px;color:#475569">I've attached our carrier packet — one page on who we are,
+            how we pay (quick-pay available), and how dispatch works. Fifteen minutes on the phone and
+            I can tell you exactly how many loads a week we can put on your trucks.</p>
+            <p>— {company}<br/><a href="mailto:{reply_to}" style="color:{accent}">{reply_to}</a></p>
+          </div>
+        </div>"""
+        pdf_bytes = None
+        try:
+            from routes.carrier_brochure import build_carrier_brochure_pdf
+            pdf_bytes = build_carrier_brochure_pdf()
+        except Exception:
+            pass
+        from routes.orisei_auto_digest import _resend_creds, _send_via_resend
+        creds = await _resend_creds(db)
+        res = await _send_via_resend(creds, to=to, subject=subject, html=html,
+                                     pdf_bytes=pdf_bytes,
+                                     pdf_filename="Carrier_Packet.pdf") if creds else \
+            {"sent": False, "error": "no_resend_creds"}
+        status = "sent" if res.get("sent") else "recorded_no_key"
+        await db.outbound_emails.insert_one({
+            "to": to, "subject": subject, "html": html, "status": status,
+            "error": res.get("error"), "kind": "carrier_outreach",
+            "prospect_id": pid, "at": _now_iso(),
+            "sent_by": getattr(user, "name", "system"),
+        })
+        patch: Dict[str, Any] = {"contact_email": to, "updated_at": _now_iso()}
+        if p.get("stage") == "target":
+            patch["stage"] = "contacted"
+        await db.carrier_network_prospects.update_one({"id": pid}, {"$set": patch})
+        return {"ok": True, "sent": res.get("sent", False), "status": status,
+                "error": res.get("error"), "subject": subject,
+                "stage": patch.get("stage") or p.get("stage"),
+                "packet_attached": bool(pdf_bytes)}
 
     # ---------------- Capacity windows (the "12 trucks Tue–Thu CHI–KC" board)
     @router.get("/capacity-windows")

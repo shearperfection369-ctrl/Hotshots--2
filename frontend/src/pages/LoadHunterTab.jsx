@@ -12,6 +12,7 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import { MisalignmentMonitor } from "../components/MisalignmentMonitor";
 import { FirstStrikePanel } from "../components/FirstStrikePanel";
+import { BackhaulRadar } from "../components/BackhaulRadar";
 
 const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }));
 
@@ -386,6 +387,9 @@ export default function LoadHunterTab() {
 
       {/* First Strike — competitive edge layer */}
       <FirstStrikePanel />
+
+      {/* Backhaul Radar — empty return legs → paid loads */}
+      <BackhaulRadar />
 
       {/* Alignment Guardian */}
       <AlignmentGuardian />
