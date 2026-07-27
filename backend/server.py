@@ -8952,6 +8952,13 @@ api_router.include_router(build_carrier_network_router(
     require_role=require_role,
 ))
 
+# Mount Competitive Scorecard (live, integration-aware)
+from routes.competitive_scorecard import build_competitive_scorecard_router  # noqa: E402
+api_router.include_router(build_competitive_scorecard_router(
+    db=db,
+    get_current_user=get_current_user,
+))
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 

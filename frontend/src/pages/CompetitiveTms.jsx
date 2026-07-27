@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 const TABS = [
+  { id: "scorecard", label: "Scorecard", icon: Trophy },
   { id: "spot-quotes", label: "Spot Requests", icon: Send },
   { id: "accessorials", label: "Accessorials", icon: Calculator },
   { id: "fmcsa", label: "Carrier Vetting", icon: Shield },
@@ -25,7 +26,7 @@ const TABS = [
 ];
 
 export default function CompetitiveTms() {
-  const [tab, setTab] = useState("spot-quotes");
+  const [tab, setTab] = useState("scorecard");
   return (
     <>
       <Topbar title="Competitive TMS" />
@@ -56,6 +57,7 @@ export default function CompetitiveTms() {
           </div>
         </Card>
 
+        {tab === "scorecard" && <ScorecardTab />}
         {tab === "spot-quotes" && <SpotQuotesTab />}
         {tab === "accessorials" && <AccessorialsTab />}
         {tab === "fmcsa" && <FmcsaTab />}
@@ -71,6 +73,128 @@ export default function CompetitiveTms() {
 }
 
 // ============================ A · SPOT QUOTE REQUESTS ============================
+function ScorecardTab() {
+  const [d, setD] = useState(null);
+  useEffect(() => {
+    api.get("/competitive/scorecard").then(({ data }) => setD(data))
+      .catch(() => toast.error("Failed to load scorecard"));
+  }, []);
+  if (!d) return <Card className="hud-surface p-8 text-center text-slate-500 text-sm">Scoring the platform…</Card>;
+  const DIMS = [
+    { key: "automation", label: "Automation Level" },
+    { key: "margin_visibility", label: "Margin Visibility" },
+    { key: "carrier_match", label: "Carrier Match Accuracy" },
+    { key: "integration_breadth", label: "Integration Breadth" },
+  ];
+  const fmt$ = (n) => `$${Number(n || 0).toLocaleString()}`;
+  const bar = (s) => s >= 8.5 ? "bg-emerald-400" : s >= 6 ? "bg-cyan-400" : "bg-amber-400";
+  return (
+    <div className="space-y-5" data-testid="comp-scorecard-panel">
+      {/* Verdict + headline numbers */}
+      <Card className="hud-surface p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-2xl">
+            <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400">Live verdict · auto-scored from connected integrations</div>
+            <p className="text-sm text-slate-200 mt-2" data-testid="scorecard-verdict">{d.verdict}</p>
+          </div>
+          <div className="flex gap-3">
+            <div className="p-3 rounded border border-cyan-500/30 bg-cyan-500/5 text-center">
+              <div className="text-[9px] font-mono uppercase text-cyan-400">Overall</div>
+              <div className="text-2xl font-black text-cyan-300" data-testid="scorecard-overall">{d.overall_score}<span className="text-xs text-slate-500">/10</span></div>
+            </div>
+            <div className="p-3 rounded border border-emerald-500/30 bg-emerald-500/5 text-center">
+              <div className="text-[9px] font-mono uppercase text-emerald-400">Impact / Mo</div>
+              <div className="text-lg font-black text-emerald-300" data-testid="scorecard-impact">{fmt$(d.revenue_impact_month?.low)}–{fmt$(d.revenue_impact_month?.high)}</div>
+            </div>
+            <div className="p-3 rounded border border-white/10 bg-white/[0.02] text-center">
+              <div className="text-[9px] font-mono uppercase text-slate-500">Your Cost / Mo</div>
+              <div className="text-lg font-black text-slate-200">{d.cost_month.split(" ")[0]}</div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Dimension gauges */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {DIMS.map(({ key, label }) => {
+          const dim = d.dimensions?.[key] || {};
+          return (
+            <Card key={key} className="hud-surface p-4" data-testid={`scorecard-dim-${key}`}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-white">{label}</span>
+                <span className="text-sm font-black text-cyan-300">{dim.score}<span className="text-[10px] text-slate-500">/10 · ceiling {dim.ceiling}</span></span>
+              </div>
+              <div className="h-2 rounded bg-white/5 overflow-hidden mb-2">
+                <div className={`h-full rounded ${bar(dim.score)}`} style={{ width: `${(dim.score / 10) * 100}%` }} />
+              </div>
+              <ul className="space-y-1">
+                {(dim.notes || []).map((n, i) => (
+                  <li key={i} className={`text-[10px] font-mono ${/MOCKED|unlock/.test(n) ? "text-amber-300" : "text-slate-400"}`}>· {n}</li>
+                ))}
+              </ul>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Competitor comparison */}
+      <Card className="hud-surface p-4" data-testid="scorecard-competitors">
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 mb-2">Head-to-head vs commercial suites</div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-[9px] font-mono uppercase tracking-widest text-slate-500 border-b border-white/10">
+                <th className="py-2 pr-3">Suite</th><th className="py-2 pr-3">Automation</th><th className="py-2 pr-3">Margin Vis.</th>
+                <th className="py-2 pr-3">Match</th><th className="py-2 pr-3">Integrations</th><th className="py-2 pr-3">Cost/Mo</th><th className="py-2">Impact/Mo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-cyan-500/20 bg-cyan-500/5">
+                <td className="py-2 pr-3 font-bold text-cyan-300">Orisei TMS (you)</td>
+                <td className="py-2 pr-3 font-mono text-cyan-300">{d.dimensions.automation.score}</td>
+                <td className="py-2 pr-3 font-mono text-cyan-300">{d.dimensions.margin_visibility.score}</td>
+                <td className="py-2 pr-3 font-mono text-cyan-300">{d.dimensions.carrier_match.score}</td>
+                <td className="py-2 pr-3 font-mono text-cyan-300">{d.dimensions.integration_breadth.score}</td>
+                <td className="py-2 pr-3 font-mono text-emerald-300">{d.cost_month.split(" ")[0]}</td>
+                <td className="py-2 font-mono text-emerald-300">+{fmt$(d.revenue_impact_month?.low)}–{fmt$(d.revenue_impact_month?.high)}</td>
+              </tr>
+              {(d.competitors || []).map((c) => (
+                <tr key={c.name} className="border-b border-white/5">
+                  <td className="py-2 pr-3 text-slate-200">{c.name}</td>
+                  <td className="py-2 pr-3 font-mono text-slate-400">{c.automation}</td>
+                  <td className="py-2 pr-3 font-mono text-slate-400">{c.margin_visibility}</td>
+                  <td className="py-2 pr-3 font-mono text-slate-400">{c.carrier_match}</td>
+                  <td className="py-2 pr-3 font-mono text-slate-400">{c.integration_breadth}</td>
+                  <td className="py-2 pr-3 font-mono text-slate-400">{c.cost_month}</td>
+                  <td className="py-2 font-mono text-slate-400">{c.impact_month}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Gap unlocks */}
+      <Card className="hud-surface p-4 border-amber-500/20" data-testid="scorecard-gaps">
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-400 mb-2">Score unlocks — wire these in /connections</div>
+        {(d.gaps || []).length === 0 ? (
+          <div className="text-xs text-emerald-300">All catalog integrations connected — ceiling reached.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {d.gaps.map((g) => (
+              <div key={g.action} className="p-2.5 rounded border border-white/10 bg-white/[0.02]">
+                <div className="text-xs font-semibold text-slate-100">{g.action}</div>
+                <div className="text-[10px] font-mono text-amber-300 mt-0.5">{g.unlocks}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="text-[9px] font-mono text-slate-600 mt-3">Connected now: {(d.connected_integrations || []).join(", ") || "none"} {d.ai_live ? "· AI engine LIVE" : ""}</div>
+      </Card>
+    </div>
+  );
+}
+
 function SpotQuotesTab() {
   const [items, setItems] = useState([]);
   const fetchAll = async () => {
