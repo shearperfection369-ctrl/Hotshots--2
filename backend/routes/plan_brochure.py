@@ -404,7 +404,7 @@ def _page_runway(c: Canvas, page: int, total: int):
 def _page_financials(c: Canvas, page: int, total: int):
     c.setFillColor(PAPER)
     c.rect(0, 0, W, H, fill=1, stroke=0)
-    _page_head(c, "The Numbers", "3-Year Financial Projections", FOREST)
+    _page_head(c, "The Numbers", "3-Year Projections — Base Case (Brokerage-Only)", FOREST)
     rows = [
         ("Loads brokered (shipper-led ramp)", "2,000", "5,200", "6,760", False),
         ("Gross revenue ($2,000 avg FTL)", "$4,000,000", "$10,400,000", "$13,520,000", True),
