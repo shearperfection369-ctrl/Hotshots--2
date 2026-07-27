@@ -107,7 +107,7 @@ export default function TmsInviteLinks() {
                 three-product demo deck</span> (JadeOS Quantum AI · JadeOS-Agent Suite · Hot Shot TMS).
                 Token tracking still applies — every visit and download is logged
                 with IP, user-agent, timestamp, and triggers a real-time Resend alert
-                to shearperfection369@gmail.com.
+                to oliver@oriseifreightsolutions.com.
               </p>
             </div>
             <div className="flex gap-3">

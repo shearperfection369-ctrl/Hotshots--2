@@ -1,10 +1,10 @@
 {
-  "trained_at": "2026-07-03T16:52:56.345205+00:00",
-  "trained_by": "test-admin-1",
-  "rows_used": 403,
-  "accepted_rows": 189,
-  "accept_auc": 0.944,
-  "rate_r2": 0.558,
+  "trained_at": "2026-07-27T06:48:51.139316+00:00",
+  "trained_by": "user_0f30a3ffb652",
+  "rows_used": 405,
+  "accepted_rows": 190,
+  "accept_auc": 0.941,
+  "rate_r2": 0.498,
   "features": [
     "match_score",
     "margin_usd",

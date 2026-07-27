@@ -189,6 +189,16 @@ def build_orisei_ops_router(
                         agg["late"] += 1
         carriers = await db.carriers.find({}, {"_id": 0}).to_list(500)
         cname = {(c.get("mc_number") or c.get("dot_number")): c.get("name") for c in carriers}
+        for c in await db.dispatch_carriers.find({}, {"_id": 0}).to_list(500):
+            key = c.get("mc_number") or c.get("carrier_id") or c.get("id")
+            if key and key not in cname:
+                cname[key] = c.get("name") or c.get("carrier_name")
+        booked_names = {}
+        for b in recent:
+            key = b.get("carrier_mc") or b.get("carrier_id") or "Unassigned"
+            nm = b.get("carrier_name") or b.get("carrier")
+            if nm and key not in booked_names:
+                booked_names[key] = nm
         carrier_rows: List[Dict[str, Any]] = []
         for mc, agg in cmap.items():
             otp_total_c = agg["on_time"] + agg["late"]
@@ -196,7 +206,7 @@ def build_orisei_ops_router(
             margin = agg["revenue"] - agg["carrier_cost"]
             carrier_rows.append({
                 "carrier_mc": mc,
-                "carrier_name": cname.get(mc, mc),
+                "carrier_name": cname.get(mc) or booked_names.get(mc) or mc,
                 "loads": int(agg["loads"]),
                 "miles": round(agg["miles"]),
                 "carrier_cost_usd": round(agg["carrier_cost"], 2),

@@ -82,7 +82,7 @@ export default function PublicRfpBoard() {
         {activeRfp && <BidDialog rfp={activeRfp} onClose={() => setActiveRfp(null)} />}
 
         <div className="text-center text-xs text-slate-500 font-mono py-6">
-          Orisei Freight Solutions LLC · shearperfection369@gmail.com
+          Orisei Freight Solutions LLC · oliver@oriseifreightsolutions.com
         </div>
       </div>
     </div>

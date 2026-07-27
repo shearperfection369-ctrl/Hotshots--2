@@ -317,7 +317,7 @@ export default function TmsInvestors() {
               <span>•</span>
               <span className="flex items-center gap-1.5"><MapPin size={12} style={{ color: HSTMS_CYAN }} /> {data.founder.location}</span>
               <span>•</span>
-              <span className="flex items-center gap-1.5"><Mail size={12} style={{ color: HSTMS_CYAN }} /> shearperfection369@gmail.com</span>
+              <span className="flex items-center gap-1.5"><Mail size={12} style={{ color: HSTMS_CYAN }} /> oliver@oriseifreightsolutions.com</span>
             </div>
           </div>
 
@@ -891,7 +891,7 @@ export default function TmsInvestors() {
           <div className="flex items-center gap-4">
             <Link to="/about" className="hover:text-cyan-300">Overview</Link>
             <Link to="/login" className="hover:text-cyan-300">Sign In</Link>
-            <a href="mailto:shearperfection369@gmail.com" className="hover:text-cyan-300">Contact</a>
+            <a href="mailto:oliver@oriseifreightsolutions.com" className="hover:text-cyan-300">Contact</a>
           </div>
         </div>
       </footer>

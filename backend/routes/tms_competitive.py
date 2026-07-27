@@ -604,7 +604,7 @@ def build_tms_competitive_router(
                 from_email = creds.get("from_email") or "onboarding@resend.dev"
                 _r.Emails.send({
                     "from": f"Orisei Portal <{from_email}>",
-                    "to": ["shearperfection369@gmail.com"],
+                    "to": ["oliver@oriseifreightsolutions.com"],
                     "subject": f"Spot quote request · {tok['customer_name']} · {payload.origin} → {payload.destination}",
                     "html": (f"<p>New spot quote from <b>{tok['customer_name']}</b>:</p>"
                               f"<ul><li>Lane: {payload.origin} → {payload.destination}</li>"

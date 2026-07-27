@@ -188,7 +188,7 @@ async def _maybe_notify_founder(db, doc: Dict[str, Any], request: Request,
     if not creds or not creds.get("api_key"):
         return
 
-    to_email = "shearperfection369@gmail.com"
+    to_email = "oliver@oriseifreightsolutions.com"
     from_email = creds.get("from_email") or "onboarding@resend.dev"
     from_name = creds.get("from_name") or "Hot Shot TMS"
     firm = doc.get("firm_name") or "Unknown firm"
@@ -424,7 +424,7 @@ def build_tms_invite_links_router(
                         + (f"Attn: {doc['contact_name']}\n" if doc.get("contact_name") else "")
                         + f"Token: {doc['token']}\n"
                         f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}\n"
-                        f"\nFounder: Oliver Cummins · shearperfection369@gmail.com\n"
+                        f"\nFounder: Oliver Cummins · oliver@oriseifreightsolutions.com\n"
                         f"HQ: Plymouth, Minnesota\n"
                         f"\nThis package is confidential and intended solely\n"
                         f"for {doc['firm_name']}. Please do not forward without\n"

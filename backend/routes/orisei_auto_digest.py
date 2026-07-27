@@ -18,6 +18,7 @@ schedule that runs every Monday at 13:00 UTC (= 6 AM US Central).
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import uuid
@@ -133,7 +134,7 @@ Thank you for trusting us with your freight.
 **Oliver Cummins**
 *Orisei Freight Solutions LLC*
 Plymouth, Minnesota
-shearperfection369@gmail.com
+oliver@oriseifreightsolutions.com
 """
 
 
@@ -171,7 +172,7 @@ def _digest_html(customer: Dict[str, Any], week_start: datetime,
     </p>
     <p style="margin-top:24px;color:#C9A24A;font-weight:bold;">— Oliver Cummins</p>
     <p style="color:#9CA3AF;font-size:11px;margin-top:24px;">
-      Orisei Freight Solutions LLC · Plymouth, MN · shearperfection369@gmail.com
+      Orisei Freight Solutions LLC · Plymouth, MN · oliver@oriseifreightsolutions.com
     </p>
   </td></tr>
 </table>
@@ -244,13 +245,36 @@ def build_auto_digest_router(
             ws = ws.replace(tzinfo=timezone.utc)
         return ws, ws + timedelta(days=7)
 
+    async def _ai_narrative(customer: Dict[str, Any], kpis: Dict[str, Any]) -> str:
+        try:
+            import os as _os
+            import uuid as _uuid
+            from emergentintegrations.llm.chat import LlmChat, UserMessage
+            key = _os.environ.get("EMERGENT_LLM_KEY")
+            if not key:
+                return ""
+            chat = LlmChat(api_key=key, session_id=f"kpi-digest-{_uuid.uuid4().hex[:8]}",
+                           system_message="You write 3-4 sentence weekly freight KPI narratives for shippers. "
+                                          "Warm, factual, zero fluff, first person plural (we).").with_model(
+                "anthropic", "claude-sonnet-4-5-20250929")
+            summary = {k: v for k, v in kpis.items() if k not in ("bookings", "invoices")}
+            reply = await chat.send_message(UserMessage(
+                text=f"Weekly KPI narrative for {customer.get('name')}: {summary}"))
+            return str(reply).strip()
+        except Exception as exc:                                    # noqa: BLE001
+            logger.warning("Digest AI narrative skipped: %s", exc)
+            return ""
+
     async def _build_for_customer(customer: Dict[str, Any],
                                     week_start: datetime,
                                     week_end: datetime,
                                     brand: Dict[str, Any]) -> Dict[str, Any]:
         kpis = await _compute_kpis(customer, week_start, week_end)
+        narrative = await _ai_narrative(customer, kpis)
         md = _digest_markdown(customer, kpis, kpis["bookings"],
                                 kpis["invoices"], week_start, week_end)
+        if narrative:
+            md = f"> **Your week in review (AI):** {narrative}\n\n" + md
         pdf = build_branded_markdown_pdf(
             md, title="Weekly Freight Recap",
             subtitle=f"For {customer.get('name')}",
@@ -365,3 +389,25 @@ def build_auto_digest_router(
         return row
 
     api_router.include_router(router)
+
+    async def _weekly_scheduler() -> None:
+        """AI-handled weekly digest: auto-runs every Monday 07:00-08:00 CT."""
+        await asyncio.sleep(45)
+        while True:
+            try:
+                ct = _now() - timedelta(hours=6)
+                if ct.weekday() == 0 and 7 <= ct.hour < 8:
+                    wk = ct.strftime("%G-W%V")
+                    state = await db.orisei_digest_state.find_one({"_id": "weekly"}) or {}
+                    if state.get("last_week") != wk:
+                        await run_digest.__wrapped__(RunIn(), None) if hasattr(run_digest, "__wrapped__") \
+                            else await run_digest(RunIn(), None)
+                        await db.orisei_digest_state.update_one(
+                            {"_id": "weekly"}, {"$set": {"last_week": wk, "ran_at": _iso(_now())}},
+                            upsert=True)
+                        logger.info("Weekly shipper KPI digest auto-run complete (%s)", wk)
+            except Exception as exc:                                # noqa: BLE001
+                logger.warning("Weekly digest scheduler error: %s", exc)
+            await asyncio.sleep(1800)
+
+    return _weekly_scheduler

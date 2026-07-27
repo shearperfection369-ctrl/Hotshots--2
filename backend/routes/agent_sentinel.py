@@ -67,7 +67,8 @@ def _error_rate_snapshot() -> Dict[str, Any]:
     cutoff = time.time() - 3600
     recent = [s for ts, s in _REQ_WINDOW if ts >= cutoff]
     total = len(recent)
-    errors = sum(1 for s in recent if s >= 500)
+    errors = sum(1 for s in recent if s >= 500 and s not in (502, 504))
+    upstream = sum(1 for s in recent if s in (502, 504))
     rate = (errors / total) if total else 0.0
     status = "ok"
     if total >= ERR_MIN_SAMPLE and rate >= ERR_RATE_CRIT:
@@ -75,6 +76,7 @@ def _error_rate_snapshot() -> Dict[str, Any]:
     elif total >= ERR_MIN_SAMPLE and rate >= ERR_RATE_WARN:
         status = "degraded"
     return {"window_min": 60, "total_requests": total, "errors_5xx": errors,
+            "upstream_502_504": upstream,
             "rate_pct": round(rate * 100, 2), "status": status}
 
 

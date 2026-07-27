@@ -38,6 +38,11 @@ log = logging.getLogger("orisei.data_status")
 TRACKED_COLLECTIONS: List[str] = [
     "shipments",
     "brokerage_bookings",
+    "carriers",
+    "dispatch_carriers",
+    "shipper_prospects",
+    "shipper_accounts",
+    "freight_quotes",
     "orisei_customers",
     "orisei_invoices",
     "orisei_quotes",

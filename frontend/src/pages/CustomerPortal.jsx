@@ -49,7 +49,7 @@ export default function CustomerPortal() {
             <div className="font-bold text-red-300">Portal unavailable</div>
             <div className="text-sm text-slate-400 mt-1">{error}</div>
             <div className="text-xs text-slate-500 mt-3 font-mono">
-              Contact us · shearperfection369@gmail.com · Orisei Freight Solutions
+              Contact us · oliver@oriseifreightsolutions.com · Orisei Freight Solutions
             </div>
           </div>
         </div>
@@ -107,7 +107,7 @@ export default function CustomerPortal() {
       {tab === "quotes" && <QuotesTab quotes={data.quotes} />}
 
       <div className="text-center text-xs text-slate-500 font-mono py-6">
-        Orisei Freight Solutions LLC · Plymouth, MN · shearperfection369@gmail.com
+        Orisei Freight Solutions LLC · Plymouth, MN · oliver@oriseifreightsolutions.com
       </div>
     </Shell>
   );

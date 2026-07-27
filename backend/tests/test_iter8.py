@@ -106,14 +106,14 @@ def test_admin_emails_env_contains_shearperfection():
     # read from backend .env file (env passed to backend process may not be in test env)
     with open("/app/backend/.env") as f:
         content = f.read()
-    assert "shearperfection369@gmail.com" in content.lower()
+    assert "oliver@oriseifreightsolutions.com" in content.lower()
     assert "ADMIN_EMAILS" in content
 
 
 def test_test_credentials_md_has_shearperfection():
     with open("/app/memory/test_credentials.md") as f:
         content = f.read().lower()
-    assert "shearperfection369@gmail.com" in content
+    assert "oliver@oriseifreightsolutions.com" in content
     assert "admin" in content
 
 

@@ -156,7 +156,7 @@ def _quote_markdown(quote: Dict[str, Any], customer: Dict[str, Any]) -> str:
 ---
 
 **Orisei Freight Solutions LLC** · Plymouth, Minnesota
-shearperfection369@gmail.com
+oliver@oriseifreightsolutions.com
 """
 
 
@@ -218,7 +218,7 @@ By signing or returning this Rate Confirmation, carrier agrees to:
 ---
 
 **Orisei Freight Solutions LLC** · Plymouth, Minnesota
-Operations: shearperfection369@gmail.com
+Operations: oliver@oriseifreightsolutions.com
 """
 
 
@@ -532,7 +532,7 @@ def build_orisei_operations_router(
                 f"<p>Please sign and return within 2 hours to confirm. "
                 f"QuickPay {'available at ' + str(rc.get('quickpay_fee_pct', 3)) + '%' if rc.get('quickpay_offered') else 'not offered on this load'}.</p>"
                 f"<p>Oliver Cummins<br>Orisei Freight Solutions<br>"
-                f"shearperfection369@gmail.com</p>")
+                f"oliver@oriseifreightsolutions.com</p>")
         sent = await _resend_send(db, to=to_email,
             subject=f"Rate Con {rc_id} · {booking.get('origin')} → {booking.get('destination')} · ${rc['rate_usd']:,.0f}",
             html=html, attachments=[{

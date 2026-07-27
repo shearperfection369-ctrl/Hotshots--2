@@ -157,7 +157,7 @@ def build_shipper_finder_router(
             docs = []
             for s in SEED:
                 docs.append({**s, "id": f"SHP-{uuid.uuid4().hex[:8].upper()}",
-                             "next_action_date": "", "touches": [],
+                             "next_action_date": "", "touches": [], "is_sample": True,
                              "created_at": _now(), "updated_at": _now(),
                              "state": s.get("state", "MN")})
             await col.insert_many(docs)

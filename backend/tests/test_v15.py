@@ -217,7 +217,7 @@ class TestAdminAllowList:
         with open("/app/backend/.env") as f:
             content = f.read()
         assert "ADMIN_EMAILS" in content
-        assert "shearperfection369@gmail.com" in content
+        assert "oliver@oriseifreightsolutions.com" in content
         assert "test.admin@tennantco.com" in content
 
     def test_allow_listed_user_promoted_on_relogin(self):
@@ -226,7 +226,7 @@ class TestAdminAllowList:
         Since we can't hit /auth/session without a real demobackend session, we verify
         the env var is honored by inserting a dispatcher with allow-listed email,
         then directly checking the upgrade logic by simulating an upgrade write."""
-        email = "shearperfection369@gmail.com"
+        email = "oliver@oriseifreightsolutions.com"
         ts = int(time.time() * 1000)
         user_id = f"test-allowlist-{ts}"
         token = f"test_session_allowlist_{ts}"

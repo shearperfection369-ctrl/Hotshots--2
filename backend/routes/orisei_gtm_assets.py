@@ -96,7 +96,7 @@ to the Twin Cities, MSP rail ramps, and Gulf export terminals.
 
 **Oliver Cummins** · Founder & Head of Dispatch
 Plymouth, MN
-shearperfection369@gmail.com
+oliver@oriseifreightsolutions.com
 """
 
 
@@ -116,7 +116,7 @@ in real time — no login required.
 — Oliver
 
 Oliver Cummins · Orisei Freight Solutions · Plymouth, MN
-shearperfection369@gmail.com · {phone}""",
+oliver@oriseifreightsolutions.com · {phone}""",
     },
     "v2_harvest_overflow": {
         "subject": "Harvest overflow capacity — {company}",
@@ -188,7 +188,7 @@ What I focus on:
 Most of our work is grain belt → MSP rail / Gulf export / PNW. If your
 freight runs that map, send me a note.
 
-shearperfection369@gmail.com
+oliver@oriseifreightsolutions.com
 
 ## Featured section (3 items)
 1. **Orisei Customer Portal demo** — link to https://livecleans.com/customer-portal-demo
@@ -249,7 +249,7 @@ Need a POD? It's already in your portal the moment the truck unloads.
 (00:24)
 
 Orisei Freight Solutions. Built in Minnesota. For Minnesota grain.
-Email Oliver — shearperfection369@gmail.com.
+Email Oliver — oliver@oriseifreightsolutions.com.
 ```
 
 ## Visual storyboard
@@ -261,7 +261,7 @@ Email Oliver — shearperfection369@gmail.com.
 | 00:09 - 00:16 | Screen recording: customer portal opening; routing-guide tab; lane card with live RPM band | Live UI walkthrough |
 | 00:17 - 00:22 | Spot-quote-request dialog open + submit + success state | Lower-third: "Reply in 30 min" |
 | 00:23 - 00:27 | POD photo gallery on portal | Lower-third: "POD in real-time" |
-| 00:28 - 00:30 | Closing card | "Orisei Freight Solutions · Plymouth, MN · shearperfection369@gmail.com" |
+| 00:28 - 00:30 | Closing card | "Orisei Freight Solutions · Plymouth, MN · oliver@oriseifreightsolutions.com" |
 
 ## Distribution
 
