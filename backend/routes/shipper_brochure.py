@@ -27,7 +27,7 @@ def _footer(c: Canvas, page: int, total: int):
     c.setFont("Helvetica", 7)
     c.setFillColor(SLATE)
     c.drawString(40, 14, "Orisei Freight Solutions LLC · Ship With Orisei · Minneapolis, Minnesota")
-    c.drawRightString(W - 40, 14, f"oliver@oriseifreightsolutions.com · (612) 555-0117 · Page {page} of {total}")
+    c.drawRightString(W - 40, 14, f"oliver@oriseifreightsolutions.com · (763) 443-4459 · Page {page} of {total}")
 
 
 def _cover(c: Canvas):
@@ -210,7 +210,7 @@ def _page_contact(c: Canvas, page: int, total: int):
     c.drawCentredString(W / 2, H - 212, "Even if you never tender us a load — know what the market says your lanes are worth.")
     rows = [
         ("Shipper desk", "oliver@oriseifreightsolutions.com"),
-        ("Phone (Oliver Cummins, Principal Broker)", "(612) 555-0117"),
+        ("Phone (Oliver Cummins, Principal Broker)", "(763) 443-4459"),
         ("Portal", "oriseifreight.com/shippers"),
         ("Headquarters", "Minneapolis - Saint Paul - Brooklyn Park, Minnesota"),
     ]

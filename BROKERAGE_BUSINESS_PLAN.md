@@ -6,7 +6,7 @@
 **Legal Form:** Three-member, member-managed LLC (MN Chapter 322C) · S-Corp election in Year 2
 **Authority:** US DOT · MC# (Property Broker) · BOC-3 · BMC-84 $75,000 Surety
 **Assets:** 2 company trucks (asset division · in service Month 3 · anchored by Doug Graham's 12-yr owner/operator experience)
-**Contact:** oliver@oriseifreightsolutions.com · oliver@oriseifreightsolutions.com · (612) 555-0117
+**Contact:** oliver@oriseifreightsolutions.com · oliver@oriseifreightsolutions.com · (763) 443-4459
 **Launch Capital:** $30,000 — $10,000 committed by each of the three members
 **Plan Horizon:** 2026 – 2029 (3-year operating window)
 
@@ -871,4 +871,4 @@ no freight is ever turned away.*
 
 ---
 
-*Orisei Freight Solutions LLC · Partner-built freight brokerage · Minneapolis · Saint Paul · Brooklyn Park · Minnesota · oliver@oriseifreightsolutions.com · oliver@oriseifreightsolutions.com · (612) 555-0117*
+*Orisei Freight Solutions LLC · Partner-built freight brokerage · Minneapolis · Saint Paul · Brooklyn Park · Minnesota · oliver@oriseifreightsolutions.com · oliver@oriseifreightsolutions.com · (763) 443-4459*

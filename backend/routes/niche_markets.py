@@ -615,19 +615,30 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
                 <p>{p.get('greeting', 'Hi,')}</p>{paras}
                 <ul style="font-size:13.5px;color:#334155">{bullets}</ul>
                 <p>{p.get('closing', '')}</p>
-                <p>— {company}<br/><a href="mailto:{reply_to}" style="color:{accent}">{reply_to}</a></p>
+                <p style="font-size:12.5px;color:#475569">Our full-color shipper brochure is attached — service standards, live-tracking platform, and our Ten Commitments to every shipper.</p>
+                <p>— {company}<br/><a href="mailto:{reply_to}" style="color:{accent}">{reply_to}</a><br/>(763) 443-4459</p>
               </div>
             </div>"""
             from routes.orisei_auto_digest import _resend_creds, _send_via_resend
+            from routes.shipper_brochure import build_shipper_brochure_pdf
             creds = await _resend_creds(db)
-            res = await _send_via_resend(creds, to=to, subject=pitch_doc["subject"], html=html) \
+            brochure = None
+            try:
+                brochure = build_shipper_brochure_pdf()
+            except Exception:
+                log.exception("shipper brochure build failed — sending without attachment")
+            res = await _send_via_resend(
+                creds, to=to, subject=pitch_doc["subject"], html=html,
+                pdf_bytes=brochure, pdf_filename="Orisei-Freight-Shipper-Brochure.pdf") \
                 if creds else {"sent": False, "error": "no_resend_creds"}
             status = "sent" if res.get("sent") else "recorded_no_key"
             await db.outbound_emails.insert_one({
                 "to": to, "subject": pitch_doc["subject"], "html": html, "status": status,
                 "error": res.get("error"), "kind": "niche_market_pitch", "target_id": tid,
+                "brochure_attached": bool(brochure),
                 "at": _now_iso(), "sent_by": getattr(user, "name", "system")})
-            pitch_doc.update({"sent": res.get("sent", False), "sent_to": to, "send_status": status})
+            pitch_doc.update({"sent": res.get("sent", False), "sent_to": to, "send_status": status,
+                              "brochure_attached": bool(brochure)})
             upd = {"last_pitch": pitch_doc, "contact_email": to, "updated_at": _now_iso(),
                    "last_outreach_at": _now_iso(), "last_touch_at": _now_iso(),
                    "last_touchpoint": f"{'Follow-up' if payload.follow_up else 'Pitch'} emailed to {to}"

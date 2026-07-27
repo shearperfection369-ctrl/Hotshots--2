@@ -33,7 +33,7 @@ ORISEI_BRAND: Dict[str, Any] = {
         "carrier":   "oliver@oriseifreightsolutions.com",
         "general":   "oliver@oriseifreightsolutions.com",
     },
-    "phone":             "(612) 555-0114",
+    "phone":             "(763) 443-4459",
     "hq_city":           "Minneapolis, MN",
     "headquarters":      "Minneapolis · Saint Paul, MN",
     "website":           "oriseifreight.com",

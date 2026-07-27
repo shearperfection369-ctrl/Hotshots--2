@@ -62,7 +62,7 @@ export default function TcProofPublic() {
             {data.photos.length === 0 && <div className="text-slate-600 text-xs font-mono">Photos are being uploaded — check back shortly.</div>}
           </div>
         )}
-        <div className="text-center text-[10px] text-slate-600 font-mono mt-8">Orisei Truck Cleaning Solutions · every job ships with time-stamped proof · (612) 555-0117</div>
+        <div className="text-center text-[10px] text-slate-600 font-mono mt-8">Orisei Truck Cleaning Solutions · every job ships with time-stamped proof · (763) 443-4459</div>
       </div>
       {zoom && (
         <div className="fixed inset-0 z-50 bg-black/85 grid place-items-center p-4" onClick={() => setZoom(null)}>

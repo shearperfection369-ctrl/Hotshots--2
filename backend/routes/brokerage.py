@@ -1073,7 +1073,7 @@ def build_brokerage_router(
     <p>Hi {booking.get('customer_contact') or booking.get('customer_name') or 'Team'},</p>
     <p>Attached is the signed BOL for the tendered load. Pickup will be confirmed shortly.</p>
     {f'<p style="background:#FBF8F0;border-left:3px solid #C9A24A;padding:10px 14px;font-style:italic;">{msg_html}</p>' if msg_html else ''}
-    <p style="margin-top:20px;">— Operations<br><b>Orisei Freight Solutions LLC</b><br>oliver@oriseifreightsolutions.com · (612) 555-0117</p>
+    <p style="margin-top:20px;">— Operations<br><b>Orisei Freight Solutions LLC</b><br>oliver@oriseifreightsolutions.com · (763) 443-4459</p>
   </div></div></body></html>"""
         try:
             resend.api_key = api_key
@@ -1127,7 +1127,7 @@ def build_brokerage_router(
             "name": booking.get("shipper_name") or brand.get("company_name") or "Orisei Freight Solutions LLC",
             "address": booking.get("shipper_address") or "Operations HQ",
             "city_state_zip": booking.get("origin") or "Minneapolis, MN",
-            "contact": "oliver@oriseifreightsolutions.com  ·  +1 (612) 555-0117",
+            "contact": "oliver@oriseifreightsolutions.com  ·  +1 (763) 443-4459",
         }
         consignee = {
             "name": booking.get("customer_name") or "Customer / Consignee",
@@ -1249,7 +1249,7 @@ def build_brokerage_router(
       </table>
       {f'<p style="background:#FBF8F0; border-left:3px solid #C9A24A; padding:10px 14px; font-style:italic; color:#0B1320;">{message_html}</p>' if message_html else ''}
       <p>If anything looks off — concealed damage, shortage, or a billing question — reply to this email within nine months and we will open a claim immediately.</p>
-      <p style="margin-top:20px;">— Operations<br><b>Orisei Freight Solutions LLC</b><br>oliver@oriseifreightsolutions.com · (612) 555-0117</p>
+      <p style="margin-top:20px;">— Operations<br><b>Orisei Freight Solutions LLC</b><br>oliver@oriseifreightsolutions.com · (763) 443-4459</p>
     </div>
     <div style="background:#FBF8F0; color:#94A3B8; font-size:10px; text-align:center; padding:10px; font-family:Courier,monospace;">
       ORISEI FREIGHT SOLUTIONS · MINNEAPOLIS · SAINT PAUL · MN

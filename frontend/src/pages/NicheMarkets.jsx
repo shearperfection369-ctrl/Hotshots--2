@@ -586,7 +586,7 @@ function TargetDrawer({ target, vertical, onClose }) {
         {t.last_pitch && (
           <div className="p-3.5 rounded-xl border border-amber-500/25 bg-amber-500/5 space-y-2" data-testid="nm-pitch-preview">
             <div className="flex items-center justify-between">
-              <div className="text-[10px] font-mono uppercase text-amber-300 font-bold">{t.last_pitch.kind === "follow_up" ? "Follow-up email" : "Pitch email"} {t.last_pitch.sent && <span className="text-emerald-300">· SENT</span>}</div>
+              <div className="text-[10px] font-mono uppercase text-amber-300 font-bold">{t.last_pitch.kind === "follow_up" ? "Follow-up email" : "Pitch email"} {t.last_pitch.sent && <span className="text-emerald-300">· SENT</span>}{t.last_pitch.brochure_attached && <span className="text-cyan-300"> · BROCHURE ATTACHED</span>}</div>
               <button onClick={() => { navigator.clipboard.writeText(`${t.last_pitch.subject}\n\n${t.last_pitch.body_text}`); toast.success("Copied"); }} data-testid="nm-pitch-copy" className="text-slate-400 hover:text-white"><Copy size={13} /></button>
             </div>
             <div className="text-[12px] font-bold text-white">{t.last_pitch.subject}</div>

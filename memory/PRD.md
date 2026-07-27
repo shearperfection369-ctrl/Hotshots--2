@@ -2429,3 +2429,10 @@ retrains scoring weights from revealed preferences — making the intuitive
    - Cost-per-close: est_acquisition_cost field + payback line nm-sim-payback.
    - ESC-close drawer re-verified working (tester flag was stale). Known cosmetic: global MOSTLY LIVE
      banner shows above page (app-wide sample-data banner, not module-specific).
+6. PHONE + BROCHURE EMAIL-READY (2026-07): business phone updated app-wide to (763) 443-4459 —
+   26 code/md spots (sed 612-555-0117/0114 variants), 6 company_brand DB docs, tel: links. Fictional
+   prospect/carrier 555-01xx numbers intentionally left. Verified: shipper (7pp), carrier (6pp) brochures
+   + business plan carry new number, zero old refs. Niche-market pitch send now ATTACHES the full-color
+   shipper brochure PDF via Resend (pdf_bytes/pdf_filename on _send_via_resend), records
+   brochure_attached in outbound_emails + pitch doc, email HTML mentions attachment + phone; UI shows
+   "· BROCHURE ATTACHED" badge in nm-pitch-preview. Delivery still pending Resend key (recorded_no_key).

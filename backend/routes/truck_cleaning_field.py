@@ -258,7 +258,7 @@ def build_truck_cleaning_field_router(*, db, require_role: Callable) -> APIRoute
     <p style="text-align:center;margin:22px 0;">
       <a href="{proof_url}" style="background:#F59E0B;color:#0D1117;font-weight:800;padding:12px 28px;border-radius:999px;text-decoration:none;">VIEW FULL GALLERY</a>
     </p>
-    <p style="margin-top:20px;">— Oliver Cummins<br><b>Orisei Truck Cleaning Solutions</b><br>oliver@oriseifreightsolutions.com · (612) 555-0117</p>
+    <p style="margin-top:20px;">— Oliver Cummins<br><b>Orisei Truck Cleaning Solutions</b><br>oliver@oriseifreightsolutions.com · (763) 443-4459</p>
   </div></div></body></html>"""
         try:
             resend.api_key = api_key

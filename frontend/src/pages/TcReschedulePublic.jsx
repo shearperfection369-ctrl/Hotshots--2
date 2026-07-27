@@ -50,7 +50,7 @@ export default function TcReschedulePublic() {
         </div>
 
         {state === "loading" && <div className="text-slate-500 font-mono text-sm flex gap-2 items-center"><Loader2 size={14} className="animate-spin" /> Loading…</div>}
-        {state === "invalid" && <div className="p-6 rounded-2xl border border-red-500/30 bg-red-500/5 text-sm" data-testid="tcr-invalid">This link is invalid or expired. Call us at (612) 555-0117.</div>}
+        {state === "invalid" && <div className="p-6 rounded-2xl border border-red-500/30 bg-red-500/5 text-sm" data-testid="tcr-invalid">This link is invalid or expired. Call us at (763) 443-4459.</div>}
 
         {state === "done" && (
           <div className="p-8 rounded-2xl border border-emerald-500/40 bg-emerald-500/5 text-center" data-testid="tcr-done">
@@ -86,7 +86,7 @@ export default function TcReschedulePublic() {
             {err && <div className="text-red-400 text-xs mt-2" data-testid="tcr-error">{err}</div>}
           </div>
         )}
-        <div className="text-center text-[10px] text-slate-600 font-mono mt-8">Orisei Truck Cleaning Solutions · Minneapolis–St. Paul, MN · (612) 555-0117</div>
+        <div className="text-center text-[10px] text-slate-600 font-mono mt-8">Orisei Truck Cleaning Solutions · Minneapolis–St. Paul, MN · (763) 443-4459</div>
       </div>
     </div>
   );

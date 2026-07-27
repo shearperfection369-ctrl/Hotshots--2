@@ -74,7 +74,7 @@ def build_quote_pdf(q: dict) -> bytes:
     c.setFont("Helvetica", 9)
     c.setFillColor(INK)
     c.drawString(x2 + 12, y - 47, "oliver@oriseifreightsolutions.com")
-    c.drawString(x2 + 12, y - 60, "(612) 555-0117 · oriseifreight.com")
+    c.drawString(x2 + 12, y - 60, "(763) 443-4459 · oriseifreight.com")
 
     # Lane table
     ty = y - 104
@@ -156,7 +156,7 @@ def build_quote_pdf(q: dict) -> bytes:
     c.rect(0, 26, W, 2.5, fill=1, stroke=0)
     c.setFont("Helvetica", 7)
     c.setFillColor(SLATE)
-    c.drawString(40, 14, "Orisei Freight Solutions LLC · oliver@oriseifreightsolutions.com · (612) 555-0117")
+    c.drawString(40, 14, "Orisei Freight Solutions LLC · oliver@oriseifreightsolutions.com · (763) 443-4459")
     c.drawRightString(W - 40, 14, f"Freight Quote {q['id']} · generated {datetime.now(timezone.utc).date().isoformat()}")
 
     c.save()

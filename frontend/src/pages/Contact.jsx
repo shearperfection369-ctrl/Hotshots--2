@@ -114,9 +114,9 @@ export default function Contact() {
                   <Mail size={16} style={{ color: GOLD }} />
                   <span>oliver@oriseifreightsolutions.com</span>
                 </a>
-                <a href="tel:+16125550117" data-testid="contact-phone" className="flex items-center gap-3 hover:text-amber-300 transition">
+                <a href="tel:+17634434459" data-testid="contact-phone" className="flex items-center gap-3 hover:text-amber-300 transition">
                   <Phone size={16} style={{ color: GOLD }} />
-                  <span>(612) 555-0117</span>
+                  <span>(763) 443-4459</span>
                 </a>
                 <div className="flex items-center gap-3 text-slate-300">
                   <MapPin size={16} style={{ color: GOLD }} />

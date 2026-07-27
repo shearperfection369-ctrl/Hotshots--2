@@ -1735,7 +1735,7 @@ function DriverFormDialog({ open, driver, onClose, onSaved }) {
         </DialogHeader>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Name" required><Input value={v.name || ""} onChange={set("name")} data-testid="driver-field-name" className="bg-slate-950 border-white/10" /></Field>
-          <Field label="Phone"><Input value={v.phone || ""} onChange={set("phone")} data-testid="driver-field-phone" placeholder="(612) 555-0117" className="bg-slate-950 border-white/10" /></Field>
+          <Field label="Phone"><Input value={v.phone || ""} onChange={set("phone")} data-testid="driver-field-phone" placeholder="(763) 443-4459" className="bg-slate-950 border-white/10" /></Field>
           <Field label="Email"><Input value={v.email || ""} onChange={set("email")} className="bg-slate-950 border-white/10" /></Field>
           <Field label="Carrier (motor carrier)"><CarrierCombobox value={v.carrier_name || ""} onChange={(val) => setV((s) => ({ ...s, carrier_name: val }))} onSelect={(rec) => setV((s) => ({ ...s, carrier_name: rec.name, carrier_mc: rec.mc || s.carrier_mc }))} testid="driver-carrier-combobox" className="bg-slate-950 border-white/10" /></Field>
           <Field label="Carrier MC#"><Input value={v.carrier_mc || ""} onChange={set("carrier_mc")} placeholder="MC-123456" className="bg-slate-950 border-white/10" /></Field>

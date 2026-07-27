@@ -205,7 +205,7 @@ export default function Landing() {
               </div>
               <div className="flex items-center gap-3">
                 <Phone size={14} style={{ color: gold }} />
-                <a href="tel:+16125550117" data-testid="landing-contact-phone" className="hover:underline">(612) 555-0117</a>
+                <a href="tel:+17634434459" data-testid="landing-contact-phone" className="hover:underline">(763) 443-4459</a>
               </div>
             </div>
             <div className="mt-6 grid grid-cols-2 gap-3 text-xs">

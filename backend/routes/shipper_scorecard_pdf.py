@@ -154,7 +154,7 @@ def build_scorecard_pdf(acc: dict, qbrs: list) -> bytes:
     c.rect(0, 26, W, 2.5, fill=1, stroke=0)
     c.setFont("Helvetica", 7)
     c.setFillColor(SLATE)
-    c.drawString(40, 14, "Orisei Freight Solutions LLC · oliver@oriseifreightsolutions.com · (612) 555-0117")
+    c.drawString(40, 14, "Orisei Freight Solutions LLC · oliver@oriseifreightsolutions.com · (763) 443-4459")
     c.drawRightString(W - 40, 14, f"Service Scorecard · {acc.get('account_id', '')}")
     c.save()
     return buf.getvalue()

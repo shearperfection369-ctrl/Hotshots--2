@@ -70,7 +70,7 @@ export default function TcScentCardPublic() {
         </div>
 
         {state === "loading" && <div className="text-slate-500 font-mono text-sm flex gap-2 items-center"><Loader2 size={14} className="animate-spin" /> Loading…</div>}
-        {state === "invalid" && <div className="p-6 rounded-2xl border border-red-500/30 bg-red-500/5 text-sm" data-testid="tcs-invalid">This scent card link is invalid. Call (612) 555-0117.</div>}
+        {state === "invalid" && <div className="p-6 rounded-2xl border border-red-500/30 bg-red-500/5 text-sm" data-testid="tcs-invalid">This scent card link is invalid. Call (763) 443-4459.</div>}
 
         {state === "done" && result && (
           <div className="p-8 rounded-2xl border border-emerald-500/40 bg-emerald-500/5 text-center" data-testid="tcs-done">
@@ -104,7 +104,7 @@ export default function TcScentCardPublic() {
             </button>
           </div>
         )}
-        <div className="text-center text-[10px] text-slate-600 font-mono mt-8">Orisei Truck Cleaning Solutions · Minneapolis–St. Paul, MN · (612) 555-0117</div>
+        <div className="text-center text-[10px] text-slate-600 font-mono mt-8">Orisei Truck Cleaning Solutions · Minneapolis–St. Paul, MN · (763) 443-4459</div>
       </div>
     </div>
   );
