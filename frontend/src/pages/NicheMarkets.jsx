@@ -10,6 +10,9 @@ const STAGE_META = {
   meeting: ["MEETING", "#F59E0B"], pilot_proposed: ["PILOT PROPOSED", "#F472B6"], pilot: ["PILOT LIVE", "#FB923C"], contracted: ["SIGNED", "#10B981"],
 };
 const OUTCOME_META = { active: ["ACTIVE", "#34D399"], maybe: ["MAYBE", "#FBBF24"], no: ["NO — DEPRI", "#F87171"] };
+const LINK_STATUS_META = { in_talks: ["IN TALKS", "#94A3B8"], rate_agreed: ["RATE AGREED", "#FBBF24"], signed: ["SIGNED", "#22D3EE"], live: ["LIVE", "#10B981"] };
+const warmthColor = (w) => (w >= 8 ? "#10B981" : w >= 5 ? "#FBBF24" : "#94A3B8");
+
 const FEAT_META = { done: "#34D399", in_progress: "#FBBF24", missing: "#F87171" };
 const TIER_LABEL = { 1: "TIER 1 · MANUFACTURING & INDUSTRIAL", 2: "TIER 2 · SPECIALTY LOGISTICS", 3: "TIER 3 · NICHE VERTICALS" };
 const daysTo = (d) => Math.ceil((new Date(d) - new Date()) / 86400000);
@@ -102,6 +105,17 @@ export default function NicheMarkets() {
         </div>
       </div>
 
+      <div className="relative grid grid-cols-3 gap-3" data-testid="nm-velocity">
+        {[["Closed last month", dash.velocity?.closed_last_month ?? 0, "pilots/contracts landed"],
+          ["Closing now", dash.velocity?.closing_now ?? 0, "in pilot-proposed or pilot-live today"],
+          ["Projected next", dash.velocity?.projected_next ?? 0, "in meetings now — next month's closes"]].map(([l, v, sub]) => (
+          <div key={l} className="p-3 rounded-2xl border border-white/10 bg-white/[0.03]">
+            <div className="text-[9px] font-mono uppercase tracking-wider text-slate-500">Velocity · {l}</div>
+            <div className="text-xl font-black text-white tabular-nums">{v} <span className="text-[10px] font-mono text-slate-600 font-normal">{sub}</span></div>
+          </div>
+        ))}
+      </div>
+
       <div className="relative grid md:grid-cols-3 gap-3" data-testid="nm-phases">
         {dash.phases.map((ph) => (
           <div key={ph.phase} className="p-4 rounded-2xl border border-white/10 bg-slate-950/60 backdrop-blur">
@@ -162,6 +176,7 @@ export default function NicheMarkets() {
                 <th className="px-4 py-2">Company</th><th className="px-2 py-2">Phase</th>
                 <th className="px-2 py-2 text-right">Loads/mo</th><th className="px-2 py-2 text-right">Y1 potential</th>
                 <th className="px-2 py-2">Stage</th><th className="px-2 py-2">Outcome</th>
+                <th className="px-2 py-2 text-center">Warmth</th>
                 <th className="px-2 py-2">Deadline</th><th className="px-2 py-2">Contact · last touch</th>
                 <th className="px-2 py-2 text-center">Carriers</th><th className="px-2 py-2 text-center">Features</th><th className="px-2 py-2" />
               </tr>
@@ -196,6 +211,9 @@ export default function NicheMarkets() {
                               className="bg-slate-900 border border-white/15 rounded-lg px-1.5 py-1 text-[10px] font-mono font-bold" style={{ color: oCol }}>
                         {Object.keys(OUTCOME_META).map((o) => <option key={o} value={o}>{OUTCOME_META[o][0]}</option>)}
                       </select>
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      {t.warmth_score ? <span className="px-1.5 py-0.5 rounded font-mono font-black text-[10px]" title={t.intro_source || ""} style={{ color: warmthColor(t.warmth_score), border: `1px solid ${warmthColor(t.warmth_score)}55` }}>{t.warmth_score}</span> : <span className="text-slate-700 font-mono text-[10px]">—</span>}
                     </td>
                     <td className="px-2 py-2 font-mono text-[10px]">
                       {dd ? <span className={dl < 0 ? "text-red-400" : dl <= 30 ? "text-amber-300" : "text-slate-400"}>{dd}{dl < 0 ? " ⚠" : ""}</span>
@@ -262,6 +280,15 @@ function TargetDrawer({ target, vertical, onClose }) {
   });
   const [newFeat, setNewFeat] = useState("");
   const [bridge, setBridge] = useState(null);
+  const [intel, setIntel] = useState({
+    intro_source: target.intro_source || "", warmth_score: target.warmth_score || "",
+    current_carrier: target.current_carrier || "", switch_angle: target.switch_angle || "",
+    est_acquisition_cost: target.est_acquisition_cost || "",
+  });
+  const [sim, setSim] = useState({
+    rate: target.sim_shipper_rate || Math.round((target.margin_per_load_est || 400) * 4),
+    cost: target.sim_carrier_cost || Math.round((target.margin_per_load_est || 400) * 3),
+  });
 
   const loadBridge = useCallback(async () => {
     try { const { data } = await api.get(`/niche-markets/targets/${target.id}/carrier-matches`); setBridge(data); }
@@ -277,6 +304,17 @@ function TargetDrawer({ target, vertical, onClose }) {
     try { const { data } = await api.delete(`/niche-markets/targets/${t.id}/link-carrier/${pid}`); setT(data.target); toast.success("Carrier unlinked"); loadBridge(); }
     catch (e2) { toast.error(errTxt(e2)); }
   };
+  const patchLink = async (pid, body) => {
+    try { const { data } = await api.patch(`/niche-markets/targets/${t.id}/link-carrier/${pid}`, body); setT(data.target); }
+    catch (e2) { toast.error(errTxt(e2)); }
+  };
+  const saveIntel = () => {
+    const body = { intro_source: intel.intro_source, current_carrier: intel.current_carrier, switch_angle: intel.switch_angle };
+    if (intel.warmth_score !== "") body.warmth_score = +intel.warmth_score;
+    if (intel.est_acquisition_cost !== "") body.est_acquisition_cost = +intel.est_acquisition_cost;
+    patch(body, "Intel saved");
+  };
+  const saveSim = () => patch({ sim_shipper_rate: +sim.rate, sim_carrier_cost: +sim.cost }, "Assumptions saved");
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -410,6 +448,58 @@ function TargetDrawer({ target, vertical, onClose }) {
           <button onClick={saveOps} data-testid="nm-ops-save" className="px-3 py-1 rounded-full bg-orange-400 text-black text-[10px] font-black">SAVE READINESS</button>
         </div>
 
+        <div className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 mb-3" data-testid="nm-margin-sim">
+          <div className="text-[10px] font-mono uppercase text-emerald-300 font-bold mb-2">Margin Simulation — deal-closing oxygen</div>
+          <div className="grid grid-cols-2 gap-1.5 mb-2">
+            <label className="text-[9px] font-mono text-slate-500 uppercase">Avg shipper rate / load
+              <input type="number" value={sim.rate} onChange={(e) => setSim({ ...sim, rate: e.target.value })} data-testid="nm-sim-rate" className="w-full bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white mt-0.5" />
+            </label>
+            <label className="text-[9px] font-mono text-slate-500 uppercase">Avg carrier cost / load
+              <input type="number" value={sim.cost} onChange={(e) => setSim({ ...sim, cost: e.target.value })} data-testid="nm-sim-cost" className="w-full bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white mt-0.5" />
+            </label>
+          </div>
+          {(() => {
+            const R = +sim.rate || 0, C = +sim.cost || 0, L = t.est_loads_month || 0;
+            const rows = [["Best case", R * 1.10, C * 0.95, "#34D399"], ["Expected", R, C, "#FBBF24"], ["Worst case", R * 0.88, C * 1.08, "#F87171"]];
+            const dropPct = R > 0 ? Math.round(((R - C) / R) * 100) : 0;
+            const expMo = (R - C) * L;
+            const payback = intel.est_acquisition_cost && expMo > 0 ? (+intel.est_acquisition_cost / expMo).toFixed(1) : null;
+            return (
+              <>
+                {rows.map(([lab, r, c, col]) => (
+                  <div key={lab} className="flex items-center justify-between text-[11px] py-1 border-t border-white/5">
+                    <span className="font-bold" style={{ color: col }}>{lab}</span>
+                    <span className="font-mono text-slate-400">${Math.round(r).toLocaleString()} − ${Math.round(c).toLocaleString()}</span>
+                    <span className="font-mono font-black" style={{ color: r - c >= 0 ? col : "#F87171" }}>{money((r - c) * L)}/mo · {money((r - c) * L * 12)}/yr</span>
+                  </div>
+                ))}
+                <div className="mt-1.5 text-[10.5px] font-mono" data-testid="nm-sim-breakeven">
+                  <span className={dropPct <= 10 ? "text-red-300" : "text-slate-400"}>Break-even at ${C.toLocaleString()} shipper rate — deal goes negative if rates soften {dropPct}%.</span>
+                  {dropPct <= 10 && <span className="text-red-400 font-bold"> Thin cushion — hold the line on price.</span>}
+                </div>
+                {payback && <div className="text-[10.5px] font-mono text-cyan-300 mt-1" data-testid="nm-sim-payback">Acquisition payback: {payback} months at expected margin (cost {money(+intel.est_acquisition_cost)})</div>}
+              </>
+            );
+          })()}
+          <button onClick={saveSim} data-testid="nm-sim-save" className="mt-2 px-3 py-1 rounded-full border border-emerald-500/40 text-emerald-300 text-[10px] font-black hover:bg-emerald-500/10">SAVE ASSUMPTIONS</button>
+        </div>
+
+        <div className="p-3 rounded-xl border border-purple-500/20 bg-purple-500/5 mb-3" data-testid="nm-intel-panel">
+          <div className="text-[10px] font-mono uppercase text-purple-300 font-bold mb-2">Intro & Competitive Intel</div>
+          <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+            <input placeholder="Intro source (e.g. CHS referral, cold email)" value={intel.intro_source} onChange={(e) => setIntel({ ...intel, intro_source: e.target.value })} data-testid="nm-intro-source" className="bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white" />
+            <label className="flex items-center gap-2 text-[9px] font-mono text-slate-500 uppercase">Warmth 1–10
+              <input type="number" min="1" max="10" value={intel.warmth_score} onChange={(e) => setIntel({ ...intel, warmth_score: e.target.value })} data-testid="nm-warmth-input" className="w-16 bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] font-black" style={{ color: warmthColor(+intel.warmth_score || 0) }} />
+            </label>
+          </div>
+          <input placeholder="Current carrier(s) — who moves their freight today?" value={intel.current_carrier} onChange={(e) => setIntel({ ...intel, current_carrier: e.target.value })} data-testid="nm-current-carrier" className="w-full bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white mb-1.5" />
+          <input placeholder="Why they'd switch — what's broken about their setup?" value={intel.switch_angle} onChange={(e) => setIntel({ ...intel, switch_angle: e.target.value })} data-testid="nm-switch-angle" className="w-full bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white mb-1.5" />
+          <label className="text-[9px] font-mono text-slate-500 uppercase flex items-center gap-2">Est. acquisition cost ($)
+            <input type="number" value={intel.est_acquisition_cost} onChange={(e) => setIntel({ ...intel, est_acquisition_cost: e.target.value })} data-testid="nm-acq-cost" className="w-28 bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white" />
+          </label>
+          <button onClick={saveIntel} data-testid="nm-intel-save" className="mt-2 px-3 py-1 rounded-full border border-purple-500/40 text-purple-300 text-[10px] font-black hover:bg-purple-500/10">SAVE INTEL</button>
+        </div>
+
         <div className="flex gap-2 mb-4">
           <button onClick={genCard} disabled={!!busy} data-testid="nm-battle-card-btn"
                   className="flex-1 px-3 py-2 rounded-full border border-cyan-500/50 text-cyan-300 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 hover:bg-cyan-500/10 disabled:opacity-50">
@@ -436,13 +526,29 @@ function TargetDrawer({ target, vertical, onClose }) {
             </div>
             {(t.linked_carriers || []).length > 0 && (
               <div>
-                <div className="text-[9px] font-mono text-slate-500 uppercase mb-1">Linked to this deal</div>
-                {(t.linked_carriers || []).map((c) => (
-                  <div key={c.id} className="flex items-center justify-between text-[11px] py-0.5">
-                    <span className="text-emerald-300 font-bold">{c.name} <span className="text-slate-600 font-mono">{c.mc_number}</span></span>
-                    <button onClick={() => unlinkCarrier(c.id)} data-testid={`nm-unlink-${c.id}`} className="text-slate-600 hover:text-red-400"><X size={12} /></button>
-                  </div>
-                ))}
+                <div className="text-[9px] font-mono text-slate-500 uppercase mb-1">Carrier assignments — this deal</div>
+                {(t.linked_carriers || []).map((c) => {
+                  const [sl, sc] = LINK_STATUS_META[c.status || "in_talks"];
+                  return (
+                    <div key={c.id} className="flex items-center gap-2 text-[11px] py-1 border-t border-white/5">
+                      <span className="text-emerald-300 font-bold flex-1 truncate">{c.name} {c.mc_number && <span className="text-slate-600 font-mono text-[9px]">{c.mc_number}</span>}</span>
+                      <input type="number" placeholder="rate $" defaultValue={c.rate_usd || ""} onBlur={(e) => e.target.value !== String(c.rate_usd || "") && patchLink(c.id, { rate_usd: +e.target.value || 0 })}
+                             data-testid={`nm-link-rate-${c.id}`} className="w-20 bg-slate-900 border border-white/15 rounded-lg px-1.5 py-1 text-[10px] text-white" />
+                      <select value={c.status || "in_talks"} onChange={(e) => patchLink(c.id, { status: e.target.value })} data-testid={`nm-link-status-${c.id}`}
+                              className="bg-slate-900 border border-white/15 rounded-lg px-1 py-1 text-[9px] font-mono font-bold" style={{ color: sc }}>
+                        {Object.keys(LINK_STATUS_META).map((s) => <option key={s} value={s}>{LINK_STATUS_META[s][0]}</option>)}
+                      </select>
+                      <button onClick={() => unlinkCarrier(c.id)} data-testid={`nm-unlink-${c.id}`} className="text-slate-600 hover:text-red-400"><X size={12} /></button>
+                    </div>
+                  );
+                })}
+                {(() => {
+                  const links = t.linked_carriers || [];
+                  const live = links.filter((c) => ["signed", "live"].includes(c.status)).length;
+                  const rates = links.filter((c) => c.rate_usd);
+                  const avg = rates.length ? Math.round(rates.reduce((a, c) => a + c.rate_usd, 0) / rates.length) : null;
+                  return <div className="text-[9.5px] font-mono text-slate-500 mt-1" data-testid="nm-link-summary">{live}/{links.length} signed or live{avg ? ` · avg locked rate $${avg.toLocaleString()}` : ""} · {Math.max(0, (t.carriers_required || 0) - links.length)} still to source</div>;
+                })()}
               </div>
             )}
             <div className="text-[9px] font-mono text-slate-500 uppercase">Best matches from Carrier Network</div>

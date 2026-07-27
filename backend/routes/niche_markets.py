@@ -375,6 +375,21 @@ class TargetPatch(BaseModel):
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
     notes: Optional[str] = None
+    intro_source: Optional[str] = None            # e.g. "CHS referral", "cold email", "LinkedIn"
+    warmth_score: Optional[int] = Field(None, ge=1, le=10)
+    current_carrier: Optional[str] = None
+    switch_angle: Optional[str] = None            # why they'd switch to Orisei
+    est_acquisition_cost: Optional[float] = Field(None, ge=0)
+    sim_shipper_rate: Optional[float] = Field(None, ge=0)
+    sim_carrier_cost: Optional[float] = Field(None, ge=0)
+
+
+class LinkPatch(BaseModel):
+    rate_usd: Optional[float] = Field(None, ge=0)
+    status: Optional[str] = None  # in_talks | rate_agreed | signed | live
+
+
+LINK_STATUSES = ["in_talks", "rate_agreed", "signed", "live"]
 
 
 class PitchIn(BaseModel):
@@ -466,8 +481,14 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
         if patch.get("last_touchpoint"):
             patch["last_touch_at"] = _now_iso()
         patch["updated_at"] = _now_iso()
+        ops = {"$set": patch}
+        if "stage" in patch:
+            prev = await db.niche_targets.find_one({"id": tid}, {"_id": 0, "stage": 1})
+            if prev and prev["stage"] != patch["stage"]:
+                ops["$push"] = {"stage_history": {"from": prev["stage"], "to": patch["stage"],
+                                                  "at": _now_iso()}}
         r = await db.niche_targets.find_one_and_update(
-            {"id": tid}, {"$set": patch}, return_document=True, projection={"_id": 0})
+            {"id": tid}, ops, return_document=True, projection={"_id": 0})
         if not r:
             raise HTTPException(404, "Target not found")
         r["y1_potential"] = _y1_potential(r)
@@ -696,6 +717,23 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
         r["y1_potential"] = _y1_potential(r)
         return {"ok": True, "target": r, "linked": entry}
 
+    @router.patch("/targets/{tid}/link-carrier/{pid}")
+    async def patch_link(tid: str, pid: str, payload: LinkPatch, _=Depends(get_current_user)):
+        patch = payload.model_dump(exclude_unset=True)
+        if not patch:
+            raise HTTPException(400, "Nothing to update")
+        if "status" in patch and patch["status"] not in LINK_STATUSES:
+            raise HTTPException(400, f"status must be one of {LINK_STATUSES}")
+        sets = {f"linked_carriers.$.{k}": v for k, v in patch.items()}
+        sets["updated_at"] = _now_iso()
+        r = await db.niche_targets.find_one_and_update(
+            {"id": tid, "linked_carriers.id": pid}, {"$set": sets},
+            return_document=True, projection={"_id": 0})
+        if not r:
+            raise HTTPException(404, "Link not found")
+        r["y1_potential"] = _y1_potential(r)
+        return {"ok": True, "target": r}
+
     @router.delete("/targets/{tid}/link-carrier/{pid}")
     async def unlink_carrier(tid: str, pid: str, _=Depends(get_current_user)):
         t = await db.niche_targets.find_one({"id": tid}, {"_id": 0})
@@ -766,6 +804,32 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
         win_rate = {"actively_pitching": len(pitching), "meetings_taken": len(meetings),
                     "maybe": len(maybes), "no_deprioritized": len(nos),
                     "win_rate_pct": round(len(contracted) / decided * 100, 1) if decided else None}
+        # monthly velocity from stage_history
+        this_month = today[:7]
+        last_month_dt = datetime.now(timezone.utc).replace(day=1)
+        lm = (last_month_dt.replace(year=last_month_dt.year - 1, month=12)
+              if last_month_dt.month == 1 else last_month_dt.replace(month=last_month_dt.month - 1))
+        last_month = lm.strftime("%Y-%m")
+
+        def _moves(month, to_stages):
+            n = 0
+            for r in rows:
+                for h in r.get("stage_history") or []:
+                    if h["to"] in to_stages and str(h["at"])[:7] == month:
+                        n += 1
+            return n
+
+        velocity = {
+            "closed_last_month": _moves(last_month, ("pilot", "contracted")),
+            "closed_this_month": _moves(this_month, ("pilot", "contracted")),
+            "proposed_this_month": _moves(this_month, ("pilot_proposed",)),
+            "closing_now": sum(1 for r in rows if r["stage"] in ("pilot_proposed", "pilot")
+                               and r.get("outcome") != "no"),
+            "projected_next": sum(1 for r in rows if r["stage"] == "meeting"
+                                  and r.get("outcome") != "no"),
+            "prospect_to_pitching_this_month": _moves(this_month, ("contacted",)),
+            "pitching_to_meeting_this_month": _moves(this_month, ("meeting",)),
+        }
         readiness = {"carrier_gap_active_deals": carrier_gap,
                      "feature_blockers": sorted(feature_blockers.values(), key=lambda x: -len(x["blocking"])),
                      "cold_deals": _cold_deals(rows)[:6],
@@ -782,6 +846,7 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
                           "weighted_pipeline_y1": round(weighted, 2),
                           "total_pipeline_y1": round(sum(r["y1_potential"] for r in rows), 2)},
                 "stage_counts": stage_counts, "win_rate": win_rate, "readiness": readiness,
+                "velocity": velocity,
                 "verticals": sorted(by_vertical.values(), key=lambda x: (x["tier"], -x["weighted_y1"])),
                 "phases": phases}
 
