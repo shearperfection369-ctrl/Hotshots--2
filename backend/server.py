@@ -8944,6 +8944,14 @@ api_router.include_router(build_qbr_exec_router(
     UserMessage=UserMessage,
 ))
 
+# Mount Carrier Relationship Network (overflow/backhaul strategy CRM)
+from routes.carrier_network import build_carrier_network_router  # noqa: E402
+api_router.include_router(build_carrier_network_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_role=require_role,
+))
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 

@@ -33,6 +33,7 @@ const NAV = [
   { to: "/route-optimizer", label: "Route Optimizer", icon: MapPinned, tid: "nav-route-optimizer", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/road-reference", label: "Road Reference", icon: BookOpen, tid: "nav-road-reference", roles: ["admin", "dispatcher", "auditor"] },
   { to: "/niche-cargo", label: "Niche Cargo Master", icon: Target, tid: "nav-niche-cargo", roles: ["admin", "dispatcher"] },
+  { to: "/carrier-network", label: "Carrier Network", icon: UserPlus, tid: "nav-carrier-network", roles: ["admin", "dispatcher"] },
   { to: "/launch-blast", label: "Launch Email Blast", icon: Megaphone, tid: "nav-launch-blast", roles: ["admin"] },
   { to: "/revenue", label: "Revenue Engine", icon: TrendingUp, tid: "nav-revenue", roles: ["admin", "dispatcher"] },
   { to: "/invoices", label: "Invoices", icon: Receipt, tid: "nav-invoices", roles: ["admin", "auditor", "dispatcher"] },

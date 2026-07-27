@@ -77,6 +77,9 @@ TRACKED_COLLECTIONS: List[str] = [
     # Lighthouse Outreach
     "lighthouse_prospects",
     "lighthouse_touches",
+    # Carrier Relationship Network
+    "carrier_network_prospects",
+    "carrier_capacity_windows",
 ]
 
 
@@ -84,7 +87,8 @@ WIPE_CATEGORIES: Dict[str, Dict[str, Any]] = {
     "carriers": {
         "label": "Carriers & Onboarding",
         "collections": ["carriers", "dispatch_carriers", "carrier_onboarding",
-                        "specialty_carriers_custom", "carrier_insurance_verifications"],
+                        "specialty_carriers_custom", "carrier_insurance_verifications",
+                        "carrier_network_prospects", "carrier_capacity_windows"],
     },
     "loads_shipments": {
         "label": "Loads & Shipments",

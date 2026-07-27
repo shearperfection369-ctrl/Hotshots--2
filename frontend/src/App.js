@@ -79,6 +79,7 @@ import SharePoint from "@/pages/SharePoint";
 import AdminSettings from "@/pages/AdminSettings";
 import RoadReference from "@/pages/RoadReference";
 import NicheCargo from "@/pages/NicheCargo";
+import CarrierNetwork from "@/pages/CarrierNetwork";
 import AdminDashboard from "@/pages/AdminDashboard";
 import Brokerage from "@/pages/Brokerage";
 import OperationSandbox from "@/pages/OperationSandbox";
@@ -210,6 +211,7 @@ function AppRouter() {
         <Route path="/route-optimizer" element={<RouteOptimizer />} />
         <Route path="/road-reference" element={<RoadReference />} />
         <Route path="/niche-cargo" element={<NicheCargo />} />
+        <Route path="/carrier-network" element={<CarrierNetwork />} />
         <Route path="/growth-copilot" element={<GrowthCopilot />} />
         <Route path="/hotshot-sales" element={<HotShotSales />} />
         <Route path="/tenant-command" element={<TenantCommand />} />

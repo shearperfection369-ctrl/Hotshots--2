@@ -71,14 +71,15 @@ COMMODITIES = {
 }
 
 CARRIER_FLEET: List[Dict[str, Any]] = [
-    # (name, base, equipment, otp) — the real partner roster
-    {"name": "R+L Carriers",             "base": "Wilmington, OH",  "equipment": ["Van"],                       "otp": 95},
-    {"name": "Saia LTL Freight",         "base": "Atlanta, GA",     "equipment": ["Van"],                       "otp": 94},
-    {"name": "Dayton Freight Lines",     "base": "Dayton, OH",      "equipment": ["Van"],                       "otp": 96},
-    {"name": "Schneider National",       "base": "Green Bay, WI",   "equipment": ["Van", "Reefer", "Flatbed"],  "otp": 95},
-    {"name": "Estes Express Lines",      "base": "Richmond, VA",    "equipment": ["Van", "Flatbed"],            "otp": 93},
-    {"name": "King Solutions",           "base": "Minneapolis, MN", "equipment": ["Van", "Reefer"],             "otp": 96},
-    {"name": "Bay & Bay Transportation", "base": "Rosemount, MN",   "equipment": ["Van", "Reefer"],             "otp": 95},
+    # (name, base, equipment, otp, trucks) — the real partner roster; `trucks`
+    # is dispatchable capacity on our freight, driving the utilization model.
+    {"name": "R+L Carriers",             "base": "Wilmington, OH",  "equipment": ["Van"],                       "otp": 95, "trucks": 4},
+    {"name": "Saia LTL Freight",         "base": "Atlanta, GA",     "equipment": ["Van"],                       "otp": 94, "trucks": 3},
+    {"name": "Dayton Freight Lines",     "base": "Dayton, OH",      "equipment": ["Van"],                       "otp": 96, "trucks": 3},
+    {"name": "Schneider National",       "base": "Green Bay, WI",   "equipment": ["Van", "Reefer", "Flatbed"],  "otp": 95, "trucks": 6},
+    {"name": "Estes Express Lines",      "base": "Richmond, VA",    "equipment": ["Van", "Flatbed"],            "otp": 93, "trucks": 4},
+    {"name": "King Solutions",           "base": "Minneapolis, MN", "equipment": ["Van", "Reefer"],             "otp": 96, "trucks": 3},
+    {"name": "Bay & Bay Transportation", "base": "Rosemount, MN",   "equipment": ["Van", "Reefer"],             "otp": 95, "trucks": 3},
 ]
 
 # ------------------------------------------------- market realism: lane imbalance
@@ -213,6 +214,7 @@ def _net_margin(ledger: Dict[str, float]) -> float:
                  - ledger.get("factoring_fees", 0) - ledger.get("exception_costs", 0)
                  - ledger.get("overhead", 0) - ledger.get("claims", 0)
                  - ledger.get("bad_debt", 0) - ledger.get("transaction_fees", 0)
+                 - ledger.get("fleet_fixed_costs", 0)
                  + ledger.get("quickpay_income", 0), 2)
 
 
@@ -367,28 +369,42 @@ def build_sim_router(*, api_router: APIRouter, db,
         }
 
     def _match_carrier(load: Dict[str, Any], fleet: List[Dict[str, Any]],
-                       busy: Optional[set] = None) -> Dict[str, Any]:
+                       busy: Optional[set] = None,
+                       active: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
         o = (load["origin"]["lat"], load["origin"]["lng"])
         busy = busy or set()
-        scored = []
-        for c in fleet:
-            if load["equipment"] not in c["equipment"]:
-                continue
-            if c.get("company_truck") and c.get("truck_id") in busy:
-                continue
-            dead = _haversine_mi(o, CITIES[c["base"]])
-            if c.get("company_truck") and dead > 600:
-                continue  # keep our own trucks in sensible range
-            score = c["otp"] * 1.2 - dead / 18 + rnd.uniform(-4, 4)
-            if c.get("company_truck"):
-                score += 55  # dispatch our own iron first — margin stays home
-            scored.append((score, dead, c))
+        active = active or {}
+
+        def _score(enforce_capacity: bool) -> list:
+            scored = []
+            for c in fleet:
+                if load["equipment"] not in c["equipment"]:
+                    continue
+                if c.get("company_truck") and c.get("truck_id") in busy:
+                    continue
+                cap = int(c.get("trucks", 3))
+                act = int(active.get(c["name"], 0))
+                util = min(act / cap, 1.0) if cap else 1.0
+                if enforce_capacity and not c.get("company_truck") and act >= cap:
+                    continue  # carrier fully utilized — no truck to give
+                dead = _haversine_mi(o, CITIES[c["base"]])
+                if c.get("company_truck") and dead > 600:
+                    continue  # keep our own trucks in sensible range
+                score = c["otp"] * 1.2 - dead / 18 + rnd.uniform(-4, 4)
+                if not c.get("company_truck"):
+                    score -= util * 30  # busy carriers answer slower & quote higher
+                if c.get("company_truck"):
+                    score += 55  # dispatch our own iron first — margin stays home
+                scored.append((score, dead, util, c))
+            return scored
+
+        scored = _score(True) or _score(False)
         scored.sort(key=lambda x: -x[0])
-        _, dead, best = scored[0]
+        _, dead, util, best = scored[0]
         if best.get("company_truck"):
-            return {**best, "deadhead_mi": round(dead),
+            return {**best, "deadhead_mi": round(dead), "utilization": round(util, 2),
                     "driver": best["driver"], "truck": best["unit"]}
-        return {**best, "deadhead_mi": round(dead),
+        return {**best, "deadhead_mi": round(dead), "utilization": round(util, 2),
                 "driver": f"{rnd.choice(FIRST)} {rnd.choice(LAST)}",
                 "truck": f"#{rnd.randint(100, 899)}"}
 
@@ -463,7 +479,8 @@ def build_sim_router(*, api_router: APIRouter, db,
 
         if st == "posted" and sim.get("autopilot"):
             busy = set((sim.get("truck_busy") or {}).keys())
-            c = _match_carrier(load, fleet, busy)
+            carrier_active = sim.setdefault("carrier_active", {})
+            c = _match_carrier(load, fleet, busy, carrier_active)
             load["carrier"] = c
             load["status"] = "booked"
             if c.get("company_truck"):
@@ -480,8 +497,17 @@ def build_sim_router(*, api_router: APIRouter, db,
                 log(f"DISPATCHED COMPANY TRUCK {c['unit']} ({c['driver']}) · deadhead {c['deadhead_mi']} mi · op cost ${op_cost:,.0f}")
                 await _event(sim, "book", f"🚛 {load['load_id']} → OUR TRUCK {c['unit']} ({c['driver']}) · ${load['sell_usd']:,.0f} all-in · fleet margin ${load['margin_usd']:,.0f}", load["load_id"])
             else:
-                log(f"AI matched → {c['name']} ({c['mc_number']}) · deadhead {c['deadhead_mi']} mi · rate con e-signed")
-                await _event(sim, "book", f"🤖 {load['load_id']} booked → {c['name']} · ${load['sell_usd']:,.0f} all-in · margin ${load['margin_usd']:,.0f}", load["load_id"])
+                # utilization-priced booking: a nearly-maxed carrier quotes a premium
+                util = float(c.get("utilization") or 0)
+                if util >= 0.5:
+                    prem = round(load["carrier_pay_usd"] * rnd.uniform(0.02, 0.03 + 0.04 * util), 2)
+                    load["carrier_pay_usd"] = round(load["carrier_pay_usd"] + prem, 2)
+                    load["margin_usd"] = round(load["sell_usd"] - load["carrier_pay_usd"], 2)
+                    load["utilization_premium_usd"] = prem
+                    log(f"Capacity tight at {c['name']} ({int(util * 100)}% utilized) — paid +${prem:,.0f} premium to secure the truck")
+                carrier_active[c["name"]] = int(carrier_active.get(c["name"], 0)) + 1
+                log(f"AI matched → {c['name']} ({c['mc_number']}) · deadhead {c['deadhead_mi']} mi · utilization {int(util * 100)}% · rate con e-signed")
+                await _event(sim, "book", f"🤖 {load['load_id']} booked → {c['name']} ({int(util * 100)}% utilized) · ${load['sell_usd']:,.0f} all-in · margin ${load['margin_usd']:,.0f}", load["load_id"])
             load["docs"]["ratecon_at"] = _iso(clock)
             await _mirror_booking(load, user_id)
             return
@@ -492,7 +518,13 @@ def build_sim_router(*, api_router: APIRouter, db,
                     and rnd.random() < min(FALLTHROUGH_PROB, 0.008 * sim_hours)):
                 load["_fallthrough_done"] = True
                 old_name = load["carrier"]["name"]
-                c = _match_carrier(load, [f for f in fleet if f["name"] != old_name])
+                ca = sim.setdefault("carrier_active", {})
+                if int(ca.get(old_name, 0)) > 0:
+                    ca[old_name] = int(ca[old_name]) - 1
+                c = _match_carrier(load, [f for f in fleet if f["name"] != old_name],
+                                   active=ca)
+                if not c.get("company_truck"):
+                    ca[c["name"]] = int(ca.get(c["name"], 0)) + 1
                 bump = round(load["carrier_pay_usd"] * rnd.uniform(0.05, 0.08), 2)
                 load["carrier"] = c
                 load["carrier_pay_usd"] = round(load["carrier_pay_usd"] + bump, 2)
@@ -603,6 +635,12 @@ def build_sim_router(*, api_router: APIRouter, db,
                 ledger["fleet_loads"] = ledger.get("fleet_loads", 0) + 1
                 ledger["fleet_revenue"] = ledger.get("fleet_revenue", 0) + load["sell_usd"]
                 ledger["fleet_margin"] = ledger.get("fleet_margin", 0) + load["margin_usd"]
+            else:
+                # release the partner carrier's truck for the next dispatch
+                ca = sim.setdefault("carrier_active", {})
+                cname = (load.get("carrier") or {}).get("name")
+                if cname and int(ca.get(cname, 0)) > 0:
+                    ca[cname] = int(ca[cname]) - 1
             # OS&D cargo claim — contingent cargo deductible + admin burden
             if rnd.random() < CLAIM_PROB:
                 claim = round(rnd.uniform(*CLAIM_RANGE), 2)
@@ -670,12 +708,15 @@ def build_sim_router(*, api_router: APIRouter, db,
             "autopilot": payload.autopilot, "auto_triage": payload.auto_triage,
             "doe_diesel": DOE_DIESEL_AVG, "fsc_per_mile": FSC_PER_MILE,
             "market": {"diesel": DOE_DIESEL_AVG, "spot_index": 1.0, "cycle": "balanced"},
-            "truck_busy": {},
+            "truck_busy": {}, "carrier_active": {},
             "ledger": {"revenue": 0, "carrier_pay": 0, "fsc_billed": 0,
                        "factoring_fees": 0, "detention_billed": 0,
                        "exception_costs": 0, "cash_collected": 0,
                        "overhead": OVERHEAD_DAY_TOTAL, "claims": 0,
-                       "bad_debt": 0, "quickpay_income": 0, "transaction_fees": 0},
+                       "bad_debt": 0, "quickpay_income": 0, "transaction_fees": 0,
+                       "fleet_fixed_costs": 0,
+                       "overhead_detail": {k: round(v, 2) for k, v in OVERHEAD_DAILY.items()},
+                       "fleet_fixed_detail": {"truck_payments": 0, "fleet_insurance": 0}},
             "daily": [], "spawned_today": 0,
         }
         await db.sim_state.insert_one(dict(sim))
@@ -717,12 +758,19 @@ def build_sim_router(*, api_router: APIRouter, db,
             days_billed = max(0, min(day, dur) - min(sim["sim_day"], dur))
             if days_billed:
                 ledger["overhead"] = round(ledger.get("overhead", 0) + OVERHEAD_DAY_TOTAL * days_billed, 2)
+                od = ledger.setdefault("overhead_detail", {})
+                for k, v in OVERHEAD_DAILY.items():
+                    od[k] = round(od.get(k, 0) + v * days_billed, 2)
                 trucks = await _company_trucks()
-                fleet_daily = sum((t.get("truck_payment_weekly", 0) + t.get("insurance_weekly", 0)) / 7
-                                  for t in trucks)
+                pay_daily = sum(t.get("truck_payment_weekly", 0) / 7 for t in trucks)
+                ins_daily = sum(t.get("insurance_weekly", 0) / 7 for t in trucks)
+                fleet_daily = pay_daily + ins_daily
                 if fleet_daily:
                     ledger["fleet_fixed_costs"] = round(
                         ledger.get("fleet_fixed_costs", 0) + fleet_daily * days_billed, 2)
+                    fd = ledger.setdefault("fleet_fixed_detail", {"truck_payments": 0, "fleet_insurance": 0})
+                    fd["truck_payments"] = round(fd.get("truck_payments", 0) + pay_daily * days_billed, 2)
+                    fd["fleet_insurance"] = round(fd.get("fleet_insurance", 0) + ins_daily * days_billed, 2)
             # market random walk: DOE diesel drift + spot market cycle
             mkt = sim.get("market") or {"diesel": DOE_DIESEL_AVG, "spot_index": 1.0}
             mkt["diesel"] = round(min(4.75, max(3.05, mkt.get("diesel", DOE_DIESEL_AVG) + rnd.uniform(-0.07, 0.08))), 2)
@@ -772,7 +820,7 @@ def build_sim_router(*, api_router: APIRouter, db,
                 {"sim_id": sim["sim_id"], "status": {"$nin": ["paid", "factored", "posted"]}})
             if open_n == 0 or day > sim["duration_days"] + 3:
                 sim["status"] = "complete"
-                await _event(sim, "complete", f"🏁 WEEK COMPLETE · revenue ${ledger.get('revenue',0):,.0f} · TRUE net margin ${_net_margin(ledger):,.0f} (after carrier pay, factoring, overhead, claims, bad debt)")
+                await _event(sim, "complete", f"🏁 WEEK COMPLETE · revenue ${ledger.get('revenue',0):,.0f} · TRUE net margin ${_net_margin(ledger):,.0f} (after carrier pay, factoring, overhead, fleet fixed costs incl. insurance, claims, bad debt)")
             elif not sim.get("_settling"):
                 sim["_settling"] = True
                 await _event(sim, "day", f"🏁 Trading week over — {open_n} load(s) still settling: deliveries, invoices, factoring, shipper payments")
@@ -782,6 +830,7 @@ def build_sim_router(*, api_router: APIRouter, db,
             "sim_day": sim["sim_day"], "status": sim["status"],
             "ledger": ledger, "daily": sim["daily"], "spawned_today": sim["spawned_today"],
             "truck_busy": sim.get("truck_busy") or {},
+            "carrier_active": sim.get("carrier_active") or {},
             "market": sim.get("market") or {},
             "_settling": sim.get("_settling", False),
             "_ledger_snap": sim.get("_ledger_snap") or {}}})
@@ -814,6 +863,30 @@ def build_sim_router(*, api_router: APIRouter, db,
             if l["status"] in ("delivered", "invoiced", "factored", "paid"):
                 c["margin"] += l["margin_usd"]
         leaderboard = sorted(cmap.values(), key=lambda x: -x["margin"])[:8]
+        # carrier utilization snapshot — partner capacity + our own trucks
+        active_map = sim.get("carrier_active") or {}
+        truck_busy = sim.get("truck_busy") or {}
+        utilization = []
+        tot_act, tot_cap = 0, 0
+        for c in CARRIER_FLEET:
+            cap = int(c.get("trucks", 3))
+            act = min(int(active_map.get(c["name"], 0)), cap)
+            tot_act += act
+            tot_cap += cap
+            utilization.append({"carrier": c["name"], "active": act, "capacity": cap,
+                                "utilization_pct": round(act / cap * 100) if cap else 0,
+                                "company": False})
+        n_company = await db.sim_company_trucks.count_documents({})
+        if n_company:
+            busy_n = min(len(truck_busy), n_company)
+            tot_act += busy_n
+            tot_cap += n_company
+            utilization.append({"carrier": "ORISEI FLEET (our trucks)", "active": busy_n,
+                                "capacity": n_company,
+                                "utilization_pct": round(busy_n / n_company * 100),
+                                "company": True})
+        utilization.sort(key=lambda x: -x["utilization_pct"])
+        fleet_utilization_pct = round(tot_act / tot_cap * 100, 1) if tot_cap else 0.0
         triage = [{"load_id": l["load_id"], **l["exception"],
                    "lane": f"{l['origin']['name']} → {l['dest']['name']}",
                    "carrier": (l.get("carrier") or {}).get("name")}
@@ -836,6 +909,8 @@ def build_sim_router(*, api_router: APIRouter, db,
                      "booked": booked_n, "avg_daily_loads": avg_daily},
             "loads": sorted(loads, key=lambda x: x.get("posted_at", ""), reverse=True),
             "events": events, "triage": triage, "leaderboard": leaderboard,
+            "carrier_utilization": utilization,
+            "fleet_utilization_pct": fleet_utilization_pct,
             "analysis": sim.get("analysis"),
         }
 
@@ -1037,3 +1112,4 @@ def build_sim_router(*, api_router: APIRouter, db,
 
     api_router.include_router(router)
     logger.info("Operation Sandbox router registered (/api/sim)")
+

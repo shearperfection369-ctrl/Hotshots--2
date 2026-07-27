@@ -403,6 +403,8 @@ export default function OperationSandbox() {
                 <Stat label="Carrier Pay" value={`$${fmt(ledger.carrier_pay)}`} accent="text-slate-300" />
                 <Stat label="Net Margin" value={`$${fmt(ledger.net_margin)}`} accent="text-yellow-300" tid="sim-kpi-margin" />
                 <Stat label="Overhead" value={`$${fmt(ledger.overhead)}`} accent="text-red-300" tid="sim-kpi-overhead" />
+                <Stat label="Fleet Fixed (truck+ins)" value={`$${fmt(ledger.fleet_fixed_costs)}`} accent="text-red-300" tid="sim-kpi-fleet-fixed" />
+                <Stat label="Fleet Util" value={`${state.fleet_utilization_pct ?? 0}%`} accent="text-cyan-300" tid="sim-kpi-fleet-util" />
                 <Stat label="Claims" value={`$${fmt(ledger.claims)}`} accent="text-red-300" />
                 <Stat label="Bad Debt" value={`$${fmt(ledger.bad_debt)}`} accent="text-red-300" />
                 <Stat label="Txn Fees" value={`$${fmt(ledger.transaction_fees)}`} accent="text-red-300" />
@@ -571,6 +573,63 @@ export default function OperationSandbox() {
                         )}
                       </div>
                       <span className={`uppercase shrink-0 ${STATUS_COLOR[l.status] || "text-slate-400"}`}>{l.status.replace("_", " ")}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Overhead cost stack — every fixed expense line, insurance detailed */}
+              <Card className="hud-surface p-4" data-testid="sim-overhead-breakdown">
+                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-red-300 mb-2 flex items-center gap-1.5">
+                  <DollarSign size={12} /> Overhead Cost Stack (accrued this sim)
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                  {Object.entries(ledger.overhead_detail || {}).map(([k, v]) => {
+                    const isIns = /ins|bond/.test(k);
+                    return (
+                      <div key={k} className="flex items-center justify-between text-[10px] font-mono py-1 border-b border-white/5">
+                        <span className={isIns ? "text-amber-300" : "text-slate-400"}>
+                          {k.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase())}
+                          {isIns && <span className="ml-1 text-[8px] border border-amber-500/40 rounded px-1">INS/BOND</span>}
+                        </span>
+                        <span className="text-slate-200">${fmt(v)}</span>
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-center justify-between text-[10px] font-mono py-1 border-b border-white/5">
+                    <span className="text-amber-300">Fleet Insurance (our trucks)<span className="ml-1 text-[8px] border border-amber-500/40 rounded px-1">INS/BOND</span></span>
+                    <span className="text-slate-200">${fmt(ledger.fleet_fixed_detail?.fleet_insurance)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-mono py-1 border-b border-white/5">
+                    <span className="text-slate-400">Truck Payments (our trucks)</span>
+                    <span className="text-slate-200">${fmt(ledger.fleet_fixed_detail?.truck_payments)}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-[11px] font-mono pt-2 mt-1">
+                  <span className="text-red-300 uppercase tracking-widest text-[9px]">Total fixed costs in net margin</span>
+                  <span className="text-red-300 font-bold" data-testid="sim-overhead-total">${fmt((ledger.overhead || 0) + (ledger.fleet_fixed_costs || 0))}</span>
+                </div>
+              </Card>
+
+              {/* Carrier utilization — capacity model driving match + pricing */}
+              <Card className="hud-surface p-4" data-testid="sim-carrier-utilization">
+                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300 mb-2 flex items-center gap-1.5">
+                  <Truck size={12} /> Carrier Utilization ({state.fleet_utilization_pct ?? 0}% network-wide)
+                </div>
+                <div className="text-[9px] font-mono text-slate-500 mb-2">Fully-utilized carriers can't take the next load; carriers ≥50% utilized quote a capacity premium that hits margin.</div>
+                <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                  {(state.carrier_utilization || []).map((c) => (
+                    <div key={c.carrier} className="text-[10px] font-mono" data-testid={`sim-util-${c.carrier}`}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className={c.company ? "text-cyan-300" : "text-slate-300"}>{c.carrier}</span>
+                        <span className="text-slate-500">{c.active}/{c.capacity} trucks · <span className={c.utilization_pct >= 100 ? "text-red-300" : c.utilization_pct >= 50 ? "text-amber-300" : "text-emerald-300"}>{c.utilization_pct}%</span></span>
+                      </div>
+                      <div className="h-1.5 rounded bg-white/5 overflow-hidden">
+                        <div className={`h-full rounded ${c.utilization_pct >= 100 ? "bg-red-400" : c.utilization_pct >= 50 ? "bg-amber-400" : "bg-emerald-400"}`}
+                          style={{ width: `${Math.min(c.utilization_pct, 100)}%` }} />
+                      </div>
                     </div>
                   ))}
                 </div>

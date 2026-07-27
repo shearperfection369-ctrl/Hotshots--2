@@ -407,7 +407,7 @@ function FileClaimDialog({ open, onClose, onSaved }) {
               className="bg-black/40 border-white/10 h-8 text-xs" placeholder="ORI-88231" />
           </FF>
           <FF label="Carrier Name">
-            <CarrierCombobox value={form.carrier_name} onChange={(v) => setForm({ ...form, carrier_name: v })}
+            <CarrierCombobox value={form.carrier_name || ""} onChange={(v) => setForm({ ...form, carrier_name: v })}
               onSelect={(rec) => setForm((f) => ({ ...f, carrier_name: rec.name, carrier_mc: rec.mc || f.carrier_mc }))}
               testid="claims-carrier-combobox" className="bg-black/40 border-white/10 h-8 text-xs" />
           </FF>
@@ -1065,7 +1065,7 @@ function CoiTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <FF label="Carrier MC *"><Input value={form.carrier_mc} onChange={(e) => setForm({ ...form, carrier_mc: e.target.value })}
               className="bg-black/40 border-white/10 h-8 text-xs" data-testid="coi-form-mc" /></FF>
-            <FF label="Carrier Name"><CarrierCombobox value={form.carrier_name} onChange={(v) => setForm({ ...form, carrier_name: v })}
+            <FF label="Carrier Name"><CarrierCombobox value={form.carrier_name || ""} onChange={(v) => setForm({ ...form, carrier_name: v })}
               onSelect={(rec) => setForm((f) => ({ ...f, carrier_name: rec.name, carrier_mc: rec.mc || f.carrier_mc }))}
               testid="coi-carrier-combobox" className="bg-black/40 border-white/10 h-8 text-xs" /></FF>
             <FF label="Insurer"><Input value={form.insurer} onChange={(e) => setForm({ ...form, insurer: e.target.value })}

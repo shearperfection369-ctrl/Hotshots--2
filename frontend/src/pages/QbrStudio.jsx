@@ -167,7 +167,7 @@ function ComputeTab({ shippers, onGenerated }) {
               data-testid="qbr-shipper-select">
               <option value="">— Select —</option>
               {shippers.map((s) => (
-                <option key={s.name} value={s.name}>{s.name} · {s.source}</option>
+                <option key={s.name} value={s.name}>{`${s.name} · ${s.source}`}</option>
               ))}
             </select>
           </div>

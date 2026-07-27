@@ -575,3 +575,16 @@ file.)
   card w/ acknowledge. Runs now tagged trigger=manual|nightly.
 - Self-tested: PDF 200 (11KB, %PDF), system-session run READY_TO_SELL 100, alert seed→ack flow,
   UI screenshot (PDF download works, watchdog shows next run).
+
+## 2026-07-27 (fork session)
+- RESTORED corrupted server.py from git (2,723 lines recovered) — backend bootable again
+- Wired NMFC expanded db (163 codes), Weigh Stations + Lane Notes (/api/reference/*), Niche Cargo AI (/api/niche-cargo/*), QBR Exec Summary PDF
+- Full shipper/consignee addresses on shipments → BOL data → branded PDF
+- Weekly KPI digest background scheduler started (Mon 07:00-08:00 CT auto-run)
+- Sample Data Wiper with category checkboxes (9 categories) in Admin Settings
+- CarrierCombobox rolled out to Claims, COI, Dispatch Autopilot, Aggregator, Carrier Invites, Brokerage driver form
+- Fixed autocomplete carriers/directory 500 (None carrier name)
+- "Degraded" health resolved (was fallout from crashed backend); sentinel shows ok
+- Operation Sandbox: carrier utilization model (per-carrier truck capacity, full carriers skip matching, ≥50% utilized quote premium, utilization panel + network-wide %) and detailed overhead cost stack (13 lines + fleet insurance + truck payments, all in net margin, reconciles to the penny)
+- NEW: Carrier Relationship Network (/carrier-network) — 4-category pipeline (owner-ops, regional overflow, specialty, backhaulers), stage tracking, discovery Q&A, capacity-window board, pitch scripts, live scoreboard vs "realistic play" (loads/mo + gross projections, referral unlock). Seeded 16 Twin Cities prospects (is_sample)
+- Testing: iteration_81.json — backend 13/13 pass, frontend 95%; all 3 minor issues fixed

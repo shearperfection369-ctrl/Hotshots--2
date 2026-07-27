@@ -197,8 +197,9 @@ def build_autocomplete_router(*, db, get_current_user, require_role):
                 "use_count": {"$sum": 1},
             }},
         ]
-        by_name: Dict[str, Dict[str, Any]] = {c["name"].strip().lower(): c
-                                               for c in booking_carriers}
+        by_name: Dict[str, Dict[str, Any]] = {(c.get("name") or "").strip().lower(): c
+                                               for c in booking_carriers
+                                               if (c.get("name") or "").strip()}
         async for row in db.orisei_rate_confirmations.aggregate(rc_pipeline):
             key = (row["_id"] or "").strip().lower()
             if not key:
