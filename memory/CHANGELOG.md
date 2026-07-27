@@ -598,3 +598,9 @@ file.)
 - NEW: Follow-Up Nudges (/api/carrier-network/follow-ups + amber panel atop Pipeline tab) — contacted prospects silent 5+ days surface with days-silent, touch count and a ready-to-send category-specific follow-up; one-click send via outreach endpoint with follow_up=true (short "Re:" email, no packet, tracks last_outreach_at/outreach_count, stage untouched).
 - UPDATED: Ten Commitments (SERVICE_STANDARD, shared by shipper brochure PDF, scorecard PDF, and Shipper Relations UI): visibility commitment now promises the live-GPS shipper portal ("47 miles out, ETA 3:22 PM"); claims commitment now promises cargo liability PLUS contingent carrier insurance ("dual-insured").
 - FIX: outreach emails now brand from the broker's own identity (is_active brand doc / name field) instead of an arbitrary tenant brand (was picking "Walmart Inc.").
+- NEW: Dynamic Pricing Engine (/dynamic-pricing, /api/pricing/*) — market heat index (lane demand vs carrier supply), dynamic margin targets 8–16%, interactive lane heat grid, 7-day price ladder with "ship Tuesday save $X" shipper pitch, hourly snapshots + recharts trend.
+- NEW: Operational Truth (/api/ops-truth/summary) — real funnel (scanned→bids→wins→auto-booked), bookings by source, forecast-vs-settled margin hold with worst drifts, carrier conversion table.
+- NEW: Match Playbook (/api/ops-truth/match-playbook) — self-learning shipper↔carrier pairing scores + tender recommendations, recomputed from every booked load.
+- NEW: Insurance Binder Card on Claims Master (/api/insurance/*) — cargo liability + contingent + bond policies with expiry countdowns, alerts, DUAL-INSURED badge; 3 sample policies seeded; delete confirm added.
+- NEW: Shipper Portal live ETA — in-transit loads show "X miles out · ETA h:mm CT" with animated progress bar (time-interpolated SIMULATED GPS, source flag included for future telematics swap).
+- Testing: iteration_83.json — backend 100%, frontend 100%, no issues.

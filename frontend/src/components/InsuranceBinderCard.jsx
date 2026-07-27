@@ -37,6 +37,7 @@ export const InsuranceBinderCard = () => {
     } catch (e) { toast.error(e.response?.data?.detail || "Save failed"); }
   };
   const remove = async (id) => {
+    if (!window.confirm("Remove this policy from tracking? This cannot be undone.")) return;
     try { await api.delete(`/insurance/policies/${id}`); load(); } catch (e) { toast.error("Delete failed"); }
   };
   if (!d) return null;

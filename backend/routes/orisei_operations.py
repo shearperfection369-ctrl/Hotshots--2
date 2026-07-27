@@ -658,6 +658,7 @@ def build_orisei_operations_router(
                         "eta_label": eta_ct.strftime("%-I:%M %p CT"),
                         "eta_day": eta_ct.strftime("%a"),
                         "speed_mph": 47,
+                        "source": "simulated",
                         "updated_at": now_dt.isoformat(),
                     }
                 except Exception:
