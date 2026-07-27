@@ -80,6 +80,7 @@ import AdminSettings from "@/pages/AdminSettings";
 import RoadReference from "@/pages/RoadReference";
 import NicheCargo from "@/pages/NicheCargo";
 import CarrierNetwork from "@/pages/CarrierNetwork";
+import NicheMarkets from "@/pages/NicheMarkets";
 import DynamicPricing from "@/pages/DynamicPricing";
 import AdminDashboard from "@/pages/AdminDashboard";
 import Brokerage from "@/pages/Brokerage";
@@ -213,6 +214,7 @@ function AppRouter() {
         <Route path="/road-reference" element={<RoadReference />} />
         <Route path="/niche-cargo" element={<NicheCargo />} />
         <Route path="/carrier-network" element={<CarrierNetwork />} />
+        <Route path="/niche-markets" element={<NicheMarkets />} />
         <Route path="/dynamic-pricing" element={<DynamicPricing />} />
         <Route path="/growth-copilot" element={<GrowthCopilot />} />
         <Route path="/hotshot-sales" element={<HotShotSales />} />

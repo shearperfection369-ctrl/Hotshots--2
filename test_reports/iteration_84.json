@@ -1,0 +1,34 @@
+{
+  "summary": "Comprehensive test of Niche Market Network module (Orisei Freight Solutions MN plan). Backend: 7/7 pytest passing — playbook (10 verticals, 6 stages, 3 phases, 765/mo & $4.5M goals), targets list + vertical/phase filters, create with bad-vertical rejection, patch stage with invalid stage rejection, delete + 404 on re-delete, dashboard stats/verticals/phases, AI battle card via Claude (~30s, all 6 keys), AI pitch preview + send returning recorded_no_key (Resend not configured — expected), regression on /api/broker-autopilot/status (playbook_tenders present) and /api/brokerage/business-plan/brochure.pdf (application/pdf). Frontend /niche-markets: page loads, nm-stats/nm-phases/nm-target-table all render, 10 nm-vertical-* cards, 45 rows, vertical filter narrows to 5 for craft_beverage and clears on re-click, nm-stage-{id} dropdown persists after reload (target NM-FCAA44BD moved to meeting), nm-open-{id} opens nm-drawer, contact fields save with success toast, existing Toro battle_card renders in nm-battle-card and last_pitch in nm-pitch-preview, nm-battle-card-btn & nm-pitch-btn buttons present, Add-target flow (nm-add-btn → nm-add-name/nm-add-vertical → nm-add-save) inserts new row (TEST_UI_QA Co) and toast 'Target added'.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "NicheMarkets drawer", "issues": ["Drawer does not close on ESC key — only via the X close button or backdrop click. Adding ESC-to-close would match standard drawer UX."]},
+      {"screen": "NicheMarkets header", "issues": ["'MOSTLY LIVE · 100 sample / 271 real' banner sits directly above the Niche Markets H1 which is unrelated to this module — belongs to a global layout stripe. Consider hiding/updating when on /niche-markets since all 45 targets here are real named companies (is_sample=false)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_niche_markets.py",
+    "/app/test_reports/pytest/iter84.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/niche_markets.py::_ensure_seed() only seeds when count_documents({}) == 0. If seed list ever grows (e.g. new bench targets), existing DBs will never receive them. Consider an upsert-by-name/vertical pattern or a version stamp so seed additions land in existing environments.",
+    "battle_card / pitch endpoints call _claude() with no timeout guard on the emergentintegrations LlmChat. If Claude hangs, the FastAPI request will stall. Wrap in asyncio.wait_for(...) with ~90s timeout and translate to HTTP 504 for clean UX.",
+    "PitchIn model does not validate the `email` field format — the endpoint only checks '@ in email' at send time. A pydantic EmailStr (Optional) would 422 early rather than 400 at execution and would prevent obviously-malformed drafts from ever reaching the AI call.",
+    "PATCH /targets/{tid} allows changing `phase` but does not gate stage transitions (e.g. can jump from 'target' straight to 'contracted'). Add a stage-order validation if you want the pipeline stats to remain meaningful.",
+    "outbound_emails inserts full HTML body every send — over time this collection will grow large. Consider TTL indexing (e.g. 180d) or storing only a hash/preview of the HTML.",
+    "NicheMarkets.jsx load() swallows all errors silently (`catch (_) {}`) — a failing /playbook or /dashboard call leaves the user staring at 'Loading niche market network…' forever. Surface a toast + retry button.",
+    "NicheMarkets.jsx delete flow has no confirm() prompt on Trash2 — accidental single-click loss of a hand-added target."
+  ],
+  "updated_files": ["/app/backend/tests/test_niche_markets.py (new)"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin bearer test_session_admin_1",
+  "seed_data_creation": "Backend test created + deleted TEST_QA Co (craft_beverage). Frontend test created TEST_UI_QA Co via UI Add flow and it was DELETED via API (NM-57949B2C). DB is clean; only the 45 seeded targets remain (+ Toro's existing battle_card/last_pitch left intact as instructed).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Niche Markets module fully covered by /app/backend/tests/test_niche_markets.py (7 tests, ~50s runtime — battle-card + pitch make real Claude calls). Toro (NM-9FB40580) has pre-existing battle_card + last_pitch and stage=pilot as expected. First target NM-FCAA44BD (Amazon MSP) was moved to stage=meeting during UI persistence test and left there — reset if needed. Resend key still not configured, so all pitch sends return status=recorded_no_key.",
+  "rca of the issue": "N/A — no failures. During the first UI script the Add-target flow appeared blank because the drawer was still open (drawer does not respond to ESC); re-running with drawer closed passed cleanly. Filed as a minor design issue, not a bug."
+}
