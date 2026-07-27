@@ -80,6 +80,7 @@ TRACKED_COLLECTIONS: List[str] = [
     # Carrier Relationship Network
     "carrier_network_prospects",
     "carrier_capacity_windows",
+    "carrier_lane_rate_cards",
 ]
 
 
@@ -88,7 +89,8 @@ WIPE_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "label": "Carriers & Onboarding",
         "collections": ["carriers", "dispatch_carriers", "carrier_onboarding",
                         "specialty_carriers_custom", "carrier_insurance_verifications",
-                        "carrier_network_prospects", "carrier_capacity_windows"],
+                        "carrier_network_prospects", "carrier_capacity_windows",
+                        "carrier_lane_rate_cards"],
     },
     "loads_shipments": {
         "label": "Loads & Shipments",

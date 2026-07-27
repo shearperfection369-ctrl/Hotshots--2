@@ -8959,6 +8959,13 @@ api_router.include_router(build_competitive_scorecard_router(
     get_current_user=get_current_user,
 ))
 
+# Mount Carrier Lane Rate Cards (feeds First Strike bid floors)
+from routes.carrier_rate_cards import build_rate_cards_router  # noqa: E402
+api_router.include_router(build_rate_cards_router(
+    db=db,
+    get_current_user=get_current_user,
+))
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 

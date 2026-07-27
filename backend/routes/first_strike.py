@@ -124,7 +124,8 @@ def build_first_strike_router(*, api_router: APIRouter, db,
         return states
 
     def _price_bid(load: Dict[str, Any], cfg: Dict[str, Any], lane_stat: Optional[Dict[str, Any]],
-                   after_hours: bool, known: bool, proximate: bool) -> Dict[str, Any]:
+                   after_hours: bool, known: bool, proximate: bool,
+                   contract: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         posted = float(load.get("rate_usd") or 0)
         aggr = int(cfg.get("aggressiveness", 55))
         discount = aggr / 100 * 0.06
@@ -153,9 +154,31 @@ def build_first_strike_router(*, api_router: APIRouter, db,
             badges.append("truck-nearby")
         if after_hours:
             badges.append("after-hours")
-        return {"suggested_bid_usd": bid, "discount_pct": round(discount * 100, 2),
-                "win_probability": round(prob, 3), "badges": badges,
-                "lane_adjustment": adjustment, "posted_rate_usd": posted}
+        out = {"suggested_bid_usd": bid, "discount_pct": round(discount * 100, 2),
+               "win_probability": round(prob, 3), "badges": badges,
+               "lane_adjustment": adjustment, "posted_rate_usd": posted}
+        if contract:
+            # Margin floor priced off OUR contracted carrier cost, not market guesswork
+            ccost = float(contract["contract_cost_usd"])
+            min_margin = float(cfg.get("min_margin_pct", 10.0)) / 100
+            floor_bid = round(ccost / (1 - min_margin)) if min_margin < 1 else ccost
+            floor_applied = False
+            if bid < floor_bid:
+                bid = min(floor_bid, int(posted))
+                floor_applied = True
+            margin = round(bid - ccost, 2)
+            badges.append("contract-rate")
+            out.update({
+                "suggested_bid_usd": bid,
+                "contract_carrier": contract["contract_carrier"],
+                "contract_mc": contract.get("contract_mc"),
+                "contract_card_id": contract.get("contract_card_id"),
+                "contract_cost_usd": ccost,
+                "contract_margin_usd": margin,
+                "contract_margin_pct": round(margin / bid * 100, 1) if bid else 0.0,
+                "margin_floor_applied": floor_applied,
+            })
+        return out
 
     async def _hunter_gates(load: Dict[str, Any]) -> List[str]:
         """The Hunter's auto-book gates, applied to a won strike bid."""
@@ -187,10 +210,15 @@ def build_first_strike_router(*, api_router: APIRouter, db,
         now = _now_iso()
         booked_id = f"BK-{uuid.uuid4().hex[:10].upper()}"
         bid = float(outcome.get("suggested_bid_usd") or 0)
-        cpay = float(load.get("carrier_pay_usd") or 0)
+        contracted = bool(outcome.get("contract_carrier"))
+        cpay = float(outcome.get("contract_cost_usd") or 0) if contracted \
+            else float(load.get("carrier_pay_usd") or 0)
+        note_tail = (f" · contracted carrier {outcome['contract_carrier']} at ${cpay:,.0f}"
+                     if contracted else "")
         await db.brokerage_bookings.insert_one({
             "booked_id": booked_id, "load_id": load.get("load_id"), "board_id": load.get("board_id"),
-            "carrier_name": "TBD — assign carrier", "carrier_mc": None,
+            "carrier_name": outcome.get("contract_carrier") or "TBD — assign carrier",
+            "carrier_mc": outcome.get("contract_mc"),
             "customer_name": load.get("shipper"), "customer_email": None,
             "origin": load.get("origin"), "destination": load.get("destination"),
             "miles": load.get("miles"), "equipment": load.get("equipment"),
@@ -199,19 +227,21 @@ def build_first_strike_router(*, api_router: APIRouter, db,
             "settled_rate_usd": None, "settled_carrier_pay_usd": None, "settled_margin_usd": None,
             "pickup_date": load.get("pickup_date"), "delivery_date": load.get("delivery_date"),
             "status": "booked", "booked_at": now, "booked_by": "first_strike",
-            "notes": f"STRIKE-TO-BOOK · won bid ${bid:,.0f} ({outcome.get('win_probability', 0) * 100:.0f}% est.) via First Strike",
+            "notes": f"STRIKE-TO-BOOK · won bid ${bid:,.0f} ({outcome.get('win_probability', 0) * 100:.0f}% est.) via First Strike{note_tail}",
             "is_sample": False, "source": "first_strike", "hunter_auto": True,
         })
         outcome["booked_id"] = booked_id
 
     async def _fire_bid(load: Dict[str, Any], cfg: Dict[str, Any], lane_stats: Dict[str, Any],
                         known_posters: set, bench: set, auto: bool,
-                        response_sec: float) -> Dict[str, Any]:
+                        response_sec: float,
+                        contract: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         lane = _lane_key(load)
         after_hours = _is_after_hours()
         known = (load.get("shipper") or "") in known_posters
         proximate = bool(_states_of(load.get("origin") or "") & bench)
-        pricing = _price_bid(load, cfg, lane_stats.get(lane), after_hours, known, proximate)
+        pricing = _price_bid(load, cfg, lane_stats.get(lane), after_hours, known, proximate,
+                             contract=contract)
         won = random.random() < pricing["win_probability"]
         outcome = {
             "id": str(uuid.uuid4()), "at": _now_iso(), "auto": auto,
@@ -236,6 +266,8 @@ def build_first_strike_router(*, api_router: APIRouter, db,
         lane_stats = await _lane_stats()
         known = await _known_posters()
         bench = await _bench_states()
+        from routes.carrier_rate_cards import load_active_rate_cards, best_contract_for
+        rate_cards = await load_active_rate_cards(db)
 
         seen_row = await db.first_strike_seen.find_one({"_id": "seen"}) or {}
         first_seen: Dict[str, str] = seen_row.get("map") or {}
@@ -249,17 +281,30 @@ def build_first_strike_router(*, api_router: APIRouter, db,
                 first_seen[lid] = now.isoformat()
             if lid in already_bid:
                 continue
-            if float(l.get("margin_pct") or 0) < float(cfg.get("min_margin_pct", 10)):
+            contract = best_contract_for(rate_cards, _lane_key(l),
+                                         l.get("equipment") or "Van",
+                                         float(l.get("miles") or 0)) if rate_cards else None
+            if contract:
+                posted = float(l.get("rate_usd") or 0)
+                c_margin_pct = ((posted - contract["contract_cost_usd"]) / posted * 100) if posted else 0
+                if c_margin_pct < float(cfg.get("min_margin_pct", 10)):
+                    continue  # margin-killer under OUR real contracted cost
+                l["_contract"] = contract
+                l["margin_pct"] = round(c_margin_pct, 1)
+            elif float(l.get("margin_pct") or 0) < float(cfg.get("min_margin_pct", 10)):
                 continue
             candidates.append(l)
-        candidates.sort(key=lambda l: float(l.get("margin_pct") or 0), reverse=True)
+        # contracted lanes strike first — cost certainty beats estimated spread
+        candidates.sort(key=lambda l: (bool(l.get("_contract")), float(l.get("margin_pct") or 0)),
+                        reverse=True)
 
         fired = []
         for l in candidates[: int(cfg.get("max_bids_per_cycle", 4))]:
             seen_at = datetime.fromisoformat(first_seen[l["load_id"]])
             response_sec = max(0.8, (now - seen_at).total_seconds())
             fired.append(await _fire_bid(l, cfg, lane_stats, known, bench, auto=True,
-                                         response_sec=min(response_sec, 300)))
+                                         response_sec=min(response_sec, 300),
+                                         contract=l.get("_contract")))
 
         if len(first_seen) > 3000:
             first_seen = dict(list(first_seen.items())[-3000:])

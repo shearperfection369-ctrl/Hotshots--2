@@ -7,7 +7,8 @@ import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Textarea } from "../components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { Handshake, Truck, CalendarClock, BookOpen, Trash2, Plus, ChevronRight, Target } from "lucide-react";
+import { Handshake, Truck, CalendarClock, BookOpen, Trash2, Plus, ChevronRight, Target, FileSpreadsheet, Zap } from "lucide-react";
+import { CarrierCombobox } from "../components/CarrierCombobox";
 import { toast } from "sonner";
 
 const STAGE_LABEL = { target: "TARGET", contacted: "CONTACTED", meeting: "MEETING", pilot_load: "PILOT LOAD", locked_in: "LOCKED IN" };
@@ -41,6 +42,7 @@ export default function CarrierNetwork() {
   const TABS = [
     { key: "pipeline", label: "Relationship Pipeline", icon: Handshake },
     { key: "windows", label: "Capacity Windows", icon: CalendarClock },
+    { key: "ratecards", label: "Rate Cards", icon: FileSpreadsheet },
     { key: "playbook", label: "Playbook", icon: BookOpen },
   ];
   return (
@@ -62,6 +64,7 @@ export default function CarrierNetwork() {
         </div>
         {tab === "pipeline" && <PipelineTab playbook={playbook} onChanged={loadScore} />}
         {tab === "windows" && <WindowsTab />}
+        {tab === "ratecards" && <RateCardsTab />}
         {tab === "playbook" && <PlaybookTab playbook={playbook} />}
       </div>
     </>
@@ -315,6 +318,130 @@ function WindowsTab() {
           {!windows.length && <div className="py-10 text-center text-slate-500 text-sm">No windows logged yet. Every call with a carrier contact should end with at least one lane + day window captured here.</div>}
         </div>
       </Card>
+    </div>
+  );
+}
+
+function RateCardsTab() {
+  const [data, setData] = useState(null);
+  const [form, setForm] = useState({ carrier_name: "", carrier_mc: "", origin: "", destination: "", equipment: "Van", rate_type: "flat", rate_usd: "", rpm_usd: "", valid_until: "", loads_per_week: "", notes: "" });
+  const load = () => api.get("/carrier-rate-cards").then(({ data }) => setData(data)).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    if (!form.carrier_name || !form.origin || !form.destination) { toast.error("Carrier, origin and destination required"); return; }
+    try {
+      await api.post("/carrier-rate-cards", {
+        ...form,
+        rate_usd: Number(form.rate_usd) || 0,
+        rpm_usd: Number(form.rpm_usd) || 0,
+        loads_per_week: Number(form.loads_per_week) || 0,
+      });
+      toast.success("Rate card locked in — First Strike now bids off this cost");
+      setForm({ carrier_name: "", carrier_mc: "", origin: "", destination: "", equipment: "Van", rate_type: "flat", rate_usd: "", rpm_usd: "", valid_until: "", loads_per_week: "", notes: "" });
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Save failed"); }
+  };
+  const toggle = async (c) => {
+    try { await api.patch(`/carrier-rate-cards/${c.id}`, { active: !c.active }); load(); } catch (e) { toast.error("Update failed"); }
+  };
+  const remove = async (id) => {
+    try { await api.delete(`/carrier-rate-cards/${id}`); toast.success("Deleted"); load(); } catch (e) { toast.error("Delete failed"); }
+  };
+  const selCls = "bg-[#11151F] border border-white/10 rounded px-2 py-2 text-xs text-white w-full";
+
+  return (
+    <div className="space-y-4">
+      <Card className="hud-surface p-4 border-cyan-500/20" data-testid="rc-firststrike-banner">
+        <div className="flex items-center gap-2 text-xs text-cyan-300">
+          <Zap size={14} className="text-amber-400" />
+          <span><b>Wired into First Strike:</b> on lanes with a live card, bids are priced off your contracted carrier cost with a hard margin floor — loads that can't clear min margin at YOUR cost are auto-skipped, and won loads book straight to the contracted carrier.</span>
+        </div>
+        {data && (
+          <div className="flex gap-5 mt-3 text-[10px] font-mono text-slate-400">
+            <span><b className="text-cyan-300">{data.live_count}</b> live cards</span>
+            <span><b className="text-cyan-300">{data.lanes_covered}</b> lanes covered</span>
+            <span><b className="text-cyan-300">{data.weekly_capacity_committed}</b> loads/wk committed capacity</span>
+          </div>
+        )}
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="hud-surface p-5" data-testid="rc-form">
+          <h3 className="font-display text-base font-bold text-white mb-3">Lock In a Pre-Negotiated Rate</h3>
+          <div className="space-y-2.5">
+            <CarrierCombobox value={form.carrier_name} onChange={(v) => setForm({ ...form, carrier_name: v })}
+              onSelect={(rec) => setForm((f) => ({ ...f, carrier_name: rec.name, carrier_mc: rec.mc || f.carrier_mc }))}
+              placeholder="Carrier *" className="bg-[#11151F] border-white/10" testid="rc-carrier" />
+            <div className="grid grid-cols-2 gap-2">
+              <Input value={form.origin} onChange={(e) => setForm({ ...form, origin: e.target.value })} placeholder="Origin * (Minneapolis, MN)" className="bg-[#11151F] border-white/10" data-testid="rc-origin" />
+              <Input value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} placeholder="Destination * (Chicago, IL)" className="bg-[#11151F] border-white/10" data-testid="rc-destination" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={form.equipment} onChange={(e) => setForm({ ...form, equipment: e.target.value })} className={selCls} data-testid="rc-equipment">
+                {["Van", "Reefer", "Flatbed", "Any"].map((x) => <option key={x}>{x}</option>)}
+              </select>
+              <select value={form.rate_type} onChange={(e) => setForm({ ...form, rate_type: e.target.value })} className={selCls} data-testid="rc-rate-type">
+                <option value="flat">Flat rate ($/load)</option>
+                <option value="per_mile">Per mile ($/mi)</option>
+              </select>
+            </div>
+            {form.rate_type === "flat" ? (
+              <Input type="number" value={form.rate_usd} onChange={(e) => setForm({ ...form, rate_usd: e.target.value })} placeholder="Contracted rate $ *" className="bg-[#11151F] border-white/10" data-testid="rc-rate-usd" />
+            ) : (
+              <Input type="number" step="0.01" value={form.rpm_usd} onChange={(e) => setForm({ ...form, rpm_usd: e.target.value })} placeholder="Rate per mile $ *" className="bg-[#11151F] border-white/10" data-testid="rc-rpm-usd" />
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-[9px] font-mono uppercase text-slate-500 mb-0.5">Valid until (blank = evergreen)</div>
+                <Input type="date" value={form.valid_until} onChange={(e) => setForm({ ...form, valid_until: e.target.value })} className="bg-[#11151F] border-white/10" data-testid="rc-valid-until" />
+              </div>
+              <div>
+                <div className="text-[9px] font-mono uppercase text-slate-500 mb-0.5">Committed loads/wk</div>
+                <Input type="number" value={form.loads_per_week} onChange={(e) => setForm({ ...form, loads_per_week: e.target.value })} className="bg-[#11151F] border-white/10" data-testid="rc-loads-week" />
+              </div>
+            </div>
+            <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Notes (quick-pay, tarps incl…)" className="bg-[#11151F] border-white/10" />
+            <Button onClick={create} className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold" data-testid="rc-save-btn">Lock In Rate</Button>
+          </div>
+        </Card>
+
+        <Card className="hud-surface p-5 lg:col-span-2" data-testid="rc-list">
+          <h3 className="font-display text-base font-bold text-white mb-3">Contracted Lane Rates ({data?.count || 0})</h3>
+          <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-[#0B0E14]">
+                <tr className="text-left text-[9px] font-mono uppercase tracking-widest text-slate-500 border-b border-white/10">
+                  <th className="py-2 pr-3">Lane</th><th className="py-2 pr-3">Carrier</th><th className="py-2 pr-3">Equip</th>
+                  <th className="py-2 pr-3">Rate</th><th className="py-2 pr-3">Cap/Wk</th><th className="py-2 pr-3">Status</th><th className="py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data?.cards || []).map((c) => (
+                  <tr key={c.id} className="border-b border-white/5 hover:bg-white/[0.02]" data-testid={`rc-row-${c.id}`}>
+                    <td className="py-2 pr-3 text-slate-200 whitespace-nowrap">{c.origin} → {c.destination}<div className="text-[8px] font-mono text-slate-600">{c.lane_key}</div></td>
+                    <td className="py-2 pr-3 text-slate-300">{c.carrier_name}{c.carrier_mc && <div className="text-[8px] font-mono text-slate-600">MC {c.carrier_mc}</div>}</td>
+                    <td className="py-2 pr-3 font-mono text-slate-400">{c.equipment}</td>
+                    <td className="py-2 pr-3 font-mono text-cyan-300">{c.rate_type === "per_mile" ? `$${c.rpm_usd}/mi` : `$${Number(c.rate_usd).toLocaleString()}`}</td>
+                    <td className="py-2 pr-3 font-mono text-slate-400">{c.loads_per_week || "—"}</td>
+                    <td className="py-2 pr-3">
+                      <button onClick={() => toggle(c)} data-testid={`rc-toggle-${c.id}`}>
+                        <Badge className={c.live ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[8px] font-mono" : "bg-slate-500/15 text-slate-400 border-slate-500/30 text-[8px] font-mono"}>
+                          {c.live ? "LIVE — FEEDING FIRST STRIKE" : (c.active ? "EXPIRED" : "PAUSED")}
+                        </Badge>
+                      </button>
+                    </td>
+                    <td className="py-2 text-right">
+                      <Button size="sm" variant="ghost" onClick={() => remove(c.id)} className="text-red-400 h-6 px-1.5" data-testid={`rc-delete-${c.id}`}><Trash2 size={12} /></Button>
+                    </td>
+                  </tr>
+                ))}
+                {!(data?.cards || []).length && <tr><td colSpan={7} className="py-10 text-center text-slate-500">No rate cards yet — every locked rate turns First Strike from market-guesser into cost-certain sniper.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
