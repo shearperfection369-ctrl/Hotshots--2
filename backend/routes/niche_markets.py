@@ -485,8 +485,8 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
         if "stage" in patch:
             prev = await db.niche_targets.find_one({"id": tid}, {"_id": 0, "stage": 1})
             if prev and prev["stage"] != patch["stage"]:
-                ops["$push"] = {"stage_history": {"from": prev["stage"], "to": patch["stage"],
-                                                  "at": _now_iso()}}
+                ops["$push"] = {"stage_history": {"$each": [{"from": prev["stage"], "to": patch["stage"],
+                                                             "at": _now_iso()}], "$slice": -50}}
         r = await db.niche_targets.find_one_and_update(
             {"id": tid}, ops, return_document=True, projection={"_id": 0})
         if not r:

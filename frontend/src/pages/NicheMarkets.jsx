@@ -310,7 +310,7 @@ function TargetDrawer({ target, vertical, onClose }) {
   };
   const saveIntel = () => {
     const body = { intro_source: intel.intro_source, current_carrier: intel.current_carrier, switch_angle: intel.switch_angle };
-    if (intel.warmth_score !== "") body.warmth_score = +intel.warmth_score;
+    if (intel.warmth_score !== "") body.warmth_score = Math.min(10, Math.max(1, +intel.warmth_score));
     if (intel.est_acquisition_cost !== "") body.est_acquisition_cost = +intel.est_acquisition_cost;
     patch(body, "Intel saved");
   };

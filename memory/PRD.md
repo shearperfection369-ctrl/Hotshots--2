@@ -2414,3 +2414,18 @@ retrains scoring weights from revealed preferences — making the intuitive
    clickable LinkedIn people-search link nm-linkedin-search), alt_contacts for anchors, HQ phones.
    UI: contact_title field added (TargetPatch + drawer input nm-contact-title + table shows title),
    Sourcing Intel block nm-sourcing-intel in drawer. Verified via curl (9 named/45 intel) + screenshot.
+5. CLOSING TOOLKIT (user's 6 asks, all built, iteration_85.json 100% pass 11/11 backend + frontend):
+   - Margin Simulation (TOP PICK): drawer nm-margin-sim, client-side compute best(+10%R/-5%C)/expected/
+     worst(-12%R/+8%C) monthly+annual, break-even + %-drop cushion warning (<=10% flags red), payback
+     months from acq cost. Assumptions persist: sim_shipper_rate/sim_carrier_cost via TargetPatch.
+   - Intro/Warmth: intro_source + warmth_score 1-10 (clamped client-side, 422 server), table Warmth
+     column colored badge (>=8 green), drawer nm-intel-panel.
+   - Carrier Assignment Tracker: linked_carriers entries get rate_usd + status (in_talks/rate_agreed/
+     signed/live) via new PATCH /targets/{id}/link-carrier/{pid}; drawer rows editable + nm-link-summary
+     (signed/live count, avg locked rate, still-to-source).
+   - Competitive Intel: current_carrier + switch_angle fields (drawer inputs).
+   - Monthly Velocity: stage_history appended on stage change (capped $slice -50), dashboard velocity
+     {closed_last/this_month, closing_now, projected_next,...}, UI nm-velocity 3-card strip.
+   - Cost-per-close: est_acquisition_cost field + payback line nm-sim-payback.
+   - ESC-close drawer re-verified working (tester flag was stale). Known cosmetic: global MOSTLY LIVE
+     banner shows above page (app-wide sample-data banner, not module-specific).
