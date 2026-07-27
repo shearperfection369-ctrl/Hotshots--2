@@ -94,7 +94,7 @@ WIPE_CATEGORIES: Dict[str, Dict[str, Any]] = {
     },
     "loads_shipments": {
         "label": "Loads & Shipments",
-        "collections": ["shipments", "brokerage_bookings", "freight_bills"],
+        "collections": ["shipments", "brokerage_bookings", "freight_bills", "lane_stacks"],
     },
     "shippers_crm": {
         "label": "Shippers & CRM",

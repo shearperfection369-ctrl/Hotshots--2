@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { MisalignmentMonitor } from "../components/MisalignmentMonitor";
 import { FirstStrikePanel } from "../components/FirstStrikePanel";
 import { BackhaulRadar } from "../components/BackhaulRadar";
+import { LaneStackingPanel } from "../components/LaneStackingPanel";
 
 const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }));
 
@@ -390,6 +391,9 @@ export default function LoadHunterTab() {
 
       {/* Backhaul Radar — empty return legs → paid loads */}
       <BackhaulRadar />
+
+      {/* Lane Stacking — chained loads, carrier discount kept as margin */}
+      <LaneStackingPanel />
 
       {/* Alignment Guardian */}
       <AlignmentGuardian />

@@ -9,6 +9,7 @@ import { Textarea } from "../components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Handshake, Truck, CalendarClock, BookOpen, Trash2, Plus, ChevronRight, Target, FileSpreadsheet, Zap } from "lucide-react";
 import { CarrierCombobox } from "../components/CarrierCombobox";
+import { FollowUpNudges } from "../components/FollowUpNudges";
 import { toast } from "sonner";
 
 const STAGE_LABEL = { target: "TARGET", contacted: "CONTACTED", meeting: "MEETING", pilot_load: "PILOT LOAD", locked_in: "LOCKED IN" };
@@ -159,6 +160,7 @@ function PipelineTab({ playbook, onChanged }) {
 
   return (
     <div className="space-y-4">
+      <FollowUpNudges onChanged={onChanged} />
       <div className="flex justify-end">
         <Button onClick={() => setAdding(true)} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold" data-testid="cn-add-prospect-btn">
           <Plus size={14} className="mr-1.5" /> Add Carrier Prospect

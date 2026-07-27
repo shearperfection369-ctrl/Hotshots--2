@@ -8973,6 +8973,13 @@ api_router.include_router(build_backhaul_router(
     get_current_user=get_current_user,
 ))
 
+# Mount Lane Stacking (chained loads → carrier discount kept as margin)
+from routes.lane_stacking import build_lane_stacking_router  # noqa: E402
+api_router.include_router(build_lane_stacking_router(
+    db=db,
+    get_current_user=get_current_user,
+))
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 

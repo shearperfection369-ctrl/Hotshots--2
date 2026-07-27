@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -171,6 +171,19 @@ class CapacityWindowIn(BaseModel):
 
 class OutreachIn(BaseModel):
     email: Optional[str] = None
+    follow_up: bool = False
+
+
+FOLLOW_UP_LINES = {
+    "owner_op": "Just circling back — I've got freight moving this week on lanes that fit your trucks. "
+                "One quick call and I can have you loaded by {day}.",
+    "regional_overflow": "Following up on the overflow idea — we're seeing solid board volume on your corridors "
+                         "this week. Even 2–3 loads you can't fit would be a clean pilot to prove the fit.",
+    "specialty": "Circling back — a couple of specialty loads came through that most brokers can't cover. "
+                 "Exactly the freight I'd rather hand to you than post to a board.",
+    "backhauler": "Following up — I've been watching your deadhead lanes and there's paying freight sitting on them "
+                  "right now. Beats hauling air home.",
+}
 
 
 def build_carrier_network_router(*, db, get_current_user: Callable,
@@ -264,55 +277,106 @@ def build_carrier_network_router(*, db, get_current_user: Callable,
         if not to or "@" not in to:
             raise HTTPException(400, "No contact email on file — provide one to send the pitch.")
         meta = CATEGORIES.get(p.get("category")) or {}
-        brand = await db.company_brand.find_one({}, {"_id": 0}) or {}
-        company = brand.get("company_name") or "Orisei Freight Solutions"
+        brand = await db.company_brand.find_one({"is_active": True}, {"_id": 0}) \
+            or await db.company_brand.find_one({}, {"_id": 0}) or {}
+        company = brand.get("name") or brand.get("company_name") or "Orisei Freight Solutions"
         accent = brand.get("accent_color") or "#0891b2"
         reply_to = brand.get("contact_email") or "oliver@oriseifreightsolutions.com"
         contact = (p.get("contact_name") or "").split("(")[0].strip() or "there"
         lanes = " · ".join((p.get("lanes") or [])[:3])
-        subject = f"{company} × {p['name']} — consistent freight for your trucks"
-        html = f"""
-        <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#1a202c">
-          <div style="background:#0b0e14;padding:20px 28px;border-radius:8px 8px 0 0">
-            <span style="color:{accent};font-size:20px;font-weight:800;letter-spacing:1px">{company.upper()}</span>
-          </div>
-          <div style="border:1px solid #e2e8f0;border-top:none;padding:28px;border-radius:0 0 8px 8px">
-            <p>Hi {contact},</p>
-            <p>{meta.get('pitch', '')}</p>
-            {f'<p style="font-size:13px;color:#475569"><b>Lanes we have in mind for you:</b> {lanes}</p>' if lanes else ''}
-            <p style="font-size:13px;color:#475569">I've attached our carrier packet — one page on who we are,
-            how we pay (quick-pay available), and how dispatch works. Fifteen minutes on the phone and
-            I can tell you exactly how many loads a week we can put on your trucks.</p>
-            <p>— {company}<br/><a href="mailto:{reply_to}" style="color:{accent}">{reply_to}</a></p>
-          </div>
-        </div>"""
-        pdf_bytes = None
-        try:
-            from routes.carrier_brochure import build_carrier_brochure_pdf
-            pdf_bytes = build_carrier_brochure_pdf()
-        except Exception:
-            pass
+        if payload.follow_up:
+            day = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%A")
+            line = FOLLOW_UP_LINES.get(p.get("category"), FOLLOW_UP_LINES["owner_op"]).format(day=day)
+            subject = f"Re: {company} × {p['name']} — quick follow-up"
+            html = f"""
+            <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#1a202c">
+              <div style="background:#0b0e14;padding:16px 28px;border-radius:8px 8px 0 0">
+                <span style="color:{accent};font-size:18px;font-weight:800;letter-spacing:1px">{company.upper()}</span>
+              </div>
+              <div style="border:1px solid #e2e8f0;border-top:none;padding:24px;border-radius:0 0 8px 8px">
+                <p>Hi {contact},</p>
+                <p>{line}</p>
+                {f'<p style="font-size:13px;color:#475569"><b>Lanes on my desk for you:</b> {lanes}</p>' if lanes else ''}
+                <p>— {company}<br/><a href="mailto:{reply_to}" style="color:{accent}">{reply_to}</a></p>
+              </div>
+            </div>"""
+            pdf_bytes = None
+        else:
+            subject = f"{company} × {p['name']} — consistent freight for your trucks"
+            html = f"""
+            <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#1a202c">
+              <div style="background:#0b0e14;padding:20px 28px;border-radius:8px 8px 0 0">
+                <span style="color:{accent};font-size:20px;font-weight:800;letter-spacing:1px">{company.upper()}</span>
+              </div>
+              <div style="border:1px solid #e2e8f0;border-top:none;padding:28px;border-radius:0 0 8px 8px">
+                <p>Hi {contact},</p>
+                <p>{meta.get('pitch', '')}</p>
+                {f'<p style="font-size:13px;color:#475569"><b>Lanes we have in mind for you:</b> {lanes}</p>' if lanes else ''}
+                <p style="font-size:13px;color:#475569">I've attached our carrier packet — one page on who we are,
+                how we pay (quick-pay available), and how dispatch works. Fifteen minutes on the phone and
+                I can tell you exactly how many loads a week we can put on your trucks.</p>
+                <p>— {company}<br/><a href="mailto:{reply_to}" style="color:{accent}">{reply_to}</a></p>
+              </div>
+            </div>"""
+            pdf_bytes = None
+            try:
+                from routes.carrier_brochure import build_carrier_brochure_pdf
+                pdf_bytes = build_carrier_brochure_pdf()
+            except Exception:
+                pass
         from routes.orisei_auto_digest import _resend_creds, _send_via_resend
         creds = await _resend_creds(db)
         res = await _send_via_resend(creds, to=to, subject=subject, html=html,
                                      pdf_bytes=pdf_bytes,
-                                     pdf_filename="Carrier_Packet.pdf") if creds else \
+                                     pdf_filename="Carrier_Packet.pdf" if pdf_bytes else None) if creds else \
             {"sent": False, "error": "no_resend_creds"}
         status = "sent" if res.get("sent") else "recorded_no_key"
         await db.outbound_emails.insert_one({
             "to": to, "subject": subject, "html": html, "status": status,
-            "error": res.get("error"), "kind": "carrier_outreach",
+            "error": res.get("error"),
+            "kind": "carrier_followup" if payload.follow_up else "carrier_outreach",
             "prospect_id": pid, "at": _now_iso(),
             "sent_by": getattr(user, "name", "system"),
         })
-        patch: Dict[str, Any] = {"contact_email": to, "updated_at": _now_iso()}
-        if p.get("stage") == "target":
+        patch: Dict[str, Any] = {"contact_email": to, "updated_at": _now_iso(),
+                                 "last_outreach_at": _now_iso()}
+        await db.carrier_network_prospects.update_one(
+            {"id": pid}, {"$set": patch, "$inc": {"outreach_count": 1}})
+        if not payload.follow_up and p.get("stage") == "target":
+            await db.carrier_network_prospects.update_one(
+                {"id": pid}, {"$set": {"stage": "contacted"}})
             patch["stage"] = "contacted"
-        await db.carrier_network_prospects.update_one({"id": pid}, {"$set": patch})
         return {"ok": True, "sent": res.get("sent", False), "status": status,
                 "error": res.get("error"), "subject": subject,
+                "follow_up": payload.follow_up,
                 "stage": patch.get("stage") or p.get("stage"),
                 "packet_attached": bool(pdf_bytes)}
+
+    @router.get("/follow-ups")
+    async def follow_ups(_=Depends(get_current_user)) -> Dict[str, Any]:
+        """Contacted carriers with no movement in 5+ days — nudge time."""
+        rows = await db.carrier_network_prospects.find(
+            {"stage": "contacted"}, {"_id": 0}).to_list(300)
+        now = datetime.now(timezone.utc)
+        due = []
+        for p in rows:
+            ref = p.get("last_outreach_at") or p.get("updated_at") or p.get("created_at")
+            try:
+                ref_dt = datetime.fromisoformat(ref)
+            except Exception:
+                continue
+            days = (now - ref_dt).days
+            if days < 5:
+                continue
+            day = (now + timedelta(days=2)).strftime("%A")
+            preview = FOLLOW_UP_LINES.get(p.get("category"), FOLLOW_UP_LINES["owner_op"]).format(day=day)
+            due.append({"id": p["id"], "name": p["name"], "category": p.get("category"),
+                        "contact_email": p.get("contact_email") or "",
+                        "contact_name": p.get("contact_name") or "",
+                        "days_since": days, "outreach_count": int(p.get("outreach_count") or 0),
+                        "follow_up_preview": preview})
+        due.sort(key=lambda d: -d["days_since"])
+        return {"count": len(due), "follow_ups": due}
 
     # ---------------- Capacity windows (the "12 trucks Tue–Thu CHI–KC" board)
     @router.get("/capacity-windows")
