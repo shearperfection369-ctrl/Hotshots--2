@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Crosshair, Loader2, X, Sparkles, Send, Copy, Plus, Trash2, FlaskConical, Target as TargetIcon, TrendingUp, Landmark, ShieldCheck } from "lucide-react";
+import { Crosshair, Loader2, X, Sparkles, Send, Copy, Plus, Trash2, FlaskConical, Target as TargetIcon, TrendingUp, Landmark, ShieldCheck, AlarmClock, Truck, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 
 const errTxt = (e) => (typeof e?.response?.data?.detail === "string" ? e.response.data.detail : "Something went wrong");
 const money = (n) => `$${Math.round(n || 0).toLocaleString()}`;
 const STAGE_META = {
-  target: ["TARGET", "#94A3B8"], researched: ["RESEARCHED", "#22D3EE"], contacted: ["CONTACTED", "#A78BFA"],
-  meeting: ["MEETING", "#F59E0B"], pilot: ["PILOT", "#FB923C"], contracted: ["CONTRACTED", "#10B981"],
+  target: ["PROSPECT", "#94A3B8"], researched: ["RESEARCHED", "#22D3EE"], contacted: ["PITCHING", "#A78BFA"],
+  meeting: ["MEETING", "#F59E0B"], pilot_proposed: ["PILOT PROPOSED", "#F472B6"], pilot: ["PILOT LIVE", "#FB923C"], contracted: ["SIGNED", "#10B981"],
 };
+const OUTCOME_META = { active: ["ACTIVE", "#34D399"], maybe: ["MAYBE", "#FBBF24"], no: ["NO — DEPRI", "#F87171"] };
+const FEAT_META = { done: "#34D399", in_progress: "#FBBF24", missing: "#F87171" };
 const TIER_LABEL = { 1: "TIER 1 · MANUFACTURING & INDUSTRIAL", 2: "TIER 2 · SPECIALTY LOGISTICS", 3: "TIER 3 · NICHE VERTICALS" };
+const daysTo = (d) => Math.ceil((new Date(d) - new Date()) / 86400000);
 
 export default function NicheMarkets() {
   const [pb, setPb] = useState(null);
@@ -24,17 +27,19 @@ export default function NicheMarkets() {
         api.get("/niche-markets/playbook"), api.get("/niche-markets/dashboard"), api.get("/niche-markets/targets"),
       ]);
       setPb(p.data); setDash(d.data); setTargets(t.data.targets);
-    } catch (_) {}
+    } catch (e2) { toast.error("Failed to load niche market data — retrying may help"); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const setStage = async (t, stage) => {
-    try { await api.patch(`/niche-markets/targets/${t.id}`, { stage }); toast.success(`${t.name} → ${stage}`); load(); }
+  const patchTarget = async (t, patch, msg) => {
+    try { await api.patch(`/niche-markets/targets/${t.id}`, patch); if (msg) toast.success(msg); load(); }
     catch (e2) { toast.error(errTxt(e2)); }
   };
 
   if (!pb || !dash) return <div className="p-8 text-slate-500 font-mono text-sm">Loading niche market network…</div>;
   const s = dash.stats;
+  const wr = dash.win_rate || {};
+  const rd = dash.readiness || {};
   const shown = vertFilter ? targets.filter((t) => t.vertical === vertFilter) : targets;
 
   return (
@@ -48,17 +53,42 @@ export default function NicheMarkets() {
         <p className="text-xs text-slate-500 font-mono mt-1">10 high-margin Minnesota verticals · {s.targets_total} named targets · AI battle cards + pitches · phase-tracked to 765 loads/mo & $4.5M Y1</p>
       </div>
 
-      <div className="relative grid grid-cols-2 md:grid-cols-6 gap-3" data-testid="nm-stats">
-        {[["Named targets", s.targets_total, "#22D3EE"], ["Pilots live", s.pilots_active, "#FB923C"],
-          ["Contracted accts", s.contracted_accounts, "#10B981"],
-          ["Loads/mo locked", `${s.contracted_loads_month}/765`, "#F59E0B"],
-          ["Y1 locked", money(s.contracted_y1_revenue), "#34D399"],
-          ["Weighted pipeline", money(s.weighted_pipeline_y1), "#A78BFA"]].map(([l, v, c]) => (
+      <div className="relative grid grid-cols-2 md:grid-cols-5 gap-3" data-testid="nm-stats">
+        {[["Named targets", s.targets_total, "#22D3EE"], ["Loads/mo locked", `${s.contracted_loads_month}/765`, "#F59E0B"],
+          ["Y1 locked", money(s.contracted_y1_revenue), "#34D399"], ["Weighted pipeline", money(s.weighted_pipeline_y1), "#A78BFA"],
+          ["Pilots live", s.pilots_active, "#FB923C"],
+          ["Actively pitching", wr.actively_pitching ?? 0, "#A78BFA"], ["Meetings taken", wr.meetings_taken ?? 0, "#F59E0B"],
+          ["Said maybe", wr.maybe ?? 0, "#FBBF24"], ["Said no (depri)", wr.no_deprioritized ?? 0, "#F87171"],
+          ["Win rate", wr.win_rate_pct == null ? "—" : `${wr.win_rate_pct}%`, "#10B981"]].map(([l, v, c]) => (
           <div key={l} className="p-3 rounded-2xl border border-white/10 bg-slate-950/70 backdrop-blur">
             <div className="text-lg font-black tabular-nums" style={{ color: c }}>{v}</div>
             <div className="text-[9px] font-mono uppercase tracking-wider text-slate-500 mt-0.5">{l}</div>
           </div>
         ))}
+      </div>
+
+      <div className="relative grid md:grid-cols-3 gap-3" data-testid="nm-readiness">
+        <div className="p-3.5 rounded-2xl border border-orange-500/25 bg-orange-500/5">
+          <div className="text-[10px] font-mono font-bold text-orange-300 uppercase flex items-center gap-1.5 mb-1.5"><Truck size={11} /> Carrier readiness gap</div>
+          <div className="text-xl font-black text-white">{rd.carrier_gap_active_deals ?? 0} <span className="text-[11px] font-mono text-slate-500">dedicated trucks still to recruit for active deals</span></div>
+        </div>
+        <div className="p-3.5 rounded-2xl border border-red-500/25 bg-red-500/5">
+          <div className="text-[10px] font-mono font-bold text-red-300 uppercase flex items-center gap-1.5 mb-1.5"><Wrench size={11} /> Feature blockers on live deals</div>
+          {(rd.feature_blockers || []).length === 0 ? <div className="text-[11px] text-slate-500 font-mono">None — nothing blocking</div>
+            : (rd.feature_blockers || []).slice(0, 3).map((b) => (
+              <div key={b.feature} className="text-[11px] text-slate-300 truncate"><span style={{ color: FEAT_META[b.status] }}>●</span> {b.feature} <span className="text-slate-600 font-mono">→ {b.blocking.join(", ")}</span></div>
+            ))}
+        </div>
+        <div className="p-3.5 rounded-2xl border border-cyan-500/25 bg-cyan-500/5">
+          <div className="text-[10px] font-mono font-bold text-cyan-300 uppercase flex items-center gap-1.5 mb-1.5"><AlarmClock size={11} /> Decision deadlines</div>
+          {(rd.urgent_deadlines || []).length === 0 ? <div className="text-[11px] text-slate-500 font-mono">No deadlines set — add them per target</div>
+            : (rd.urgent_deadlines || []).slice(0, 3).map((u) => (
+              <div key={u.id} className="text-[11px] text-slate-300 flex justify-between">
+                <span className="truncate">{u.name}</span>
+                <span className={`font-mono ${u.overdue ? "text-red-400" : "text-cyan-300"}`}>{u.deadline}{u.overdue ? " · OVERDUE" : ""}</span>
+              </div>
+            ))}
+        </div>
       </div>
 
       <div className="relative grid md:grid-cols-3 gap-3" data-testid="nm-phases">
@@ -73,7 +103,7 @@ export default function NicheMarkets() {
             </div>
             <div className="space-y-1.5">
               {ph.targets.map((t) => {
-                const [lab, col] = STAGE_META[t.stage];
+                const [lab, col] = STAGE_META[t.stage] || ["?", "#666"];
                 return (
                   <div key={t.id} className="flex items-center justify-between text-[11px]">
                     <span className="text-slate-300 font-bold truncate">{t.name}</span>
@@ -114,36 +144,63 @@ export default function NicheMarkets() {
           <div className="text-sm font-black text-white">{vertFilter ? pb.verticals.find((v) => v.key === vertFilter)?.label : "All targets"} <span className="text-slate-500 font-mono text-xs">({shown.length})</span></div>
           <AddTarget verticals={pb.verticals} onAdded={load} />
         </div>
-        <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
+        <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
           <table className="w-full text-[12px]">
-            <thead className="sticky top-0 bg-slate-950">
+            <thead className="sticky top-0 bg-slate-950 z-10">
               <tr className="text-[9px] font-mono uppercase text-slate-500 text-left">
-                <th className="px-4 py-2">Company</th><th className="px-2 py-2">Vertical</th><th className="px-2 py-2">Phase</th>
-                <th className="px-2 py-2 text-right">Loads/mo</th><th className="px-2 py-2 text-right">Margin/load</th>
-                <th className="px-2 py-2 text-right">Y1 potential</th><th className="px-2 py-2">Stage</th><th className="px-2 py-2" />
+                <th className="px-4 py-2">Company</th><th className="px-2 py-2">Phase</th>
+                <th className="px-2 py-2 text-right">Loads/mo</th><th className="px-2 py-2 text-right">Y1 potential</th>
+                <th className="px-2 py-2">Stage</th><th className="px-2 py-2">Outcome</th>
+                <th className="px-2 py-2">Deadline</th><th className="px-2 py-2">Contact · last touch</th>
+                <th className="px-2 py-2 text-center">Carriers</th><th className="px-2 py-2 text-center">Features</th><th className="px-2 py-2" />
               </tr>
             </thead>
             <tbody>
               {shown.map((t) => {
-                const [, col] = STAGE_META[t.stage];
+                const [, col] = STAGE_META[t.stage] || ["?", "#666"];
+                const [oLab, oCol] = OUTCOME_META[t.outcome || "active"];
+                const feats = t.features_required || [];
+                const featsDone = feats.filter((f) => f.status === "done").length;
+                const dd = t.decision_deadline;
+                const dl = dd ? daysTo(dd) : null;
                 return (
-                  <tr key={t.id} className="border-t border-white/5 hover:bg-white/[0.03]">
+                  <tr key={t.id} className={`border-t border-white/5 hover:bg-white/[0.03] ${t.outcome === "no" ? "opacity-40" : ""}`}>
                     <td className="px-4 py-2">
                       <button onClick={() => setDetail(t)} data-testid={`nm-target-${t.id}`} className="text-left">
                         <div className="font-bold text-white">{t.name}</div>
-                        <div className="text-[10px] font-mono text-slate-500">{t.city}</div>
+                        <div className="text-[10px] font-mono text-slate-500">{t.city} · {pb.verticals.find((v) => v.key === t.vertical)?.label}</div>
                       </button>
                     </td>
-                    <td className="px-2 py-2 text-[10px] font-mono text-slate-400">{pb.verticals.find((v) => v.key === t.vertical)?.label}</td>
                     <td className="px-2 py-2 font-mono text-amber-300">{t.phase ? `P${t.phase}` : "bench"}</td>
                     <td className="px-2 py-2 text-right font-mono text-slate-300">{t.est_loads_month}</td>
-                    <td className="px-2 py-2 text-right font-mono text-slate-300">${t.margin_per_load_est}</td>
                     <td className="px-2 py-2 text-right font-mono text-emerald-300">{money(t.y1_potential)}</td>
                     <td className="px-2 py-2">
-                      <select value={t.stage} onChange={(e) => setStage(t, e.target.value)} data-testid={`nm-stage-${t.id}`}
+                      <select value={t.stage} onChange={(e) => patchTarget(t, { stage: e.target.value }, `${t.name} → ${e.target.value}`)} data-testid={`nm-stage-${t.id}`}
                               className="bg-slate-900 border border-white/15 rounded-lg px-1.5 py-1 text-[10px] font-mono font-bold" style={{ color: col }}>
                         {Object.keys(STAGE_META).map((st) => <option key={st} value={st}>{STAGE_META[st][0]}</option>)}
                       </select>
+                    </td>
+                    <td className="px-2 py-2">
+                      <select value={t.outcome || "active"} onChange={(e) => patchTarget(t, { outcome: e.target.value }, `${t.name} outcome → ${e.target.value}`)} data-testid={`nm-outcome-${t.id}`}
+                              className="bg-slate-900 border border-white/15 rounded-lg px-1.5 py-1 text-[10px] font-mono font-bold" style={{ color: oCol }}>
+                        {Object.keys(OUTCOME_META).map((o) => <option key={o} value={o}>{OUTCOME_META[o][0]}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-2 py-2 font-mono text-[10px]">
+                      {dd ? <span className={dl < 0 ? "text-red-400" : dl <= 30 ? "text-amber-300" : "text-slate-400"}>{dd}{dl < 0 ? " ⚠" : ""}</span>
+                        : <span className="text-slate-700">—</span>}
+                    </td>
+                    <td className="px-2 py-2 text-[10px]">
+                      <div className="text-slate-300 font-bold">{t.contact_name || <span className="text-slate-700">no contact</span>}</div>
+                      <div className="text-slate-600 font-mono truncate max-w-[140px]">{t.last_touchpoint || (t.last_touch_at ? t.last_touch_at.slice(0, 10) : "never touched")}</div>
+                    </td>
+                    <td className="px-2 py-2 text-center font-mono text-[11px]">
+                      <span className={(t.carriers_secured || 0) >= (t.carriers_required || 0) ? "text-emerald-300" : "text-orange-300"}>
+                        {t.carriers_secured || 0}/{t.carriers_required || 0}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-center font-mono text-[11px]">
+                      {feats.length ? <span className={featsDone === feats.length ? "text-emerald-300" : "text-amber-300"}>{featsDone}/{feats.length}</span> : <span className="text-slate-700">—</span>}
                     </td>
                     <td className="px-2 py-2">
                       <button onClick={() => setDetail(t)} data-testid={`nm-open-${t.id}`}
@@ -188,25 +245,56 @@ function TargetDrawer({ target, vertical, onClose }) {
   const [t, setT] = useState(target);
   const [busy, setBusy] = useState("");
   const [contact, setContact] = useState({ contact_name: target.contact_name || "", contact_email: target.contact_email || "", contact_phone: target.contact_phone || "" });
+  const [ops, setOps] = useState({
+    decision_deadline: target.decision_deadline || "", last_touchpoint: "",
+    carriers_required: target.carriers_required || 0, carriers_secured: target.carriers_secured || 0,
+  });
+  const [newFeat, setNewFeat] = useState("");
 
-  const saveContact = async () => {
-    try { const { data } = await api.patch(`/niche-markets/targets/${t.id}`, contact); setT(data.target); toast.success("Contact saved"); }
-    catch (e2) { toast.error(errTxt(e2)); }
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const patch = async (body, msg) => {
+    try { const { data } = await api.patch(`/niche-markets/targets/${t.id}`, body); setT(data.target); if (msg) toast.success(msg); return data.target; }
+    catch (e2) { toast.error(errTxt(e2)); return null; }
   };
+  const saveContact = () => patch(contact, "Contact saved");
+  const saveOps = () => {
+    const body = { decision_deadline: ops.decision_deadline, carriers_required: +ops.carriers_required, carriers_secured: +ops.carriers_secured };
+    if (ops.last_touchpoint.trim()) body.last_touchpoint = ops.last_touchpoint.trim();
+    patch(body, "Readiness saved").then((r) => { if (r) setOps({ ...ops, last_touchpoint: "" }); });
+  };
+  const cycleFeat = (idx) => {
+    const order = ["missing", "in_progress", "done"];
+    const feats = [...(t.features_required || [])];
+    feats[idx] = { ...feats[idx], status: order[(order.indexOf(feats[idx].status) + 1) % 3] };
+    patch({ features_required: feats });
+  };
+  const addFeat = () => {
+    if (!newFeat.trim()) return;
+    patch({ features_required: [...(t.features_required || []), { name: newFeat.trim(), status: "missing" }] }, "Feature dependency added");
+    setNewFeat("");
+  };
+  const rmFeat = (idx) => patch({ features_required: (t.features_required || []).filter((_, i) => i !== idx) });
+
   const genCard = async () => {
     setBusy("card");
-    try { const { data } = await api.post(`/niche-markets/targets/${t.id}/battle-card`, {}, { timeout: 90000 }); setT({ ...t, battle_card: data.battle_card, stage: t.stage === "target" ? "researched" : t.stage }); toast.success("Battle card ready"); }
+    try { const { data } = await api.post(`/niche-markets/targets/${t.id}/battle-card`, {}, { timeout: 100000 }); setT({ ...t, battle_card: data.battle_card, stage: t.stage === "target" ? "researched" : t.stage }); toast.success("Battle card ready"); }
     catch (e2) { toast.error(errTxt(e2)); } finally { setBusy(""); }
   };
   const genPitch = async (send) => {
     setBusy(send ? "send" : "pitch");
     try {
-      const { data } = await api.post(`/niche-markets/targets/${t.id}/pitch`, { send, email: contact.contact_email || undefined }, { timeout: 90000 });
+      const { data } = await api.post(`/niche-markets/targets/${t.id}/pitch`, { send, email: contact.contact_email || undefined }, { timeout: 100000 });
       setT({ ...t, last_pitch: data.pitch });
       toast.success(send ? (data.pitch.sent ? "Pitch sent via Resend" : "Pitch queued — add Resend key in Connections to deliver") : "Pitch drafted");
     } catch (e2) { toast.error(errTxt(e2)); } finally { setBusy(""); }
   };
   const del = async () => {
+    if (!window.confirm(`Remove ${t.name} from the target board?`)) return;
     try { await api.delete(`/niche-markets/targets/${t.id}`); toast.success("Target removed"); onClose(); }
     catch (e2) { toast.error(errTxt(e2)); }
   };
@@ -246,6 +334,38 @@ function TargetDrawer({ target, vertical, onClose }) {
             <input placeholder="Email" value={contact.contact_email} onChange={(e) => setContact({ ...contact, contact_email: e.target.value })} data-testid="nm-contact-email" className="col-span-2 bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white" />
           </div>
           <button onClick={saveContact} data-testid="nm-contact-save" className="mt-2 px-3 py-1 rounded-full border border-white/20 text-slate-300 text-[10px] font-bold hover:border-amber-400">Save contact</button>
+          {t.last_touchpoint && <div className="mt-2 text-[10.5px] text-slate-400 font-mono">Last touch: {t.last_touchpoint} {t.last_touch_at && `· ${t.last_touch_at.slice(0, 10)}`}</div>}
+        </div>
+
+        <div className="p-3 rounded-xl border border-orange-500/20 bg-orange-500/5 mb-3" data-testid="nm-ops-panel">
+          <div className="text-[10px] font-mono uppercase text-orange-300 font-bold mb-2">Deal readiness</div>
+          <div className="grid grid-cols-2 gap-1.5 mb-2">
+            <label className="text-[9px] font-mono text-slate-500 uppercase">Decision deadline
+              <input type="date" value={ops.decision_deadline} onChange={(e) => setOps({ ...ops, decision_deadline: e.target.value })} data-testid="nm-deadline-input" className="w-full bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white mt-0.5" />
+            </label>
+            <label className="text-[9px] font-mono text-slate-500 uppercase">Carriers req / secured
+              <div className="flex gap-1 mt-0.5">
+                <input type="number" value={ops.carriers_required} onChange={(e) => setOps({ ...ops, carriers_required: e.target.value })} data-testid="nm-carriers-required" className="w-1/2 bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white" />
+                <input type="number" value={ops.carriers_secured} onChange={(e) => setOps({ ...ops, carriers_secured: e.target.value })} data-testid="nm-carriers-secured" className="w-1/2 bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-emerald-300" />
+              </div>
+            </label>
+          </div>
+          <input placeholder="Log a touchpoint (call notes, reaction, next step…)" value={ops.last_touchpoint} onChange={(e) => setOps({ ...ops, last_touchpoint: e.target.value })} data-testid="nm-touchpoint-input" className="w-full bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white mb-2" />
+          <div className="mb-2">
+            <div className="text-[9px] font-mono text-slate-500 uppercase mb-1">Orisei features required (click status to cycle)</div>
+            {(t.features_required || []).map((f, i) => (
+              <div key={i} className="flex items-center gap-2 text-[11px] py-0.5">
+                <button onClick={() => cycleFeat(i)} className="px-1.5 py-0.5 rounded font-mono font-bold text-[8px]" style={{ color: FEAT_META[f.status], border: `1px solid ${FEAT_META[f.status]}55` }} data-testid={`nm-feat-status-${i}`}>{f.status.toUpperCase()}</button>
+                <span className="text-slate-300 flex-1">{f.name}</span>
+                <button onClick={() => rmFeat(i)} className="text-slate-700 hover:text-red-400"><X size={11} /></button>
+              </div>
+            ))}
+            <div className="flex gap-1.5 mt-1">
+              <input placeholder="Add feature dependency…" value={newFeat} onChange={(e) => setNewFeat(e.target.value)} data-testid="nm-feature-add-input" className="flex-1 bg-slate-900 border border-white/15 rounded-lg px-2 py-1 text-[11px] text-white" />
+              <button onClick={addFeat} data-testid="nm-feature-add" className="px-2.5 rounded-lg border border-white/20 text-slate-300 text-[10px] font-bold hover:border-amber-400">Add</button>
+            </div>
+          </div>
+          <button onClick={saveOps} data-testid="nm-ops-save" className="px-3 py-1 rounded-full bg-orange-400 text-black text-[10px] font-black">SAVE READINESS</button>
         </div>
 
         <div className="flex gap-2 mb-4">

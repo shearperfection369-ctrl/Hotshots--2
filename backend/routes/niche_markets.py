@@ -20,9 +20,11 @@ from pydantic import BaseModel, Field
 log = logging.getLogger("tennant_tms.niche_markets")
 
 MODEL = ("anthropic", "claude-sonnet-4-5-20250929")
-STAGES = ["target", "researched", "contacted", "meeting", "pilot", "contracted"]
+STAGES = ["target", "researched", "contacted", "meeting", "pilot_proposed", "pilot", "contracted"]
 STAGE_PROB = {"target": 0.02, "researched": 0.05, "contacted": 0.12,
-              "meeting": 0.30, "pilot": 0.60, "contracted": 1.0}
+              "meeting": 0.30, "pilot_proposed": 0.45, "pilot": 0.60, "contracted": 1.0}
+OUTCOMES = ["active", "maybe", "no"]
+FEATURE_STATUSES = ["done", "in_progress", "missing"]
 PLAN_GOALS = {"loads_per_month": 765, "y1_revenue": 4_500_000}
 
 VERTICALS: Dict[str, Dict[str, Any]] = {
@@ -298,6 +300,33 @@ PHASE_PLAN = {
 }
 
 
+# Ops-readiness enrichment for the 9 phase anchors (applied by _ensure_seed migration).
+ANCHOR_READINESS: Dict[str, Dict[str, Any]] = {
+    "The Toro Company": {"carriers_required": 6, "features_required": [
+        {"name": "Flatbed/step-deck carrier bench (fixed rates)", "status": "in_progress"}]},
+    "Summit Brewing Co": {"carriers_required": 3, "features_required": [
+        {"name": "Weekly dedicated distributor routing", "status": "done"}]},
+    "Bobcat Company": {"carriers_required": 8, "features_required": [
+        {"name": "Oversize/permit load workflow", "status": "in_progress"}]},
+    "Land O'Lakes": {"carriers_required": 12, "features_required": [
+        {"name": "Reefer temp monitoring & alerts", "status": "missing"}]},
+    "Medtronic": {"carriers_required": 4, "features_required": [
+        {"name": "Temp-controlled tracking (telematics)", "status": "missing"},
+        {"name": "High-value cargo insurance ($100K+)", "status": "in_progress"}]},
+    "Cargill": {"carriers_required": 15, "features_required": [
+        {"name": "Hopper/bulk carrier bench", "status": "missing"}]},
+    "Target Corporation": {"carriers_required": 30, "features_required": [
+        {"name": "Shipper portal real-time visibility", "status": "done"},
+        {"name": "EDI 204/214 tendering", "status": "missing"}]},
+    "Best Buy": {"carriers_required": 20, "features_required": [
+        {"name": "Shipper portal real-time visibility", "status": "done"},
+        {"name": "High-value electronics security protocol", "status": "in_progress"}]},
+    "General Mills": {"carriers_required": 12, "features_required": [
+        {"name": "EDI 204/214 tendering", "status": "missing"}]},
+}
+
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -317,6 +346,12 @@ class TargetIn(BaseModel):
 
 class TargetPatch(BaseModel):
     stage: Optional[str] = None
+    outcome: Optional[str] = None                 # active | maybe | no
+    decision_deadline: Optional[str] = None       # ISO date "" = none
+    last_touchpoint: Optional[str] = None         # free text; auto-stamps last_touch_at
+    carriers_required: Optional[int] = Field(None, ge=0, le=500)
+    carriers_secured: Optional[int] = Field(None, ge=0, le=500)
+    features_required: Optional[List[Dict[str, str]]] = None  # [{name, status}]
     phase: Optional[int] = Field(None, ge=0, le=3)
     est_loads_month: Optional[int] = None
     margin_per_load_est: Optional[float] = None
@@ -343,6 +378,20 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
                     for t in SEED_TARGETS]
             await db.niche_targets.insert_many(rows)
             log.info("Seeded %d MN niche-market targets", len(rows))
+        # migration: ops-readiness fields for docs created before v2
+        missing = await db.niche_targets.count_documents({"outcome": {"$exists": False}})
+        if missing:
+            rows = await db.niche_targets.find({"outcome": {"$exists": False}}).to_list(500)
+            for r in rows:
+                enrich = ANCHOR_READINESS.get(r["name"], {})
+                await db.niche_targets.update_one({"id": r["id"]}, {"$set": {
+                    "outcome": "active", "decision_deadline": "",
+                    "last_touchpoint": "", "last_touch_at": r.get("last_outreach_at") or "",
+                    "carriers_required": enrich.get("carriers_required",
+                                                    max(2, round(r.get("est_loads_month", 10) / 8))),
+                    "carriers_secured": 0,
+                    "features_required": enrich.get("features_required", [])}})
+            log.info("Migrated %d niche targets to ops-readiness schema", missing)
 
     def _y1_potential(t: Dict[str, Any]) -> float:
         return round(t.get("est_loads_month", 0) * t.get("margin_per_load_est", 0) * 12, 2)
@@ -351,6 +400,7 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
     async def playbook(_=Depends(get_current_user)):
         return {"verticals": [{"key": k, **v} for k, v in VERTICALS.items()],
                 "stages": STAGES, "stage_probabilities": STAGE_PROB,
+                "outcomes": OUTCOMES, "feature_statuses": FEATURE_STATUSES,
                 "phase_plan": [{"phase": p, **v} for p, v in PHASE_PLAN.items()],
                 "goals": PLAN_GOALS}
 
@@ -374,6 +424,9 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
             raise HTTPException(400, f"vertical must be one of {list(VERTICALS)}")
         doc = {**payload.model_dump(), "id": f"NM-{uuid.uuid4().hex[:8].upper()}",
                "stage": "target", "battle_card": None, "last_pitch": None,
+               "outcome": "active", "decision_deadline": "", "last_touchpoint": "",
+               "last_touch_at": "", "carriers_required": max(2, round(payload.est_loads_month / 8)),
+               "carriers_secured": 0, "features_required": [],
                "outreach_count": 0, "is_sample": False,
                "created_at": _now_iso(), "updated_at": _now_iso()}
         await db.niche_targets.insert_one(dict(doc))
@@ -387,6 +440,14 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
             raise HTTPException(400, "Nothing to update")
         if "stage" in patch and patch["stage"] not in STAGES:
             raise HTTPException(400, f"stage must be one of {STAGES}")
+        if "outcome" in patch and patch["outcome"] not in OUTCOMES:
+            raise HTTPException(400, f"outcome must be one of {OUTCOMES}")
+        if "features_required" in patch:
+            for f in patch["features_required"] or []:
+                if f.get("status") not in FEATURE_STATUSES:
+                    raise HTTPException(400, f"feature status must be one of {FEATURE_STATUSES}")
+        if patch.get("last_touchpoint"):
+            patch["last_touch_at"] = _now_iso()
         patch["updated_at"] = _now_iso()
         r = await db.niche_targets.find_one_and_update(
             {"id": tid}, {"$set": patch}, return_document=True, projection={"_id": 0})
@@ -406,10 +467,14 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
         key = os.environ.get("EMERGENT_LLM_KEY")
         if not key:
             raise HTTPException(503, "AI key not configured")
+        import asyncio
         from emergentintegrations.llm.chat import LlmChat, UserMessage
         chat = LlmChat(api_key=key, session_id=f"niche-{uuid.uuid4().hex[:8]}",
                        system_message=system).with_model(*MODEL)
-        return str(await chat.send_message(UserMessage(text=prompt))).strip()
+        try:
+            return str(await asyncio.wait_for(chat.send_message(UserMessage(text=prompt)), timeout=90)).strip()
+        except asyncio.TimeoutError:
+            raise HTTPException(504, "AI took too long — try again")
 
     def _json_of(raw: str) -> Dict[str, Any]:
         raw = raw.strip().strip("`")
@@ -514,7 +579,8 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
                 "at": _now_iso(), "sent_by": getattr(user, "name", "system")})
             pitch_doc.update({"sent": res.get("sent", False), "sent_to": to, "send_status": status})
             upd = {"last_pitch": pitch_doc, "contact_email": to, "updated_at": _now_iso(),
-                   "last_outreach_at": _now_iso()}
+                   "last_outreach_at": _now_iso(), "last_touch_at": _now_iso(),
+                   "last_touchpoint": f"Pitch emailed to {to}" + ("" if res.get("sent") else " (queued — no Resend key)")}
             if t["stage"] in ("target", "researched"):
                 upd["stage"] = "contacted"
             await db.niche_targets.update_one({"id": tid}, {"$set": upd, "$inc": {"outreach_count": 1}})
@@ -557,6 +623,33 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
                            "y1_committed": sum(r["y1_potential"] for r in pt
                                                if r["stage"] == "contracted")})
         stage_counts = {s: sum(1 for r in rows if r["stage"] == s) for s in STAGES}
+        nos = [r for r in rows if r.get("outcome") == "no"]
+        maybes = [r for r in rows if r.get("outcome") == "maybe"]
+        pitching = [r for r in rows if r.get("outcome") != "no"
+                    and r["stage"] in ("contacted", "meeting", "pilot_proposed", "pilot")]
+        meetings = [r for r in rows if r["stage"] in ("meeting", "pilot_proposed", "pilot", "contracted")]
+        decided = len(contracted) + len(nos)
+        today = datetime.now(timezone.utc).date().isoformat()
+        urgent = sorted([r for r in rows if r.get("decision_deadline")
+                         and r["stage"] != "contracted" and r.get("outcome") != "no"],
+                        key=lambda r: r["decision_deadline"])
+        carrier_gap = sum(max(0, (r.get("carriers_required") or 0) - (r.get("carriers_secured") or 0))
+                          for r in rows if r["stage"] in ("meeting", "pilot_proposed", "pilot", "contracted"))
+        feature_blockers: Dict[str, Dict[str, Any]] = {}
+        for r in rows:
+            if r["stage"] in ("meeting", "pilot_proposed", "pilot") and r.get("outcome") != "no":
+                for f in r.get("features_required") or []:
+                    if f.get("status") != "done":
+                        feature_blockers.setdefault(f["name"], {"feature": f["name"], "status": f["status"],
+                                                                "blocking": []})["blocking"].append(r["name"])
+        win_rate = {"actively_pitching": len(pitching), "meetings_taken": len(meetings),
+                    "maybe": len(maybes), "no_deprioritized": len(nos),
+                    "win_rate_pct": round(len(contracted) / decided * 100, 1) if decided else None}
+        readiness = {"carrier_gap_active_deals": carrier_gap,
+                     "feature_blockers": sorted(feature_blockers.values(), key=lambda x: -len(x["blocking"])),
+                     "urgent_deadlines": [{"id": r["id"], "name": r["name"],
+                                           "deadline": r["decision_deadline"], "stage": r["stage"],
+                                           "overdue": r["decision_deadline"] < today} for r in urgent[:6]]}
         return {"goals": PLAN_GOALS,
                 "stats": {"targets_total": len(rows), "verticals": len(by_vertical),
                           "contracted_accounts": len(contracted), "pilots_active": len(pilots),
@@ -566,7 +659,7 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
                           "contracted_y1_revenue": round(sum(r["y1_potential"] for r in contracted), 2),
                           "weighted_pipeline_y1": round(weighted, 2),
                           "total_pipeline_y1": round(sum(r["y1_potential"] for r in rows), 2)},
-                "stage_counts": stage_counts,
+                "stage_counts": stage_counts, "win_rate": win_rate, "readiness": readiness,
                 "verticals": sorted(by_vertical.values(), key=lambda x: (x["tier"], -x["weighted_y1"])),
                 "phases": phases}
 

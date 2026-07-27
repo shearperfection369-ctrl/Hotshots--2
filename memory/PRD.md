@@ -2363,3 +2363,26 @@ retrains scoring weights from revealed preferences — making the intuitive
    (duplicate lines + syntax error) — fixed by deleting junk + reapplying; backend restarted OK.
 - Verified: markdown API (9/9 checks), brochure 7pp (cover/glance/page-7 rendered visually clean), full
   plan PDF 26pp with hybrid content.
+
+## Session 2026-06 (fork, cont. 12b) — Niche Market Network + Ops Readiness
+1. NICHE MARKET NETWORK (routes/niche_markets.py + pages/NicheMarkets.jsx + /niche-markets route +
+   sidebar nav-niche-markets): user's 10-vertical MN plan operationalized. 45 realistic seeded targets
+   (realism corrections: Abbott/St.Jude, TD SYNNEX, Digi-Key, Hawkins, Ecolab, Sappi Cloquet, Fleet Farm
+   etc. replace defunct/wrong-state companies). Endpoints: /api/niche-markets/playbook|targets(CRUD)|
+   targets/{id}/battle-card|targets/{id}/pitch|dashboard. AI (Claude sonnet-4-5 via Emergent key,
+   90s asyncio.wait_for guard): battle cards (ships/lanes/decision-makers/objections/hook/compliance)
+   + pitch emails (send via Resend → recorded_no_key until key added; logs to outbound_emails).
+   Phase tracker vs 765 loads/mo & $4.5M Y1. Tested: iteration_84.json 100% pass both.
+2. OPS READINESS ADD-ON (user's 5 asks): stages extended (+pilot_proposed; labels PROSPECT/PITCHING/
+   MEETING/PILOT PROPOSED/PILOT LIVE/SIGNED), outcome field (active/maybe/no w/ depri dimming),
+   decision_deadline w/ urgency colors + dashboard urgent list, last_touchpoint (+auto last_touch_at,
+   pitch send auto-logs touch), carriers_required/secured w/ dashboard carrier-gap, features_required
+   [{name,status done/in_progress/missing}] w/ dashboard feature-blockers rollup. ANCHOR_READINESS
+   pre-seeds 9 phase anchors. Migration in _ensure_seed backfills old docs (ran: 45 migrated).
+   dashboard adds win_rate{actively_pitching,meetings_taken,maybe,no_deprioritized,win_rate_pct} +
+   readiness{carrier_gap_active_deals,feature_blockers,urgent_deadlines}. UI: 10 stat cards, readiness
+   strip (nm-readiness), table cols outcome/deadline/contact-touch/carriers/features, drawer Deal
+   Readiness panel (nm-ops-panel: deadline, carriers, touchpoint log, feature editor w/ status cycle).
+   Self-tested via curl (validation 400s, migration, rollups) + screenshots (drawer + dashboard).
+   GOTCHA x2 this session: search_replace corrupted file tail twice (constants/ANCHOR_READINESS edits
+   landed in junk region) — always re-verify constants exist after batch edits to this file.
