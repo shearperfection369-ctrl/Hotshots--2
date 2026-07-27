@@ -2346,3 +2346,8 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Self-tested: run-cycle produced 9 playbook tenders (score 115 carded @ $694 locked cost, score 50
   lane-fit) + spot fallback still works; screenshot confirms badges + stat card.
 - Test data: rate card RC-23519E92 (North Star Haulers, MN-IL, $1.70/mi), North Star prospect stage=locked_in.
+3. FOLLOW-UP FIX (user: "plan looks the same"): the main Business Plan doc BROKERAGE_BUSINESS_PLAN.md
+   (served at /api/brokerage/business-plan + /pdf) never had the hybrid — added §15B "Scenario C —
+   2-Truck Hybrid" (assumptions, 3-yr hybrid P&L matching brochure numbers, execution notes) + doc-control
+   v3.1 row. Renamed brochure page 7 to "Scenario C" (15A already = Scenario B Automation Case).
+   Verified: /business-plan markdown has 15B, /business-plan/pdf 25 pages w/ hybrid, brochure 7 pages.

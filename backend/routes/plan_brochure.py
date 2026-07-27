@@ -475,7 +475,7 @@ def _page_financials(c: Canvas, page: int, total: int):
 def _page_hybrid(c: Canvas, page: int, total: int):
     c.setFillColor(PAPER)
     c.rect(0, 0, W, H, fill=1, stroke=0)
-    _page_head(c, "The Numbers", "Scenario B — 2-Truck Hybrid (Assets + Brokerage)", CORAL)
+    _page_head(c, "The Numbers", "Scenario C — 2-Truck Hybrid (Assets + Brokerage)", CORAL)
     rows = [
         ("Fleet loads (2 owned trucks)", "340", "430", "450", False),
         ("Fleet gross revenue (~$2.05/mi)", "$340,000", "$430,000", "$451,000", True),

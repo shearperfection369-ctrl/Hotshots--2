@@ -768,6 +768,56 @@ margin 12–18% (mainstream ≈15%, sub-10% widely cited as unsustainable); gros
 DSO 30–45 days (net-60 for large shippers); 3–5 loads/rep/day (10+ top performers); operating ratio 90–97%.
 Plan Rev-2 sits inside every band: $2,000/load, 14.5% margin, $290 GM/load, DSO 37.
 
+## 15B · Scenario C — 2-Truck Hybrid (Owned Assets + Brokerage)
+
+*Added July 2026. The partnership controls two committed trucks (anchored by Doug Graham's 12 years as a
+CDL owner/operator). This scenario layers those two assets on top of the §10.5 brokerage-only base case —
+it does not replace it. Overflow beyond the two trucks flows straight to the brokered carrier network, so
+no freight is ever turned away.*
+
+### 15B.1 · Why owned trucks change the math
+
+- **Guaranteed capacity on anchor lanes.** Committed shipper loads never scramble the spot market — the
+  company trucks take them first (the Command Deck's Playbook Auto-Tender books them automatically).
+- **Full linehaul capture.** The fleet keeps 100% of the rate on the loads it hauls, not the 14.5%
+  brokerage spread.
+- **Backhaul-filled by the TMS.** The Backhaul Matcher keeps both trucks loaded in every direction, so
+  paid miles stay above 90%.
+- **Asset equity.** Every mile builds equipment equity the brokerage-only model never touches.
+
+### 15B.2 · Fleet assumptions
+
+| Assumption | Value |
+| --- | ---: |
+| Trucks in service | 2 (live Month 3 of Year 1) |
+| Revenue miles / truck / year | ~100,000 |
+| Blended revenue per mile | $2.05 |
+| Fuel cost per mile | $0.58 |
+| Fleet loads / year (Y1 → Y3) | 340 → 450 |
+
+### 15B.3 · 3-Year Hybrid P&L (fleet layered on §10.5 base case)
+
+| Line | Y1 (2026) | Y2 (2027) | Y3 (2028) |
+| --- | ---: | ---: | ---: |
+| Fleet loads (2 owned trucks) | 340 | 430 | 450 |
+| Fleet gross revenue (~$2.05/mi) | $340,000 | $430,000 | $451,000 |
+| Fuel, maintenance & insurance | $186,000 | $228,000 | $232,000 |
+| Driver pay & truck notes | $72,000 | $86,000 | $90,000 |
+| **Fleet net contribution** | **$82,000** | **$116,000** | **$129,000** |
+| Brokerage EBITDA (base case §10.5) | $200,400 | $603,400 | $838,560 |
+| **Combined EBITDA** | **$282,400** | **$719,400** | **$967,560** |
+| **Net cash to members (combined)** | **$195,000** | **$445,000** | **$640,000** |
+| **Per-member share (⅓)** | **$65,000** | **$148,333** | **$213,333** |
+
+### 15B.4 · Execution notes
+
+- Fleet dispatch runs through the same Command Deck: company trucks are first in the Playbook Auto-Tender
+  order, brokered carriers take the overflow.
+- Fleet economics are tracked separately in the Operational Truth module so brokerage margin and asset
+  margin never blur.
+- Truck 3+ is a Year-2 decision gated on both trucks holding ≥ 90% paid-mile utilization and the brokerage
+  desk clearing its Y1 EBITDA target — growth is earned, not assumed.
+
 ## 16 · Appendix
 
 ### 16.1 · Glossary
@@ -797,6 +847,7 @@ Plan Rev-2 sits inside every band: $2,000/load, 14.5% margin, $290 GM/load, DSO 
 | 1.0 | 2026-02-14 | Oliver Cummins | Initial plan rendered into Orisei Brokerage Command Deck. |
 | 2.0 | 2026-06 | Oliver Cummins · Daniel W. Karsor | Partnership Edition — Daniel W. Karsor admitted as 50/50 co-founder; recapitalized around $10,000 partner infusion; lean use-of-funds; owner launch runway integrated; partnership governance added. |
 | 3.0 | 2026-07 | Oliver Cummins · Daniel W. Karsor · Doug Graham | Three-Member Edition — Doug Graham admitted as equal 33⅓% member (CDL owner/operator, 12 yrs); recapitalized at $30,000 ($10,000 per member); reinvestment holdback + operator-only salary schedule; notarized agreement; official receipt register + capital accounts ledger. |
+| 3.1 | 2026-07 | All members | Scenario C added (§15B) — 2-Truck Hybrid: two committed trucks layered on the brokerage base case; Combined EBITDA $282K → $968K; per-member $65K → $213K. Brochure PDF expanded to 7 pages to match. |
 
 ---
 
