@@ -2386,3 +2386,19 @@ retrains scoring weights from revealed preferences — making the intuitive
    Self-tested via curl (validation 400s, migration, rollups) + screenshots (drawer + dashboard).
    GOTCHA x2 this session: search_replace corrupted file tail twice (constants/ANCHOR_READINESS edits
    landed in junk region) — always re-verify constants exist after batch edits to this file.
+3. CARRIER RECRUITING BRIDGE + FOLLOW-UP CADENCE (user picked both next-action items):
+   - Bridge: GET /api/niche-markets/targets/{id}/carrier-matches (scores carrier_network_prospects by
+     VERTICAL_EQUIPMENT fit +25/ea, stage weight locked_in 30..target 4, lane city +15, MN home base +10),
+     POST/DELETE /targets/{id}/link-carrier/{pid} ($push linked_carriers + $inc carriers_secured).
+     Drawer section nm-bridge: gap badge, equipment chips, linked list w/ unlink, top-5 matches w/ LINK.
+   - Cadence: COLD_AFTER_DAYS=7; GET /api/niche-markets/follow-ups + dashboard readiness.cold_deals
+     (pitched stages, outcome!=no, last_touch/outreach/updated >7d). UI: 4th readiness panel
+     nm-followups-panel w/ "Nd cold" buttons that open the target drawer. AI Follow-Up: PitchIn.follow_up
+     → different Claude prompt (<110 words, references prior pitch subject), pitch kind=follow_up,
+     send auto-logs "Follow-up emailed to..." touchpoint.
+   - Self-tested: curl (matches scoring, link/unlink+dup 400, cold detection w/ backdated Bobcat 12d,
+     follow-up AI generation) + playwright UI (panel→drawer→bridge link→unlink, followup btn).
+   - RECURRING TOOL GOTCHA (3rd+4th occurrence): large search_replace edits on niche_markets.py and
+     NicheMarkets.jsx sometimes report success but append content as junk at file tail instead of
+     replacing (breaks compile). ALWAYS grep for the new symbol + check file tail after big edits;
+     prefer small targeted edits on these files.

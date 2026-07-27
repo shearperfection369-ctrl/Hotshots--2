@@ -25,6 +25,21 @@ STAGE_PROB = {"target": 0.02, "researched": 0.05, "contacted": 0.12,
               "meeting": 0.30, "pilot_proposed": 0.45, "pilot": 0.60, "contracted": 1.0}
 OUTCOMES = ["active", "maybe", "no"]
 FEATURE_STATUSES = ["done", "in_progress", "missing"]
+COLD_AFTER_DAYS = 7
+PITCHED_STAGES = ("contacted", "meeting", "pilot_proposed", "pilot")
+# Equipment each vertical's freight actually needs (drives carrier-network matching)
+VERTICAL_EQUIPMENT = {
+    "medical_devices": ["Reefer", "Van", "Sprinter"],
+    "food_beverage": ["Reefer", "Van"],
+    "electronics": ["Van"],
+    "pharma_healthcare": ["Reefer", "Van"],
+    "construction_equipment": ["Flatbed", "Step Deck", "RGN"],
+    "retail_ecommerce": ["Van"],
+    "craft_beverage": ["Reefer", "Van"],
+    "agriculture": ["Hopper", "Flatbed", "Van"],
+    "chemicals": ["Tanker", "Van"],
+    "paper_packaging": ["Van", "Flatbed"],
+}
 PLAN_GOALS = {"loads_per_month": 765, "y1_revenue": 4_500_000}
 
 VERTICALS: Dict[str, Dict[str, Any]] = {
@@ -364,6 +379,7 @@ class TargetPatch(BaseModel):
 class PitchIn(BaseModel):
     send: bool = False
     email: Optional[str] = None
+    follow_up: bool = False
 
 
 def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
@@ -519,19 +535,30 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
         if not t:
             raise HTTPException(404, "Target not found")
         v = VERTICALS[t["vertical"]]
+        if payload.follow_up:
+            system = ("You write follow-up outreach for Orisei Freight Solutions — a Minneapolis freight "
+                      "brokerage run by three founders with 2 company trucks plus a vetted carrier network. "
+                      "Write a brief, warm follow-up email (under 110 words, no fluff, no exclamation marks) "
+                      "referencing the earlier dedicated-capacity pilot pitch. Add ONE new proof point or "
+                      "angle, and end with a single low-friction CTA (15-minute call this week). Return "
+                      "STRICT JSON: {subject, greeting, paragraphs (array of 1-3 short strings), "
+                      "bullets (array of 0-2 offer strings), closing}.")
+        else:
+            system = ("You write cold outreach for Orisei Freight Solutions — a Minneapolis freight brokerage "
+                      "run by three founders: a 13-year shipper-side logistics operator, a software developer "
+                      "who built the in-house TMS, and a 12-year CDL owner/operator. The company runs 2 of its "
+                      "own trucks plus a vetted carrier network. Write a short, specific pilot-pitch email "
+                      "(under 170 words, no fluff, no exclamation marks). Ask for a 30-60 day pilot at the "
+                      "stated volume. Return STRICT JSON: {subject, greeting, paragraphs (array of 2-4 short "
+                      "strings), bullets (array of 3-4 offer strings), closing}.")
         try:
             raw = await _claude(
-                "You write cold outreach for Orisei Freight Solutions — a Minneapolis freight brokerage "
-                "run by three founders: a 13-year shipper-side logistics operator, a software developer "
-                "who built the in-house TMS, and a 12-year CDL owner/operator. The company runs 2 of its "
-                "own trucks plus a vetted carrier network. Write a short, specific pilot-pitch email "
-                "(under 170 words, no fluff, no exclamation marks). Ask for a 30-60 day pilot at the "
-                "stated volume. Return STRICT JSON: {subject, greeting, paragraphs (array of 2-4 short "
-                "strings), bullets (array of 3-4 offer strings), closing}.",
+                system,
                 json.dumps({"company": t["name"], "city": t["city"], "vertical": v["label"],
                             "vertical_pitch": v["pitch"], "pilot_ask": v["pilot_ask"],
                             "contact_role": v["contact_role"],
                             "contact_name": t.get("contact_name") or "",
+                            "prior_pitch_subject": (t.get("last_pitch") or {}).get("subject", ""),
                             "battle_card_hook": (t.get("battle_card") or {}).get("hook", "")}))
             p = _json_of(raw)
         except HTTPException:
@@ -544,6 +571,7 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
                                 + ["• " + b for b in p.get("bullets", [])]
                                 + [p.get("closing", "— Orisei Freight Solutions")])
         pitch_doc = {"subject": p.get("subject", f"Orisei × {t['name']} — dedicated capacity pilot"),
+                     "kind": "follow_up" if payload.follow_up else "pitch",
                      "body_text": body_text, "generated_at": _now_iso(), "sent": False, "sent_to": None}
 
         to = (payload.email or t.get("contact_email") or "").strip()
@@ -580,7 +608,8 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
             pitch_doc.update({"sent": res.get("sent", False), "sent_to": to, "send_status": status})
             upd = {"last_pitch": pitch_doc, "contact_email": to, "updated_at": _now_iso(),
                    "last_outreach_at": _now_iso(), "last_touch_at": _now_iso(),
-                   "last_touchpoint": f"Pitch emailed to {to}" + ("" if res.get("sent") else " (queued — no Resend key)")}
+                   "last_touchpoint": f"{'Follow-up' if payload.follow_up else 'Pitch'} emailed to {to}"
+                                      + ("" if res.get("sent") else " (queued — no Resend key)")}
             if t["stage"] in ("target", "researched"):
                 upd["stage"] = "contacted"
             await db.niche_targets.update_one({"id": tid}, {"$set": upd, "$inc": {"outreach_count": 1}})
@@ -588,6 +617,97 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
             await db.niche_targets.update_one(
                 {"id": tid}, {"$set": {"last_pitch": pitch_doc, "updated_at": _now_iso()}})
         return {"ok": True, "pitch": pitch_doc}
+
+    def _cold_deals(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        now = datetime.now(timezone.utc)
+        out = []
+        for r in rows:
+            if r.get("outcome") == "no" or r["stage"] not in PITCHED_STAGES:
+                continue
+            ref = r.get("last_touch_at") or r.get("last_outreach_at") or r.get("updated_at") or r.get("created_at")
+            try:
+                days = (now - datetime.fromisoformat(ref)).days
+            except Exception:
+                days = 999
+            if days >= COLD_AFTER_DAYS:
+                out.append({"id": r["id"], "name": r["name"], "stage": r["stage"],
+                            "days_since_touch": days, "contact_name": r.get("contact_name", ""),
+                            "contact_email": r.get("contact_email", ""),
+                            "last_touchpoint": r.get("last_touchpoint", "")})
+        return sorted(out, key=lambda x: -x["days_since_touch"])
+
+    @router.get("/follow-ups")
+    async def follow_ups(_=Depends(get_current_user)):
+        await _ensure_seed()
+        rows = await db.niche_targets.find({}, {"_id": 0}).to_list(500)
+        return {"threshold_days": COLD_AFTER_DAYS, "cold_deals": _cold_deals(rows)}
+
+    @router.get("/targets/{tid}/carrier-matches")
+    async def carrier_matches(tid: str, _=Depends(get_current_user)):
+        t = await db.niche_targets.find_one({"id": tid}, {"_id": 0})
+        if not t:
+            raise HTTPException(404, "Target not found")
+        needed = VERTICAL_EQUIPMENT.get(t["vertical"], ["Van"])
+        prospects = await db.carrier_network_prospects.find({}, {"_id": 0}).to_list(300)
+        linked = t.get("linked_carriers") or []
+        linked_ids = {c["id"] for c in linked}
+        city = t["city"].split(",")[0].strip().lower()
+        stage_w = {"locked_in": 30, "pilot_load": 22, "vetting": 12, "contacted": 8, "target": 4}
+        matches = []
+        for p in prospects:
+            if p.get("id") in linked_ids:
+                continue
+            eqs = [str(e).lower() for e in (p.get("equipment") or [])]
+            eq_fit = [e for e in needed if any(e.lower() in x or x in e.lower() for x in eqs)]
+            score = len(eq_fit) * 25 + stage_w.get(p.get("stage"), 0)
+            lanes = " ".join(str(x) for x in (p.get("lanes") or []) + (p.get("deadhead_lanes") or [])).lower()
+            if city and city in lanes:
+                score += 15
+            if ", mn" in str(p.get("home_base", "")).lower():
+                score += 10
+            if not eq_fit and score < 20:
+                continue
+            matches.append({"id": p.get("id"), "name": p.get("name"), "mc_number": p.get("mc_number", ""),
+                            "stage": p.get("stage"), "equipment": p.get("equipment") or [],
+                            "home_base": p.get("home_base", ""), "match_score": score,
+                            "equipment_fit": eq_fit})
+        matches.sort(key=lambda m: -m["match_score"])
+        gap = max(0, (t.get("carriers_required") or 0) - (t.get("carriers_secured") or 0))
+        return {"gap": gap, "needed_equipment": needed, "linked": linked, "matches": matches[:12]}
+
+    @router.post("/targets/{tid}/link-carrier/{pid}")
+    async def link_carrier(tid: str, pid: str, _=Depends(get_current_user)):
+        t = await db.niche_targets.find_one({"id": tid}, {"_id": 0})
+        if not t:
+            raise HTTPException(404, "Target not found")
+        if any(c["id"] == pid for c in t.get("linked_carriers") or []):
+            raise HTTPException(400, "Carrier already linked to this deal")
+        p = await db.carrier_network_prospects.find_one({"id": pid}, {"_id": 0})
+        if not p:
+            raise HTTPException(404, "Carrier prospect not found")
+        entry = {"id": pid, "name": p.get("name", "Carrier"), "mc_number": p.get("mc_number", ""),
+                 "stage": p.get("stage", ""), "linked_at": _now_iso()}
+        r = await db.niche_targets.find_one_and_update(
+            {"id": tid},
+            {"$push": {"linked_carriers": entry}, "$inc": {"carriers_secured": 1},
+             "$set": {"updated_at": _now_iso()}},
+            return_document=True, projection={"_id": 0})
+        r["y1_potential"] = _y1_potential(r)
+        return {"ok": True, "target": r, "linked": entry}
+
+    @router.delete("/targets/{tid}/link-carrier/{pid}")
+    async def unlink_carrier(tid: str, pid: str, _=Depends(get_current_user)):
+        t = await db.niche_targets.find_one({"id": tid}, {"_id": 0})
+        if not t or not any(c["id"] == pid for c in t.get("linked_carriers") or []):
+            raise HTTPException(404, "Link not found")
+        r = await db.niche_targets.find_one_and_update(
+            {"id": tid},
+            {"$pull": {"linked_carriers": {"id": pid}},
+             "$inc": {"carriers_secured": -1 if (t.get("carriers_secured") or 0) > 0 else 0},
+             "$set": {"updated_at": _now_iso()}},
+            return_document=True, projection={"_id": 0})
+        r["y1_potential"] = _y1_potential(r)
+        return {"ok": True, "target": r}
 
     @router.get("/dashboard")
     async def dashboard(_=Depends(get_current_user)):
@@ -647,6 +767,7 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
                     "win_rate_pct": round(len(contracted) / decided * 100, 1) if decided else None}
         readiness = {"carrier_gap_active_deals": carrier_gap,
                      "feature_blockers": sorted(feature_blockers.values(), key=lambda x: -len(x["blocking"])),
+                     "cold_deals": _cold_deals(rows)[:6],
                      "urgent_deadlines": [{"id": r["id"], "name": r["name"],
                                            "deadline": r["decision_deadline"], "stage": r["stage"],
                                            "overdue": r["decision_deadline"] < today} for r in urgent[:6]]}

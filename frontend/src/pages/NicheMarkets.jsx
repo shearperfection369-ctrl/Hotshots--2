@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Crosshair, Loader2, X, Sparkles, Send, Copy, Plus, Trash2, FlaskConical, Target as TargetIcon, TrendingUp, Landmark, ShieldCheck, AlarmClock, Truck, Wrench } from "lucide-react";
+import { Crosshair, Loader2, X, Sparkles, Send, Copy, Plus, Trash2, FlaskConical, Target as TargetIcon, TrendingUp, Landmark, ShieldCheck, AlarmClock, Truck, Wrench, BellRing, Link2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 
@@ -67,7 +67,7 @@ export default function NicheMarkets() {
         ))}
       </div>
 
-      <div className="relative grid md:grid-cols-3 gap-3" data-testid="nm-readiness">
+      <div className="relative grid md:grid-cols-4 gap-3" data-testid="nm-readiness">
         <div className="p-3.5 rounded-2xl border border-orange-500/25 bg-orange-500/5">
           <div className="text-[10px] font-mono font-bold text-orange-300 uppercase flex items-center gap-1.5 mb-1.5"><Truck size={11} /> Carrier readiness gap</div>
           <div className="text-xl font-black text-white">{rd.carrier_gap_active_deals ?? 0} <span className="text-[11px] font-mono text-slate-500">dedicated trucks still to recruit for active deals</span></div>
@@ -77,6 +77,17 @@ export default function NicheMarkets() {
           {(rd.feature_blockers || []).length === 0 ? <div className="text-[11px] text-slate-500 font-mono">None — nothing blocking</div>
             : (rd.feature_blockers || []).slice(0, 3).map((b) => (
               <div key={b.feature} className="text-[11px] text-slate-300 truncate"><span style={{ color: FEAT_META[b.status] }}>●</span> {b.feature} <span className="text-slate-600 font-mono">→ {b.blocking.join(", ")}</span></div>
+            ))}
+        </div>
+        <div className="p-3.5 rounded-2xl border border-amber-500/25 bg-amber-500/5" data-testid="nm-followups-panel">
+          <div className="text-[10px] font-mono font-bold text-amber-300 uppercase flex items-center gap-1.5 mb-1.5"><BellRing size={11} /> Follow-ups due (7+ days cold)</div>
+          {(rd.cold_deals || []).length === 0 ? <div className="text-[11px] text-slate-500 font-mono">No cold deals — every pitched target touched inside 7 days</div>
+            : (rd.cold_deals || []).slice(0, 3).map((c) => (
+              <button key={c.id} onClick={() => { const tt = targets.find((x) => x.id === c.id); if (tt) setDetail(tt); }} data-testid={`nm-cold-${c.id}`}
+                      className="w-full text-[11px] text-slate-300 flex justify-between hover:text-amber-200">
+                <span className="truncate">{c.name}</span>
+                <span className="font-mono text-amber-300 shrink-0">{c.days_since_touch}d cold</span>
+              </button>
             ))}
         </div>
         <div className="p-3.5 rounded-2xl border border-cyan-500/25 bg-cyan-500/5">
@@ -250,6 +261,22 @@ function TargetDrawer({ target, vertical, onClose }) {
     carriers_required: target.carriers_required || 0, carriers_secured: target.carriers_secured || 0,
   });
   const [newFeat, setNewFeat] = useState("");
+  const [bridge, setBridge] = useState(null);
+
+  const loadBridge = useCallback(async () => {
+    try { const { data } = await api.get(`/niche-markets/targets/${target.id}/carrier-matches`); setBridge(data); }
+    catch (_) {}
+  }, [target.id]);
+  useEffect(() => { loadBridge(); }, [loadBridge]);
+
+  const linkCarrier = async (pid) => {
+    try { const { data } = await api.post(`/niche-markets/targets/${t.id}/link-carrier/${pid}`); setT(data.target); toast.success(`${data.linked.name} linked to deal`); loadBridge(); }
+    catch (e2) { toast.error(errTxt(e2)); }
+  };
+  const unlinkCarrier = async (pid) => {
+    try { const { data } = await api.delete(`/niche-markets/targets/${t.id}/link-carrier/${pid}`); setT(data.target); toast.success("Carrier unlinked"); loadBridge(); }
+    catch (e2) { toast.error(errTxt(e2)); }
+  };
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -285,12 +312,12 @@ function TargetDrawer({ target, vertical, onClose }) {
     try { const { data } = await api.post(`/niche-markets/targets/${t.id}/battle-card`, {}, { timeout: 100000 }); setT({ ...t, battle_card: data.battle_card, stage: t.stage === "target" ? "researched" : t.stage }); toast.success("Battle card ready"); }
     catch (e2) { toast.error(errTxt(e2)); } finally { setBusy(""); }
   };
-  const genPitch = async (send) => {
-    setBusy(send ? "send" : "pitch");
+  const genPitch = async (send, followUp = false) => {
+    setBusy(send ? "send" : followUp ? "followup" : "pitch");
     try {
-      const { data } = await api.post(`/niche-markets/targets/${t.id}/pitch`, { send, email: contact.contact_email || undefined }, { timeout: 100000 });
+      const { data } = await api.post(`/niche-markets/targets/${t.id}/pitch`, { send, follow_up: followUp, email: contact.contact_email || undefined }, { timeout: 100000 });
       setT({ ...t, last_pitch: data.pitch });
-      toast.success(send ? (data.pitch.sent ? "Pitch sent via Resend" : "Pitch queued — add Resend key in Connections to deliver") : "Pitch drafted");
+      toast.success(send ? (data.pitch.sent ? "Email sent via Resend" : "Email queued — add Resend key in Connections to deliver") : followUp ? "Follow-up drafted" : "Pitch drafted");
     } catch (e2) { toast.error(errTxt(e2)); } finally { setBusy(""); }
   };
   const del = async () => {
@@ -377,7 +404,46 @@ function TargetDrawer({ target, vertical, onClose }) {
                   className="flex-1 px-3 py-2 rounded-full border border-amber-500/50 text-amber-300 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 hover:bg-amber-500/10 disabled:opacity-50">
             {busy === "pitch" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} AI Pitch
           </button>
+          <button onClick={() => genPitch(false, true)} disabled={!!busy} data-testid="nm-followup-btn"
+                  className="flex-1 px-3 py-2 rounded-full border border-emerald-500/50 text-emerald-300 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 hover:bg-emerald-500/10 disabled:opacity-50">
+            {busy === "followup" ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />} AI Follow-Up
+          </button>
         </div>
+
+        {bridge && (
+          <div className="p-3.5 rounded-xl border border-orange-500/25 bg-orange-500/5 mb-4 space-y-2" data-testid="nm-bridge">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] font-mono uppercase text-orange-300 font-bold flex items-center gap-1.5"><Link2 size={11} /> Carrier Recruiting Bridge</div>
+              <div className="text-[10px] font-mono" style={{ color: bridge.gap > 0 ? "#FB923C" : "#34D399" }}>{bridge.gap > 0 ? `${bridge.gap} trucks still needed` : "FULLY STAFFED"}</div>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {bridge.needed_equipment.map((e) => <span key={e} className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-mono text-slate-300">{e}</span>)}
+            </div>
+            {(t.linked_carriers || []).length > 0 && (
+              <div>
+                <div className="text-[9px] font-mono text-slate-500 uppercase mb-1">Linked to this deal</div>
+                {(t.linked_carriers || []).map((c) => (
+                  <div key={c.id} className="flex items-center justify-between text-[11px] py-0.5">
+                    <span className="text-emerald-300 font-bold">{c.name} <span className="text-slate-600 font-mono">{c.mc_number}</span></span>
+                    <button onClick={() => unlinkCarrier(c.id)} data-testid={`nm-unlink-${c.id}`} className="text-slate-600 hover:text-red-400"><X size={12} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="text-[9px] font-mono text-slate-500 uppercase">Best matches from Carrier Network</div>
+            {bridge.matches.length === 0 ? <div className="text-[11px] text-slate-500 font-mono">No fits — recruit {bridge.needed_equipment.join("/")} carriers in the Carrier Network</div>
+              : bridge.matches.slice(0, 5).map((m) => (
+                <div key={m.id} className="flex items-center justify-between text-[11px] py-1 border-t border-white/5">
+                  <div className="min-w-0">
+                    <div className="text-slate-200 font-bold truncate">{m.name} <span className="text-slate-600 font-mono text-[9px]">score {m.match_score}</span></div>
+                    <div className="text-[9px] font-mono text-slate-500 truncate">{m.stage} · {(m.equipment_fit.length ? m.equipment_fit : m.equipment).join(", ")} · {m.home_base}</div>
+                  </div>
+                  <button onClick={() => linkCarrier(m.id)} data-testid={`nm-link-${m.id}`}
+                          className="shrink-0 px-2.5 py-1 rounded-full border border-emerald-500/50 text-emerald-300 text-[9px] font-black hover:bg-emerald-500/10">LINK</button>
+                </div>
+              ))}
+          </div>
+        )}
 
         {bc && (
           <div className="p-3.5 rounded-xl border border-cyan-500/25 bg-cyan-500/5 mb-4 space-y-2.5" data-testid="nm-battle-card">
@@ -399,7 +465,7 @@ function TargetDrawer({ target, vertical, onClose }) {
         {t.last_pitch && (
           <div className="p-3.5 rounded-xl border border-amber-500/25 bg-amber-500/5 space-y-2" data-testid="nm-pitch-preview">
             <div className="flex items-center justify-between">
-              <div className="text-[10px] font-mono uppercase text-amber-300 font-bold">Pitch email {t.last_pitch.sent && <span className="text-emerald-300">· SENT</span>}</div>
+              <div className="text-[10px] font-mono uppercase text-amber-300 font-bold">{t.last_pitch.kind === "follow_up" ? "Follow-up email" : "Pitch email"} {t.last_pitch.sent && <span className="text-emerald-300">· SENT</span>}</div>
               <button onClick={() => { navigator.clipboard.writeText(`${t.last_pitch.subject}\n\n${t.last_pitch.body_text}`); toast.success("Copied"); }} data-testid="nm-pitch-copy" className="text-slate-400 hover:text-white"><Copy size={13} /></button>
             </div>
             <div className="text-[12px] font-bold text-white">{t.last_pitch.subject}</div>
