@@ -18,6 +18,7 @@ import {
 import { api, BACKEND_URL } from "../lib/api";
 import { useBranding, useBrandRefresh } from "../lib/branding";
 import { CarrierCombobox } from "../components/CarrierCombobox";
+import { InsuranceBinderCard } from "../components/InsuranceBinderCard";
 import { toast } from "sonner";
 
 /**
@@ -99,6 +100,8 @@ export default function ClaimsMaster() {
             </Button>
           </div>
         </div>
+
+        <InsuranceBinderCard />
 
         <div className="flex gap-1.5 overflow-x-auto pb-1" data-testid="claims-tabs">
           {TABS.map(({ id, label, icon: Icon }) => (

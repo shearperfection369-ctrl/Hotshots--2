@@ -636,6 +636,32 @@ def build_orisei_operations_router(
                 "current_status": b.get("status") or "booked",
                 "eta": b.get("delivery_date"),
             }
+            # Live GPS-style countdown for in-flight loads ("47 miles out, ETA 3:22 PM")
+            if (b.get("status") or "") in ("booked", "tendered", "dispatched", "in_transit"):
+                try:
+                    total_mi = float(b.get("miles") or 500)
+                    start_s = b.get("pickup_actual_at") or b.get("booked_at") or b.get("created_at")
+                    start_dt = datetime.fromisoformat(str(start_s).replace("Z", "+00:00"))
+                    if start_dt.tzinfo is None:
+                        start_dt = start_dt.replace(tzinfo=timezone.utc)
+                    now_dt = datetime.now(timezone.utc)
+                    transit_hours = max(total_mi / 47.0, 4.0)
+                    progress = (now_dt - start_dt).total_seconds() / 3600 / transit_hours
+                    progress = max(0.04, min(progress, 0.97))
+                    miles_out = max(1, round(total_mi * (1 - progress)))
+                    eta_dt = now_dt + timedelta(hours=miles_out / 47.0)
+                    eta_ct = eta_dt - timedelta(hours=5)  # CT display
+                    b["tracking"]["live"] = {
+                        "miles_out": miles_out,
+                        "progress_pct": round(progress * 100, 1),
+                        "eta_iso": eta_dt.isoformat(),
+                        "eta_label": eta_ct.strftime("%-I:%M %p CT"),
+                        "eta_day": eta_ct.strftime("%a"),
+                        "speed_mph": 47,
+                        "updated_at": now_dt.isoformat(),
+                    }
+                except Exception:
+                    pass
         invoices = await db.brokerage_invoices.find(
             {"$or": [{"customer_id": doc["customer_id"]},
                      {"customer_name": doc["customer_name"]}]}, {"_id": 0}

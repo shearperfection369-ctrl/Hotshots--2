@@ -8980,6 +8980,14 @@ api_router.include_router(build_lane_stacking_router(
     get_current_user=get_current_user,
 ))
 
+# Mount Dynamic Pricing Engine + Operational Truth + Insurance Binders
+from routes.dynamic_pricing import build_dynamic_pricing_router  # noqa: E402
+api_router.include_router(build_dynamic_pricing_router(db=db, get_current_user=get_current_user))
+from routes.ops_truth import build_ops_truth_router  # noqa: E402
+api_router.include_router(build_ops_truth_router(db=db, get_current_user=get_current_user))
+from routes.insurance_binders import build_insurance_router  # noqa: E402
+api_router.include_router(build_insurance_router(db=db, get_current_user=get_current_user))
+
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)
 

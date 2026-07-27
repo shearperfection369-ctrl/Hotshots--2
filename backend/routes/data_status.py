@@ -109,7 +109,7 @@ WIPE_CATEGORIES: Dict[str, Dict[str, Any]] = {
     },
     "invoices_finance": {
         "label": "Invoices & Finance",
-        "collections": ["orisei_invoices", "brokerage_invoices"],
+        "collections": ["orisei_invoices", "brokerage_invoices", "pricing_snapshots"],
     },
     "documents": {
         "label": "Documents (BOLs, packets)",

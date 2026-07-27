@@ -206,6 +206,26 @@ function TrackingCard({ token, booking }) {
         <StatusPill status={t.current_status || booking.status} />
       </div>
 
+      {/* Live GPS countdown — "47 miles out, ETA 3:22 PM" */}
+      {t.live && (
+        <div className="mt-3 p-3 rounded border border-cyan-500/25 bg-cyan-500/5" data-testid={`portal-live-eta-${bid}`}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-sm font-bold text-cyan-300">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-60" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-400" />
+              </span>
+              {t.live.miles_out} miles out · ETA {t.live.eta_label}
+            </div>
+            <span className="text-[10px] font-mono text-slate-500">{t.live.progress_pct}% of route · live GPS</span>
+          </div>
+          <div className="h-2 rounded bg-white/5 overflow-hidden mt-2">
+            <div className="h-full rounded bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-1000"
+              style={{ width: `${t.live.progress_pct}%` }} />
+          </div>
+        </div>
+      )}
+
       {/* Timeline */}
       {t.timeline?.length > 0 && (
         <div className="mt-4 space-y-2">
