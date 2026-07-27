@@ -371,6 +371,7 @@ class TargetPatch(BaseModel):
     est_loads_month: Optional[int] = None
     margin_per_load_est: Optional[float] = None
     contact_name: Optional[str] = None
+    contact_title: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
     notes: Optional[str] = None

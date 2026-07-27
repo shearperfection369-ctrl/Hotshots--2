@@ -203,7 +203,7 @@ export default function NicheMarkets() {
                     </td>
                     <td className="px-2 py-2 text-[10px]">
                       <div className="text-slate-300 font-bold">{t.contact_name || <span className="text-slate-700">no contact</span>}</div>
-                      <div className="text-slate-600 font-mono truncate max-w-[140px]">{t.last_touchpoint || (t.last_touch_at ? t.last_touch_at.slice(0, 10) : "never touched")}</div>
+                      <div className="text-slate-600 font-mono truncate max-w-[150px]" title={t.contact_title || ""}>{t.contact_title || t.last_touchpoint || (t.last_touch_at ? t.last_touch_at.slice(0, 10) : "never touched")}</div>
                     </td>
                     <td className="px-2 py-2 text-center font-mono text-[11px]">
                       <span className={(t.carriers_secured || 0) >= (t.carriers_required || 0) ? "text-emerald-300" : "text-orange-300"}>
@@ -255,7 +255,7 @@ function AddTarget({ verticals, onAdded }) {
 function TargetDrawer({ target, vertical, onClose }) {
   const [t, setT] = useState(target);
   const [busy, setBusy] = useState("");
-  const [contact, setContact] = useState({ contact_name: target.contact_name || "", contact_email: target.contact_email || "", contact_phone: target.contact_phone || "" });
+  const [contact, setContact] = useState({ contact_name: target.contact_name || "", contact_title: target.contact_title || "", contact_email: target.contact_email || "", contact_phone: target.contact_phone || "" });
   const [ops, setOps] = useState({
     decision_deadline: target.decision_deadline || "", last_touchpoint: "",
     carriers_required: target.carriers_required || 0, carriers_secured: target.carriers_secured || 0,
@@ -357,10 +357,25 @@ function TargetDrawer({ target, vertical, onClose }) {
           <div className="text-[10px] font-mono uppercase text-slate-500 mb-2">Contact — {vertical?.contact_role}</div>
           <div className="grid grid-cols-2 gap-1.5">
             <input placeholder="Name" value={contact.contact_name} onChange={(e) => setContact({ ...contact, contact_name: e.target.value })} data-testid="nm-contact-name" className="bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white" />
+            <input placeholder="Title" value={contact.contact_title} onChange={(e) => setContact({ ...contact, contact_title: e.target.value })} data-testid="nm-contact-title" className="bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white" />
+            <input placeholder="Email" value={contact.contact_email} onChange={(e) => setContact({ ...contact, contact_email: e.target.value })} data-testid="nm-contact-email" className="bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white" />
             <input placeholder="Phone" value={contact.contact_phone} onChange={(e) => setContact({ ...contact, contact_phone: e.target.value })} className="bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white" />
-            <input placeholder="Email" value={contact.contact_email} onChange={(e) => setContact({ ...contact, contact_email: e.target.value })} data-testid="nm-contact-email" className="col-span-2 bg-slate-900 border border-white/15 rounded-lg px-2 py-1.5 text-[11px] text-white" />
           </div>
+          {t.email_confidence === "pattern_guess" && (
+            <div className="mt-1.5 text-[10px] font-mono text-amber-300/90" data-testid="nm-email-warning">⚠ Email is a pattern-based guess from public research — verify on LinkedIn before sending.</div>
+          )}
           <button onClick={saveContact} data-testid="nm-contact-save" className="mt-2 px-3 py-1 rounded-full border border-white/20 text-slate-300 text-[10px] font-bold hover:border-amber-400">Save contact</button>
+          {(t.email_pattern || t.linkedin_search || t.alt_contacts) && (
+            <div className="mt-2 pt-2 border-t border-white/10 space-y-1" data-testid="nm-sourcing-intel">
+              <div className="text-[9px] font-mono uppercase text-cyan-300 font-bold">Sourcing intel</div>
+              {t.email_pattern && <div className="text-[10.5px] text-slate-400 font-mono">Pattern: {t.email_pattern}{t.company_domain ? ` · ${t.company_domain}` : ""}</div>}
+              {t.alt_contacts && <div className="text-[10.5px] text-slate-400">Also hunt: {t.alt_contacts}</div>}
+              {t.linkedin_search && (
+                <a href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(t.linkedin_search)}`} target="_blank" rel="noreferrer"
+                   data-testid="nm-linkedin-search" className="inline-block text-[10.5px] text-cyan-300 hover:underline">Search on LinkedIn →</a>
+              )}
+            </div>
+          )}
           {t.last_touchpoint && <div className="mt-2 text-[10.5px] text-slate-400 font-mono">Last touch: {t.last_touchpoint} {t.last_touch_at && `· ${t.last_touch_at.slice(0, 10)}`}</div>}
         </div>
 

@@ -2402,3 +2402,15 @@ retrains scoring weights from revealed preferences — making the intuitive
      NicheMarkets.jsx sometimes report success but append content as junk at file tail instead of
      replacing (breaks compile). ALWAYS grep for the new symbol + check file tail after big edits;
      prefer small targeted edits on these files.
+4. CONTACT SEEDING (user: "seed the board with as many contacts as you can realistically source"):
+   Web-researched real, publicly-listed logistics leaders for all 9 anchors and seeded via
+   /app/backend/scripts/seed_niche_contacts.py (re-runnable): Toro→Steve Abiadal (Sr Dir Global
+   Logistics), Summit→Donavan Moon (Shipping/Transp Mgr), Bobcat→Daniel Jamison (Dir SC&L),
+   Land O'Lakes→Nicholas Najjar, Medtronic→Kelton Graham (Dir Americas Transportation),
+   Cargill→Randy Brown (VP Transp & Logistics NA), Target→Meaghan Juettner (VP Global Transp),
+   Best Buy→Nate Omann, General Mills→Phillip West. Emails are PATTERN GUESSES (email_confidence=
+   pattern_guess, amber warning nm-email-warning in UI, seeded touchpoint says verify first).
+   All 45 targets got sourcing intel: company_domain, email_pattern, linkedin_search (rendered as
+   clickable LinkedIn people-search link nm-linkedin-search), alt_contacts for anchors, HQ phones.
+   UI: contact_title field added (TargetPatch + drawer input nm-contact-title + table shows title),
+   Sourcing Intel block nm-sourcing-intel in drawer. Verified via curl (9 named/45 intel) + screenshot.
