@@ -1,10 +1,11 @@
 # Orisei Freight Solutions LLC
-## Freight Brokerage Business Plan · 2026 · v3.0 — Three-Member Partnership Edition
+## Freight Brokerage Business Plan · 2026 · v4.0 — Three-Member Hybrid Edition (Brokerage + 2-Truck Asset Division)
 
 **Founding Members & Principal Owners (equal 33⅓%):** Oliver Cummins · Daniel W. Karsor · Doug Graham
 **Headquarters:** Minneapolis · Saint Paul · Minnesota
 **Legal Form:** Three-member, member-managed LLC (MN Chapter 322C) · S-Corp election in Year 2
 **Authority:** US DOT · MC# (Property Broker) · BOC-3 · BMC-84 $75,000 Surety
+**Assets:** 2 company trucks (asset division · in service Month 3 · anchored by Doug Graham's 12-yr owner/operator experience)
 **Contact:** oliver@oriseifreightsolutions.com · oliver@oriseifreightsolutions.com · (612) 555-0117
 **Launch Capital:** $30,000 — $10,000 committed by each of the three members
 **Plan Horizon:** 2026 – 2029 (3-year operating window)
@@ -19,6 +20,7 @@ This is the **operating business plan** for Orisei Freight Solutions LLC — a M
 2. Serve as a lender-ready / SBA-ready financial narrative.
 3. Document every step required to **legally activate property-broker authority** in the United States and convert it into recurring brokered freight revenue.
 4. Memorialize the **three-member, equal 33⅓% partnership structure** governed by the companion *Minnesota Member-Controlled LLC Partnership Agreement* (available in the Command Deck alongside this plan).
+5. Document the **hybrid operating model** (v4.0): a brokerage desk layered with a **2-truck company asset division** — the two trucks take committed anchor-lane freight first (Playbook Auto-Tender), the brokered carrier network takes the overflow, and the two P&Ls are tracked separately (§15B).
 
 If you are reading this inside the **Orisei Brokerage Command Deck** (the in-app Business Plan tab), the financial figures here are the same baseline the Dashboard tab projects forward against actual booked margins.
 
@@ -26,7 +28,7 @@ If you are reading this inside the **Orisei Brokerage Command Deck** (the in-app
 
 ## 1 · Executive Summary
 
-Orisei Freight Solutions LLC is a **lean, partner-operated property freight brokerage** based in the Twin Cities (Minneapolis–Saint Paul) with statewide Minnesota reach and a national lane network. Orisei matches **vetted motor carriers** to **shipper freight** across truckload (TL), less-than-truckload (LTL), reefer, flatbed, expedited, and intermodal modes — earning a margin on every load brokered.
+Orisei Freight Solutions LLC is a **lean, partner-operated hybrid freight company** based in the Twin Cities (Minneapolis–Saint Paul) with statewide Minnesota reach and a national lane network. Orisei runs two engines under one roof: a **property freight brokerage** matching vetted motor carriers to shipper freight across truckload (TL), less-than-truckload (LTL), reefer, flatbed, expedited, and intermodal modes — and a **2-truck company asset division** that hauls committed anchor-lane freight itself, capturing the full linehaul instead of the brokerage spread. Company trucks take the anchor loads first; the brokered carrier network takes the overflow — no freight is ever turned away.
 
 The freight-brokerage market in the United States is **~$95B (2025) and growing 5–7% CAGR**, driven by shipper appetite for asset-light fulfillment and the structural decline of in-house traffic departments at mid-market manufacturers. Minnesota's industrial mix — food & beverage, agriculture, fabricated metals, medical devices, and big-box retail distribution — produces **predictable, lane-dense outbound and inbound freight** that an operator-built brokerage can profitably book from day one.
 
@@ -34,7 +36,7 @@ The freight-brokerage market in the United States is **~$95B (2025) and growing 
 
 - **Oliver Cummins** — a 13-year supply-chain and logistics practitioner who has personally tendered, tracked, escalated, and audited freight across all six modes for major Minnesota industrials. He runs operations, carrier vetting, pricing, and the shipper book.
 - **Daniel W. Karsor** — a Brooklyn Park, MN entrepreneur and **software developer** who owns and operates a barbershop and a podcast studio. Originally from West Africa, Daniel brings proven multi-business ownership, hands-on engineering capability to co-develop the **Orisei Brokerage Command Deck**, an in-house media engine for brand content, and deep roots in Minnesota's West African diaspora business community — one of the most entrepreneurial owner-operator carrier communities in the Upper Midwest.
-- **Doug Graham** — a **CDL-licensed owner/operator with 12 years of over-the-road trucking experience**. Doug brings the carrier-side perspective no desk broker can fake: equipment knowledge, driver economics, lane and rate intuition, and a working network of owner-operators. He serves as **Capacity & Carrier Relations Advisor** — vetting carriers, sourcing capacity, and keeping Orisei's rates honest on both sides of every load.
+- **Doug Graham** — a **CDL-licensed owner/operator with 12 years of over-the-road trucking experience**. Doug brings the carrier-side perspective no desk broker can fake: equipment knowledge, driver economics, lane and rate intuition, and a working network of owner-operators. He serves as **Capacity & Carrier Relations Advisor** and **anchors the 2-truck company asset division** (§15B) — vetting carriers, sourcing capacity, running the fleet, and keeping Orisei's rates honest on both sides of every load.
 
 The brokerage launches with the operator's playbook, the builder's toolkit, AND the driver's road sense — and ships with the **Orisei Brokerage Command Deck**, a proprietary internal TMS that aggregates DAT, Truckstop, Convoy, Uber Freight, and 123Loadboard postings; matches them against a real-time margin model; and books, settles, invoices, and reconciles loads to QuickBooks Online.
 
@@ -49,10 +51,14 @@ The brokerage launches with the operator's playbook, the builder's toolkit, AND 
 | Factoring / financing | $130,000 | $208,000 | $162,240 |
 | Operating expenses (staff, boards, loss provisions) | $249,600 | $696,600 | $959,600 |
 | **EBITDA before partner pay** | **$200,400** | **$603,400** | **$838,560** |
+| Fleet net contribution (2 company trucks · §15B) | $82,000 | $116,000 | $129,000 |
+| **Combined EBITDA — hybrid (§15B)** | **$282,400** | **$719,400** | **$967,560** |
 | **Net cash to members (salary + distributions)** | **$140,000** | **$350,000** | **$530,000** |
+| **Net cash to members — hybrid (§15B)** | **$195,000** | **$445,000** | **$640,000** |
 | **Per-member share (⅓)** | **$46,667** | **$116,667** | **$176,667** |
+| **Per-member share — hybrid (⅓ · §15B)** | **$65,000** | **$148,333** | **$213,333** |
 
-**The capitalization.** Orisei launches on **$30,000 of member capital — $10,000 committed in cash by each of the three members**. Oliver Cummins' $10,000 is **paid in full in-kind** — the design and development of the Orisei Brokerage Command Deck, the structuring and formation of the business, and payment of all Company expenses to date from personal funds (receipt ORI-RCT-0003); Doug Graham additionally contributes 12 years of owner/operator expertise as the Company's carrier-side advisor. There is **no outside-investor ask** — Orisei is designed to be **cash-flow positive by Month 4** at the shipper-led ramp, with the factoring line carrying working-capital load from Day 28. **Rev-3 recalibration:** Year 1 volume is now built on the **shipper book, not the load boards** — boards are a carrier-sourcing and prospecting tool, never the freight engine (§8.4). The Operator's time is materially committed to shipper acquisition, reflected in the revised salary (§3.6 · $110,000/yr) and the dedicated Shipper Acquisition Playbook (§8.5).
+**The capitalization.** Orisei launches on **$30,000 of member capital — $10,000 committed in cash by each of the three members**. Oliver Cummins' $10,000 is **paid in full in-kind** — the design and development of the Orisei Brokerage Command Deck, the structuring and formation of the business, and payment of all Company expenses to date from personal funds (receipt ORI-RCT-0003); Doug Graham additionally contributes 12 years of owner/operator expertise as the Company's carrier-side advisor. There is **no outside-investor ask** — Orisei is designed to be **cash-flow positive by Month 4** at the shipper-led ramp, with the factoring line carrying working-capital load from Day 28. **Rev-3 recalibration:** Year 1 volume is now built on the **shipper book, not the load boards** — boards are a carrier-sourcing and prospecting tool, never the freight engine (§8.4). The Operator's time is materially committed to shipper acquisition, reflected in the revised salary (§3.6 · $110,000/yr) and the dedicated Shipper Acquisition Playbook (§8.5). **v4.0 hybrid layer:** the partnership's **two committed trucks** enter service Month 3, adding a fleet net contribution of **$82K → $129K/yr** on top of the brokerage base case and lifting per-member cash to **$65,000 (Y1) → $213,333 (Y3)** (§15B).
 
 ---
 
@@ -150,7 +156,8 @@ Doug Graham is a **CDL-licensed truck driver and owner/operator with twelve year
 | Office | Home offices Y1 (Mpls + Brooklyn Park) → Co-working Y2 → Dedicated office Y3 |
 | Banking | Choice Financial (MN) — operating + savings + factoring sweep · dual-signer over $2,500 |
 | Accounting | QuickBooks Online · CPA on retainer (1065 partnership return, K-1s, MN state filings) |
-| Insurance | $1M general liability · $100k contingent cargo · $1M E&O (broker's liability) |
+| Insurance | $1M general liability · $100k contingent cargo · $1M E&O (broker's liability) · auto-liability + physical damage on the 2 company trucks |
+| Asset division | **2 company trucks** — in service Month 3 · anchor-lane dedicated haulage · P&L tracked separately from the brokerage desk (§15B) |
 | Governing agreement | Minnesota Member-Controlled LLC Partnership Agreement (three members · equal 33⅓% · notarized) — executed by all members |
 
 ---
@@ -225,6 +232,8 @@ Minnesota generates **~125M outbound freight tons annually** and consumes a near
 | LTL | Multi-stop palletized via SMC³ partner carriers | 8% |
 | Expedited / Power-Only | Medical, automotive critical | 3% |
 | Intermodal | BNSF ramp Mpls/St. Paul → Long Beach / Seattle / Memphis | 2% |
+
+**Company asset division (layered on top of the brokered mix above):** **2 company trucks** haul committed anchor-lane freight directly — ~340 loads in Year 1 at ~$2.05/mi blended (§15B). The Command Deck's **Playbook Auto-Tender** books company trucks first on anchor lanes; brokered carriers take the overflow, so no shipper load ever waits on truck availability.
 
 **Value-added services (no extra fee, used as a competitive wedge):**
 
@@ -355,8 +364,11 @@ driving one, and the software tracking your load was built in-house — with our
 | 13:00 – 15:00 | Carrier sourcing · vetting · rate negotiation | Oliver + Daniel (diaspora channel) |
 | 15:00 – 17:00 | Settlement, invoicing, QuickBooks sync, claims | Oliver |
 | 17:00 – 19:00 | Active load tracking · BOL collection · POD reconciliation | Split |
+| Continuous | Fleet dispatch — company trucks on anchor lanes · backhaul fills via Command Deck | Doug |
 | Evenings | Command Deck development sprint | Daniel |
 | On-call | 24/7 dispatch escalations (rotating weekly between partners) | Rotating |
+
+**Fleet operations note (v4.0).** The two company trucks run through the same Command Deck pipeline as brokered loads: Playbook Auto-Tender assigns anchor-lane freight to the fleet first, the Backhaul Matcher fills return legs, and fleet fuel/maintenance/driver costs post to a separate asset P&L in the Operational Truth module so brokerage margin and asset margin never blur (§15B).
 
 ### 9.2 · Tech stack (Year 1 — lean $10K budget)
 
@@ -479,8 +491,11 @@ The launch runway is tracked live in the **Command Deck → Launch Runway tab**,
 - Volume ramp (shipper-book-led per §8.4; boards supplemental only): Mo1–3 = **15/wk (3/day)** · Mo4–6 = **30/wk (6/day)** · Mo7–9 = **42/wk (8.5/day)** · Mo10–12 = **67/wk (13.5/day · exit ≈14/day)**
 - Total Y1 loads ≈ **2,000** → Revenue ≈ **$4.0M** → Gross margin ≈ **$580K**
 - The sandbox validates the desk can process 17.5/day; the plan schedules that capability for Y2 because **shipper-book acquisition — not system throughput — is the constraint**.
+- **Asset revenue (v4.0):** the 2 company trucks add ~**$340K Year-1 fleet gross revenue** (~$2.05/mi blended, live Month 3) with a **$82K net contribution** — tracked on a separate asset P&L and consolidated in §15B. The base-case P&L below (§10.5) remains **brokerage-only** so lenders can underwrite each engine independently.
 
 ### 10.5 · 3-Year P&L (rev-3 · shipper-led ramp · nationwide FTL)
+
+> **Scenario A — brokerage-only base case.** Fleet economics are deliberately excluded here and consolidated in the hybrid scenario (§15B) so each engine can be underwritten on its own.
 
 | Line | Y1 (2026) | Y2 (2027) | Y3 (2028) |
 | --- | ---: | ---: | ---: |
@@ -566,6 +581,7 @@ The partnership is governed by the **Minnesota Member-Controlled LLC Partnership
 | **Partner dispute / deadlock** | Low | High | Written agreement with mediation + buy-sell procedure; quarterly partner reviews |
 | **FMCSA enforcement (bond / BOC-3 lapse)** | Low | Catastrophic | Compliance calendar in Command Deck; auto-renewal alerts |
 | **Cargo claim / E&O liability** | Med | High | $100K contingent cargo + $1M E&O; written carrier liability flow-through |
+| **Fleet downtime / maintenance surprise (2 company trucks)** | Med | Med | Preventive maintenance schedule · $0.16/mi maintenance reserve · brokered network absorbs anchor loads during downtime · truck 3+ gated on ≥90% paid-mile utilization (§15B.4) |
 | **Concentration risk (top customer > 30%)** | Med | High | Hard cap: no single customer >25% of revenue by Mo18 |
 | **Tennant Companies conflict of interest** | Low | Med | Orisei will not broker Tennant freight while Oliver remains W-2 there; documented walls-and-disclosures |
 
@@ -588,6 +604,8 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 | Customer retention | ≥ 85% | ≥ 90% | ≥ 92% |
 | Top-customer concentration | < 35% | < 30% | < 25% |
 | Cash on hand (days OpEx) | ≥ 30 | ≥ 60 | ≥ 90 |
+| Fleet paid-mile utilization (2 company trucks) | ≥ 85% | ≥ 90% | ≥ 90% |
+| Fleet net contribution / truck / year | ≥ $41K | ≥ $58K | ≥ $64.5K |
 | Launch-capital burn vs. §10.2 plan | ≤ 100% | — | — |
 
 ---
@@ -620,7 +638,7 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 
 - **Mo1:** Execute Launch Runway Phases 1–3 (§10.3). First load brokered target: Mo1 day 5. Goal: 60 loads (15/wk) · $17,400 gross margin · 100% claim-free · 12 shipper discovery calls held.
 - **Mo2:** Factoring live. Onboard customers #3–4 from the trial pipeline. Goal: 65 loads · $18,850 GM · 5 new shipper meetings/wk (§8.5 cadence).
-- **Mo3:** First quarterly business review with anchor customer + first quarterly partner review. Goal: 70 loads · $20,300 GM · 6 active accounts.
+- **Mo3:** First quarterly business review with anchor customer + first quarterly partner review. **Both company trucks in service** — insurance bound, ELD/IFTA active, first anchor-lane loads auto-tendered to the fleet (§15B). Goal: 70 loads · $20,300 GM · 6 active accounts.
 
 ### Phase 2 · Stabilize (Month 4 – Month 6 · Jul – Sep 2026)
 
@@ -642,6 +660,7 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 - Hire **first W-2 carrier-sales agent** late Q3.
 - Add **intermodal lanes** via BNSF ramp partnerships.
 - Explore **West Africa trade-lane advisory** (ocean export forwarding referrals) leveraging Daniel's network + Oliver's international specialization.
+- **Truck 3+ decision gate:** expand the fleet only if both trucks hold ≥ 90% paid-mile utilization AND the brokerage desk cleared its Y1 EBITDA target (§15B.4) — growth is earned, not assumed.
 - Target: 21 loads/wk · $18K GM/wk · 14 active customers.
 
 ### Phase 5 · Institutionalize (Year 3 · 2028)
@@ -657,8 +676,8 @@ KPIs are tracked weekly in the **Orisei Brokerage Command Deck → Dashboard tab
 
 By the end of Year 3, Orisei Freight Solutions has three realistic strategic paths:
 
-1. **Continue & compound** — stay member-controlled (equal thirds), grow to 8-person shop, hit $5M revenue by Y5. Highest long-term EV, lowest velocity.
-2. **Strategic sale** — exit to a regional consolidator (RXO, Hub Group, Coyote) at ~3.5–5× EBITDA. Expected sale band at end Y3: **$1.0M – $1.5M cash + earnout**, split equally among the three members.
+1. **Continue & compound** — stay member-controlled (equal thirds), grow to 8-person shop, hit $5M revenue by Y5. The 2-truck asset division compounds too: every mile builds equipment equity, and the truck-3+ gate (§15B.4) scales the fleet only on proven utilization. Highest long-term EV, lowest velocity.
+2. **Strategic sale** — exit to a regional consolidator (RXO, Hub Group, Coyote) at ~3.5–5× EBITDA. On the hybrid Combined EBITDA ($968K Y3 · §15B), the expected sale band at end Y3 rises to **$1.5M – $2.5M cash + earnout** (vs $1.0M–$1.5M brokerage-only), split equally among the three members — with the trucks either included as assets or sold separately.
 3. **Tech-licensing pivot** — package the **Orisei Brokerage Command Deck** as a SaaS offering for other single-agent brokerages, engineered by Daniel. Pricing target: **$499/mo/seat**.
 
 The members will revisit this decision tree at the end of every fiscal year.
@@ -848,6 +867,7 @@ no freight is ever turned away.*
 | 2.0 | 2026-06 | Oliver Cummins · Daniel W. Karsor | Partnership Edition — Daniel W. Karsor admitted as 50/50 co-founder; recapitalized around $10,000 partner infusion; lean use-of-funds; owner launch runway integrated; partnership governance added. |
 | 3.0 | 2026-07 | Oliver Cummins · Daniel W. Karsor · Doug Graham | Three-Member Edition — Doug Graham admitted as equal 33⅓% member (CDL owner/operator, 12 yrs); recapitalized at $30,000 ($10,000 per member); reinvestment holdback + operator-only salary schedule; notarized agreement; official receipt register + capital accounts ledger. |
 | 3.1 | 2026-07 | All members | Scenario C added (§15B) — 2-Truck Hybrid: two committed trucks layered on the brokerage base case; Combined EBITDA $282K → $968K; per-member $65K → $213K. Brochure PDF expanded to 7 pages to match. |
+| 4.0 | 2026-07 | All members | **Hybrid Edition** — 2-truck asset division integrated through the entire plan: executive summary dual-scenario highlights, company overview, service offering, operations (fleet dispatch + Playbook Auto-Tender), revenue model, risk register, fleet KPIs, entry-plan milestones (trucks live Mo 3, truck-3+ gate), and exit valuation on hybrid Combined EBITDA. |
 
 ---
 

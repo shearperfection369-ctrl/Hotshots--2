@@ -2351,3 +2351,15 @@ retrains scoring weights from revealed preferences — making the intuitive
    2-Truck Hybrid" (assumptions, 3-yr hybrid P&L matching brochure numbers, execution notes) + doc-control
    v3.1 row. Renamed brochure page 7 to "Scenario C" (15A already = Scenario B Automation Case).
    Verified: /business-plan markdown has 15B, /business-plan/pdf 25 pages w/ hybrid, brochure 7 pages.
+4. FULL MODULE UPDATE (user: "update the entire brokerage business plan module"): BROKERAGE_BUSINESS_PLAN.md
+   promoted to v4.0 "Three-Member Hybrid Edition" — hybrid integrated THROUGHOUT: header (Assets line), §0
+   purpose pt-5, §1 exec summary (hybrid narrative, Doug anchors fleet, dual-scenario financial highlights
+   incl. Combined EBITDA + hybrid per-member rows), §3 asset-division row, §6 fleet paragraph, §9.1 fleet
+   dispatch row + fleet ops note, §10.4 asset-revenue bullet, §10.5 Scenario-A note, §12 fleet-downtime risk,
+   §13 fleet KPIs (paid-mile util ≥85/90/90%, net/truck), §14 Mo3 trucks-live + Y2 truck-3 gate, §15 exit
+   band raised to $1.5-2.5M on hybrid EBITDA, §16.3 v4.0 row. Brochure (plan_brochure.py): cover → "HYBRID
+   EDITION · v4.0", glance stats fixed (were stale $432K/$10K/Mo5 → $4.0M/$30K/Mo4/2 trucks/14.5%), WHO WE
+   ARE + WHY WE WIN hybrid text. GOTCHA: a search_replace on the WHO WE ARE _para corrupted file tail
+   (duplicate lines + syntax error) — fixed by deleting junk + reapplying; backend restarted OK.
+- Verified: markdown API (9/9 checks), brochure 7pp (cover/glance/page-7 rendered visually clean), full
+  plan PDF 26pp with hybrid content.

@@ -140,10 +140,10 @@ def _cover(c: Canvas):
     c.rect(W / 2 - 110, H - 366, 220, 3, fill=1, stroke=0)
     c.setFont("Helvetica-Bold", 14)
     c.setFillColor(GOLD_LIGHT)
-    c.drawCentredString(W / 2, H - 392, "BUSINESS PLAN · 2026 · PARTNERSHIP EDITION")
+    c.drawCentredString(W / 2, H - 392, "BUSINESS PLAN · 2026 · HYBRID EDITION · v4.0")
     c.setFont("Helvetica", 11.5)
     c.setFillColor(WHITE)
-    c.drawCentredString(W / 2, H - 420, "Operator-built freight brokerage · Twin Cities, Minnesota")
+    c.drawCentredString(W / 2, H - 420, "Operator-built brokerage + 2-truck asset division · Twin Cities, Minnesota")
 
     # founders band
     _card(c, 60, 190, W - 120, 110, colors.HexColor("#0B2E55"), stroke=GOLD, radius=12)
@@ -181,11 +181,11 @@ def _page_glance(c: Canvas, page: int, total: int):
     y = H - 120
     stats: List[Tuple[str, str, object]] = [
         ("$95B", "US brokerage market (2025)", TEAL),
-        ("5–7%", "Market CAGR through 2028", CORAL),
-        ("19–23%", "Orisei gross margin band", GOLD),
-        ("$432K", "Year-1 revenue target", PLUM),
-        ("$10K", "Total launch capital", FOREST),
-        ("Mo 5", "Cash-flow positive", AZURE),
+        ("$4.0M", "Year-1 gross revenue target", CORAL),
+        ("14.5%", "Gross margin (base case)", GOLD),
+        ("2", "Company trucks · live Month 3", PLUM),
+        ("$30K", "Total launch capital — 3 members", FOREST),
+        ("Mo 4", "Cash-flow positive", AZURE),
     ]
     cw, ch, gap = (W - 80 - 2 * 14) / 3, 78, 14
     for i, (v, l, col) in enumerate(stats):
@@ -197,11 +197,13 @@ def _page_glance(c: Canvas, page: int, total: int):
     c.setFont("Helvetica-Bold", 12)
     c.setFillColor(AZURE)
     c.drawString(56, y - 26, "WHO WE ARE")
-    _para(c, "Orisei Freight Solutions LLC is a lean, partner-operated property freight "
-             "brokerage headquartered in the Twin Cities. We match vetted motor carriers to "
-             "shipper freight across truckload, reefer, flatbed, LTL, expedited, and intermodal "
-             "modes — powered by the proprietary Orisei Brokerage Command Deck TMS, built and "
-             "maintained in-house by the founders.", 56, y - 44, "Helvetica", 9.5, W - 112, INK)
+    _para(c, "Orisei Freight Solutions LLC is a lean, partner-operated hybrid freight company "
+             "headquartered in the Twin Cities. Two engines under one roof: a property freight "
+             "brokerage matching vetted carriers to shipper freight across truckload, reefer, "
+             "flatbed, LTL, expedited, and intermodal — and a 2-truck company asset division "
+             "hauling committed anchor lanes directly. Powered by the proprietary Orisei "
+             "Brokerage Command Deck TMS, built in-house by the founders.",
+          56, y - 44, "Helvetica", 9.5, W - 112, INK)
     y -= 142
 
     _card(c, 40, y - 128, W - 80, 128, AZURE, radius=10)
@@ -211,7 +213,7 @@ def _page_glance(c: Canvas, page: int, total: int):
     bullets = [
         "13 years of shipper-side logistics operations — we quote a lane in 90 seconds.",
         "Two engineers on a homegrown TMS — a moat no single-agent shop can match.",
-        "In-house podcast studio = zero-cost content engine for shippers and carriers.",
+        "Two company trucks anchor committed lanes — the brokered network takes the overflow.",
         "Trust-based West African diaspora carrier network across the Upper Midwest.",
         "Minnesota address + operator honesty: transparent margin on every QBR.",
     ]
