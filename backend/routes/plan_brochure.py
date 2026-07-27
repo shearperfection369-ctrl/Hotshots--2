@@ -472,16 +472,86 @@ def _page_financials(c: Canvas, page: int, total: int):
     c.showPage()
 
 
+def _page_hybrid(c: Canvas, page: int, total: int):
+    c.setFillColor(PAPER)
+    c.rect(0, 0, W, H, fill=1, stroke=0)
+    _page_head(c, "The Numbers", "Scenario B — 2-Truck Hybrid (Assets + Brokerage)", CORAL)
+    rows = [
+        ("Fleet loads (2 owned trucks)", "340", "430", "450", False),
+        ("Fleet gross revenue (~$2.05/mi)", "$340,000", "$430,000", "$451,000", True),
+        ("Fuel, maintenance & insurance", "$186,000", "$228,000", "$232,000", False),
+        ("Driver pay & truck notes", "$72,000", "$86,000", "$90,000", False),
+        ("Fleet net contribution", "$82,000", "$116,000", "$129,000", True),
+        ("Brokerage EBITDA (base case)", "$200,400", "$603,400", "$838,560", False),
+        ("Combined EBITDA", "$282,400", "$719,400", "$967,560", True),
+        ("Net cash to members", "$195,000", "$445,000", "$640,000", True),
+        ("Per-member share (1/3)", "$65,000", "$148,333", "$213,333", True),
+    ]
+    x0, tw = 40, W - 80
+    col_w = [tw * 0.37, tw * 0.21, tw * 0.21, tw * 0.21]
+    y = H - 112
+    c.setFillColor(colors.HexColor("#5A2E1F"))
+    c.roundRect(x0, y - 24, tw, 24, 6, fill=1, stroke=0)
+    c.setFont("Helvetica-Bold", 9)
+    c.setFillColor(WHITE)
+    c.drawString(x0 + 12, y - 16, "LINE")
+    for i, hdr in enumerate(["YEAR 1 · 2026", "YEAR 2 · 2027", "YEAR 3 · 2028"]):
+        c.drawRightString(x0 + col_w[0] + sum(col_w[1:i + 2]) - 10, y - 16, hdr)
+    y -= 24
+    for label, y1, y2, y3, hilite in rows:
+        rh = 21
+        c.setFillColor(colors.HexColor("#FFF1E8") if hilite else WHITE)
+        c.rect(x0, y - rh, tw, rh, fill=1, stroke=0)
+        c.setStrokeColor(colors.HexColor("#EADFC4"))
+        c.setLineWidth(0.4)
+        c.line(x0, y - rh, x0 + tw, y - rh)
+        c.setFont("Helvetica-Bold" if hilite else "Helvetica", 9)
+        c.setFillColor(INK)
+        c.drawString(x0 + 12, y - 14, label)
+        for i, v in enumerate([y1, y2, y3]):
+            c.setFillColor(CORAL if hilite else SLATE)
+            c.drawRightString(x0 + col_w[0] + sum(col_w[1:i + 2]) - 10, y - 14, v)
+        y -= rh
+    y -= 24
+
+    cw, ch, gap = (tw - 2 * 12) / 3, 70, 12
+    for i, (v, l, col) in enumerate([
+            ("2", "Trucks owned outright by the partnership", TEAL),
+            ("+$129K", "Year-3 fleet net on top of brokerage EBITDA", CORAL),
+            ("100%", "Tender acceptance on anchor shipper lanes", FOREST)]):
+        _stat_card(c, x0 + i * (cw + gap), y - ch, cw, ch, v, l, col)
+    y -= ch + 26
+
+    _card(c, x0, y - 108, tw, 108, colors.HexColor("#123C22"), radius=10)
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(colors.HexColor("#9BE8B4"))
+    c.drawString(x0 + 16, y - 24, "WHY OWNED TRUCKS CHANGE THE MATH")
+    _para(c, "Two company trucks give Orisei guaranteed capacity on its anchor shipper lanes — no "
+             "scrambling the spot market when a committed load drops. The fleet captures the full "
+             "linehaul (not just the 14.5% brokerage spread), the Command Deck's backhaul matcher "
+             "keeps both trucks loaded in every direction, and every mile builds asset equity the "
+             "brokerage-only model never touches. Overflow beyond the two trucks flows straight to "
+             "the brokered carrier network, so no freight is ever turned away.",
+          x0 + 16, y - 42, "Helvetica", 9, tw - 32, WHITE, leading=13.5)
+    y -= 130
+    c.setFont("Helvetica", 8)
+    c.setFillColor(SLATE)
+    c.drawCentredString(W / 2, y, "Fleet assumptions: ~100K revenue miles/truck/yr · $2.05/mi blended · fuel $0.58/mi · trucks live Month 3 of Year 1")
+    _footer(c, page, total)
+    c.showPage()
+
+
 def build_plan_brochure_pdf() -> bytes:
     buf = io.BytesIO()
     c = Canvas(buf, pagesize=letter)
     c.setTitle("Orisei Freight Solutions · Business Plan Brochure 2026")
-    total = 6
+    total = 7
     _cover(c)
     _page_glance(c, 2, total)
     _page_founders(c, 3, total)
     _page_funds(c, 4, total)
     _page_runway(c, 5, total)
     _page_financials(c, 6, total)
+    _page_hybrid(c, 7, total)
     c.save()
     return buf.getvalue()

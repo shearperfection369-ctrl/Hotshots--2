@@ -24,6 +24,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen.canvas import Canvas
 
 from routes.connections import get_connection_credentials
+from routes.carrier_rate_cards import best_contract_for, load_active_rate_cards
 from routes.loadboard_gateway import gateway_fetch_loads, book_on_board
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,73 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
             best = dict(best)
             best["match_score"] = round(best_score, 1)
         return best
+
+    async def _playbook_tender(load: Dict[str, Any], min_margin: float) -> Optional[Dict[str, Any]]:
+        """Tender to the highest-scoring playbook carrier (locked-in network + rate cards) before the spot market."""
+        lane_key = f"{load['origin'].strip()[-2:].upper()}-{load['dest'].strip()[-2:].upper()}"
+        want_eq = {"Dry Van": "Van", "Reefer": "Reefer", "Flatbed": "Flatbed"}.get(load["equipment"], load["equipment"])
+        cards = await load_active_rate_cards(db)
+        contract = best_contract_for(cards, lane_key, want_eq, load["miles"])
+        prospects = await db.carrier_network_prospects.find(
+            {"stage": {"$in": ["locked_in", "pilot_load"]}}, {"_id": 0}).to_list(200)
+        o_city = load["origin"].split(",")[0].strip().lower()
+        d_city = load["dest"].split(",")[0].strip().lower()
+
+        def _lane_hit(pr):
+            for ln in (pr.get("lanes") or []) + (pr.get("deadhead_lanes") or []):
+                ll = str(ln).lower()
+                if o_city in ll or d_city in ll:
+                    return True
+            return False
+
+        best = None
+        for pr in prospects:
+            eqs = [str(e).lower() for e in (pr.get("equipment") or [])]
+            carded = bool(contract and (contract.get("contract_carrier") or "").lower() in pr["name"].lower())
+            lane_ok = _lane_hit(pr)
+            if not carded and not lane_ok:
+                continue
+            score = ((30 if pr.get("stage") == "locked_in" else 15) + (50 if carded else 0)
+                     + (20 if lane_ok else 0) + (15 if want_eq.lower() in eqs else 0))
+            if best is None or score > best["score"]:
+                best = {"score": score, "prospect": pr, "carded": carded}
+        if best is None and contract:
+            best = {"score": 50, "prospect": None, "carded": True}
+        if best is None:
+            return None
+        if best["carded"]:
+            carrier_rate = float(contract["contract_cost_usd"])
+            margin = round(load["shipper_rate"] - carrier_rate, 2)
+            if margin < min_margin:
+                return None  # contracted cost too rich for this load — fall to spot
+        else:
+            carrier_rate, margin = load["carrier_rate"], load["margin"]
+        pr = best["prospect"] or {}
+        name = pr.get("name") or contract["contract_carrier"]
+        reason = (f"Playbook tender — rate card {contract['contract_card_id']} locked carrier cost at "
+                  f"${carrier_rate:,.0f} (margin floor protected)" if best["carded"]
+                  else "Playbook tender — locked-in network carrier owns this lane")
+        return {"carrier": {"name": name,
+                            "mc_number": pr.get("mc_number") or (contract or {}).get("contract_mc") or "",
+                            "email": pr.get("contact_email", ""), "phone": pr.get("contact_phone", ""),
+                            "dispatcher_name": pr.get("contact_name", ""), "match_score": best["score"]},
+                "carrier_rate": carrier_rate, "margin": margin,
+                "rate_card_id": contract["contract_card_id"] if best["carded"] else None,
+                "reason": f"{reason}; tendered before spot market (playbook score {best['score']})"}
+
+    async def _pick_playbook_driver(brief: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        cid = f"PB-{brief['name'].lower().replace(' ', '-')[:24]}"
+        if await db.dispatch_drivers.count_documents({"carrier_id": cid}) == 0:
+            for _ in range(2):
+                await db.dispatch_drivers.insert_one({
+                    "driver_id": f"DRV-{uuid.uuid4().hex[:6].upper()}", "carrier_id": cid,
+                    "carrier_name": brief["name"], "mc_number": brief.get("mc_number", ""),
+                    "name": f"{random.choice(DRIVER_FIRST)} {random.choice(DRIVER_LAST)}",
+                    "phone": f"+1555{random.randint(1000000, 9999999)}",
+                    "cdl_number": f"CDL-MN{random.randint(100000, 999999)}",
+                    "home_base": "Minneapolis, MN", "is_active": True,
+                    "last_assigned_at": "", "created_at": _now()})
+        return await _pick_driver({"carrier_id": cid, "mc_number": brief.get("mc_number") or cid})
 
     async def _event(load_id: str, stage: str, note: str):
         await db.autopilot_loads.update_one({"load_id": load_id},
@@ -438,10 +506,26 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
             fetched = await gateway_fetch_loads(db)
             picks = await _ai_pick(fetched["loads"], carriers, want, cfg["min_margin"])
             for p in picks:
-                carrier = _match_carrier(p, carriers)
-                if not carrier:
-                    continue
-                driver = await _pick_driver(carrier)
+                pb = await _playbook_tender(p, cfg["min_margin"])
+                if pb:
+                    p["carrier_rate"], p["margin"] = pb["carrier_rate"], pb["margin"]
+                    carrier_brief = pb["carrier"]
+                    driver = await _pick_playbook_driver(carrier_brief)
+                    match_note = pb["reason"]
+                else:
+                    carrier = _match_carrier(p, carriers)
+                    if not carrier:
+                        continue
+                    driver = await _pick_driver(carrier)
+                    carrier_brief = {
+                        "name": carrier.get("legal_name") or carrier.get("name", "Carrier"),
+                        "mc_number": carrier.get("mc_number", ""),
+                        "email": carrier.get("contact_email") or carrier.get("email", ""),
+                        "phone": carrier.get("contact_phone") or carrier.get("phone", ""),
+                        "dispatcher_name": carrier.get("contact_name") or carrier.get("dispatcher_name", ""),
+                        "match_score": carrier.get("match_score", 0)}
+                    match_note = (f"Matched {carrier_brief['name']} (score {carrier_brief['match_score']}) "
+                                  f"— lane + equipment fit off the spot market")
                 if not driver:
                     continue
                 load_id = f"AP-{uuid.uuid4().hex[:6].upper()}"
@@ -449,28 +533,33 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
                                                                 "equipment", "commodity", "weight_lbs",
                                                                 "shipper_rate", "rpm", "pickup_date",
                                                                 "carrier_rate", "margin")},
-                       "ai_reasoning": p.get("ai_reasoning", ""), "carrier": {
-                           "name": carrier.get("legal_name") or carrier.get("name", "Carrier"),
-                           "mc_number": carrier.get("mc_number", ""),
-                           "email": carrier.get("contact_email") or carrier.get("email", ""),
-                           "phone": carrier.get("contact_phone") or carrier.get("phone", ""),
-                           "dispatcher_name": carrier.get("contact_name") or carrier.get("dispatcher_name", ""),
-                           "match_score": carrier.get("match_score", 0)},
+                       "ai_reasoning": p.get("ai_reasoning", ""), "carrier": carrier_brief,
+                       "tender_source": "playbook" if pb else "spot",
+                       "rate_card_id": (pb or {}).get("rate_card_id"),
                        "load_type": "outbound", "driver": _driver_brief(driver),
                        "stage": "carrier_matched", "stage_at": _now(), "sourced_date": today,
                        "created_at": _now(), "delivered_at": None,
                        "timeline": [
                            {"at": _now(), "stage": "sourced",
                             "note": f"Picked off {p['board']} — ${p['margin']:,.0f} margin @ ${p['rpm']}/mi. {p.get('ai_reasoning', '')}".strip()},
-                           {"at": _now(), "stage": "carrier_matched",
-                            "note": f"Matched {carrier.get('legal_name') or carrier.get('name', 'carrier')} (score {carrier.get('match_score')}) — lane + equipment fit"},
+                           {"at": _now(), "stage": "carrier_matched", "note": match_note},
                            {"at": _now(), "stage": "carrier_matched",
                             "note": f"Driver {driver['name']} (CDL {driver['cdl_number']}) assigned — auto-added to rate con, BOL & POD"}]}
                 await db.autopilot_loads.insert_one(dict(row))
+                if pb and pb.get("rate_card_id"):
+                    await db.brokerage_bookings.insert_one({
+                        "booked_id": f"BK-{uuid.uuid4().hex[:10].upper()}", "load_id": load_id,
+                        "rate_card_id": pb["rate_card_id"], "carrier_name": carrier_brief["name"],
+                        "carrier_mc": carrier_brief["mc_number"], "origin": p["origin"],
+                        "destination": p["dest"], "miles": p["miles"], "equipment": p["equipment"],
+                        "forecast_rate_usd": p["shipper_rate"], "forecast_carrier_pay_usd": p["carrier_rate"],
+                        "forecast_margin_usd": p["margin"], "status": "booked", "booked_at": _now(),
+                        "booked_by": "autopilot", "is_sample": False, "source": "playbook_auto_tender"})
                 mode = await book_on_board(db, row)
                 await _event(load_id, "carrier_matched",
                              f"Load claimed on {row['board']} via {'board API' if mode == 'api' else 'booking email' if mode == 'email' else 'email outbox (queued until keys configured)'}")
-                actions.append(f"sourced {load_id} ({p['origin']}→{p['dest']}, ${p['margin']:,.0f})")
+                actions.append(f"sourced {load_id} ({p['origin']}→{p['dest']}, ${p['margin']:,.0f}"
+                               f"{', playbook tender' if pb else ''})")
         # 3) backhaul hunter — scan boards, book returns at the optimal window
         actions.extend(await _process_hunts())
         return {"ok": True, "actions": actions,
@@ -490,7 +579,9 @@ def build_broker_autopilot_router(*, api_router, db, get_current_user, require_r
                           "completed_total": len(completed),
                           "revenue_total": round(sum(x["shipper_rate"] for x in completed), 2),
                           "margin_total": round(sum(x["margin"] for x in completed), 2),
-                          "margin_today": round(sum(x["margin"] for x in today_loads if x["stage"] == "completed"), 2)},
+                          "margin_today": round(sum(x["margin"] for x in today_loads if x["stage"] == "completed"), 2),
+                          "playbook_tenders": sum(1 for x in loads if x.get("tender_source") == "playbook"),
+                          "playbook_margin": round(sum(x["margin"] for x in loads if x.get("tender_source") == "playbook"), 2)},
                 "loads": loads[:120]}
 
     @api_router.post("/broker-autopilot/config")

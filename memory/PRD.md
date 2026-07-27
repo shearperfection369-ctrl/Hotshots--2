@@ -2327,3 +2327,22 @@ retrains scoring weights from revealed preferences — making the intuitive
    from developer.intuit.com. UI: QuickBooksCard.jsx on Brokerage accounting tab (quickbooks-card,
    qbo-connect-btn, qbo-sync-btn) — shows needs list until keys provided.
 - Self-tested all four via curl + screenshots. QBO OAuth flow untestable until user provides keys.
+
+## Session 2026-06 (fork, cont. 12) — Business Plan 7-page + Playbook Auto-Tender
+1. PLAN BROCHURE (plan_brochure.py): completed the interrupted financial update. Page 6 title now
+   "Base Case (Brokerage-Only)"; NEW Page 7 `_page_hybrid` = "Scenario B — 2-Truck Hybrid" (user
+   confirmed 2 trucks, not 11). Fleet rows: 340/430/450 loads, $340K/$430K/$451K rev, fleet net
+   $82K/$116K/$129K, Combined EBITDA $282K/$719K/$968K, per-member $65K/$148K/$213K. total=7 pages.
+   Verified via python: 7 pages render, text extracts clean.
+2. PLAYBOOK AUTO-TENDER (broker_autopilot.py): `_playbook_tender(load, min_margin)` runs BEFORE
+   spot `_match_carrier` in run_cycle sourcing. Scores locked_in(+30)/pilot_load(+15) prospects from
+   carrier_network_prospects + lane city hit(+20) + equipment(+15) + live rate card contract(+50 via
+   best_contract_for from carrier_rate_cards). Carded tender locks carrier_rate to contract cost with
+   min_margin floor guard (falls to spot if margin too thin). Loads get tender_source=playbook|spot,
+   rate_card_id; carded tenders insert brokerage_bookings row (source=playbook_auto_tender) → feeds
+   rate-card utilization (verified moved_this_week=2, 40%). `_pick_playbook_driver` seeds PB-* drivers.
+   Status stats: playbook_tenders, playbook_margin. UI: PLAYBOOK badges (bap-playbook-badge-*,
+   bap-drawer-playbook-badge) + "Playbook tenders" stat card (md:grid-cols-7) in BrokerAutopilot.jsx.
+- Self-tested: run-cycle produced 9 playbook tenders (score 115 carded @ $694 locked cost, score 50
+  lane-fit) + spot fallback still works; screenshot confirms badges + stat card.
+- Test data: rate card RC-23519E92 (North Star Haulers, MN-IL, $1.70/mi), North Star prospect stage=locked_in.

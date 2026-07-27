@@ -96,10 +96,11 @@ export default function BrokerAutopilot() {
 
       {tab === "desk" && (
         <>
-          <div className="relative grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div className="relative grid grid-cols-2 md:grid-cols-7 gap-3">
             {[["Sourced today", `${stats.sourced_today}/${stats.daily_limit}`, "#22D3EE"], ["Active loads", stats.active, "#F59E0B"],
               ["Loads closed", stats.completed_total, "#34D399"], ["Revenue booked", `$${stats.revenue_total.toLocaleString()}`, "#A78BFA"],
-              ["Margin banked", `$${stats.margin_total.toLocaleString()}`, "#10B981"], ["Margin today", `$${stats.margin_today.toLocaleString()}`, "#FB923C"]].map(([l, v, c]) => (
+              ["Margin banked", `$${stats.margin_total.toLocaleString()}`, "#10B981"], ["Margin today", `$${stats.margin_today.toLocaleString()}`, "#FB923C"],
+              ["Playbook tenders", stats.playbook_tenders ?? 0, "#4ADE80"]].map(([l, v, c]) => (
               <div key={l} className="p-3 rounded-2xl border border-white/10 bg-slate-950/70 backdrop-blur">
                 <div className="text-xl font-black tabular-nums" style={{ color: c }}>{v}</div>
                 <div className="text-[9px] font-mono uppercase tracking-wider text-slate-500 mt-0.5">{l}</div>
@@ -124,6 +125,7 @@ export default function BrokerAutopilot() {
                               className="w-full text-left p-2 rounded-xl border border-white/10 bg-white/[0.03] hover:border-cyan-400/50 transition">
                         <div className="text-[10px] font-mono text-cyan-300 flex items-center gap-1.5">{l.load_id}
                           {l.load_type === "backhaul" && <span className="px-1.5 rounded bg-purple-500/15 text-purple-300 text-[8px] font-black tracking-wider">BACKHAUL</span>}
+                          {l.tender_source === "playbook" && <span data-testid={`bap-playbook-badge-${l.load_id}`} className="px-1.5 rounded bg-emerald-500/15 text-emerald-300 text-[8px] font-black tracking-wider">PLAYBOOK</span>}
                         </div>
                         <div className="text-[11px] font-bold text-white leading-tight">{l.origin.split(",")[0]} → {l.dest.split(",")[0]}</div>
                         <div className="text-[9px] font-mono text-slate-500">{l.equipment} · {l.miles}mi · <span className="text-emerald-400">${l.margin.toLocaleString()} mgn</span></div>
@@ -169,6 +171,7 @@ function LoadDrawer({ loadId, onClose }) {
         <div className="flex justify-between items-start mb-1">
           <div className="font-black text-white text-lg flex items-center gap-2">{ld.load_id}
             {ld.load_type === "backhaul" && <span className="px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 text-[9px] font-black tracking-wider">BACKHAUL</span>}
+            {ld.tender_source === "playbook" && <span data-testid="bap-drawer-playbook-badge" className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[9px] font-black tracking-wider">PLAYBOOK</span>}
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white"><X size={18} /></button>
         </div>
