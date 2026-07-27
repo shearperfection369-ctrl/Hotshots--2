@@ -80,6 +80,51 @@ TRACKED_COLLECTIONS: List[str] = [
 ]
 
 
+WIPE_CATEGORIES: Dict[str, Dict[str, Any]] = {
+    "carriers": {
+        "label": "Carriers & Onboarding",
+        "collections": ["carriers", "dispatch_carriers", "carrier_onboarding",
+                        "specialty_carriers_custom", "carrier_insurance_verifications"],
+    },
+    "loads_shipments": {
+        "label": "Loads & Shipments",
+        "collections": ["shipments", "brokerage_bookings", "freight_bills"],
+    },
+    "shippers_crm": {
+        "label": "Shippers & CRM",
+        "collections": ["shipper_prospects", "shipper_accounts", "orisei_customers",
+                        "shipper_incentives", "shipper_rate_cards", "shipper_qbrs",
+                        "shipper_tms", "shipper_activity_log",
+                        "lighthouse_prospects", "lighthouse_touches"],
+    },
+    "quotes": {
+        "label": "Quotes & Rate Cons",
+        "collections": ["freight_quotes", "orisei_quotes", "orisei_rate_confirmations", "qbr_drafts"],
+    },
+    "invoices_finance": {
+        "label": "Invoices & Finance",
+        "collections": ["orisei_invoices", "brokerage_invoices"],
+    },
+    "documents": {
+        "label": "Documents (BOLs, packets)",
+        "collections": ["documents"],
+    },
+    "claims": {
+        "label": "Claims",
+        "collections": ["claims_master", "claim_communications", "claim_photos",
+                        "claim_prevention_audits"],
+    },
+    "drivers_equipment": {
+        "label": "Drivers & Trailers",
+        "collections": ["drivers", "trailers"],
+    },
+    "comms": {
+        "label": "Chat & Outbound Emails",
+        "collections": ["chat_messages", "outbound_emails"],
+    },
+}
+
+
 async def _counts(db, name: str) -> Dict[str, int]:
     total = await db[name].count_documents({})
     sample = await db[name].count_documents({"is_sample": True})
@@ -117,6 +162,45 @@ def build_data_status_router(*, db, get_current_user, require_role):
             "total_sample": total_sample,
             "collections": rows,
         }
+
+    @router.get("/admin/wipe-categories")
+    async def wipe_categories(_=Depends(require_role("admin"))) -> Dict[str, Any]:
+        out = []
+        for key, meta in WIPE_CATEGORIES.items():
+            total = 0
+            per = []
+            for name in meta["collections"]:
+                n = await db[name].count_documents({})
+                total += n
+                per.append({"collection": name, "count": n})
+            out.append({"key": key, "label": meta["label"],
+                        "total": total, "collections": per})
+        return {"categories": out}
+
+    @router.post("/admin/wipe-data")
+    async def wipe_data(payload: Dict[str, Any],
+                        admin=Depends(require_role("admin"))) -> Dict[str, Any]:
+        """Wipe ALL rows in the collections of the selected categories.
+        Body: {"categories": ["carriers", ...], "confirm": true}"""
+        cats: List[str] = payload.get("categories") or []
+        if not payload.get("confirm"):
+            raise HTTPException(400, "confirm must be true to wipe data.")
+        unknown = [c for c in cats if c not in WIPE_CATEGORIES]
+        if unknown:
+            raise HTTPException(400, f"Unknown categories: {unknown}")
+        if not cats:
+            raise HTTPException(400, "Select at least one category.")
+        removed: List[Dict[str, Any]] = []
+        grand = 0
+        for cat in cats:
+            for name in WIPE_CATEGORIES[cat]["collections"]:
+                r = await db[name].delete_many({})
+                grand += r.deleted_count
+                removed.append({"category": cat, "collection": name,
+                                "deleted": r.deleted_count})
+        log.warning("Data wipe by %s: %d rows across %s",
+                    getattr(admin, "name", "admin"), grand, cats)
+        return {"ok": True, "total_deleted": grand, "details": removed}
 
     @router.post("/admin/backfill-sample-flags")
     async def backfill_sample(

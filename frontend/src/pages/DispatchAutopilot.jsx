@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import { CarrierCombobox } from "../components/CarrierCombobox";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -291,7 +292,7 @@ function CarriersView() {
       {(creating || editing) && (
         <Card className="p-4 bg-cyan-500/5 border-cyan-500/30 space-y-2" data-testid="da-carrier-form">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <Field label="Legal name *"><Input value={form.legal_name} onChange={(e) => setForm({...form, legal_name: e.target.value})} className="bg-black/40 border-white/10 h-8 text-xs" data-testid="da-carrier-name" /></Field>
+            <Field label="Legal name *"><CarrierCombobox value={form.legal_name} onChange={(v) => setForm({...form, legal_name: v})} onSelect={(rec) => setForm((f) => ({...f, legal_name: rec.name, mc_number: rec.mc || f.mc_number, contact_email: rec.contact_email || f.contact_email, contact_phone: rec.contact_phone || f.contact_phone}))} testid="da-carrier-name" className="bg-black/40 border-white/10 h-8 text-xs" /></Field>
             <Field label="MC number"><Input value={form.mc_number} onChange={(e) => setForm({...form, mc_number: e.target.value})} className="bg-black/40 border-white/10 h-8 text-xs" /></Field>
             <Field label="Contact name"><Input value={form.contact_name} onChange={(e) => setForm({...form, contact_name: e.target.value})} className="bg-black/40 border-white/10 h-8 text-xs" /></Field>
             <Field label="Contact email *"><Input value={form.contact_email} onChange={(e) => setForm({...form, contact_email: e.target.value})} className="bg-black/40 border-white/10 h-8 text-xs" data-testid="da-carrier-email" /></Field>

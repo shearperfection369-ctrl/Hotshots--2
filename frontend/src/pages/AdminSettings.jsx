@@ -11,6 +11,7 @@ import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
 import CompanyTheme from "../components/CompanyTheme";
+import DataWiperCard from "../components/DataWiperCard";
 
 /**
  * AdminSettings · single page for admin-tunable knobs. Persists to
@@ -176,6 +177,8 @@ export default function AdminSettings() {
             </Card>
           );
         })}
+
+        <DataWiperCard />
       </div>
     </>
   );

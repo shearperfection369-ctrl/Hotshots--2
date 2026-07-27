@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useBranding, useBrandRefresh } from "../lib/branding";
+import { CarrierCombobox } from "../components/CarrierCombobox";
 import { toast } from "sonner";
 
 /**
@@ -406,8 +407,9 @@ function FileClaimDialog({ open, onClose, onSaved }) {
               className="bg-black/40 border-white/10 h-8 text-xs" placeholder="ORI-88231" />
           </FF>
           <FF label="Carrier Name">
-            <Input value={form.carrier_name} onChange={(e) => setForm({ ...form, carrier_name: e.target.value })}
-              className="bg-black/40 border-white/10 h-8 text-xs" />
+            <CarrierCombobox value={form.carrier_name} onChange={(v) => setForm({ ...form, carrier_name: v })}
+              onSelect={(rec) => setForm((f) => ({ ...f, carrier_name: rec.name, carrier_mc: rec.mc || f.carrier_mc }))}
+              testid="claims-carrier-combobox" className="bg-black/40 border-white/10 h-8 text-xs" />
           </FF>
           <FF label="Carrier MC #">
             <Input value={form.carrier_mc} onChange={(e) => setForm({ ...form, carrier_mc: e.target.value })}
@@ -1063,8 +1065,9 @@ function CoiTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <FF label="Carrier MC *"><Input value={form.carrier_mc} onChange={(e) => setForm({ ...form, carrier_mc: e.target.value })}
               className="bg-black/40 border-white/10 h-8 text-xs" data-testid="coi-form-mc" /></FF>
-            <FF label="Carrier Name"><Input value={form.carrier_name} onChange={(e) => setForm({ ...form, carrier_name: e.target.value })}
-              className="bg-black/40 border-white/10 h-8 text-xs" /></FF>
+            <FF label="Carrier Name"><CarrierCombobox value={form.carrier_name} onChange={(v) => setForm({ ...form, carrier_name: v })}
+              onSelect={(rec) => setForm((f) => ({ ...f, carrier_name: rec.name, carrier_mc: rec.mc || f.carrier_mc }))}
+              testid="coi-carrier-combobox" className="bg-black/40 border-white/10 h-8 text-xs" /></FF>
             <FF label="Insurer"><Input value={form.insurer} onChange={(e) => setForm({ ...form, insurer: e.target.value })}
               className="bg-black/40 border-white/10 h-8 text-xs" placeholder="Progressive Commercial, Great West…" /></FF>
             <FF label="Policy Number"><Input value={form.policy_number} onChange={(e) => setForm({ ...form, policy_number: e.target.value })}

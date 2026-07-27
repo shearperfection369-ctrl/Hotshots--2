@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import { CarrierCombobox } from "../components/CarrierCombobox";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -844,9 +845,10 @@ function BookLoadDialog({ load, onClose, onBooked }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-1">Carrier Name *</div>
-            <Input value={form.carrier_name} onChange={(e) => setForm({ ...form, carrier_name: e.target.value })}
+            <CarrierCombobox value={form.carrier_name} onChange={(v) => setForm({ ...form, carrier_name: v })}
+              onSelect={(rec) => setForm((f) => ({ ...f, carrier_name: rec.name, carrier_mc: rec.mc || f.carrier_mc }))}
               className="bg-black/40 border-white/10 h-8 text-xs"
-              data-testid="aggregator-book-carrier" />
+              testid="aggregator-book-carrier" />
           </div>
           <div>
             <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-1">Carrier MC #</div>

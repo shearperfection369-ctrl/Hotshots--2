@@ -406,6 +406,27 @@ export default function BookLoad() {
               </div>
             </div>
 
+            {/* Full shipper / consignee addresses (BOL legal block) */}
+            <div className="md:col-span-3 pt-2">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-cyan-400/80 mb-2">Shipper & Consignee Addresses · printed on the BOL</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2 p-3 rounded border border-white/10 bg-white/[0.02]">
+                  <div className="text-[10px] font-mono uppercase text-slate-500">Shipper (pickup)</div>
+                  <Input className={inpCls} value={form.shipper_name} onChange={(e) => set("shipper_name", e.target.value)} placeholder="Company name" data-testid="shipper-name-input" />
+                  <Input className={inpCls} value={form.shipper_address} onChange={(e) => set("shipper_address", e.target.value)} placeholder="Street address" data-testid="shipper-address-input" />
+                  <Input className={inpCls} value={form.shipper_city_state_zip} onChange={(e) => set("shipper_city_state_zip", e.target.value)} placeholder="City, ST ZIP" data-testid="shipper-csz-input" />
+                  <Input className={inpCls} value={form.shipper_contact} onChange={(e) => set("shipper_contact", e.target.value)} placeholder="Contact name / phone" data-testid="shipper-contact-input" />
+                </div>
+                <div className="space-y-2 p-3 rounded border border-white/10 bg-white/[0.02]">
+                  <div className="text-[10px] font-mono uppercase text-slate-500">Consignee (delivery)</div>
+                  <Input className={inpCls} value={form.consignee_name} onChange={(e) => set("consignee_name", e.target.value)} placeholder="Company name" data-testid="consignee-name-input" />
+                  <Input className={inpCls} value={form.consignee_address} onChange={(e) => set("consignee_address", e.target.value)} placeholder="Street address" data-testid="consignee-address-input" />
+                  <Input className={inpCls} value={form.consignee_city_state_zip} onChange={(e) => set("consignee_city_state_zip", e.target.value)} placeholder="City, ST ZIP" data-testid="consignee-csz-input" />
+                  <Input className={inpCls} value={form.consignee_contact} onChange={(e) => set("consignee_contact", e.target.value)} placeholder="Contact name / phone" data-testid="consignee-contact-input" />
+                </div>
+              </div>
+            </div>
+
             {/* Contact emails */}
             <div>
               <Label className={labelCls}>Customer Contact Email</Label>

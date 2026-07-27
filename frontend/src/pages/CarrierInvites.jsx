@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Topbar from "../components/Topbar";
 import { api } from "../lib/api";
+import { CarrierCombobox } from "../components/CarrierCombobox";
 import { useBranding } from "../lib/branding";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -171,8 +172,9 @@ export default function CarrierInvites() {
               </div>
               <div>
                 <label className="text-[10px] font-mono uppercase" style={{ color: brandAccent }}>Carrier Company *</label>
-                <Input value={form.carrier_company} onChange={(e) => setForm({ ...form, carrier_company: e.target.value })}
-                  placeholder="Acme Freight LLC" className="mt-1 bg-[#0B0E14] border-white/10" data-testid="invite-carrier-input" />
+                <CarrierCombobox value={form.carrier_company} onChange={(v) => setForm({ ...form, carrier_company: v })}
+                  onSelect={(rec) => setForm((f) => ({ ...f, carrier_company: rec.name, email: rec.contact_email || f.email }))}
+                  placeholder="Acme Freight LLC" className="mt-1 bg-[#0B0E14] border-white/10" testid="invite-carrier-input" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

@@ -737,6 +737,15 @@ class ShipmentCreate(BaseModel):
     # Customer-facing
     customer_contact_email: Optional[str] = None
     carrier_contact_email: Optional[str] = None
+    # Full shipper / consignee addresses (printed on BOL + shipment docs)
+    shipper_name: Optional[str] = None
+    shipper_address: Optional[str] = None
+    shipper_city_state_zip: Optional[str] = None
+    shipper_contact: Optional[str] = None
+    consignee_name: Optional[str] = None
+    consignee_address: Optional[str] = None
+    consignee_city_state_zip: Optional[str] = None
+    consignee_contact: Optional[str] = None
 
 class ShipmentUpdate(BaseModel):
     """All fields optional — only the keys present are applied."""
@@ -904,6 +913,18 @@ async def create_shipment(payload: ShipmentCreate, user: User = Depends(get_curr
         "sap_material_numbers": payload.sap_material_numbers,
         "customer_contact_email": payload.customer_contact_email,
         "carrier_contact_email": payload.carrier_contact_email,
+        "shipper_info": {
+            "name": payload.shipper_name or "",
+            "address": payload.shipper_address or "",
+            "city_state_zip": payload.shipper_city_state_zip or origin.get("city") or "",
+            "contact": payload.shipper_contact or "",
+        },
+        "consignee_info": {
+            "name": payload.consignee_name or "",
+            "address": payload.consignee_address or "",
+            "city_state_zip": payload.consignee_city_state_zip or destination.get("city") or "",
+            "contact": payload.consignee_contact or "",
+        },
         "created_by": user.user_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "is_sample": False,            # explicitly real, not seeded
@@ -1159,11 +1180,17 @@ async def generate_bol_from_shipment(
         sp = (brand.get("sample_products") or [None])[0]
         if sp:
             brand_default_commodity = sp
+    sh_info = s.get("shipper_info") or {}
+    co_info = s.get("consignee_info") or {}
     data = {
-        "shipper": payload.shipper or brand_company,
-        "consignee": dest.get("name") or dest.get("city") or "",
-        "origin": f"{origin.get('city', '')}, {origin.get('state', '')}".strip(", "),
-        "destination": f"{dest.get('city', '')}, {dest.get('state', '')}".strip(", "),
+        "shipper": payload.shipper or sh_info.get("name") or brand_company,
+        "shipper_address": sh_info.get("address") or "",
+        "shipper_contact": sh_info.get("contact") or "",
+        "consignee": co_info.get("name") or dest.get("name") or dest.get("city") or "",
+        "consignee_address": co_info.get("address") or "",
+        "consignee_contact": co_info.get("contact") or "",
+        "origin": sh_info.get("city_state_zip") or f"{origin.get('city', '')}, {origin.get('state', '')}".strip(", "),
+        "destination": co_info.get("city_state_zip") or f"{dest.get('city', '')}, {dest.get('state', '')}".strip(", "),
         "carrier": s.get("carrier") or "",
         "commodity": s.get("commodity") or f"{brand_company} {brand_default_commodity}",
         "weight": s.get("weight_lbs") or "",
@@ -4956,7 +4983,11 @@ ACCESSORIAL_OPTIONS = [
 
 @api_router.get("/nmfc/codes")
 async def get_nmfc_codes(_: User = Depends(get_current_user)):
-    return {"codes": GENERIC_NMFC_CODES, "freight_classes": FREIGHT_CLASSES, "accessorials": ACCESSORIAL_OPTIONS}
+    from routes.nmfc_data import EXPANDED_NMFC_CODES
+    seen = {c["nmfc"] for c in GENERIC_NMFC_CODES}
+    merged = GENERIC_NMFC_CODES + [c for c in EXPANDED_NMFC_CODES if c["nmfc"] not in seen]
+    merged = sorted(merged, key=lambda c: (c.get("category") or "", c.get("description") or ""))
+    return {"codes": merged, "freight_classes": FREIGHT_CLASSES, "accessorials": ACCESSORIAL_OPTIONS}
 
 # -------------------- SAP S/4HANA: Open Deliveries (for Book Load auto-fill) --------------------
 SAP_OPEN_DELIVERIES = [
@@ -8496,9 +8527,15 @@ build_shipment_triage_router(api_router=api_router, db=db,
                              LlmChat=LlmChat, UserMessage=UserMessage)
 
 from routes.orisei_auto_digest import build_auto_digest_router  # noqa: E402
-build_auto_digest_router(api_router=api_router, db=db,
+_digest_weekly_scheduler = build_auto_digest_router(api_router=api_router, db=db,
                           get_current_user=get_current_user,
                           require_role=require_role)
+
+
+@app.on_event("startup")
+async def _start_weekly_digest_scheduler():
+    if callable(_digest_weekly_scheduler):
+        asyncio.create_task(_digest_weekly_scheduler())
 
 from routes.load_aggregator import build_aggregator_router  # noqa: E402
 build_aggregator_router(api_router=api_router, db=db,
@@ -8879,6 +8916,33 @@ build_boc3_router(
     get_current_user=get_current_user,
     require_role=require_role,
 )
+
+# Mount Road Reference (weigh stations + lane notes)
+from routes.weigh_stations import build_reference_router  # noqa: E402
+api_router.include_router(build_reference_router(
+    db=db,
+    get_current_user=get_current_user,
+))
+
+# Mount AI Niche Cargo Master
+from routes.niche_cargo import build_niche_cargo_router  # noqa: E402
+api_router.include_router(build_niche_cargo_router(
+    db=db,
+    get_current_user=get_current_user,
+    emergent_llm_key=EMERGENT_LLM_KEY,
+    LlmChat=LlmChat,
+    UserMessage=UserMessage,
+))
+
+# Mount QBR Executive Summary PDF
+from routes.qbr_exec_summary import build_qbr_exec_router  # noqa: E402
+api_router.include_router(build_qbr_exec_router(
+    db=db,
+    get_current_user=get_current_user,
+    emergent_llm_key=EMERGENT_LLM_KEY,
+    LlmChat=LlmChat,
+    UserMessage=UserMessage,
+))
 
 # -------------------- WIRE UP --------------------
 app.include_router(api_router)

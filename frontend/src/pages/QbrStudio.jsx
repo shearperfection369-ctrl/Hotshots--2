@@ -179,6 +179,20 @@ function ComputeTab({ shippers, onGenerated }) {
               data-testid="qbr-period-input" />
           </div>
           <div className="md:col-span-2 flex gap-2 justify-end">
+            <Button variant="outline" disabled={!shipper}
+              onClick={() => {
+                const token = localStorage.getItem("tms_session_token");
+                toast.info("Generating AI executive summary PDF…");
+                fetch(`${BACKEND_URL}/api/qbr-studio/exec-summary/${encodeURIComponent(shipper)}/pdf?period=${encodeURIComponent(period)}`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                }).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
+                  .then((b) => window.open(URL.createObjectURL(b), "_blank"))
+                  .catch(() => toast.error("Exec summary failed — check period format (Q1 2026)"));
+              }}
+              className="border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+              data-testid="qbr-exec-summary-btn">
+              <Sparkles size={14} className="mr-1" /> Exec Summary PDF
+            </Button>
             <Button onClick={compute} disabled={loading} className="bg-cyan-500 hover:bg-cyan-400 text-black"
               data-testid="qbr-compute-btn">
               {loading ? <Loader2 size={14} className="animate-spin mr-1" /> : <Wand2 size={14} className="mr-1" />}
