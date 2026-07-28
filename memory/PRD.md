@@ -2447,3 +2447,8 @@ retrains scoring weights from revealed preferences — making the intuitive
    PHANTOM-EDIT GOTCHA AGAIN (5th+6th): _cover signature + brochure button edits reported success but
    didn't persist — always grep-verify new symbols after search_replace on niche_markets.py /
    NicheMarkets.jsx / shipper_brochure.py.
+8. WEIGH STATION LEAFLET MAP (2026-07): RoadReference.jsx Weigh Stations tab now has a react-leaflet
+   map (weigh-stations-map testid, CARTO dark_all tiles, MapErrorBoundary wrapped): 75 stations across
+   41 states as divIcon dots (amber=likely open, emerald=likely closed), popups w/ name/hwy/status/advice,
+   FitToStations auto-fits bounds on state filter, legend row. Verified via screenshot: 75 pins render,
+   popup opens (Kenosha WI).

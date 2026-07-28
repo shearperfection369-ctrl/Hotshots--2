@@ -8,6 +8,10 @@ import { Badge } from "../components/ui/badge";
 import { Textarea } from "../components/ui/textarea";
 import { Scale, StickyNote, BookOpen, Trash2, Search, MapPin } from "lucide-react";
 import { toast } from "sonner";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import MapErrorBoundary from "../components/MapErrorBoundary";
 
 const TABS = [
   { key: "weigh", label: "Weigh Stations", icon: Scale },
@@ -41,6 +45,59 @@ export default function RoadReference() {
   );
 }
 
+function FitToStations({ stations }) {
+  const map = useMap();
+  useEffect(() => {
+    const pts = stations.filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng));
+    if (pts.length > 1) map.fitBounds(L.latLngBounds(pts.map((s) => [s.lat, s.lng])).pad(0.25));
+    else if (pts.length === 1) map.setView([pts[0].lat, pts[0].lng], 7);
+    else map.setView([39.5, -98.35], 4);
+  }, [stations, map]);
+  return null;
+}
+
+function stationIcon(open) {
+  const c = open ? "#F59E0B" : "#34D399";
+  try {
+    return L.divIcon({
+      className: "",
+      html: `<div style="width:14px;height:14px;border-radius:9999px;background:${c};border:2px solid #0B0E14;box-shadow:0 0 8px ${c}AA"></div>`,
+      iconSize: [14, 14], iconAnchor: [7, 7],
+    });
+  } catch { return undefined; }
+}
+
+function WeighStationMap({ stations }) {
+  const pts = stations.filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng));
+  return (
+    <div className="rounded-xl overflow-hidden border border-white/10 mb-4" style={{ height: 420 }} data-testid="weigh-stations-map">
+      <MapErrorBoundary>
+        <MapContainer center={[39.5, -98.35]} zoom={4} style={{ height: "100%", width: "100%", background: "#0B0E14" }} scrollWheelZoom>
+          <TileLayer
+            attribution='© OpenStreetMap contributors © CARTO'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          />
+          <FitToStations stations={pts} />
+          {pts.map((s) => (
+            <Marker key={`${s.state}-${s.name}`} position={[s.lat, s.lng]} icon={stationIcon(s.likely_open)}>
+              <Popup>
+                <div style={{ fontFamily: "monospace", fontSize: 12, minWidth: 190 }}>
+                  <div style={{ fontWeight: 800 }}>{s.name} · {s.state}</div>
+                  <div style={{ color: "#475569" }}>{s.hwy}</div>
+                  <div style={{ color: s.likely_open ? "#B45309" : "#047857", fontWeight: 700, margin: "4px 0" }}>
+                    {s.likely_open ? "LIKELY OPEN" : "LIKELY CLOSED"}
+                  </div>
+                  <div style={{ fontFamily: "inherit" }}>{s.advice}</div>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </MapErrorBoundary>
+    </div>
+  );
+}
+
 function WeighStationsTab() {
   const [stations, setStations] = useState([]);
   const [hourCt, setHourCt] = useState(null);
@@ -61,6 +118,12 @@ function WeighStationsTab() {
         </div>
         <Input value={state} onChange={(e) => setState(e.target.value.toUpperCase().slice(0, 2))}
           placeholder="Filter by state (e.g. MN)" className="w-48 bg-[#11151F] border-white/10 font-mono uppercase" data-testid="weigh-state-filter" />
+      </div>
+      <WeighStationMap stations={stations} />
+      <div className="flex items-center gap-4 mb-3 text-[10px] font-mono text-slate-500">
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#F59E0B" }} /> LIKELY OPEN NOW</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#34D399" }} /> LIKELY CLOSED NOW</span>
+        <span className="text-slate-600">click a pin for advice</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
