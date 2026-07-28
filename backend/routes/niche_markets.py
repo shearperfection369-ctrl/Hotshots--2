@@ -615,7 +615,7 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
                 <p>{p.get('greeting', 'Hi,')}</p>{paras}
                 <ul style="font-size:13.5px;color:#334155">{bullets}</ul>
                 <p>{p.get('closing', '')}</p>
-                <p style="font-size:12.5px;color:#475569">Our full-color shipper brochure is attached — service standards, live-tracking platform, and our Ten Commitments to every shipper.</p>
+                <p style="font-size:12.5px;color:#475569">Attached: our full-color shipper brochure prepared for {t['name']} — your lanes, our service standards, and our Ten Commitments to every shipper.</p>
                 <p>— {company}<br/><a href="mailto:{reply_to}" style="color:{accent}">{reply_to}</a><br/>(763) 443-4459</p>
               </div>
             </div>"""
@@ -624,12 +624,13 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
             creds = await _resend_creds(db)
             brochure = None
             try:
-                brochure = build_shipper_brochure_pdf()
+                brochure = build_shipper_brochure_pdf(personalize=_brochure_pz(t))
             except Exception:
                 log.exception("shipper brochure build failed — sending without attachment")
+            slug = "".join(ch for ch in t["name"] if ch.isalnum() or ch in " -").replace(" ", "-")
             res = await _send_via_resend(
                 creds, to=to, subject=pitch_doc["subject"], html=html,
-                pdf_bytes=brochure, pdf_filename="Orisei-Freight-Shipper-Brochure.pdf") \
+                pdf_bytes=brochure, pdf_filename=f"Orisei-Brochure-{slug}.pdf") \
                 if creds else {"sent": False, "error": "no_resend_creds"}
             status = "sent" if res.get("sent") else "recorded_no_key"
             await db.outbound_emails.insert_one({
@@ -758,6 +759,29 @@ def build_niche_markets_router(*, db, get_current_user: Callable) -> APIRouter:
             return_document=True, projection={"_id": 0})
         r["y1_potential"] = _y1_potential(r)
         return {"ok": True, "target": r}
+
+    def _brochure_pz(t: Dict[str, Any]) -> Dict[str, Any]:
+        v = VERTICALS[t["vertical"]]
+        lanes = ((t.get("battle_card") or {}).get("likely_lanes") or [])[:5]
+        if not lanes:
+            eq = " / ".join(VERTICAL_EQUIPMENT.get(t["vertical"], ["Van"]))
+            lanes = [f"{t['city'] or 'Twin Cities, MN'} → regional Upper-Midwest lanes ({eq})",
+                     f"{t['city'] or 'Twin Cities, MN'} → national outbound (dedicated {eq})"]
+        return {"company": t["name"], "vertical": v["label"], "pitch": v["pitch"],
+                "why": v["why"], "lanes": lanes, "pilot_ask": v["pilot_ask"],
+                "contact_name": (t.get("contact_name") or "").split(" ")[0]}
+
+    @router.get("/targets/{tid}/brochure.pdf")
+    async def personalized_brochure(tid: str, _=Depends(get_current_user)):
+        t = await db.niche_targets.find_one({"id": tid}, {"_id": 0})
+        if not t:
+            raise HTTPException(404, "Target not found")
+        from fastapi.responses import Response
+        from routes.shipper_brochure import build_shipper_brochure_pdf
+        pdf = build_shipper_brochure_pdf(personalize=_brochure_pz(t))
+        slug = "".join(ch for ch in t["name"] if ch.isalnum() or ch in " -").replace(" ", "-")
+        return Response(pdf, media_type="application/pdf", headers={
+            "Content-Disposition": f'attachment; filename="Orisei-Brochure-{slug}.pdf"'})
 
     @router.get("/dashboard")
     async def dashboard(_=Depends(get_current_user)):

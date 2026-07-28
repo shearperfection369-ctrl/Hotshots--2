@@ -30,7 +30,7 @@ def _footer(c: Canvas, page: int, total: int):
     c.drawRightString(W - 40, 14, f"oliver@oriseifreightsolutions.com · (763) 443-4459 · Page {page} of {total}")
 
 
-def _cover(c: Canvas):
+def _cover(c: Canvas, pz=None):
     c.setFillColor(AZURE_DEEP)
     c.rect(0, 0, W, H, fill=1, stroke=0)
     c.setFillColor(AZURE)
@@ -61,6 +61,12 @@ def _cover(c: Canvas):
     c.setFont("Helvetica", 11)
     c.setFillColor(WHITE)
     c.drawCentredString(W / 2, H - 366, "Operator-built brokerage · Live tracking · Open-book margin · Answers the phone")
+    if pz:
+        c.setFillColor(GOLD)
+        c.roundRect(W / 2 - 190, H - 408, 380, 26, 13, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 11)
+        c.setFillColor(AZURE_DEEP)
+        c.drawCentredString(W / 2, H - 400, f"PREPARED EXCLUSIVELY FOR {pz['company'].upper()}")
 
     _card(c, 60, 168, W - 120, 148, colors.HexColor("#0B2E55"), stroke=GOLD, radius=12)
     c.setFont("Helvetica-Bold", 9)
@@ -79,6 +85,60 @@ def _cover(c: Canvas):
         c.setFillColor(WHITE)
         c.drawString(96, y, t)
     _footer(c, 1, 6)
+    c.showPage()
+
+
+def _page_for_company(c: Canvas, page: int, total: int, pz: dict):
+    c.setFillColor(PAPER)
+    c.rect(0, 0, W, H, fill=1, stroke=0)
+    title = (f"An Orisei Program Shaped Around {pz['company']}" if len(pz["company"]) <= 24
+             else "A Program Shaped Around Your Freight")
+    _page_head(c, "Built For You", title, CORAL)
+    _card(c, 40, H - 200, W - 80, 92, WHITE, stroke=colors.HexColor("#E2D9C3"), radius=10)
+    c.setFillColor(CORAL)
+    c.rect(40, H - 200, 6, 92, fill=1, stroke=0)
+    c.setFont("Helvetica-Bold", 10.5)
+    c.setFillColor(AZURE)
+    c.drawString(60, H - 128, f"WHY WE'RE COMING TO {pz['vertical'].upper()} FIRST")
+    _para(c, pz["pitch"], 60, H - 146, "Helvetica", 9.2, W - 130, INK, leading=12.5)
+
+    y = H - 226
+    c.setFont("Helvetica-Bold", 10)
+    c.setFillColor(AZURE)
+    c.drawString(40, y, f"LANES WE'RE READY TO RUN FOR {pz['company'].upper()}")
+    y -= 14
+    accents = [TEAL, CORAL, GOLD, PLUM, FOREST]
+    for i, lane in enumerate(pz["lanes"][:5]):
+        _card(c, 40, y - 34, W - 80, 36, WHITE, stroke=colors.HexColor("#E2D9C3"), radius=8)
+        c.setFillColor(accents[i % 5])
+        c.circle(60, y - 16, 5, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 9.5)
+        c.setFillColor(INK)
+        c.drawString(76, y - 20, str(lane)[:98])
+        y -= 42
+    y -= 10
+
+    c.setFont("Helvetica-Bold", 10)
+    c.setFillColor(AZURE)
+    c.drawString(40, y, f"WHY {pz['vertical'].upper()} SHIPPERS PICK ORISEI")
+    y -= 12
+    for i, w in enumerate(pz["why"][:3]):
+        c.setFillColor(accents[i % 5])
+        c.circle(48, y - 8, 3, fill=1, stroke=0)
+        _para(c, w, 60, y - 4, "Helvetica", 9, W - 120, INK, leading=12)
+        y -= 30
+    y -= 8
+
+    _card(c, 40, y - 96, W - 80, 96, AZURE, radius=12)
+    c.setFont("Helvetica-Bold", 10.5)
+    c.setFillColor(GOLD_LIGHT)
+    c.drawString(58, y - 24, "OUR PILOT PROPOSAL")
+    greet = f"{pz['contact_name']}, w" if pz.get("contact_name") else "W"
+    _para(c, f"{greet}e're asking for a 30–60 day pilot at {pz['pilot_ask']} on the lanes above — "
+             "fixed rates, margin-back service guarantee, live portal tracking from load one. "
+             "If we don't earn the routing-guide slot, you've lost nothing and gained a market benchmark.",
+          58, y - 42, "Helvetica", 9.5, W - 116, WHITE, leading=13)
+    _footer(c, page, total)
     c.showPage()
 
 
@@ -253,17 +313,24 @@ def _page_service_standard(c: Canvas, page: int, total: int):
     c.showPage()
 
 
-def build_shipper_brochure_pdf() -> bytes:
+def build_shipper_brochure_pdf(personalize: dict | None = None) -> bytes:
+    """personalize: {company, vertical, pitch, why[], lanes[], pilot_ask, contact_name}."""
     buf = io.BytesIO()
     c = Canvas(buf, pagesize=letter)
-    c.setTitle("Ship With Orisei · Shipper Partner Program 2026")
-    total = 7
-    _cover(c)
-    _page_why(c, 2, total)
-    _page_offer(c, 3, total)
-    _page_service_standard(c, 4, total)
-    _page_platform(c, 5, total)
-    _page_onboarding(c, 6, total)
-    _page_contact(c, 7, total)
+    pz = personalize
+    c.setTitle(f"Ship With Orisei · Prepared for {pz['company']}" if pz
+               else "Ship With Orisei · Shipper Partner Program 2026")
+    total = 8 if pz else 7
+    _cover(c, pz)
+    page = 2
+    if pz:
+        _page_for_company(c, page, total, pz)
+        page += 1
+    _page_why(c, page, total)
+    _page_offer(c, page + 1, total)
+    _page_service_standard(c, page + 2, total)
+    _page_platform(c, page + 3, total)
+    _page_onboarding(c, page + 4, total)
+    _page_contact(c, page + 5, total)
     c.save()
     return buf.getvalue()

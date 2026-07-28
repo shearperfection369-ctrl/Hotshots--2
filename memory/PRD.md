@@ -2436,3 +2436,14 @@ retrains scoring weights from revealed preferences — making the intuitive
    shipper brochure PDF via Resend (pdf_bytes/pdf_filename on _send_via_resend), records
    brochure_attached in outbound_emails + pitch doc, email HTML mentions attachment + phone; UI shows
    "· BROCHURE ATTACHED" badge in nm-pitch-preview. Delivery still pending Resend key (recorded_no_key).
+7. BROCHURE PERSONALIZATION (2026-07): build_shipper_brochure_pdf(personalize=...) — cover gets gold
+   "PREPARED EXCLUSIVELY FOR {COMPANY}" ribbon; new page 2 _page_for_company (vertical hook, up to 5
+   lanes from battle_card.likely_lanes w/ generic fallback, why-bullets, pilot proposal card greeting
+   contact first name); 8pp personalized vs 7pp generic; long-name header guard (>24 chars).
+   niche_markets: _brochure_pz(t) builder, GET /targets/{id}/brochure.pdf (Content-Disposition download),
+   pitch send attaches Orisei-Brochure-{slug}.pdf + email copy says "prepared for {name}".
+   UI: nm-brochure-btn (blob download) in drawer AI row. Verified: Toro 8pp w/ ribbon + battle-card lanes
+   (visual), Bobcat 8pp, send brochure_attached=true, browser download OK.
+   PHANTOM-EDIT GOTCHA AGAIN (5th+6th): _cover signature + brochure button edits reported success but
+   didn't persist — always grep-verify new symbols after search_replace on niche_markets.py /
+   NicheMarkets.jsx / shipper_brochure.py.

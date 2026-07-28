@@ -358,6 +358,18 @@ function TargetDrawer({ target, vertical, onClose }) {
       toast.success(send ? (data.pitch.sent ? "Email sent via Resend" : "Email queued — add Resend key in Connections to deliver") : followUp ? "Follow-up drafted" : "Pitch drafted");
     } catch (e2) { toast.error(errTxt(e2)); } finally { setBusy(""); }
   };
+  const downloadBrochure = async () => {
+    setBusy("brochure");
+    try {
+      const { data } = await api.get(`/niche-markets/targets/${t.id}/brochure.pdf`, { responseType: "blob", timeout: 60000 });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(data);
+      a.download = `Orisei-Brochure-${t.name.replace(/[^a-zA-Z0-9 -]/g, "").replace(/ /g, "-")}.pdf`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success(`${t.name} brochure downloaded`);
+    } catch (e2) { toast.error("Brochure download failed"); } finally { setBusy(""); }
+  };
   const del = async () => {
     if (!window.confirm(`Remove ${t.name} from the target board?`)) return;
     try { await api.delete(`/niche-markets/targets/${t.id}`); toast.success("Target removed"); onClose(); }
@@ -513,6 +525,11 @@ function TargetDrawer({ target, vertical, onClose }) {
                   className="flex-1 px-3 py-2 rounded-full border border-emerald-500/50 text-emerald-300 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 hover:bg-emerald-500/10 disabled:opacity-50">
             {busy === "followup" ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />} AI Follow-Up
           </button>
+          <button onClick={downloadBrochure} disabled={!!busy} data-testid="nm-brochure-btn" title={`Download the brochure personalized for ${t.name}`}
+                  className="flex-1 px-3 py-2 rounded-full border border-purple-500/50 text-purple-300 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 hover:bg-purple-500/10 disabled:opacity-50">
+            {busy === "brochure" ? <Loader2 size={13} className="animate-spin" /> : <Landmark size={13} />} Brochure
+          </button>
+
         </div>
 
         {bridge && (
