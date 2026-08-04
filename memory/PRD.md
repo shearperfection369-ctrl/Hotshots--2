@@ -2467,3 +2467,12 @@ retrains scoring weights from revealed preferences — making the intuitive
    banner (route-scan-summary), cyan Polyline + PICKUP/DROP divIcon markers, table gains Off-Route column.
    Verified: MSP→Dallas load 3 stations (Joplin 0.5mi off), Houston→Charlotte geocoded 3 stations,
    MSP→Chicago manual 4 stations; UI screenshot shows polyline + pins + summary.
+11. NET WORTH EXCEL TEMPLATE (2026-08-04): net_worth.py build_template_xlsx(member_name) — openpyxl,
+   Orisei-branded (azure/gold/paper), editable yellow VALUE cells, live formulas (TOTAL ASSETS C25=SUM,
+   TOTAL LIABILITIES C39=SUM, NET WORTH C40=C25-C39), member name prefill, certification + signature rows.
+   GET /net-worth/template.xlsx?member=. send-form now attaches BOTH the PDF and a personalized xlsx
+   (Orisei-Net-Worth-{Name}.xlsx) via new extra_attachments param on orisei_auto_digest._send_via_resend
+   (backward-compatible, expects raw bytes in att["content"], b64-encodes internally). NetWorth.jsx:
+   nw-template-xlsx-btn (emerald, "Excel Template (auto-totals)"); PDF btn relabeled "PDF Template
+   (print & sign)". Verified: xlsx downloads via UI (playwright expect_download), formulas intact after
+   round-trip, send-form recorded_no_key w/ both attachments queued.

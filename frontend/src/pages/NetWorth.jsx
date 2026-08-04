@@ -39,9 +39,13 @@ export default function NetWorth() {
           <p className="text-xs text-slate-500 font-mono mt-1">Branded member statements for insurance & surety underwriting · master document kept in-system</p>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => download("template.xlsx", "Orisei-Member-Net-Worth-Template.xlsx")} disabled={!!busy} data-testid="nw-template-xlsx-btn"
+                  className="px-4 py-2 rounded-full border border-emerald-500/50 text-emerald-300 text-[11px] font-bold inline-flex items-center gap-1.5 hover:bg-emerald-500/10 disabled:opacity-50">
+            {busy === "template.xlsx" ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />} Excel Template (auto-totals)
+          </button>
           <button onClick={() => download("template.pdf", "Orisei-Member-Net-Worth-Template.pdf")} disabled={!!busy} data-testid="nw-template-btn"
                   className="px-4 py-2 rounded-full border border-cyan-500/50 text-cyan-300 text-[11px] font-bold inline-flex items-center gap-1.5 hover:bg-cyan-500/10 disabled:opacity-50">
-            {busy === "template.pdf" ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />} Blank Template (give to owners)
+            {busy === "template.pdf" ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />} PDF Template (print & sign)
           </button>
           <button onClick={() => download("master.pdf", "Orisei-Partnership-Net-Worth-Master.pdf")} disabled={!!busy} data-testid="nw-master-btn"
                   className="px-4 py-2 rounded-full bg-amber-500 text-black text-[11px] font-black inline-flex items-center gap-1.5 disabled:opacity-50">

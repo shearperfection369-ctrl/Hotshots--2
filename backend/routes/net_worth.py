@@ -248,6 +248,137 @@ def build_master_pdf(members: List[Dict[str, Any]]) -> bytes:
     return buf.getvalue()
 
 
+def build_template_xlsx(member_name: str = "") -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    AZ, GD, PP, LN = "123B5C", "C9A227", "FAF6ED", "D8CFBA"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Net Worth Statement"
+    ws.sheet_view.showGridLines = False
+    for col, w in zip("ABC", (40, 36, 18)):
+        ws.column_dimensions[col].width = w
+
+    az_fill = PatternFill("solid", fgColor=AZ)
+    gd_fill = PatternFill("solid", fgColor=GD)
+    paper = PatternFill("solid", fgColor=PP)
+    entry = PatternFill("solid", fgColor="FFFFFF")
+    thin = Side(style="thin", color=LN)
+    box = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    def merged(row, text, font, fill=None, height=None, align="left"):
+        ws.merge_cells(f"A{row}:C{row}")
+        cell = ws.cell(row=row, column=1, value=text)
+        cell.font = font
+        cell.alignment = Alignment(horizontal=align, vertical="center")
+        if fill:
+            for c in range(1, 4):
+                ws.cell(row=row, column=c).fill = fill
+        if height:
+            ws.row_dimensions[row].height = height
+
+    merged(1, "ORISEI FREIGHT SOLUTIONS LLC", Font(bold=True, size=16, color="FFFFFF"), az_fill, 30)
+    merged(2, "MEMBER PERSONAL NET WORTH STATEMENT", Font(bold=True, size=11, color=GD), az_fill, 20)
+    merged(3, "Confidential — for partnership insurance underwriting (BMC-84 surety, liability & cargo programs)",
+           Font(size=8.5, color="B9C6D4"), az_fill, 16)
+    merged(4, "Minneapolis–St. Paul, MN · (763) 443-4459 · oliver@oriseifreightsolutions.com",
+           Font(size=8.5, color="5B6472"), paper, 14)
+    merged(5, "Enter market values in the yellow VALUE column — totals and net worth calculate automatically. "
+              "Save and email back to Oliver, or enter it in the Command Deck under Net Worth.",
+           Font(size=8.5, italic=True, color="5B6472"), paper, 26)
+    ws.cell(row=5, column=1).alignment = Alignment(wrap_text=True, vertical="center")
+
+    r = 7
+    for label, prefill in [("MEMBER NAME", member_name), ("STATEMENT DATE (AS OF)", ""), ("PHONE / EMAIL", "")]:
+        ws.cell(row=r, column=1, value=label).font = Font(bold=True, size=9, color=AZ)
+        ws.merge_cells(f"B{r}:C{r}")
+        cell = ws.cell(row=r, column=2, value=prefill)
+        cell.fill = entry
+        cell.border = box
+        cell.font = Font(size=10)
+        r += 1
+    r += 1
+
+    val_fill = PatternFill("solid", fgColor="FFF6DA")
+
+    def section(row, title, categories, rows_per=2):
+        merged(row, title, Font(bold=True, size=11, color=AZ), gd_fill, 20)
+        row += 1
+        for col, head in [(1, "CATEGORY"), (2, "DESCRIPTION (what / where)"), (3, "VALUE ($)")]:
+            c = ws.cell(row=row, column=col, value=head)
+            c.font = Font(bold=True, size=8, color="5B6472")
+            c.border = Border(bottom=thin)
+        row += 1
+        first_val = row
+        for cat in categories:
+            for i in range(rows_per):
+                ws.cell(row=row, column=1, value=cat if i == 0 else "").font = Font(size=9, color="1C2430")
+                dcell = ws.cell(row=row, column=2)
+                vcell = ws.cell(row=row, column=3)
+                dcell.fill = entry
+                dcell.border = box
+                dcell.font = Font(size=9)
+                vcell.fill = val_fill
+                vcell.border = box
+                vcell.number_format = '#,##0'
+                vcell.font = Font(size=10)
+                row += 1
+        return row, first_val, row - 1
+
+    r, a_first, a_last = section(r, "SECTION 1 · ASSETS (what you own)", ASSET_CATEGORIES)
+    ws.cell(row=r, column=1, value="TOTAL ASSETS").font = Font(bold=True, size=10)
+    ta = ws.cell(row=r, column=3, value=f"=SUM(C{a_first}:C{a_last})")
+    ta.font = Font(bold=True, size=11, color=AZ)
+    ta.number_format = '"$"#,##0'
+    total_assets_row = r
+    r += 2
+
+    r, l_first, l_last = section(r, "SECTION 2 · LIABILITIES (what you owe)", LIABILITY_CATEGORIES)
+    ws.cell(row=r, column=1, value="TOTAL LIABILITIES").font = Font(bold=True, size=10)
+    tl = ws.cell(row=r, column=3, value=f"=SUM(C{l_first}:C{l_last})")
+    tl.font = Font(bold=True, size=11, color="8A2E1F")
+    tl.number_format = '"$"#,##0'
+    total_liab_row = r
+    r += 1
+    ws.cell(row=r, column=1, value="NET WORTH (assets − liabilities)").font = Font(bold=True, size=11)
+    nw = ws.cell(row=r, column=3, value=f"=C{total_assets_row}-C{total_liab_row}")
+    nw.font = Font(bold=True, size=12, color=GD)
+    nw.number_format = '"$"#,##0'
+    nw.fill = az_fill
+    r += 2
+
+    merged(r, "I certify that the information above is true and complete to the best of my knowledge, provided for "
+              "the purpose of insurance and surety underwriting for Orisei Freight Solutions LLC.",
+           Font(size=8.5, italic=True, color="1C2430"), None, 26)
+    ws.cell(row=r, column=1).alignment = Alignment(wrap_text=True, vertical="center")
+    r += 2
+    ws.cell(row=r, column=1, value="MEMBER SIGNATURE").font = Font(bold=True, size=9, color=AZ)
+    sig = ws.cell(row=r, column=2)
+    sig.fill = entry
+    sig.border = box
+    ws.cell(row=r, column=3, value="DATE:").font = Font(bold=True, size=9, color=AZ)
+    r += 1
+    dt = ws.cell(row=r, column=3)
+    dt.fill = entry
+    dt.border = box
+
+    for row in ws.iter_rows(min_row=1, max_row=r, min_col=1, max_col=3):
+        for cell in row:
+            if cell.fill.fgColor.rgb in (None, "00000000") and not cell.fill.patternType:
+                cell.fill = paper
+    ws.freeze_panes = "A6"
+    ws.print_area = f"A1:C{r}"
+    ws.page_setup.orientation = "portrait"
+    ws.page_setup.fitToWidth = 1
+    _ = get_column_letter  # noqa: F841
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
 class SendFormIn(BaseModel):
     email: str = Field(..., min_length=3, max_length=160)
 
@@ -308,6 +439,16 @@ def build_net_worth_router(*, db, get_current_user: Callable) -> APIRouter:
         return Response(build_template_pdf(), media_type="application/pdf", headers={
             "Content-Disposition": 'attachment; filename="Orisei-Member-Net-Worth-Template.pdf"'})
 
+    @router.get("/template.xlsx")
+    async def template_xlsx(member: str = "", _=Depends(get_current_user)):
+        fname = "Orisei-Member-Net-Worth-Template.xlsx"
+        if member:
+            fname = f"Orisei-Net-Worth-{member.replace(' ', '-')}.xlsx"
+        return Response(
+            build_template_xlsx(member.strip()),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
     @router.get("/master.pdf")
     async def master_pdf(_=Depends(get_current_user)):
         await _seed()
@@ -348,7 +489,11 @@ def build_net_worth_router(*, db, get_current_user: Callable) -> APIRouter:
         creds = await _resend_creds(db)
         res = await _send_via_resend(creds, to=to, subject=subject, html=html,
                                      pdf_bytes=build_template_pdf(),
-                                     pdf_filename="Orisei-Member-Net-Worth-Template.pdf") \
+                                     pdf_filename="Orisei-Member-Net-Worth-Template.pdf",
+                                     extra_attachments=[{
+                                         "filename": f"Orisei-Net-Worth-{m['member_name'].replace(' ', '-')}.xlsx",
+                                         "content": build_template_xlsx(m["member_name"]),
+                                     }]) \
             if creds else {"sent": False, "error": "no_resend_creds"}
         status = "sent" if res.get("sent") else "recorded_no_key"
         await db.outbound_emails.insert_one({

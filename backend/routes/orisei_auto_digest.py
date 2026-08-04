@@ -52,7 +52,8 @@ async def _resend_creds(db) -> Optional[Dict[str, str]]:
 
 async def _send_via_resend(creds: Dict[str, str], *, to: str, subject: str,
                             html: str, pdf_bytes: Optional[bytes] = None,
-                            pdf_filename: Optional[str] = None) -> Dict[str, Any]:
+                            pdf_filename: Optional[str] = None,
+                            extra_attachments: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """Send via Resend SDK. Returns {sent, message_id|None, error|None}."""
     if not creds or not creds.get("api_key"):
         return {"sent": False, "error": "no_resend_creds"}
@@ -66,11 +67,19 @@ async def _send_via_resend(creds: Dict[str, str], *, to: str, subject: str,
             "from": f"{from_name} <{from_email}>",
             "to": [to], "subject": subject, "html": html,
         }
+        attachments: List[Dict[str, Any]] = []
         if pdf_bytes and pdf_filename:
-            payload["attachments"] = [{
+            attachments.append({
                 "filename": pdf_filename,
                 "content": base64.b64encode(pdf_bytes).decode(),
-            }]
+            })
+        for att in (extra_attachments or []):
+            attachments.append({
+                "filename": att["filename"],
+                "content": base64.b64encode(att["content"]).decode(),
+            })
+        if attachments:
+            payload["attachments"] = attachments
         result = await asyncio.to_thread(_r.Emails.send, payload)
         return {"sent": True, "message_id": (result or {}).get("id")}
     except Exception as exc:                                          # noqa: BLE001
