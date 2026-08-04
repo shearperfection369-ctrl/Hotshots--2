@@ -7,8 +7,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from routes.routing_svc import (OSRM_BASE_URL, Coord, _mapbox_geocode,
+                                _osm_geocode)
 
 # Major fixed weigh/inspection stations on primary freight corridors.
 WEIGH_STATIONS: List[Dict[str, Any]] = [
@@ -136,6 +140,53 @@ class RouteAdviceIn(BaseModel):
     corridor_miles: float = 20.0
 
 
+class LoadRouteIn(BaseModel):
+    load_id: Optional[str] = None
+    origin: Optional[str] = None
+    destination: Optional[str] = None
+    corridor_miles: float = 20.0
+
+
+async def _full_route_geometry(o: Coord, d: Coord) -> Optional[Dict[str, Any]]:
+    url = f"{OSRM_BASE_URL}/route/v1/driving/{o.lng},{o.lat};{d.lng},{d.lat}"
+    try:
+        async with httpx.AsyncClient(timeout=12.0) as c:
+            r = await c.get(url, params={"overview": "full", "geometries": "geojson"})
+            r.raise_for_status()
+            routes = r.json().get("routes") or []
+            if not routes:
+                return None
+            rt = routes[0]
+            return {"provider": "osrm", "distance_m": rt.get("distance"),
+                    "geometry": rt.get("geometry")}
+    except Exception:
+        return None
+
+
+def _corridor_hits(pts: List[List[float]], corridor_miles: float, hour_ct: int) -> List[Dict[str, Any]]:
+    step = max(1, len(pts) // 400)
+    samples = pts[::step] + [pts[-1]]
+    hits = []
+    for s in WEIGH_STATIONS:
+        best = min(_seg_dist_mi(s["lat"], s["lng"], samples[i], samples[i + 1])
+                   for i in range(len(samples) - 1)) if len(samples) > 1 else 1e9
+        if best <= corridor_miles:
+            hits.append({**s, "off_route_mi": round(best, 1), **_station_advice(s, hour_ct)})
+    return hits
+
+
+def _route_summary(hits: List[Dict[str, Any]], hour_ct: int, o_label: str, d_label: str,
+                   distance_mi: Optional[float]) -> str:
+    open_hits = [h for h in hits if h["likely_open"]]
+    dist_txt = f" ({distance_mi:,.0f} mi)" if distance_mi else ""
+    return (f"Route scan {o_label} → {d_label}{dist_txt}: {len(hits)} weigh station(s) on this corridor, "
+            f"{len(open_hits)} likely open right now ({hour_ct:02d}:00 CT). "
+            + (f"Plan stops at: {', '.join(h['name'] + ' (' + h['state'] + ' · ' + h['hwy'] + ')' for h in open_hits[:4])}. "
+               if open_hits else "No open scales expected — drive on, but obey ramp signage. ")
+            + "Bypass devices (PrePass/Drivewyze) may waive pull-ins at green-light sites; "
+              "always stop on red or posted OPEN.")
+
+
 class LaneNoteIn(BaseModel):
     origin: str
     destination: str
@@ -177,6 +228,68 @@ def build_reference_router(*, db, get_current_user: Callable) -> APIRouter:
                      "always stop on red or posted OPEN.")
         return {"stations": hits, "likely_open_count": len(open_hits),
                 "hour_ct": hour_ct, "ai_summary": summary}
+
+    @router.get("/active-loads")
+    async def active_loads(_=Depends(get_current_user)):
+        rows = await db.brokerage_bookings.find(
+            {"status": {"$in": ["booked", "pending_review"]}},
+            {"_id": 0, "booked_id": 1, "reference": 1, "origin": 1, "destination": 1,
+             "origin_full": 1, "destination_full": 1, "status": 1, "pickup_date": 1,
+             "carrier_name": 1, "equipment": 1},
+        ).sort("booked_at", -1).to_list(50)
+        return {"loads": rows, "count": len(rows)}
+
+    @router.post("/weigh-stations/load-route")
+    async def load_route_advice(payload: LoadRouteIn, _=Depends(get_current_user)):
+        hour_ct = (datetime.now(timezone.utc).hour - 6) % 24
+        o = d = None
+        o_label, d_label = payload.origin or "", payload.destination or ""
+        if payload.load_id:
+            bk = await db.brokerage_bookings.find_one({"booked_id": payload.load_id}, {"_id": 0})
+            if not bk:
+                raise HTTPException(404, "Load not found")
+            o_label, d_label = bk.get("origin", ""), bk.get("destination", "")
+            of, df = bk.get("origin_full") or {}, bk.get("destination_full") or {}
+            if of.get("lat") and of.get("lng"):
+                o = Coord(lat=of["lat"], lng=of["lng"])
+            if df.get("lat") and df.get("lng"):
+                d = Coord(lat=df["lat"], lng=df["lng"])
+        if o is None:
+            if not o_label:
+                raise HTTPException(400, "Provide a load_id or origin/destination")
+            o = (await _mapbox_geocode(o_label)) or (await _osm_geocode(o_label))
+        if d is None:
+            if not d_label:
+                raise HTTPException(400, "Provide a load_id or origin/destination")
+            d = (await _mapbox_geocode(d_label)) or (await _osm_geocode(d_label))
+        if o is None or d is None:
+            raise HTTPException(422, "Could not geocode origin or destination — try 'City, ST' format")
+
+        route = await _full_route_geometry(o, d)
+        if route and route.get("geometry", {}).get("coordinates"):
+            pts = [[c[1], c[0]] for c in route["geometry"]["coordinates"]]
+            distance_mi = round((route.get("distance_m") or 0) / 1609.34, 1) or None
+            provider = route.get("provider")
+        else:
+            pts = [[o.lat, o.lng], [d.lat, d.lng]]
+            distance_mi = round(_dist_mi(o.lat, o.lng, d.lat, d.lng) * 1.2, 1)
+            provider = "estimate"
+
+        hits = _corridor_hits(pts, payload.corridor_miles, hour_ct)
+        hits.sort(key=lambda h: _dist_mi(o.lat, o.lng, h["lat"], h["lng"]))
+        gstep = max(1, len(pts) // 500)
+        geometry_out = pts[::gstep] + [pts[-1]]
+        return {
+            "stations": hits,
+            "likely_open_count": sum(1 for h in hits if h["likely_open"]),
+            "hour_ct": hour_ct,
+            "geometry": geometry_out,
+            "origin": {"lat": o.lat, "lng": o.lng, "label": o_label},
+            "destination": {"lat": d.lat, "lng": d.lng, "label": d_label},
+            "distance_mi": distance_mi,
+            "route_provider": provider,
+            "ai_summary": _route_summary(hits, hour_ct, o_label or "origin", d_label or "destination", distance_mi),
+        }
 
     # ---------------- Lane notes ----------------
     def _key(o: str, d: str) -> str:

@@ -8959,6 +8959,13 @@ api_router.include_router(build_niche_markets_router(
     get_current_user=get_current_user,
 ))
 
+# Mount Partnership Net Worth statements (insurance underwriting)
+from routes.net_worth import build_net_worth_router  # noqa: E402
+api_router.include_router(build_net_worth_router(
+    db=db,
+    get_current_user=get_current_user,
+))
+
 # Mount Competitive Scorecard (live, integration-aware)
 from routes.competitive_scorecard import build_competitive_scorecard_router  # noqa: E402
 api_router.include_router(build_competitive_scorecard_router(

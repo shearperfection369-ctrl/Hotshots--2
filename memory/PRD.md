@@ -2452,3 +2452,18 @@ retrains scoring weights from revealed preferences — making the intuitive
    41 states as divIcon dots (amber=likely open, emerald=likely closed), popups w/ name/hwy/status/advice,
    FitToStations auto-fits bounds on state filter, legend row. Verified via screenshot: 75 pins render,
    popup opens (Kenosha WI).
+9. NET WORTH EMAIL FORMS + VERIFIED (2026-08-04): net_worth.py send endpoint + NetWorth.jsx per-member
+   "EMAIL THE FORM TO THIS PARTNER" input + SEND button (3 cards: Daniel/Doug/Oliver). Attaches branded
+   blank template PDF; records to outbound_emails w/ status recorded_no_key until Resend key configured
+   (user chose to keep queued behavior for now). UI verified via screenshot: 6 send controls, Doug card
+   shows "Form queued to doug.test@example.com", totals $477K assets / $252K liab / $225K NW, 1/3 submitted.
+10. WEIGH STATIONS ALONG LOAD ROUTE (2026-08-04): weigh_stations.py — GET /reference/active-loads
+   (50 booked/pending_review brokerage_bookings w/ origin_full coords) + POST
+   /reference/weigh-stations/load-route {load_id | origin+destination, corridor_miles=20}. Uses booking
+   coords or mapbox/nominatim geocode fallback, OSRM overview=full geometry (local _full_route_geometry —
+   simplified overview missed stations; do NOT reuse routing_svc._osrm_route here), _corridor_hits
+   (400-sample seg-dist), geometry downsampled to ~500 pts for response. RoadReference.jsx: route-scan-panel
+   (load dropdown route-scan-load-select, manual origin/dest inputs, route-scan-btn, clear), amber ai_summary
+   banner (route-scan-summary), cyan Polyline + PICKUP/DROP divIcon markers, table gains Off-Route column.
+   Verified: MSP→Dallas load 3 stations (Joplin 0.5mi off), Houston→Charlotte geocoded 3 stations,
+   MSP→Chicago manual 4 stations; UI screenshot shows polyline + pins + summary.
