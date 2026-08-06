@@ -2476,3 +2476,30 @@ retrains scoring weights from revealed preferences — making the intuitive
    nw-template-xlsx-btn (emerald, "Excel Template (auto-totals)"); PDF btn relabeled "PDF Template
    (print & sign)". Verified: xlsx downloads via UI (playwright expect_download), formulas intact after
    round-trip, send-form recorded_no_key w/ both attachments queued.
+12. TRUCK CLEANING BUSINESS PLATFORM v2 (2026-08-06) — user launching Twin Cities truck-cleaning biz,
+   20 crews target. Built on existing /truck-cleaning module. New backend routes/truck_cleaning_crew.py
+   (registered in server.py):
+   - CREW PIN AUTH (integration_expert playbook): 6-digit PINs bcrypt-hashed + HMAC lookup (pepper =
+     HS_JWT_SECRET), per-IP rate limit (10/min, scoped keys tc-login:/tc-booking:), 5-failure 15-min
+     lockout, 14h sessions (sha256 digest in tc_crew_sessions), header X-Crew-Token.
+     Admin POST /crew-admin/{tech_id}/pin shows PIN once + revokes old sessions.
+   - Crew endpoints: /crew/login|logout|me|clock(in/out w/ geo)|today(my+open jobs w/ lazily-built
+     checklist: 9 guide phases + upsell items)|jobs/{id}/task|claim|photos(GridFS tc_photos)|complete
+     (GATE: all checklist + >=1 before + >=1 after photo, else blockers[]; fire-forget AI quality note
+     via EMERGENT_LLM_KEY)|ping(tc_crew_pings upsert)|guide|updates.
+   - Admin: /crew-live (map data), /timesheets (hours+labor cost), /updates CRUD, /expenses CRUD +
+     /pnl (rev from completed jobs vs expenses, monthly series), /vehicles CRUD (company vans, live loc
+     via assigned tech ping), /gear (curated Amazon/Harbor Freight list ~$828/kit: DeWalt vac, Bissell
+     shampooer, Bauer blower, wire brushes, scents, APC), /bookings inbox + convert(client+job w/
+     checklist)/dismiss. PUBLIC (no auth): /public/site-info, /public/booking.
+   - truck_cleaning_biz.py: PUT /invoices/{id} (line items/due/notes, paid locked).
+   Frontend: /crew CrewPortal.jsx (mobile PIN portal: clock card, job cards w/ tap checklist +
+   camera capture before/after + complete gate, guide, updates, 60s GPS pings while clocked in,
+   sessionStorage tc_crew_token); /wash WashLanding.jsx (branded public landing: hero, $150/$120/$125
+   pricing, add-on chips, booking form -> success state, crew login link). Admin TruckCleaning.jsx
+   +5 tabs: Crew Live (TcCrewLive: leaflet crew map, roster+PIN issue, updates composer, timesheets),
+   Bookings (TcBookings: convert/dismiss), Money/P&L (TcMoney: expense form + recharts rev-vs-exp),
+   Company Vans (TcVehicles), Gear & Supplies (TcGear). TcInvoices edit modal (pencil, live total).
+   TESTED: iteration_86.json — 18/18 backend pytest + full frontend flows = 100%/100%, no bugs.
+   Advisory fix applied: rate-limit key namespaces split login vs booking.
+   Mocked/pending: Resend email, Twilio SMS, QuickBooks OAuth. Stripe invoice pay works w/ env test key.

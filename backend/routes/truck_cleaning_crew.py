@@ -188,10 +188,10 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
     photos = AsyncIOMotorGridFSBucket(db, bucket_name="tc_photos")
 
     # ================= CREW AUTH =================
-    async def _rate_limit(request: Request):
+    async def _rate_limit(request: Request, scope: str = "login"):
         ip = request.client.host if request.client else "unknown"
         t = datetime.now(timezone.utc)
-        key = f"tc-crew-login:{ip}"
+        key = f"tc-{scope}:{ip}"
         doc = await db.tc_login_attempts.find_one({"_id": key})
         if doc and doc["expires_at"] > t.isoformat():
             if doc["count"] >= 10:
@@ -616,7 +616,7 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
 
     @router.post("/public/booking")
     async def public_booking(payload: BookingIn, request: Request):
-        await _rate_limit(request)
+        await _rate_limit(request, scope="booking")
         services = [s for s in payload.services if s in UPSELLS]
         doc = {**payload.model_dump(), "services": services,
                "booking_id": f"BOOK-{uuid.uuid4().hex[:6].upper()}",
