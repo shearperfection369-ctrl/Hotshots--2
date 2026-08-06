@@ -2533,3 +2533,11 @@ retrains scoring weights from revealed preferences — making the intuitive
    - LEARNING: parallel search_replace edits to the SAME file can race and drop an edit (ScoreTab
      function was lost while sibling edits landed → "ScoreTab is not defined" crash). Serialize
      multiple edits to one file or verify with grep after batch.
+15. GEAR KIT PDF + EMAIL (2026-08-06): truck_cleaning_crew.py build_gear_pdf() — reportlab, 3 pages,
+   Orisei-branded (azure #123B5C / gold #C9A227), per-category sections, store chips (Amazon amber /
+   Harbor Freight red), ~$828 kit total band, 20 clickable linkURL annotations to store searches.
+   GET /gear.pdf (download) + POST /gear/send {email, note} — HTML email + PDF attachment via
+   orisei_auto_digest._resend_creds/_send_via_resend, outbound_emails kind tc_gear_kit,
+   recorded_no_key fallback. TcGear.jsx share bar: tc-gear-pdf-btn, tc-gear-email-input,
+   tc-gear-note-input, tc-gear-send-btn. Verified: pdf text/links via pypdf + pymupdf render,
+   UI download + queued send toast.

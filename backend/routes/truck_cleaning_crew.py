@@ -129,6 +129,103 @@ GEAR = [
 EXPENSE_CATEGORIES = ["supplies", "fuel", "labor", "equipment", "marketing", "insurance", "vehicle", "other"]
 
 
+def build_gear_pdf() -> bytes:
+    from reportlab.lib.colors import HexColor
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen.canvas import Canvas
+
+    AZ, GD, INK, MUT = HexColor("#123B5C"), HexColor("#C9A227"), HexColor("#1C2430"), HexColor("#5B6472")
+    AMZ, HF = HexColor("#B45309"), HexColor("#B91C1C")
+    W, H = letter
+    buf = io.BytesIO()
+    c = Canvas(buf, pagesize=letter)
+    total = round(sum(i["est"] for g in GEAR for i in g["items"]), 2)
+
+    def header(first=False):
+        c.setFillColor(AZ)
+        c.rect(0, H - (110 if first else 60), W, 110 if first else 60, stroke=0, fill=1)
+        c.setFillColor(HexColor("#FFFFFF"))
+        c.setFont("Helvetica-Bold", 20 if first else 13)
+        c.drawString(54, H - (44 if first else 38), "ORISEI TRUCK CLEANING")
+        c.setFillColor(GD)
+        c.setFont("Helvetica-Bold", 12 if first else 9)
+        c.drawString(54, H - (66 if first else 52), "CREW GEAR & SUPPLY KIT — SOURCING LIST")
+        if first:
+            c.setFillColor(HexColor("#B9C6D4"))
+            c.setFont("Helvetica", 8.5)
+            c.drawString(54, H - 84, "Battery-powered field kit for one 2-person crew · sourced from Amazon & Harbor Freight")
+            c.drawString(54, H - 96, "Links open the store search for the exact item · prices are live-market estimates")
+            c.setFillColor(GD)
+            c.setFont("Helvetica-Bold", 15)
+            c.drawRightString(W - 54, H - 52, f"~${total:,.0f} / crew kit")
+        c.setFillColor(MUT)
+        c.setFont("Helvetica", 7)
+        c.drawRightString(W - 54, 30, "Orisei Freight Solutions LLC · Twin Cities, MN · (763) 443-4459 · oliver@oriseifreightsolutions.com")
+
+    header(first=True)
+    y = H - 140
+    for g in GEAR:
+        need = 30 + len(g["items"]) * 58
+        if y - need < 60 and y < H - 200:
+            c.showPage()
+            header()
+            y = H - 90
+        c.setFillColor(GD)
+        c.rect(54, y - 4, W - 108, 20, stroke=0, fill=1)
+        c.setFillColor(AZ)
+        c.setFont("Helvetica-Bold", 10.5)
+        c.drawString(62, y + 1, g["cat"].upper())
+        y -= 26
+        for i in g["items"]:
+            if y < 96:
+                c.showPage()
+                header()
+                y = H - 90
+            c.setFillColor(INK)
+            c.setFont("Helvetica-Bold", 9.5)
+            c.drawString(62, y, i["name"])
+            c.setFillColor(HexColor("#0E7A4E"))
+            c.setFont("Helvetica-Bold", 10)
+            c.drawRightString(W - 62, y, f"~${i['est']:,.0f}")
+            y -= 12
+            c.setFillColor(AMZ if i["store"] == "Amazon" else HF)
+            c.setFont("Helvetica-Bold", 7.5)
+            c.drawString(62, y, i["store"].upper())
+            c.setFillColor(MUT)
+            c.setFont("Helvetica", 8)
+            c.drawString(62 + (48 if i["store"] == "Amazon" else 84), y, i["why"][:104])
+            y -= 11
+            c.setFillColor(HexColor("#2563EB"))
+            c.setFont("Helvetica", 7)
+            c.drawString(62, y, i["url"])
+            c.linkURL(i["url"], (60, y - 2, W - 60, y + 8), relative=0)
+            y -= 8
+            c.setStrokeColor(HexColor("#E2E8F0"))
+            c.setLineWidth(0.5)
+            c.line(62, y, W - 62, y)
+            y -= 14
+        y -= 6
+    if y < 120:
+        c.showPage()
+        header()
+        y = H - 90
+    c.setFillColor(AZ)
+    c.rect(54, y - 34, W - 108, 34, stroke=0, fill=1)
+    c.setFillColor(HexColor("#FFFFFF"))
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(62, y - 21, "FULL KIT ESTIMATE PER CREW")
+    c.setFillColor(GD)
+    c.setFont("Helvetica-Bold", 14)
+    c.drawRightString(W - 62, y - 23, f"~${total:,.0f}")
+    c.save()
+    return buf.getvalue()
+
+
+class GearSendIn(BaseModel):
+    email: str = Field(..., min_length=5, max_length=200)
+    note: str = Field("", max_length=500)
+
+
 class LoginIn(BaseModel):
     pin: str = Field(..., pattern=r"^\d{4,6}$")
 
@@ -822,6 +919,44 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         total = round(sum(i["est"] for g in GEAR for i in g["items"]), 2)
         return {"gear": GEAR, "kit_total_est": total,
                 "note": "Prices are live-market estimates — links open the store search for the exact item."}
+
+    @router.get("/gear.pdf")
+    async def gear_pdf(_=Depends(guard)):
+        from fastapi.responses import Response as Resp
+        return Resp(build_gear_pdf(), media_type="application/pdf", headers={
+            "Content-Disposition": 'attachment; filename="Orisei-Crew-Gear-Kit.pdf"'})
+
+    @router.post("/gear/send")
+    async def gear_send(payload: GearSendIn, user=Depends(guard)):
+        to = payload.email.strip()
+        if "@" not in to:
+            raise HTTPException(400, "Valid email required")
+        total = round(sum(i["est"] for g in GEAR for i in g["items"]), 2)
+        note_html = f"<p style='background:#FFF6DA;padding:10px 14px;border-radius:8px'>{payload.note}</p>" \
+            if payload.note.strip() else ""
+        subject = "Orisei Truck Cleaning — crew gear & supply kit to purchase"
+        html = (f"<div style='font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#1a202c'>"
+                f"<div style='background:#123B5C;padding:18px 24px'><span style='color:#fff;font-weight:800;"
+                f"letter-spacing:1px'>ORISEI TRUCK CLEANING</span><br>"
+                f"<span style='color:#C9A227;font-size:12px;font-weight:700'>CREW GEAR &amp; SUPPLY KIT</span></div>"
+                f"<div style='padding:22px 24px;border:1px solid #E2E8F0;border-top:none;font-size:14px'>"
+                f"<p>Attached is the full sourcing list for one crew's field kit — battery vacuum &amp; shampooer, "
+                f"blower, brushes (incl. steel wire), scents and supplies, with store links and prices "
+                f"(<b>~${total:,.0f} per crew</b>).</p>{note_html}"
+                f"<p>Every link in the PDF is clickable and opens the item at Amazon or Harbor Freight — "
+                f"purchase straight from the list.</p>"
+                f"<p>— Orisei Freight Solutions LLC · (763) 443-4459</p></div></div>")
+        from routes.orisei_auto_digest import _resend_creds, _send_via_resend
+        creds = await _resend_creds(db)
+        res = await _send_via_resend(creds, to=to, subject=subject, html=html,
+                                     pdf_bytes=build_gear_pdf(),
+                                     pdf_filename="Orisei-Crew-Gear-Kit.pdf") \
+            if creds else {"sent": False, "error": "no_resend_creds"}
+        status = "sent" if res.get("sent") else "recorded_no_key"
+        await db.outbound_emails.insert_one({
+            "to": to, "subject": subject, "html": html, "status": status, "error": res.get("error"),
+            "kind": "tc_gear_kit", "at": _now()})
+        return {"ok": True, "sent": res.get("sent", False), "status": status, "to": to}
 
     # ================= PUBLIC BOOKING =================
     @router.get("/public/site-info")
