@@ -2541,3 +2541,17 @@ retrains scoring weights from revealed preferences — making the intuitive
    recorded_no_key fallback. TcGear.jsx share bar: tc-gear-pdf-btn, tc-gear-email-input,
    tc-gear-note-input, tc-gear-send-btn. Verified: pdf text/links via pypdf + pymupdf render,
    UI download + queued send toast.
+16. REVIEW ENGINE + LOCK-IN + TARGET TRACKER + YARD PROMO (2026-08-06), iteration_87 100% frontend:
+   - REVIEW ENGINE: truck_cleaning_biz.py _settle_invoice fires _request_review (idempotent per invoice,
+     tc_review_requests, SMS via _send_sms w/ google_review_url from tc_settings _id=settings; GET/PUT
+     /settings, GET /review-requests). UI card top of Invoices tab (tc-review-url-input/save, req chips).
+   - LOCK-IN SCHEDULE: truck_cleaning_sched.py /recurring CRUD (one rule per client, weekly $110 /
+     biweekly $120 per cab, monthly_value 4.33x/2.17x) + /recurring/generate {weeks} (idempotent: skips
+     client+date dupes). LockInCard top of TcScheduler (tc-lockin-*).
+   - TARGET TRACKER: crew file GET /target — month revenue done+booked vs $10K, gap, month-pace,
+     cabs vs 45 crew break-even, gap_closers (biweekly yard $1041.6 / weekly yard $1905.2 / fleet
+     $1250 per mo). New tab 'Target Tracker' TcTarget.jsx (Crosshair icon, tc-target-*).
+   - YARD PROMO: truck_cleaning_brochure.py _yard_promo_brochure() 2-page full-color (Founding Yard
+     Offer 2 free pilot cabs, lock-in pricing, pilot steps) + POST /brochures/yard-promo/send (email
+     w/ attachment, outbound_emails kind tc_yard_promo). Docs tab: first card + tc-yard-promo-send card.
+   - Cosmetic fixes post-test: option label single text node, revenue chart fixed height 208.

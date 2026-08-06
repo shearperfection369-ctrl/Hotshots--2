@@ -85,8 +85,8 @@ function Dashboard({ metrics, qb, onSync }) {
       <div className="grid md:grid-cols-3 gap-4">
         <Card className="md:col-span-2 p-4 bg-slate-950/70 border-white/10 backdrop-blur" data-testid="tc-revenue-chart">
           <div className="text-xs font-mono uppercase tracking-widest text-amber-300 flex items-center gap-2 mb-2"><TrendingUp size={13} /> Revenue tracker</div>
-          <div className="h-52">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-52" style={{ minHeight: 208 }}>
+            <ResponsiveContainer width="100%" height={208}>
               <AreaChart data={metrics.monthly}>
                 <defs><linearGradient id="tcRev" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.5} /><stop offset="100%" stopColor="#F59E0B" stopOpacity={0} />

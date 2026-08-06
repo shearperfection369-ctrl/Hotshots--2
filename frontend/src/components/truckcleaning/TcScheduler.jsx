@@ -66,7 +66,7 @@ function LockInCard({ clients, onGenerated }) {
         </select>
         <select value={form.weekday} onChange={(e) => setForm({ ...form, weekday: e.target.value })}
           className="h-9 px-2 rounded-lg bg-[#11151F] border border-white/10 text-xs text-slate-200" data-testid="tc-lockin-weekday">
-          {WEEKDAYS.map(([v, l]) => <option key={v} value={v}>{l}s</option>)}
+          {WEEKDAYS.map(([v, l]) => <option key={v} value={v}>{`${l}s`}</option>)}
         </select>
         <select value={form.window} onChange={(e) => setForm({ ...form, window: e.target.value })}
           className="h-9 px-2 rounded-lg bg-[#11151F] border border-white/10 text-xs text-slate-200" data-testid="tc-lockin-window">
