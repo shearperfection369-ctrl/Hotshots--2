@@ -2581,3 +2581,13 @@ retrains scoring weights from revealed preferences — making the intuitive
    rate 130, WashLanding fallbacks + hero badge "Lock-in rates from $110/cab", LockInCard label.
    Verified: site-info 175/150/130, target math, yard-promo PDF text, live pricing cards screenshot.
    NOTE: pre-existing recurring rule(s) keep old stored rate until re-saved.
+20. CREW APPAREL PRINTER PACKAGE (2026-08-06): 6 AI mockups generated w/ tc-logo.png reference
+   (gemini nano banana) saved to /app/frontend/public/merch/ (tee_women, tee_back, hoodie, cap,
+   beanie, vest — navy #123B5C + amber #F59E0B on-brand). _merch_package() in
+   truck_cleaning_brochure.py: 3-page light printer spec PDF — p1 mockup grid cover, p2 brand colors
+   (PMS 2965C/2727C/1235C + CMYK) + placement/decoration specs (screen print, embroidery, HTV for
+   vests), p3 order sheet (blanks: Bella+Canvas 6400/3001/7519, Gildan SF500, Richardson 112,
+   Yupoong 1501KC, ML Kishigo 1519/Radians SV22 w/ navy trim), WOMEN-MAJORITY size curve (14W/6U per
+   20 crew), ANSI/ISEA 107 Class 2 compliance notes, printer checklist. GET /brochures/
+   merch-package.pdf registered; Docs tab card added. Verified: 3 pages, all probes, endpoint 200,
+   rendered pages inspected.

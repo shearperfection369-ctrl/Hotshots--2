@@ -277,6 +277,186 @@ def _yard_promo_brochure() -> bytes:
     return b.finish()
 
 
+MERCH_DIR = "/app/frontend/public/merch"
+
+
+def _merch_package() -> bytes:
+    """Printer-ready apparel & merch spec package — light layout for print shops."""
+    import io as _io
+    import os as _os
+    from reportlab.lib.colors import HexColor
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen.canvas import Canvas
+
+    NAVY, BLUE, GOLD = HexColor("#123B5C"), HexColor("#2563EB"), HexColor("#F59E0B")
+    INK2, MUT2, LINE2 = HexColor("#1C2430"), HexColor("#5B6472"), HexColor("#E2E8F0")
+    PW, PH = letter
+    buf = _io.BytesIO()
+    c = Canvas(buf, pagesize=letter)
+
+    def head(title, sub=""):
+        c.setFillColor(NAVY)
+        c.rect(0, PH - 74, PW, 74, stroke=0, fill=1)
+        logo = "/app/frontend/public/tc-logo.png"
+        if _os.path.exists(logo):
+            c.drawImage(logo, 40, PH - 66, width=58, height=58, mask="auto", preserveAspectRatio=True)
+        c.setFillColor(HexColor("#FFFFFF"))
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(112, PH - 40, title)
+        c.setFillColor(GOLD)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(112, PH - 56, sub or "ORISEI TRUCK CLEANING · CREW APPAREL & MERCH — PRINTER PACKAGE")
+        c.setFillColor(MUT2)
+        c.setFont("Helvetica", 7)
+        c.drawRightString(PW - 40, 28, "Orisei Freight Solutions LLC · Twin Cities, MN · (763) 443-4459 · oliver@oriseifreightsolutions.com")
+
+    def sect(y, t):
+        c.setFillColor(GOLD)
+        c.rect(40, y - 4, PW - 80, 18, stroke=0, fill=1)
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(48, y, t)
+        return y - 22
+
+    def line(y, label, value, bold_val=False):
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica-Bold", 8.5)
+        c.drawString(48, y, label)
+        c.setFillColor(INK2)
+        c.setFont("Helvetica-Bold" if bold_val else "Helvetica", 8.5)
+        c.drawString(210, y, value)
+        return y - 13
+
+    # ---- PAGE 1: cover + mockup grid ----
+    head("CREW APPAREL & MERCH PACKAGE", "PRINT-READY SPECS + MOCKUPS · WOMEN-MAJORITY CREW SIZING")
+    imgs = [("tee_women.jpg", "Women's Tee — front"), ("tee_back.jpg", "Tee — back print"),
+            ("hoodie.jpg", "Hoodie"), ("cap.jpg", "Trucker Cap"),
+            ("beanie.jpg", "Beanie"), ("vest.jpg", "ANSI Safety Vest")]
+    gw, gh, gx0, gy0 = 165, 165, 44, PH - 300
+    for i, (fn, cap) in enumerate(imgs):
+        x = gx0 + (i % 3) * (gw + 12)
+        y = gy0 - (i // 3) * (gh + 34)
+        p = f"{MERCH_DIR}/{fn}"
+        if _os.path.exists(p):
+            c.drawImage(p, x, y, width=gw, height=gh, preserveAspectRatio=True, anchor="c")
+        c.setStrokeColor(LINE2)
+        c.rect(x, y, gw, gh, stroke=1, fill=0)
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawCentredString(x + gw / 2, y - 12, cap)
+    y = gy0 - gh - 60
+    c.setFillColor(INK2)
+    c.setFont("Helvetica", 8.5)
+    for t in ["Mockups above are visual direction for the printer — final placement per the spec pages that follow.",
+              "Crew is majority women: order the women's-cut size curve on page 3. Logo art: full-color shield",
+              "(tc-logo.png, 300dpi) — request vector conversion (.AI/.EPS) from printer before first run."]:
+        c.drawString(44, y, t)
+        y -= 12
+    c.showPage()
+
+    # ---- PAGE 2: brand colors + decoration specs ----
+    head("BRAND COLORS & DECORATION SPECS")
+    y = PH - 100
+    y = sect(y, "BRAND COLOR SYSTEM — MATCH TO THE SHIELD LOGO")
+    swatches = [("DEEP NAVY (garment base)", "#123B5C", "PMS 2965C", "C100 M72 Y32 K28"),
+                ("ORISEI BLUE (logo field)", "#2563EB", "PMS 2727C", "C79 M58 Y0 K0"),
+                ("AMBER GOLD (accent/ink)", "#F59E0B", "PMS 1235C", "C0 M40 Y100 K0"),
+                ("WHITE (text/outline)", "#FFFFFF", "White", "C0 M0 Y0 K0")]
+    for name, hx, pms, cmyk in swatches:
+        c.setFillColor(HexColor(hx))
+        c.rect(48, y - 6, 34, 16, stroke=1, fill=1)
+        c.setStrokeColor(LINE2)
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica-Bold", 8.5)
+        c.drawString(92, y, name)
+        c.setFillColor(INK2)
+        c.setFont("Helvetica", 8.5)
+        c.drawString(300, y, f"HEX {hx}  ·  {pms}  ·  {cmyk}")
+        y -= 22
+    y -= 6
+    y = sect(y, "LOGO PLACEMENT & SIZES")
+    for label, val in [("Tees/hoodies — left chest", 'Shield logo 3.5" wide, centered 3–4" below shoulder seam'),
+                       ("Tees — full back", 'Arc "ORISEI TRUCK CLEANING" + shield + "YOUR CAB. SHOWROOM CLEAN." — 11" wide'),
+                       ("Hoodie — center chest", 'Shield logo 8" wide, centered above pocket'),
+                       ("Cap — front panel", 'Embroidered shield 2.4" wide (max 12k stitches), amber + white threads on navy'),
+                       ("Beanie — cuff", 'Embroidered shield patch 2" wide on cuff front, amber stripe knit-in if available'),
+                       ("Safety vest — left chest + back", 'Chest: shield 3.5" heat transfer. Back: "ORISEI TRUCK CLEANING" navy block text 10" wide')]:
+        y = line(y, label, val)
+    y -= 6
+    y = sect(y, "DECORATION METHODS")
+    for label, val in [("Tees / hoodies", "Screen print, plastisol — amber PMS 1235C + white on navy garments"),
+                       ("Caps / beanies", "Embroidery — amber + white + royal threads (match swatches above)"),
+                       ("Safety vests", "Heat-transfer vinyl (prints don't compromise ANSI fabric); navy + full-color chest"),
+                       ("Art files", "tc-logo.png 300dpi supplied; request one-time vector redraw for embroidery digitizing")]:
+        y = line(y, label, val)
+    c.showPage()
+
+    # ---- PAGE 3: garment lineup + size curve + vest compliance ----
+    head("ORDER SHEET — GARMENTS, BLANKS & SIZE CURVE")
+    y = PH - 100
+    y = sect(y, "GARMENT LINEUP & SUGGESTED BLANKS (20-PERSON CREW STARTER ORDER)")
+    rows = [("Women's tee (navy)", "Bella+Canvas 6400 (women's relaxed)", "42 pcs (3/worker × 14 women)"),
+            ("Unisex tee (navy)", "Bella+Canvas 3001", "18 pcs (3/worker × 6)"),
+            ("Women's hoodie (navy)", "Bella+Canvas 7519 / Gildan SF500FL", "14 pcs"),
+            ("Unisex hoodie (navy)", "Gildan SF500 Softstyle", "6 pcs"),
+            ("Trucker cap (navy/amber)", "Richardson 112 (navy front, amber mesh custom)", "20 pcs"),
+            ("Cuffed beanie (navy)", "Yupoong 1501KC / Carhartt A18 style", "20 pcs"),
+            ("ANSI Class 2 vest (hi-vis orange)", "ML Kishigo 1519 / Radians SV22 — NAVY trim binding", "40 pcs (2/worker)")]
+    for g, blank, qty in rows:
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica-Bold", 8.5)
+        c.drawString(48, y, g)
+        c.setFillColor(INK2)
+        c.setFont("Helvetica", 8)
+        c.drawString(215, y, blank)
+        c.setFillColor(GOLD)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawRightString(PW - 48, y, qty)
+        y -= 15
+    y -= 8
+    y = sect(y, "SIZE CURVE — WOMEN-MAJORITY CREW (per 20 workers)")
+    c.setFillColor(INK2)
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawString(48, y, "Women's cut (14):")
+    c.setFont("Helvetica", 8.5)
+    c.drawString(150, y, "XS ×2   S ×4   M ×4   L ×2   XL ×1   2XL ×1")
+    y -= 14
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawString(48, y, "Unisex (6):")
+    c.setFont("Helvetica", 8.5)
+    c.drawString(150, y, "S ×1   M ×2   L ×1   XL ×1   2XL ×1")
+    y -= 14
+    c.setFont("Helvetica-Oblique", 7.5)
+    c.setFillColor(MUT2)
+    c.drawString(48, y, "Scale curve proportionally per garment quantity. Vests: order S/M ×22, L/XL ×14, 2XL/3XL ×4 (fits over hoodies).")
+    y -= 20
+    y = sect(y, "SAFETY VEST COMPLIANCE — READ BEFORE PRINTING")
+    for t in ["Vests MUST remain ANSI/ISEA 107 Class 2 compliant: hi-vis fluorescent orange background with",
+              "2\" silver reflective bands. Brand elements ride on TRIM and PRINT only: navy binding/edging,",
+              "shield heat-transfer on left chest, navy 'ORISEI TRUCK CLEANING' block across upper back.",
+              "Do not cover reflective bands with print. Hi-vis amber-orange is the closest ANSI color to our",
+              "brand gold — it reads as Orisei amber on the yard."]:
+        c.setFillColor(INK2)
+        c.setFont("Helvetica", 8.5)
+        c.drawString(48, y, t)
+        y -= 12
+    y -= 10
+    y = sect(y, "PRINTER CHECKLIST")
+    for n, t in enumerate(["Confirm PMS matches on press proofs (2965C / 2727C / 1235C) before full run",
+                           "Send digital proof of each placement for approval — email oliver@oriseifreightsolutions.com",
+                           "First article: 1 of each garment for fit + wash test before bulk decoration",
+                           "Deliver vector digitized files (.AI/.EPS/.DST) back with the order for future runs"], 1):
+        c.setFillColor(GOLD)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(48, y, f"{n}.")
+        c.setFillColor(INK2)
+        c.setFont("Helvetica", 8.5)
+        c.drawString(62, y, t)
+        y -= 13
+    c.save()
+    return buf.getvalue()
+
+
 def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRouter:
     router = APIRouter(prefix="/truck-cleaning", tags=["truck-cleaning-brochures"])
     guard = require_role("admin", "owner", "dispatcher")
@@ -285,7 +465,8 @@ def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRo
     async def brochure(doc_id: str, _=Depends(guard)) -> Response:
         builders = {"cleaning-guide": (_guide_brochure, "Orisei_Cleaning_Guide_Brochure"),
                     "services": (_services_brochure, "Orisei_Services_Pricing_Brochure"),
-                    "yard-promo": (_yard_promo_brochure, "Orisei_Yard_Manager_Package")}
+                    "yard-promo": (_yard_promo_brochure, "Orisei_Yard_Manager_Package"),
+                    "merch-package": (_merch_package, "Orisei_Crew_Apparel_Printer_Package")}
         if doc_id not in builders:
             raise HTTPException(status_code=404, detail="Unknown brochure")
         fn, name = builders[doc_id]
