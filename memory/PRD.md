@@ -2518,3 +2518,18 @@ retrains scoring weights from revealed preferences — making the intuitive
    - PAYROLL: GET /payroll?start&days (per-tech shifts/hours/gross at hourly_rate, totals) +
      GET /payroll.csv download. UI: tc-payroll table + tc-payroll-export-btn in TcCrewLive.
    Cleanup: TECH-DD5AF9 renamed back to Jaylen Brooks (testing agent had left TEST_UpdatedName).
+14. TC AUTO-INVOICE + CREW SCOREBOARD (2026-08-06):
+   - AUTO INVOICE: module-level auto_invoice_for_job(db, job_id) in truck_cleaning_biz.py — idempotent
+     (skips if job already in any invoice.job_ids), draft invoice w/ line item "{date} — Cab cleaning ×
+     N + upsells (job_id)", total=job.price, due +15d, auto_created=True, stamps job.invoice_id.
+     Called from crew /complete (returns invoice_id in response) AND sched PATCH job when status
+     transitions to completed. Verified: $325 draft (2 cabs + engine bay).
+   - CREW SCOREBOARD: _scoreboard() in truck_cleaning_crew.py — 30-day window, per tech: jobs_done
+     (tech_ids or completed_by_tech_id), cabs, upsells, avg_photos, photo_stars (min 5, avg×1.25),
+     score = jobs×10 + cabs×2 + upsells×3 + stars×4. GET /crew/scoreboard (crew token, includes me)
+     + GET /scoreboard (admin). UI: crew portal 4th bottom tab "Score" (medals, YOU highlight,
+     star row) + admin tc-scoreboard card in TcCrewLive. complete_job now also stores
+     completed_by_tech_id.
+   - LEARNING: parallel search_replace edits to the SAME file can race and drop an edit (ScoreTab
+     function was lost while sibling edits landed → "ScoreTab is not defined" crash). Serialize
+     multiple edits to one file or verify with grep after batch.

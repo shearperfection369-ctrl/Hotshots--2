@@ -198,6 +198,9 @@ def build_truck_cleaning_sched_router(*, db, require_role: Callable) -> APIRoute
             raise HTTPException(status_code=400, detail="Nothing to update")
         upd["updated_at"] = _now()
         await db.tc_jobs.update_one({"job_id": job_id}, {"$set": upd})
+        if upd.get("status") == "completed" and job["status"] != "completed":
+            from routes.truck_cleaning_biz import auto_invoice_for_job
+            await auto_invoice_for_job(db, job_id)
         fresh = await db.tc_jobs.find_one({"job_id": job_id}, {"_id": 0})
         return {"ok": True, "job": fresh}
 

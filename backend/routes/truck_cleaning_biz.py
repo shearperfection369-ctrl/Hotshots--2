@@ -34,6 +34,29 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+async def auto_invoice_for_job(db, job_id: str) -> Optional[Dict[str, Any]]:
+    """Create a draft invoice for a freshly-completed job (idempotent)."""
+    job = await db.tc_jobs.find_one({"job_id": job_id}, {"_id": 0})
+    if not job:
+        return None
+    if await db.tc_invoices.find_one({"job_ids": job_id}, {"_id": 1}):
+        return None
+    client = await db.tc_clients.find_one({"client_id": job["client_id"]}, {"_id": 0}) or {}
+    ups = f" + {', '.join(u.replace('_', ' ') for u in job.get('upsells', []))}" if job.get("upsells") else ""
+    inv = {"invoice_id": f"INV-TC-{uuid.uuid4().hex[:6].upper()}", "client_id": job["client_id"],
+           "company": client.get("company", job.get("company", "")), "email": client.get("email", ""),
+           "line_items": [{"desc": f"{job['date']} — Cab cleaning × {job['cabs']}{ups} ({job_id})",
+                           "amount": job.get("price", 0)}],
+           "total": round(job.get("price", 0), 2), "status": "draft", "job_ids": [job_id],
+           "notes": "Auto-created on job completion", "auto_created": True,
+           "due_date": (datetime.now(timezone.utc) + timedelta(days=15)).isoformat(),
+           "created_at": _now(), "paid_at": None, "stripe_session_id": None}
+    await db.tc_invoices.insert_one(dict(inv))
+    inv.pop("_id", None)
+    await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {"invoice_id": inv["invoice_id"]}})
+    return inv
+
+
 class OnboardInviteIn(BaseModel):
     company: str = Field("", max_length=150)
     contact: str = Field("", max_length=100)

@@ -428,7 +428,9 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         proof_token = j.get("proof_token") or uuid.uuid4().hex
         await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {
             "status": "completed", "completed_at": _now(), "completed_by": crew["name"],
-            "proof_token": proof_token}})
+            "completed_by_tech_id": crew["tech_id"], "proof_token": proof_token}})
+        from routes.truck_cleaning_biz import auto_invoice_for_job
+        inv = await auto_invoice_for_job(db, job_id)
         from routes.truck_cleaning_field import _public_base
         proof_url = f"{_public_base()}/tc/proof/{proof_token}"
         import asyncio as _aio
@@ -501,7 +503,8 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         _aio.create_task(_auto_proof())
         _aio.create_task(_ai_note())
         return {"ok": True, "status": "completed", "proof_url": proof_url,
-                "message": "Job complete — client gets their photo-proof link automatically. Nice work."}
+                "invoice_id": (inv or {}).get("invoice_id"),
+                "message": "Job complete — client gets their photo-proof link and a draft invoice is queued for billing. Nice work."}
 
     # ================= GEO PINGS + LIVE MAP =================
     @router.post("/crew/ping")
@@ -665,6 +668,48 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         lines.append(f"TOTAL,,,,{d['total_hours']},{d['total_gross']},")
         return Resp("\n".join(lines), media_type="text/csv", headers={
             "Content-Disposition": f'attachment; filename="Orisei-Payroll-{d["period_start"]}_{d["period_end"]}.csv"'})
+
+    # ================= CREW SCOREBOARD =================
+    async def _scoreboard() -> Dict[str, Any]:
+        since = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
+        jobs = await db.tc_jobs.find({"status": {"$in": ["completed", "paid"]},
+                                      "date": {"$gte": since}}, {"_id": 0}).to_list(2000)
+        techs = await db.tc_techs.find({"active": True}, {"_id": 0, "pin_hash": 0, "pin_lookup": 0}).to_list(100)
+        job_ids = [j["job_id"] for j in jobs]
+        photo_counts: Dict[str, int] = {}
+        if job_ids:
+            async for f in db["tc_photos.files"].find({"metadata.job_id": {"$in": job_ids}},
+                                                      {"metadata.job_id": 1}):
+                jid = (f.get("metadata") or {}).get("job_id")
+                photo_counts[jid] = photo_counts.get(jid, 0) + 1
+        rows = []
+        for t in techs:
+            mine = [j for j in jobs if t["tech_id"] in (j.get("tech_ids") or [])
+                    or j.get("completed_by_tech_id") == t["tech_id"]]
+            done = len(mine)
+            cabs = sum(j["cabs"] for j in mine)
+            upsells = sum(len(j.get("upsells", [])) for j in mine)
+            photos = sum(photo_counts.get(j["job_id"], 0) for j in mine)
+            avg_photos = round(photos / done, 1) if done else 0
+            photo_stars = min(5, round(avg_photos * 1.25)) if done else 0
+            score = done * 10 + cabs * 2 + upsells * 3 + photo_stars * 4
+            rows.append({"tech_id": t["tech_id"], "name": t["name"], "role": t["role"],
+                         "jobs_done": done, "cabs": cabs, "upsells": upsells,
+                         "avg_photos": avg_photos, "photo_stars": photo_stars, "score": score})
+        rows.sort(key=lambda r: -r["score"])
+        for i, r in enumerate(rows):
+            r["rank"] = i + 1
+        return {"since": since, "rows": rows}
+
+    @router.get("/crew/scoreboard")
+    async def crew_scoreboard(crew=Depends(get_crew)):
+        data = await _scoreboard()
+        data["me"] = crew["tech_id"]
+        return data
+
+    @router.get("/scoreboard")
+    async def admin_scoreboard(_=Depends(guard)):
+        return await _scoreboard()
 
     # ================= COMPANY UPDATES =================
     @router.post("/updates")

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 import { Card } from "../ui/card";
-import { MapPin, KeyRound, Megaphone, Trash2, RefreshCw, Clock, Zap, FileDown, BadgeDollarSign } from "lucide-react";
+import { MapPin, KeyRound, Megaphone, Trash2, RefreshCw, Clock, Zap, FileDown, BadgeDollarSign, Trophy, Star } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -23,12 +23,14 @@ export const TcCrewLive = () => {
   const [routing, setRouting] = useState(false);
   const [routeResult, setRouteResult] = useState(null);
   const [payroll, setPayroll] = useState(null);
+  const [board, setBoard] = useState(null);
 
   const load = useCallback(() => {
     api.get("/truck-cleaning/crew-live").then(({ data }) => setLive(data)).catch(() => {});
     api.get("/truck-cleaning/timesheets").then(({ data }) => setSheets(data)).catch(() => {});
     api.get("/truck-cleaning/updates").then(({ data }) => setUpdates(data.updates || [])).catch(() => {});
     api.get("/truck-cleaning/payroll").then(({ data }) => setPayroll(data)).catch(() => {});
+    api.get("/truck-cleaning/scoreboard").then(({ data }) => setBoard(data)).catch(() => {});
   }, []);
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
 
@@ -194,6 +196,25 @@ export const TcCrewLive = () => {
           </div>
         </Card>
       </div>
+
+      <Card className="p-4 bg-slate-950/70 border-white/10" data-testid="tc-scoreboard">
+        <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><Trophy size={14} className="text-amber-400" /> Crew Scoreboard — last 30 days (crews see this on their phones)</h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {(board?.rows || []).map((r) => (
+            <div key={r.tech_id} className={`p-3 rounded-xl border ${r.rank === 1 ? "border-amber-500/40 bg-amber-500/[0.06]" : "border-white/10 bg-white/[0.02]"}`} data-testid={`tc-score-${r.tech_id}`}>
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-bold text-white">{r.rank === 1 ? "🥇 " : r.rank === 2 ? "🥈 " : r.rank === 3 ? "🥉 " : `#${r.rank} `}{r.name}</div>
+                <span className="text-sm font-black text-amber-300">{r.score}</span>
+              </div>
+              <div className="text-[10px] font-mono text-slate-500 mt-1">{r.jobs_done} jobs · {r.cabs} cabs · {r.upsells} add-ons</div>
+              <div className="flex gap-0.5 mt-1">
+                {[1, 2, 3, 4, 5].map((s) => <Star key={s} size={9} className={s <= r.photo_stars ? "text-cyan-300 fill-cyan-300" : "text-slate-700"} />)}
+                <span className="text-[9px] font-mono text-slate-600 ml-1">{r.avg_photos} photos/job</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       <Card className="p-4 bg-slate-950/70 border-white/10" data-testid="tc-payroll">
         <div className="flex items-center justify-between mb-3">

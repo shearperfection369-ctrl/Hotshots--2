@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
-import { Droplets, Clock, Camera, CheckCircle2, ClipboardList, BookOpenText, Megaphone, LogOut, MapPin, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Droplets, Clock, Camera, CheckCircle2, ClipboardList, BookOpenText, Megaphone, LogOut, MapPin, Loader2, ChevronDown, ChevronUp, Trophy, Star } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api/truck-cleaning`;
 const tokenStore = {
@@ -234,6 +234,45 @@ function UpdatesTab({ api }) {
   );
 }
 
+function ScoreTab({ api }) {
+  const [data, setData] = useState(null);
+  useEffect(() => { api.get("/crew/scoreboard").then(({ data: d }) => setData(d)).catch(() => {}); }, [api]);
+  if (!data) return <div className="text-slate-500 text-sm font-mono p-4">Loading scoreboard…</div>;
+  const medal = (rank) => (rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`);
+  return (
+    <div className="space-y-2" data-testid="crew-score-tab">
+      <div className="flex items-center gap-2">
+        <Trophy size={16} className="text-amber-400" />
+        <div>
+          <div className="text-sm font-bold text-white">Crew Scoreboard</div>
+          <div className="text-[9px] font-mono text-slate-500 uppercase">last 30 days · jobs, cabs, add-ons & photo quality</div>
+        </div>
+      </div>
+      {data.rows.map((r) => (
+        <div key={r.tech_id} data-testid={`crew-score-row-${r.tech_id}`}
+          className={`p-4 rounded-2xl border ${r.tech_id === data.me ? "border-amber-500/50 bg-amber-500/[0.07]" : "border-white/10 bg-slate-900/70"}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-lg w-8 text-center">{medal(r.rank)}</span>
+              <div>
+                <div className="text-sm font-bold text-white">{r.name}{r.tech_id === data.me && <span className="ml-1.5 text-[9px] font-mono text-amber-400">YOU</span>}</div>
+                <div className="text-[10px] font-mono text-slate-500">{r.jobs_done} jobs · {r.cabs} cabs · {r.upsells} add-ons</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-black text-amber-300">{r.score}</div>
+              <div className="flex justify-end gap-0.5">
+                {[1, 2, 3, 4, 5].map((s) => <Star key={s} size={9} className={s <= r.photo_stars ? "text-cyan-300 fill-cyan-300" : "text-slate-700"} />)}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+      <div className="text-[9px] font-mono text-slate-600 text-center pt-1">Stars = photo game (before/after coverage). Score = jobs×10 + cabs×2 + add-ons×3 + stars×4.</div>
+    </div>
+  );
+}
+
 export default function CrewPortal() {
   const [crew, setCrew] = useState(null);
   const [me, setMe] = useState(null);
@@ -292,6 +331,7 @@ export default function CrewPortal() {
 
   const TABS = [
     { id: "today", label: "Today", icon: ClipboardList },
+    { id: "score", label: "Score", icon: Trophy },
     { id: "guide", label: "Guide", icon: BookOpenText },
     { id: "updates", label: "Updates", icon: Megaphone },
   ];
@@ -314,6 +354,7 @@ export default function CrewPortal() {
       <div className="p-4 space-y-4 max-w-lg mx-auto">
         {me && <ClockCard me={me} onToggle={toggleClock} busy={clockBusy} />}
         {tab === "today" && <TodayTab api={api} />}
+        {tab === "score" && <ScoreTab api={api} />}
         {tab === "guide" && <GuideTab api={api} />}
         {tab === "updates" && <UpdatesTab api={api} />}
       </div>
