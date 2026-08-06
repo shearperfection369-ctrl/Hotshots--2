@@ -22,11 +22,26 @@ export const TcInvoices = ({ clients, jobs, reloadAll }) => {
   const [emailForm, setEmailForm] = useState({ to_email: "", message: "" });
   const [editFor, setEditFor] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [reviewUrl, setReviewUrl] = useState("");
+  const [reviewReqs, setReviewReqs] = useState([]);
 
   const load = useCallback(async () => {
     try { const { data } = await api.get("/truck-cleaning/invoices"); setInvoices(data.invoices); } catch (_) {}
+    try {
+      const [{ data: s }, { data: r }] = await Promise.all([
+        api.get("/truck-cleaning/settings"), api.get("/truck-cleaning/review-requests")]);
+      setReviewUrl(s.settings?.google_review_url || "");
+      setReviewReqs(r.requests || []);
+    } catch (_) {}
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  const saveReviewUrl = async () => {
+    try {
+      await api.put("/truck-cleaning/settings", { google_review_url: reviewUrl });
+      toast.success("Review link saved — texted automatically after every paid invoice");
+    } catch (e2) { toast.error(errTxt(e2)); }
+  };
 
   const billableJobs = jobs.filter((j) => j.client_id === clientId && j.status !== "paid");
 
@@ -92,6 +107,24 @@ export const TcInvoices = ({ clients, jobs, reloadAll }) => {
 
   return (
     <div className="space-y-4" data-testid="tc-invoices">
+      <Card className="p-4 bg-slate-950/70 border-cyan-500/20" data-testid="tc-review-engine">
+        <div className="text-xs font-mono uppercase tracking-widest text-cyan-300 mb-1">Review Engine — automatic after every paid invoice</div>
+        <div className="text-[10px] text-slate-500 mb-2">The moment an invoice is paid (Stripe or marked paid), the client gets a thank-you text with your Google review link.</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input value={reviewUrl} onChange={(e) => setReviewUrl(e.target.value)} placeholder="Your Google review link — e.g. https://g.page/r/XXXX/review"
+                 className="h-9 px-3 rounded-full bg-[#11151F] border border-white/10 text-xs text-white flex-1 min-w-[260px] outline-none focus:border-cyan-400" data-testid="tc-review-url-input" />
+          <button onClick={saveReviewUrl} className="h-9 px-4 rounded-full bg-cyan-500 text-black text-xs font-black" data-testid="tc-review-url-save">SAVE LINK</button>
+        </div>
+        {reviewReqs.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {reviewReqs.slice(0, 6).map((r) => (
+              <span key={r.invoice_id} className="px-2.5 py-1 rounded-full border border-white/10 text-[9px] font-mono text-slate-400" data-testid={`tc-review-req-${r.invoice_id}`}>
+                {r.company || r.invoice_id} · {r.status === "sms_queued" ? "review text queued" : r.status}
+              </span>
+            ))}
+          </div>
+        )}
+      </Card>
       <div className="flex justify-end">
         <button onClick={() => setOpen(!open)} data-testid="tc-invoice-new-btn"
                 className="px-4 py-2 rounded-full bg-amber-500 text-black font-bold text-xs inline-flex items-center gap-1.5"><Plus size={13} /> New Invoice</button>

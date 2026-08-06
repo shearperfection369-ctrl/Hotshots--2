@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Card } from "../ui/card";
-import { CalendarDays, ChevronLeft, ChevronRight, UserPlus, Users, Trash2, Plus, Zap } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, UserPlus, Users, Trash2, Plus, Zap, Repeat } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 
@@ -9,6 +9,91 @@ const fmt = (d) => d.toISOString().slice(0, 10);
 const WINDOWS = ["06:00-08:00", "08:00-10:00", "10:00-12:00", "12:00-14:00", "14:00-16:00", "16:00-18:00"];
 const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const WEEKDAYS = [["0", "Monday"], ["1", "Tuesday"], ["2", "Wednesday"], ["3", "Thursday"], ["4", "Friday"], ["5", "Saturday"], ["6", "Sunday"]];
+
+function LockInCard({ clients, onGenerated }) {
+  const [rules, setRules] = useState([]);
+  const [runRate, setRunRate] = useState(0);
+  const [form, setForm] = useState({ client_id: "", frequency: "biweekly", weekday: 1, window: "08:00-10:00", cabs: 4 });
+  const [busy, setBusy] = useState("");
+  const load = useCallback(() => {
+    api.get("/truck-cleaning/recurring").then(({ data }) => { setRules(data.rules || []); setRunRate(data.monthly_run_rate || 0); }).catch(() => {});
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  const save = async () => {
+    if (!form.client_id) { toast.error("Pick a client / yard"); return; }
+    setBusy("save");
+    try {
+      await api.post("/truck-cleaning/recurring", { ...form, weekday: Number(form.weekday), cabs: Number(form.cabs) });
+      toast.success("Lock-in slot saved");
+      load();
+    } catch (e) { toast.error(errTxt(e)); }
+    finally { setBusy(""); }
+  };
+  const gen = async () => {
+    setBusy("gen");
+    try {
+      const { data } = await api.post("/truck-cleaning/recurring/generate", { weeks: 4 });
+      toast.success(data.message);
+      load();
+      onGenerated && onGenerated();
+    } catch (e) { toast.error(errTxt(e)); }
+    finally { setBusy(""); }
+  };
+  const del = async (id) => {
+    try { await api.delete(`/truck-cleaning/recurring/${id}`); load(); } catch (e) { toast.error(errTxt(e)); }
+  };
+  return (
+    <Card className="p-4 bg-slate-950/70 border-emerald-500/25" data-testid="tc-lockin-card">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div>
+          <h3 className="text-sm font-bold text-white flex items-center gap-2"><Repeat size={14} className="text-emerald-400" /> Lock-In Schedule — weekly & bi-weekly yard slots</h3>
+          <div className="text-[10px] text-slate-500">Sign a yard once, we fill the calendar automatically. Weekly $110/cab · Bi-weekly $120/cab.</div>
+        </div>
+        <div className="px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/5 text-[11px] font-mono text-emerald-300" data-testid="tc-lockin-runrate">
+          run-rate ${runRate.toLocaleString()}/mo
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 mb-3" data-testid="tc-lockin-form">
+        <select value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })}
+          className="h-9 px-2 rounded-lg bg-[#11151F] border border-white/10 text-xs text-slate-200 min-w-[190px]" data-testid="tc-lockin-client">
+          <option value="">— Client / yard —</option>
+          {clients.map((c) => <option key={c.client_id} value={c.client_id}>{c.company}</option>)}
+        </select>
+        <select value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })}
+          className="h-9 px-2 rounded-lg bg-[#11151F] border border-white/10 text-xs text-slate-200" data-testid="tc-lockin-freq">
+          <option value="biweekly">Bi-weekly</option><option value="weekly">Weekly</option>
+        </select>
+        <select value={form.weekday} onChange={(e) => setForm({ ...form, weekday: e.target.value })}
+          className="h-9 px-2 rounded-lg bg-[#11151F] border border-white/10 text-xs text-slate-200" data-testid="tc-lockin-weekday">
+          {WEEKDAYS.map(([v, l]) => <option key={v} value={v}>{l}s</option>)}
+        </select>
+        <select value={form.window} onChange={(e) => setForm({ ...form, window: e.target.value })}
+          className="h-9 px-2 rounded-lg bg-[#11151F] border border-white/10 text-xs text-slate-200" data-testid="tc-lockin-window">
+          {WINDOWS.map((w) => <option key={w} value={w}>{w}</option>)}
+        </select>
+        <input type="number" min="1" max="200" value={form.cabs} onChange={(e) => setForm({ ...form, cabs: e.target.value })}
+          className="h-9 w-20 px-2 rounded-lg bg-[#11151F] border border-white/10 text-xs text-white" title="cabs per visit" data-testid="tc-lockin-cabs" />
+        <button onClick={save} disabled={!!busy} data-testid="tc-lockin-save"
+          className="h-9 px-4 rounded-full bg-emerald-500 text-black text-xs font-black disabled:opacity-50">SAVE SLOT</button>
+        <button onClick={gen} disabled={!!busy || !rules.length} data-testid="tc-lockin-generate"
+          className="h-9 px-4 rounded-full border border-amber-500/50 text-amber-300 text-xs font-bold disabled:opacity-40">
+          {busy === "gen" ? "PLACING…" : "FILL NEXT 4 WEEKS"}
+        </button>
+      </div>
+      {rules.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {rules.map((r) => (
+            <span key={r.rule_id} className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.02] text-[10px] font-mono text-slate-300" data-testid={`tc-lockin-rule-${r.rule_id}`}>
+              <b className="text-white">{r.company}</b> · {r.frequency} {WEEKDAYS[r.weekday][1]}s · {r.cabs} cabs · <span className="text-emerald-300">${r.monthly_value.toLocaleString()}/mo</span>
+              <button onClick={() => del(r.rule_id)} className="text-red-400/70 hover:text-red-300" data-testid={`tc-lockin-del-${r.rule_id}`}><Trash2 size={11} /></button>
+            </span>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 export const TcScheduler = ({ clients, reloadAll }) => {
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); });
@@ -40,6 +125,7 @@ export const TcScheduler = ({ clients, reloadAll }) => {
 
   return (
     <div className="space-y-4" data-testid="tc-scheduler">
+      <LockInCard clients={clients} onGenerated={load} />
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[["Jobs on calendar", summary.jobs, "#F59E0B"], ["Cabs", summary.cabs, "#22D3EE"], ["Booked revenue", `$${summary.revenue.toLocaleString()}`, "#34D399"],

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Topbar from "../components/Topbar";
 import { Card } from "../components/ui/card";
-import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp, UserPlus, FolderOpen, Receipt, CalendarDays, SprayCan, Truck, Megaphone, Boxes, MapPin, Inbox, BadgeDollarSign, Car, ShoppingCart } from "lucide-react";
+import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp, UserPlus, FolderOpen, Receipt, CalendarDays, SprayCan, Truck, Megaphone, Boxes, MapPin, Inbox, BadgeDollarSign, Car, ShoppingCart, Crosshair } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -19,9 +19,11 @@ import { TcMoney } from "../components/truckcleaning/TcMoney";
 import { TcVehicles } from "../components/truckcleaning/TcVehicles";
 import { TcGear } from "../components/truckcleaning/TcGear";
 import { TcBookings } from "../components/truckcleaning/TcBookings";
+import { TcTarget } from "../components/truckcleaning/TcTarget";
 
 const TABS = [
   { id: "dashboard", label: "Command Deck", icon: Sparkles },
+  { id: "target", label: "Target Tracker", icon: Crosshair },
   { id: "crewlive", label: "Crew Live", icon: MapPin },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
   { id: "bookings", label: "Bookings", icon: Inbox },
@@ -317,6 +319,8 @@ function Playbook({ pb }) {
 }
 
 function Docs() {
+  const [yardEmail, setYardEmail] = useState({ email: "", company: "" });
+  const [sending, setSending] = useState(false);
   const download = async (id, name, brochure = false) => {
     try {
       const r = await api.get(`/truck-cleaning/${brochure ? "brochures" : "docs"}/${id}.pdf`, { responseType: "blob" });
@@ -324,7 +328,18 @@ function Docs() {
       const a = document.createElement("a"); a.href = url; a.download = `${name}.pdf`; a.click(); URL.revokeObjectURL(url);
     } catch (_) { toast.error("Failed to generate document"); }
   };
+  const sendYardPromo = async () => {
+    if (!yardEmail.email.includes("@")) { toast.error("Enter the yard manager's email"); return; }
+    setSending(true);
+    try {
+      const { data } = await api.post("/truck-cleaning/brochures/yard-promo/send", yardEmail);
+      toast.success(data.sent ? `Package sent to ${data.to}` : `Queued for ${data.to} — sends once Resend is connected`);
+      setYardEmail({ email: "", company: "" });
+    } catch (e) { toast.error("Send failed"); }
+    finally { setSending(false); }
+  };
   const docs = [
+    ["yard-promo", "Yard Manager Package", "The door-opener: full-color pitch — 45-min spec, lock-in pricing, FOUNDING YARD OFFER (2 free pilot cabs)", true],
     ["services", "Services & Pricing Brochure", "Full-color client brochure: plans, add-on menu, air freshener packages + scent menu", true],
     ["cleaning-guide", "Cleaning Guide Brochure", "Full-color multi-page crew guide: 9 phases, supply kit, upsells, safety — print for every van", true],
     ["proposal", "Fleet Cleaning Proposal", "Client-facing pitch: the 45-min spec, fleet pricing, why Orisei", false],
@@ -332,7 +347,22 @@ function Docs() {
     ["report-card", "Post-Clean Report Card", "Crew checklist + driver sign-off delivered with photo proof", false],
   ];
   return (
-    <div className="grid sm:grid-cols-3 gap-4" data-testid="tc-docs">
+    <div className="space-y-4">
+      <Card className="p-4 bg-slate-950/70 border-amber-500/30" data-testid="tc-yard-promo-send">
+        <div className="text-xs font-mono uppercase tracking-widest text-amber-300 mb-1">Send the Yard Manager Package</div>
+        <div className="text-[10px] text-slate-500 mb-2">Full-color promo PDF with the Founding Yard Offer — wow a yard manager straight from here.</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input value={yardEmail.email} onChange={(e) => setYardEmail({ ...yardEmail, email: e.target.value })} placeholder="yardmanager@company.com"
+                 className="h-9 px-3 rounded-full bg-[#11151F] border border-white/10 text-xs text-white w-60 outline-none focus:border-amber-400" data-testid="tc-yard-promo-email" />
+          <input value={yardEmail.company} onChange={(e) => setYardEmail({ ...yardEmail, company: e.target.value })} placeholder="Yard / company name (personalizes the email)"
+                 className="h-9 px-3 rounded-full bg-[#11151F] border border-white/10 text-xs text-white flex-1 min-w-[220px] outline-none focus:border-amber-400" data-testid="tc-yard-promo-company" />
+          <button onClick={sendYardPromo} disabled={sending} data-testid="tc-yard-promo-send-btn"
+                  className="h-9 px-5 rounded-full bg-amber-500 text-black text-xs font-black disabled:opacity-50">
+            {sending ? "SENDING…" : "EMAIL THE PACKAGE"}
+          </button>
+        </div>
+      </Card>
+      <div className="grid sm:grid-cols-3 gap-4" data-testid="tc-docs">
       {docs.map(([id, name, d, brochure]) => (
         <Card key={id} className={`p-5 bg-slate-950/70 backdrop-blur transition ${brochure ? "border-cyan-500/40 hover:border-cyan-400/70" : "border-white/10 hover:border-amber-500/40"}`}>
           <FileDown className={brochure ? "text-cyan-300 mb-3" : "text-amber-400 mb-3"} size={22} />
@@ -342,6 +372,7 @@ function Docs() {
                   className={`px-4 py-2 rounded-full font-bold text-xs ${brochure ? "bg-cyan-500 text-black" : "bg-amber-500 text-black"}`}>Download PDF</button>
         </Card>
       ))}
+      </div>
     </div>
   );
 }
@@ -426,6 +457,7 @@ export default function TruckCleaning() {
         </div>
         <div className="relative">
           {tab === "dashboard" && <Dashboard metrics={metrics} qb={qb} onSync={sync} />}
+          {tab === "target" && <TcTarget />}
           {tab === "crewlive" && <TcCrewLive />}
           {tab === "scheduler" && <TcScheduler clients={clients} reloadAll={reload} />}
           {tab === "bookings" && <TcBookings reloadAll={reload} />}

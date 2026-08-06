@@ -265,4 +265,67 @@ def build_truck_cleaning_sched_router(*, db, require_role: Callable) -> APIRoute
     async def guide(_=Depends(guard)) -> Dict[str, Any]:
         return CLEANING_GUIDE
 
+    # ---------- Recurring lock-in schedule (weekly / bi-weekly yard slots) ----------
+    @router.post("/recurring")
+    async def save_recurring(payload: Dict[str, Any], _=Depends(guard)):
+        client_id = str(payload.get("client_id", ""))
+        client = await db.tc_clients.find_one({"client_id": client_id}, {"_id": 0})
+        if not client:
+            raise HTTPException(404, "Client not found")
+        freq = payload.get("frequency", "biweekly")
+        if freq not in ("weekly", "biweekly"):
+            raise HTTPException(400, "frequency must be weekly|biweekly")
+        weekday = int(payload.get("weekday", 1))
+        if not 0 <= weekday <= 6:
+            raise HTTPException(400, "weekday 0-6 (0=Mon)")
+        cabs = max(1, min(int(payload.get("cabs", client.get("cabs", 1) or 1)), 200))
+        rate = 110.0 if freq == "weekly" else 120.0
+        doc = {"rule_id": f"REC-{uuid.uuid4().hex[:6].upper()}", "client_id": client_id,
+               "company": client["company"], "frequency": freq, "weekday": weekday,
+               "window": str(payload.get("window", "08:00-10:00"))[:20], "cabs": cabs,
+               "rate": rate, "monthly_value": round(cabs * rate * (4.33 if freq == "weekly" else 2.17), 2),
+               "created_at": _now()}
+        await db.tc_recurring.replace_one({"client_id": client_id}, dict(doc), upsert=True)
+        doc.pop("_id", None)
+        return {"ok": True, "rule": doc}
+
+    @router.get("/recurring")
+    async def list_recurring(_=Depends(guard)):
+        rows = await db.tc_recurring.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+        return {"rules": rows, "monthly_run_rate": round(sum(r["monthly_value"] for r in rows), 2)}
+
+    @router.delete("/recurring/{rule_id}")
+    async def del_recurring(rule_id: str, _=Depends(guard)):
+        r = await db.tc_recurring.delete_one({"rule_id": rule_id})
+        if r.deleted_count == 0:
+            raise HTTPException(404, "Rule not found")
+        return {"ok": True}
+
+    @router.post("/recurring/generate")
+    async def generate_recurring(payload: Dict[str, Any], _=Depends(guard)):
+        weeks = max(1, min(int(payload.get("weeks", 4)), 12))
+        rules = await db.tc_recurring.find({}, {"_id": 0}).to_list(200)
+        today = datetime.now(timezone.utc).date()
+        created = []
+        for r in rules:
+            step = 7 if r["frequency"] == "weekly" else 14
+            d = today + timedelta(days=(r["weekday"] - today.weekday()) % 7 or 7)
+            horizon = today + timedelta(weeks=weeks)
+            while d <= horizon:
+                ds = d.strftime("%Y-%m-%d")
+                d += timedelta(days=step)
+                if await db.tc_jobs.find_one({"client_id": r["client_id"], "date": ds}, {"_id": 1}):
+                    continue
+                job = {"job_id": f"TCJ-{uuid.uuid4().hex[:8].upper()}", "client_id": r["client_id"],
+                       "company": r["company"], "date": ds, "cabs": r["cabs"], "upsells": [],
+                       "window": r["window"], "price": round(r["cabs"] * r["rate"], 2),
+                       "cogs": round(r["cabs"] * 46.0, 2), "status": "scheduled",
+                       "notes": f"Lock-in {r['frequency']} slot ({r['rule_id']})",
+                       "recurring_rule_id": r["rule_id"], "created_at": _now()}
+                await db.tc_jobs.insert_one(dict(job))
+                created.append({"job_id": job["job_id"], "company": r["company"], "date": ds,
+                                "cabs": r["cabs"], "window": r["window"]})
+        return {"ok": True, "created": created,
+                "message": f"{len(created)} lock-in job(s) placed on the calendar for the next {weeks} weeks."}
+
     return router

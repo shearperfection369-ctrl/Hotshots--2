@@ -232,6 +232,51 @@ def _services_brochure() -> bytes:
     return b.finish()
 
 
+def _yard_promo_brochure() -> bytes:
+    b = Brochure("The Yard Manager Package", "Mobile cab cleaning for your whole yard · zero driver downtime · photo proof on every truck")
+    c = b.c
+    b.tint_panel(["Your drivers live in those cabs. A clean cab is cheaper than a new driver — retention studies put "
+                  "replacement cost at $8,000+ per seat. We bring a uniformed, insured 2-person crew to YOUR yard, "
+                  "clean each cab to a 45-minute showroom spec while the truck is parked anyway, and send you "
+                  "time-stamped before/after photos of every single unit. No driver time lost. No detail-shop runs. "
+                  "No excuses."], AMBER, title="WHY YARDS PARTNER WITH ORISEI")
+    b.band("WHAT EVERY CAB GETS — THE 45-MINUTE SHOWROOM SPEC", CYAN)
+    for i, ph in enumerate(CLEANING_GUIDE["phases"]):
+        b.step(i + 1, f"{ph['phase']} ({ph['minutes']} min)", PALETTE[i % len(PALETTE)])
+    b.y -= 6
+    b.band("WHAT YOU GET AS THE YARD MANAGER", EMERALD)
+    for n, t in enumerate([
+            "Locked weekly or bi-weekly slot — same crew, same day, rain or shine",
+            "Before/after photo proof link for every truck, the moment it's done",
+            "Live schedule + one text to add or skip a unit",
+            "One monthly invoice for the whole yard — card, ACH, or check, Net 15",
+            "Insured, background-checked, uniformed crews with battery-powered gear (no cords, no water mess)",
+            "Driver scent menu — let each driver pick their cab's finish"], 1):
+        b.step(n, t, EMERALD)
+    b.y -= 6
+    b.band("YARD PRICING — LOCK-IN RATES", AMBER)
+    b.price_row("Bi-Weekly Yard Lock-In", "Your slot every 2 weeks · most popular · every 10th clean FREE", "$120/cab", AMBER)
+    b.price_row("Weekly Yard Lock-In", "High-turn yards & lease fleets · priority crew", "$110/cab", AMBER)
+    b.price_row("Fleet Program 10+ cabs", "Monthly auto-billing · dedicated crew lead", "$125/cab", AMBER)
+    b.price_row("One-Time Trial", "Prove-it visit — full spec, photo proof", "$150/cab", AMBER)
+    b.tint_panel(["FOUNDING YARD OFFER — first 3 yards to sign a lock-in schedule get their first 2 cabs cleaned "
+                  "FREE on the pilot visit, plus the founding rate locked for 12 months. We're building our Twin "
+                  "Cities route now: the yards that anchor it get the best slots and the best price, permanently."],
+                 ROSE, title="FOUNDING YARD OFFER")
+    b.band("HOW A PILOT WORKS — ZERO RISK", VIOLET)
+    for n, t in enumerate([
+            "Pick a day — we bring the crew to your yard",
+            "We clean 2 cabs free + any others at trial rate, 45 minutes each",
+            "You get the photo-proof links and walk the cabs yourself",
+            "Love it? We lock your weekly or bi-weekly slot on the spot"], 1):
+        b.step(n, t, VIOLET)
+    b.y -= 8
+    b.tint_panel(["Call or text Oliver: (763) 443-4459 · oliver@oriseifreightsolutions.com · "
+                  "Book online in 60 seconds at our booking page. Serving Minneapolis, St. Paul and every yard "
+                  "within 50 miles."], CYAN, title="LOCK IN YOUR YARD'S SLOT")
+    return b.finish()
+
+
 def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRouter:
     router = APIRouter(prefix="/truck-cleaning", tags=["truck-cleaning-brochures"])
     guard = require_role("admin", "owner", "dispatcher")
@@ -239,11 +284,47 @@ def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRo
     @router.get("/brochures/{doc_id}.pdf")
     async def brochure(doc_id: str, _=Depends(guard)) -> Response:
         builders = {"cleaning-guide": (_guide_brochure, "Orisei_Cleaning_Guide_Brochure"),
-                    "services": (_services_brochure, "Orisei_Services_Pricing_Brochure")}
+                    "services": (_services_brochure, "Orisei_Services_Pricing_Brochure"),
+                    "yard-promo": (_yard_promo_brochure, "Orisei_Yard_Manager_Package")}
         if doc_id not in builders:
             raise HTTPException(status_code=404, detail="Unknown brochure")
         fn, name = builders[doc_id]
         return Response(content=fn(), media_type="application/pdf",
                         headers={"Content-Disposition": f'attachment; filename="{name}.pdf"'})
+
+    @router.post("/brochures/yard-promo/send")
+    async def send_yard_promo(payload: dict, user=Depends(guard)):
+        to = str(payload.get("email", "")).strip()
+        company = str(payload.get("company", "")).strip()
+        note = str(payload.get("note", "")).strip()[:500]
+        if "@" not in to:
+            raise HTTPException(400, "Valid email required")
+        greet = f" for {company}" if company else ""
+        note_html = f"<p style='background:#FFF4DE;padding:10px 14px;border-radius:8px'>{note}</p>" if note else ""
+        subject = f"Orisei Truck Cleaning — yard cleaning program{greet}"
+        html = (f"<div style='font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#0D1117'>"
+                f"<div style='background:#0D1117;padding:20px 26px;border-bottom:4px solid #F59E0B'>"
+                f"<span style='color:#F59E0B;font-size:11px;letter-spacing:3px;font-family:Courier,monospace'>ORISEI TRUCK CLEANING</span>"
+                f"<div style='color:#fff;font-size:20px;font-weight:800;margin-top:6px'>Your yard. Showroom-clean cabs. Zero downtime.</div></div>"
+                f"<div style='padding:24px 26px;border:1px solid #E2E8F0;border-top:none;font-size:14px;line-height:1.6'>"
+                f"<p>Attached is our full yard program{greet} — the 45-minute showroom spec, lock-in weekly/bi-weekly "
+                f"pricing, and the <b>Founding Yard Offer: your first 2 cabs cleaned free</b> on a pilot visit.</p>"
+                f"{note_html}"
+                f"<p>We come to your yard, clean cabs while they're parked anyway, and send photo proof of every unit. "
+                f"One reply or one text books your pilot day.</p>"
+                f"<p><b>Oliver — Orisei Truck Cleaning</b><br>(763) 443-4459 · oliver@oriseifreightsolutions.com</p>"
+                f"</div></div>")
+        from routes.orisei_auto_digest import _resend_creds, _send_via_resend
+        creds = await _resend_creds(db)
+        res = await _send_via_resend(creds, to=to, subject=subject, html=html,
+                                     pdf_bytes=_yard_promo_brochure(),
+                                     pdf_filename="Orisei_Yard_Manager_Package.pdf") \
+            if creds else {"sent": False, "error": "no_resend_creds"}
+        status = "sent" if res.get("sent") else "recorded_no_key"
+        from datetime import datetime, timezone
+        await db.outbound_emails.insert_one({
+            "to": to, "subject": subject, "html": html, "status": status, "error": res.get("error"),
+            "kind": "tc_yard_promo", "company": company, "at": datetime.now(timezone.utc).isoformat()})
+        return {"ok": True, "sent": res.get("sent", False), "status": status, "to": to}
 
     return router

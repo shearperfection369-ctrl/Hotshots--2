@@ -766,6 +766,52 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         return Resp("\n".join(lines), media_type="text/csv", headers={
             "Content-Disposition": f'attachment; filename="Orisei-Payroll-{d["period_start"]}_{d["period_end"]}.csv"'})
 
+    # ================= REVENUE TARGET TRACKER =================
+    @router.get("/target")
+    async def target_tracker(_=Depends(guard)):
+        now = datetime.now(timezone.utc)
+        month_start = now.strftime("%Y-%m-01")
+        next_month = (now.replace(day=28) + timedelta(days=5)).strftime("%Y-%m-01")
+        jobs = await db.tc_jobs.find({"date": {"$gte": month_start, "$lt": next_month}}, {"_id": 0}).to_list(3000)
+        done = [j for j in jobs if j["status"] in ("completed", "paid")]
+        booked = [j for j in jobs if j["status"] == "scheduled"]
+        revenue_done = round(sum(j.get("price", 0) for j in done), 2)
+        revenue_booked = round(sum(j.get("price", 0) for j in booked), 2)
+        projected = round(revenue_done + revenue_booked, 2)
+        rules = await db.tc_recurring.find({}, {"_id": 0}).to_list(200)
+        run_rate = round(sum(r["monthly_value"] for r in rules), 2)
+        target = 10000.0
+        gap = round(max(0, target - projected), 2)
+        cabs_done = sum(j["cabs"] for j in done)
+        cabs_booked = sum(j["cabs"] for j in booked)
+        cabs_target = 45
+        # deal math: what closes the gap
+        biweekly_yard = round(4 * 120 * 2.17, 2)   # 4-cab yard, bi-weekly
+        weekly_yard = round(4 * 110 * 4.33, 2)     # 4-cab yard, weekly
+        fleet_monthly = round(10 * 125 * 1, 2)     # 10-cab fleet, monthly
+        days_in_month = ((datetime.strptime(next_month, "%Y-%m-01") - timedelta(days=1)).day)
+        month_pct = round(now.day / days_in_month * 100)
+        clients_active = len({j["client_id"] for j in jobs})
+        return {"month": now.strftime("%B %Y"), "target": target,
+                "revenue_done": revenue_done, "revenue_booked": revenue_booked,
+                "projected": projected, "gap": gap,
+                "progress_pct": round(min(projected / target, 1) * 100),
+                "month_elapsed_pct": month_pct,
+                "on_pace": projected >= target * now.day / days_in_month,
+                "recurring_run_rate": run_rate, "recurring_rules": len(rules),
+                "cabs_done": cabs_done, "cabs_booked": cabs_booked,
+                "cabs_total": cabs_done + cabs_booked, "cabs_target": cabs_target,
+                "cabs_gap": max(0, cabs_target - cabs_done - cabs_booked),
+                "clients_active": clients_active,
+                "gap_closers": [
+                    {"label": "Bi-weekly yard lock-ins (4 cabs @ $120)", "value_mo": biweekly_yard,
+                     "needed": math.ceil(gap / biweekly_yard) if gap else 0},
+                    {"label": "Weekly yard lock-ins (4 cabs @ $110)", "value_mo": weekly_yard,
+                     "needed": math.ceil(gap / weekly_yard) if gap else 0},
+                    {"label": "Fleet accounts (10 cabs monthly @ $125)", "value_mo": fleet_monthly,
+                     "needed": math.ceil(gap / fleet_monthly) if gap else 0},
+                ]}
+
     # ================= CREW SCOREBOARD =================
     async def _scoreboard() -> Dict[str, Any]:
         since = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")

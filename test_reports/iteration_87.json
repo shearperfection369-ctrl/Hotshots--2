@@ -1,0 +1,31 @@
+{
+  "summary": "Frontend-only E2E for 4 new Truck Cleaning features + regression. ALL PASS. Target Tracker renders projected=$3,630 gap=$6,370 with cab break-even meter and gap-closer cards (7× biweekly / 4× weekly / 6× fleet). Lock-In schedule: created rule for 'Router Test Yard 4' (weekly Thu, 6 cabs), FILL NEXT 4 WEEKS added 4 jobs to Aug 2026 calendar (24→28), 2nd click idempotent (28→28), delete rule works. Review Engine URL persists after reload; marking an unpaid invoice paid triggered a new review-request chip within ~3s (1→2). Yard Manager Package PDF downloads; EMAIL THE PACKAGE shows 'Queued for manager@testyard.com — sends once Resend is connected' toast (expected mocked). Regression: dashboard, crewlive, bookings, money, gear, vehicles, invoices tabs all load clean.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "TcScheduler (LockInCard) — <select> options", "issues": ["React hydration warning: <span> cannot be a child of <option> (auto-injected dev instrumentation wrapping option labels in TcScheduler.jsx:69 weekday select). Non-blocking — options render + selection works, but generates console noise. Consider disabling x-instrumentation on <option> children or hardcoding plain string labels."]},
+      {"screen": "Dashboard (Revenue Tracker chart)", "issues": ["Recharts warning: width(-1)/height(-1) — ResponsiveContainer parent has no explicit min-height on first render frame. Cosmetic; chart draws on next tick."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "(Optional) Silence <option><span> hydration warning in TcScheduler weekday <select> by rendering plain text (no wrapper span).",
+    "(Optional) Give Revenue Tracker chart container a min-height to remove Recharts width(-1) warning."
+  ],
+  "critical_code_review_comments": [
+    "All 4 new features are wired end-to-end (backend already verified by main agent, UI now verified). Testids consistent with spec.",
+    "Lock-in idempotency confirmed at the UI/API integration layer (24→28→28 job count on Aug 2026).",
+    "Review Engine save-URL persistence confirmed across reload; auto-trigger on mark-paid observed.",
+    "Yard promo send path uses expected mocked 'queued/recorded_no_key' behavior."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100%"},
+  "test_credentials": "localStorage tms_session_token=test_session_admin_1",
+  "seed_data_creation": "Created 1 lock-in rule for client 'Router Test Yard 4' (REC-CD08B4 kept — could not identify separately) and deleted the newly created REC-421A6A rule. 4 recurring jobs remain on Aug 2026 Thursdays for Router Test Yard 4. Marked 1 unpaid invoice paid → 1 new review-request record. Sent 1 yard-promo email to manager@testyard.com (recorded_no_key).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 4 features (Target Tracker, Lock-In, Review Engine, Yard Promo) fully functional. Only cosmetic console warnings remain. Test data added: recurring rule REC-CD08B4 + 4 Thursday jobs on Router Test Yard 4 in Aug 2026; 1 paid invoice + review request; 1 outbound_email tc_yard_promo to manager@testyard.com.",
+  "rca of the issue": "n/a — no functional issues found."
+}

@@ -558,5 +558,48 @@ def build_truck_cleaning_biz_router(*, db, require_role: Callable) -> APIRouter:
                                         {"$set": {"status": "paid", "paid_at": _now(), "paid_method": method}})
         if inv.get("job_ids"):
             await db.tc_jobs.update_many({"job_id": {"$in": inv["job_ids"]}}, {"$set": {"status": "paid"}})
+        import asyncio as _aio
+        _aio.create_task(_request_review(invoice_id, inv))
+
+    async def _request_review(invoice_id: str, inv: Dict[str, Any]):
+        try:
+            if await db.tc_review_requests.find_one({"invoice_id": invoice_id}):
+                return
+            client = await db.tc_clients.find_one({"client_id": inv.get("client_id")}, {"_id": 0}) or {}
+            phone = (client.get("phone") or "").strip()
+            settings = await db.tc_settings.find_one({"_id": "settings"}) or {}
+            url = settings.get("google_review_url") or \
+                "https://www.google.com/search?q=Orisei+Truck+Cleaning+Minneapolis+reviews"
+            status = "no_phone"
+            if phone:
+                from routes.truck_cleaning_field import _send_sms
+                await _send_sms(db, phone,
+                                f"Thanks for your payment, {client.get('company', '')}! If your drivers loved "
+                                f"their clean cabs, a quick Google review means the world to our crews: {url} "
+                                f"— Orisei Truck Cleaning", job_id=invoice_id, kind="review_request")
+                status = "sms_queued"
+            await db.tc_review_requests.insert_one({
+                "invoice_id": invoice_id, "client_id": inv.get("client_id"),
+                "company": client.get("company", inv.get("company", "")), "to": phone,
+                "url": url, "status": status, "at": _now()})
+        except Exception:
+            logger.exception("review request failed for %s", invoice_id)
+
+    @router.get("/settings")
+    async def get_settings(_=Depends(guard)) -> Dict[str, Any]:
+        s = await db.tc_settings.find_one({"_id": "settings"}) or {}
+        s.pop("_id", None)
+        return {"settings": s}
+
+    @router.put("/settings")
+    async def put_settings(payload: Dict[str, Any], _=Depends(guard)) -> Dict[str, Any]:
+        allowed = {k: str(v)[:400] for k, v in payload.items() if k in ("google_review_url",)}
+        await db.tc_settings.update_one({"_id": "settings"}, {"$set": allowed}, upsert=True)
+        return {"ok": True, "settings": allowed}
+
+    @router.get("/review-requests")
+    async def review_requests(_=Depends(guard)) -> Dict[str, Any]:
+        rows = await db.tc_review_requests.find({}, {"_id": 0}).sort("at", -1).to_list(100)
+        return {"requests": rows}
 
     return router
