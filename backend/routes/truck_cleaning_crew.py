@@ -128,6 +128,72 @@ GEAR = [
 
 EXPENSE_CATEGORIES = ["supplies", "fuel", "labor", "equipment", "marketing", "insurance", "vehicle", "other"]
 
+YARD_PROSPECTS = [
+    # Tier A — small/agile fleets & drayage yards (10-30 cabs, fast decisions)
+    {"name": "CTX — Commodity Transfer Exchange", "city": "Minneapolis (NE)", "address": "2752 Central Ave NE, Minneapolis, MN 55418",
+     "ptype": "Intermodal drayage yard", "est_cabs": "15–30 day cabs", "tier": "A",
+     "angle": "Drayage day cabs live at the yard — perfect recurring lock-in. Ask for the terminal/ops manager."},
+    {"name": "CMC / ITI Intermodal", "city": "Minneapolis (SE)", "address": "620 Malcolm Ave SE, Minneapolis, MN 55414",
+     "ptype": "Intermodal drayage yard", "est_cabs": "15–40 day cabs", "tier": "A",
+     "angle": "Same yard cluster as UP Twin Cities intermodal (525 Kasota Ave SE) — pitch both in one visit."},
+    {"name": "Twin City Hauling", "city": "Twin Cities metro", "address": "",
+     "ptype": "Local hauling fleet", "est_cabs": "10–25 (est.)", "tier": "A",
+     "angle": "Small owner-run local fleet — owner picks up the phone. Driver-retention pitch lands hard."},
+    {"name": "MJ Trucking Co", "city": "Twin Cities metro", "address": "",
+     "ptype": "Small regional fleet", "est_cabs": "10–20 (est.)", "tier": "A",
+     "angle": "Small fleet = one decision maker. Offer the 2-free-cab pilot on their yard day."},
+    {"name": "A&H Cartage", "city": "St. Paul", "address": "",
+     "ptype": "Cartage / local P&D", "est_cabs": "10–25 (est.)", "tier": "A",
+     "angle": "Cartage cabs cycle through the yard daily — easy to clean without downtime."},
+    {"name": "Jacobs Trucking", "city": "Twin Cities metro", "address": "",
+     "ptype": "Regional fleet", "est_cabs": "10–30 (est.)", "tier": "A",
+     "angle": "Family-run — pitch pride-of-fleet + driver retention, not price."},
+    {"name": "Eilenson Trucking", "city": "Twin Cities metro", "address": "",
+     "ptype": "Small fleet", "est_cabs": "10–20 (est.)", "tier": "A",
+     "angle": "Small enough to sign a bi-weekly lock-in on the first call."},
+    # Tier B — LTL service centers (fixed yards, day cabs, standardized budgets)
+    {"name": "Estes Express — Minneapolis Terminal", "city": "Coon Rapids", "address": "11220 Xeon St NW, Coon Rapids, MN 55448",
+     "ptype": "LTL service center", "est_cabs": "20–40 city cabs", "tier": "B",
+     "angle": "LTL city cabs return to the yard nightly. Ask for the Service Center Manager; vendor setup is routine."},
+    {"name": "XPO — Saint Paul Service Center", "city": "Eagan / St. Paul", "address": "3450 Dodd Rd, Saint Paul, MN 55123",
+     "ptype": "LTL service center", "est_cabs": "20–40 city cabs", "tier": "B",
+     "angle": "Same-yard nightly cabs; sell the photo-proof link as their internal QA record."},
+    {"name": "Dayton Freight — Minneapolis SC", "city": "Twin Cities metro", "address": "",
+     "ptype": "LTL service center", "est_cabs": "15–35 city cabs", "tier": "B",
+     "angle": "Midwest family LTL — big on driver experience awards. Clean cabs = their brand."},
+    {"name": "Old Dominion — Minneapolis SC", "city": "Twin Cities metro", "address": "",
+     "ptype": "LTL service center", "est_cabs": "20–40 city cabs", "tier": "B",
+     "angle": "OD wins 'best LTL to drive for' — pitch cab cleanliness as a retention line item."},
+    {"name": "R+L Carriers — MN Service Center", "city": "Twin Cities metro", "address": "",
+     "ptype": "LTL service center (new)", "est_cabs": "15–30 city cabs", "tier": "B",
+     "angle": "Newly opened MN service center — new yards set up vendors fast."},
+    {"name": "Magnum Logistics — MSP Terminal", "city": "Twin Cities metro", "address": "",
+     "ptype": "Regional LTL terminal", "est_cabs": "10–25 (est.)", "tier": "B",
+     "angle": "Regional carrier, terminal manager reachable directly."},
+    {"name": "Sutton Transport — MN Terminal", "city": "Twin Cities metro", "address": "",
+     "ptype": "Regional LTL terminal", "est_cabs": "10–25 (est.)", "tier": "B",
+     "angle": "Regional Midwest LTL — decision at terminal level, not corporate."},
+    {"name": "Hotline Freight — MN Terminal", "city": "Twin Cities metro", "address": "",
+     "ptype": "Regional LTL terminal", "est_cabs": "10–20 (est.)", "tier": "B",
+     "angle": "Small regional network; terminal manager owns the yard budget."},
+    # Tier C — anchors & owner-operator networks (bigger, slower, but huge upside)
+    {"name": "Bay & Bay Transportation", "city": "Eagan", "address": "Eagan, MN (HQ yard)",
+     "ptype": "Mid-size carrier HQ", "est_cabs": "50+ at HQ yard", "tier": "C",
+     "angle": "Confirmed Eagan HQ. Mid-size = real ops leadership on site; pitch a 10-cab pilot pod."},
+    {"name": "Dart Transit", "city": "Eagan", "address": "Eagan, MN (HQ yard)",
+     "ptype": "Owner-operator network", "est_cabs": "100+ O/O cabs through yard", "tier": "C",
+     "angle": "GOLD: owner-operators pay for their OWN cabs. Set up a yard-day table — sell $150 cleans direct, no contract needed."},
+    {"name": "Koch Trucking", "city": "Minneapolis", "address": "Minneapolis, MN (HQ yard)",
+     "ptype": "Large carrier HQ", "est_cabs": "100+ (large)", "tier": "C",
+     "angle": "Big fleet — start with one division (e.g. specialized) and their yard on a weekly slot."},
+    {"name": "Transport America (TFI)", "city": "Eagan", "address": "Eagan, MN (HQ yard)",
+     "ptype": "Large carrier HQ", "est_cabs": "100+ (large)", "tier": "C",
+     "angle": "Corporate, but yard facilities manager can approve vendor trials."},
+    {"name": "Long Haul Trucking", "city": "Albertville (NW metro)", "address": "Albertville, MN",
+     "ptype": "Flatbed carrier", "est_cabs": "50+ (est.)", "tier": "C",
+     "angle": "Flatbed cabs get filthy — dramatic before/after photos. 35 min NW, batch with Coon Rapids run."},
+]
+
 
 def build_gear_pdf() -> bytes:
     from reportlab.lib.colors import HexColor
@@ -1003,6 +1069,43 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
             "to": to, "subject": subject, "html": html, "status": status, "error": res.get("error"),
             "kind": "tc_gear_kit", "at": _now()})
         return {"ok": True, "sent": res.get("sent", False), "status": status, "to": to}
+
+    # ================= YARD PROSPECT HIT LIST =================
+    PROSPECT_STAGES = ["prospect", "pitched", "meeting", "pilot", "signed", "dead"]
+
+    async def _ensure_prospects():
+        if await db.tc_yard_prospects.count_documents({}) == 0:
+            for i, p in enumerate(YARD_PROSPECTS):
+                await db.tc_yard_prospects.insert_one({
+                    **p, "prospect_id": f"YP-{i+1:02d}", "rank": i + 1, "stage": "prospect",
+                    "contact": "", "phone": "", "email": "", "notes": "", "last_touch": None,
+                    "created_at": _now()})
+
+    @router.get("/yard-prospects")
+    async def yard_prospects(_=Depends(guard)):
+        await _ensure_prospects()
+        rows = await db.tc_yard_prospects.find({}, {"_id": 0}).sort("rank", 1).to_list(100)
+        return {"prospects": rows, "stages": PROSPECT_STAGES,
+                "counts": {s: sum(1 for r in rows if r["stage"] == s) for s in PROSPECT_STAGES}}
+
+    @router.patch("/yard-prospects/{prospect_id}")
+    async def patch_prospect(prospect_id: str, payload: Dict[str, Any], _=Depends(guard)):
+        upd = {}
+        if "stage" in payload:
+            if payload["stage"] not in PROSPECT_STAGES:
+                raise HTTPException(400, f"stage must be one of {PROSPECT_STAGES}")
+            upd["stage"] = payload["stage"]
+            upd["last_touch"] = _now()
+        for k in ("contact", "phone", "email", "notes"):
+            if k in payload:
+                upd[k] = str(payload[k])[:300]
+        if not upd:
+            raise HTTPException(400, "Nothing to update")
+        r = await db.tc_yard_prospects.update_one({"prospect_id": prospect_id}, {"$set": upd})
+        if r.matched_count == 0:
+            raise HTTPException(404, "Prospect not found")
+        fresh = await db.tc_yard_prospects.find_one({"prospect_id": prospect_id}, {"_id": 0})
+        return {"ok": True, "prospect": fresh}
 
     # ================= PUBLIC BOOKING =================
     @router.get("/public/site-info")

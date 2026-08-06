@@ -2555,3 +2555,17 @@ retrains scoring weights from revealed preferences — making the intuitive
      Offer 2 free pilot cabs, lock-in pricing, pilot steps) + POST /brochures/yard-promo/send (email
      w/ attachment, outbound_emails kind tc_yard_promo). Docs tab: first card + tc-yard-promo-send card.
    - Cosmetic fixes post-test: option label single text node, revenue chart fixed height 208.
+17. YARD HIT LIST + WASH REDESIGN (2026-08-06):
+   - YARD PROSPECTS: truck_cleaning_crew.py YARD_PROSPECTS — 20 real web-researched Twin Cities yards,
+     3 tiers: A = agile 10-30 cab fleets/drayage (CTX 2752 Central Ave NE, CMC/ITI 620 Malcolm Ave SE,
+     Twin City Hauling, MJ Trucking, A&H Cartage, Jacobs, Eilenson); B = LTL service centers (Estes
+     Coon Rapids 11220 Xeon St NW, XPO 3450 Dodd Rd, Dayton, ODFL, R+L, Magnum, Sutton, Hotline);
+     C = anchors (Bay&Bay Eagan, Dart Eagan owner-op network, Koch, Transport America, Long Haul
+     Albertville). Cab counts flagged as estimates. GET /yard-prospects (lazy seed tc_yard_prospects)
+     + PATCH {stage prospect/pitched/meeting/pilot/signed/dead, contact, phone, email, notes}.
+     UI: ProspectList card in TcBookings (tc-prospects, stage select, per-row yard-promo PACKAGE send
+     that also advances stage to pitched + saves email).
+   - WASH REDESIGN: WashLanding.jsx rewritten — shield logo /tc-logo.png in nav + hero (blue glow) +
+     booking header + footer, radial gradient bg, stats band (9-phase/45min/2x/50mi), lifted pricing
+     cards w/ Most Popular ribbon, numbered how-it-works, FOUNDING YARD OFFER banner
+     (wash-founding-offer), glass booking form card. All original testids preserved (regression-safe).

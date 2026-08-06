@@ -2,13 +2,100 @@ import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 import { Card } from "../ui/card";
-import { Inbox, CheckCircle2, X, ExternalLink } from "lucide-react";
+import { Inbox, CheckCircle2, X, ExternalLink, Crosshair, Send } from "lucide-react";
 
 const STATUS_STYLE = {
   new: "bg-amber-500/15 text-amber-300 border-amber-500/30",
   converted: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   dismissed: "bg-slate-500/15 text-slate-400 border-slate-500/30",
 };
+
+const TIER_STYLE = {
+  A: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40",
+  B: "bg-cyan-500/15 text-cyan-300 border-cyan-500/40",
+  C: "bg-violet-500/15 text-violet-300 border-violet-500/40",
+};
+const STAGE_COLOR = { prospect: "text-slate-400", pitched: "text-amber-300", meeting: "text-cyan-300", pilot: "text-violet-300", signed: "text-emerald-300", dead: "text-red-400" };
+
+function ProspectList() {
+  const [data, setData] = useState(null);
+  const [emailFor, setEmailFor] = useState(null);
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const load = () => api.get("/truck-cleaning/yard-prospects").then(({ data: d }) => setData(d)).catch(() => {});
+  useEffect(() => { load(); }, []);
+  const setStage = async (p, stage) => {
+    try { await api.patch(`/truck-cleaning/yard-prospects/${p.prospect_id}`, { stage }); load(); }
+    catch { toast.error("Update failed"); }
+  };
+  const sendPromo = async (p) => {
+    if (!email.includes("@")) { toast.error("Enter the yard manager's email"); return; }
+    setSending(true);
+    try {
+      const { data: r } = await api.post("/truck-cleaning/brochures/yard-promo/send", { email, company: p.name });
+      await api.patch(`/truck-cleaning/yard-prospects/${p.prospect_id}`, { email, stage: p.stage === "prospect" ? "pitched" : p.stage });
+      toast.success(r.sent ? `Package sent to ${r.to}` : `Package queued for ${r.to}`);
+      setEmailFor(null); setEmail(""); load();
+    } catch { toast.error("Send failed"); }
+    finally { setSending(false); }
+  };
+  if (!data) return null;
+  return (
+    <Card className="p-4 bg-slate-950/70 border-amber-500/25" data-testid="tc-prospects">
+      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <Crosshair size={15} className="text-amber-400" /> Twin Cities Yard Hit List — 20 ranked prospects
+        </h3>
+        <div className="flex gap-1.5 text-[9px] font-mono">
+          {Object.entries(data.counts).filter(([, v]) => v > 0).map(([s, v]) => (
+            <span key={s} className={`px-2 py-0.5 rounded-full border border-white/10 ${STAGE_COLOR[s]}`}>{s}: {v}</span>
+          ))}
+        </div>
+      </div>
+      <div className="text-[10px] text-slate-500 mb-3">Tier A = 10–30 cab agile fleets & drayage yards (start here) · Tier B = LTL service centers (nightly day cabs) · Tier C = anchors & owner-op networks. Cab counts are field estimates — verify on the call.</div>
+      <div className="space-y-1.5 max-h-[520px] overflow-y-auto pr-1">
+        {data.prospects.map((p) => (
+          <div key={p.prospect_id} className="p-3 rounded-xl border border-white/10 bg-white/[0.02]" data-testid={`tc-prospect-${p.prospect_id}`}>
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-white flex items-center gap-2 flex-wrap">
+                  <span className="text-slate-600 font-mono">#{p.rank}</span> {p.name}
+                  <span className={`px-1.5 py-0.5 rounded border text-[9px] font-mono ${TIER_STYLE[p.tier]}`}>TIER {p.tier}</span>
+                </div>
+                <div className="text-[10px] font-mono text-slate-500">{p.city} · {p.ptype} · {p.est_cabs}{p.address ? ` · ${p.address}` : ""}</div>
+                <div className="text-[10px] text-cyan-200/70 mt-1">{p.angle}</div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <select value={p.stage} onChange={(e) => setStage(p, e.target.value)}
+                  className={`h-8 px-2 rounded-lg bg-[#11151F] border border-white/10 text-[10px] font-mono uppercase ${STAGE_COLOR[p.stage]}`}
+                  data-testid={`tc-prospect-stage-${p.prospect_id}`}>
+                  {data.stages.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <button onClick={() => { setEmailFor(emailFor === p.prospect_id ? null : p.prospect_id); setEmail(p.email || ""); }}
+                  className="h-8 px-3 rounded-full bg-amber-500 text-black text-[10px] font-black flex items-center gap-1"
+                  data-testid={`tc-prospect-send-${p.prospect_id}`}>
+                  <Send size={11} /> PACKAGE
+                </button>
+              </div>
+            </div>
+            {emailFor === p.prospect_id && (
+              <div className="flex gap-2 mt-2">
+                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={`yard manager @ ${p.name.split(" ")[0].toLowerCase()}…`}
+                  className="h-8 px-3 rounded-full bg-[#11151F] border border-amber-500/30 text-xs text-white flex-1 outline-none focus:border-amber-400"
+                  data-testid={`tc-prospect-email-${p.prospect_id}`} />
+                <button onClick={() => sendPromo(p)} disabled={sending}
+                  className="h-8 px-4 rounded-full bg-emerald-500 text-black text-[10px] font-black disabled:opacity-50"
+                  data-testid={`tc-prospect-email-send-${p.prospect_id}`}>
+                  {sending ? "SENDING…" : "EMAIL IT"}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
 
 export const TcBookings = ({ reloadAll }) => {
   const [rows, setRows] = useState([]);
@@ -30,6 +117,7 @@ export const TcBookings = ({ reloadAll }) => {
   };
 
   return (
+    <div className="space-y-4">
     <Card className="p-4 bg-slate-950/70 border-white/10" data-testid="tc-bookings">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -72,5 +160,7 @@ export const TcBookings = ({ reloadAll }) => {
         {!rows.length && <div className="py-8 text-center text-slate-500 text-sm">No booking requests yet — share <b>/wash</b> with clients and watch this inbox fill up.</div>}
       </div>
     </Card>
+    <ProspectList />
+    </div>
   );
 };
