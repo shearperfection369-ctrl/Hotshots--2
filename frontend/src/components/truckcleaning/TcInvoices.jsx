@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Card } from "../ui/card";
-import { Receipt, Plus, FileDown, Mail, Link2, Check, BadgeDollarSign, Loader2 } from "lucide-react";
+import { Receipt, Plus, FileDown, Mail, Link2, Check, BadgeDollarSign, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 
@@ -20,6 +20,7 @@ export const TcInvoices = ({ clients, jobs, reloadAll }) => {
   const [custom, setCustom] = useState({ desc: "", amount: "" });
   const [emailFor, setEmailFor] = useState(null);
   const [emailForm, setEmailForm] = useState({ to_email: "", message: "" });
+  const [editFor, setEditFor] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -58,6 +59,25 @@ export const TcInvoices = ({ clients, jobs, reloadAll }) => {
   const markPaid = async (inv) => {
     try { await api.post(`/truck-cleaning/invoices/${inv.invoice_id}/mark-paid`); toast.success("Marked paid"); load(); reloadAll(); }
     catch (e2) { toast.error(errTxt(e2)); }
+  };
+
+  const startEdit = (inv) => setEditFor({
+    invoice_id: inv.invoice_id, company: inv.company,
+    line_items: (inv.line_items || []).map((li) => ({ ...li })),
+    due_date: (inv.due_date || "").slice(0, 10), notes: inv.notes || "",
+  });
+  const saveEdit = async () => {
+    setBusy(true);
+    try {
+      await api.put(`/truck-cleaning/invoices/${editFor.invoice_id}`, {
+        line_items: editFor.line_items,
+        due_date: editFor.due_date ? `${editFor.due_date}T23:59:59+00:00` : "",
+        notes: editFor.notes,
+      });
+      toast.success("Invoice updated");
+      setEditFor(null); load(); reloadAll();
+    } catch (e2) { toast.error(errTxt(e2)); }
+    finally { setBusy(false); }
   };
 
   const sendEmail = async () => {
@@ -139,6 +159,10 @@ export const TcInvoices = ({ clients, jobs, reloadAll }) => {
                     <button onClick={() => { setEmailFor(inv); setEmailForm({ to_email: inv.email || "", message: "" }); }} title="Email invoice"
                             data-testid={`tc-invoice-email-${inv.invoice_id}`} className="text-slate-400 hover:text-white"><Mail size={14} /></button>
                     {inv.status !== "paid" && (
+                      <button onClick={() => startEdit(inv)} title="Edit invoice" data-testid={`tc-invoice-edit-${inv.invoice_id}`}
+                              className="text-slate-400 hover:text-amber-300"><Pencil size={14} /></button>
+                    )}
+                    {inv.status !== "paid" && (
                       <button onClick={() => markPaid(inv)} title="Mark paid" data-testid={`tc-invoice-markpaid-${inv.invoice_id}`}
                               className="text-emerald-500 hover:text-emerald-400"><BadgeDollarSign size={14} /></button>
                     )}
@@ -165,6 +189,44 @@ export const TcInvoices = ({ clients, jobs, reloadAll }) => {
                       className="px-5 py-2 rounded-full bg-amber-500 text-black font-bold text-xs inline-flex items-center gap-1.5 disabled:opacity-60">
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />} Send
               </button>
+            </div>
+          </Card>
+        </div>
+      )}
+      {editFor && (
+        <div className="fixed inset-0 z-50 bg-black/70 grid place-items-center p-4" onClick={() => setEditFor(null)}>
+          <Card className="w-full max-w-lg p-5 bg-slate-950 border-amber-500/30" onClick={(e) => e.stopPropagation()} data-testid="tc-invoice-edit-dialog">
+            <div className="font-black text-white mb-1">Edit {editFor.invoice_id} <span className="text-slate-500 font-normal text-xs">· {editFor.company}</span></div>
+            <p className="text-[11px] text-slate-500 mb-3">Change line items, amounts, due date and notes — the branded PDF and pay link update instantly.</p>
+            <div className="space-y-2 mb-3 max-h-[240px] overflow-y-auto">
+              {editFor.line_items.map((li, i) => (
+                <div key={i} className="flex gap-2">
+                  <input value={li.desc} onChange={(e) => { const items = [...editFor.line_items]; items[i] = { ...li, desc: e.target.value }; setEditFor({ ...editFor, line_items: items }); }}
+                         data-testid={`tc-invoice-edit-desc-${i}`} className="flex-1 h-9 rounded-lg bg-slate-900 border border-white/15 px-2.5 text-xs outline-none focus:border-amber-400" />
+                  <input type="number" step="0.01" value={li.amount} onChange={(e) => { const items = [...editFor.line_items]; items[i] = { ...li, amount: Number(e.target.value) }; setEditFor({ ...editFor, line_items: items }); }}
+                         data-testid={`tc-invoice-edit-amount-${i}`} className="w-24 h-9 rounded-lg bg-slate-900 border border-white/15 px-2.5 text-xs outline-none focus:border-amber-400" />
+                  <button onClick={() => setEditFor({ ...editFor, line_items: editFor.line_items.filter((_, k) => k !== i) })}
+                          data-testid={`tc-invoice-edit-delline-${i}`} className="text-red-400/70 hover:text-red-300"><Trash2 size={13} /></button>
+                </div>
+              ))}
+              <button onClick={() => setEditFor({ ...editFor, line_items: [...editFor.line_items, { desc: "", amount: 0 }] })}
+                      data-testid="tc-invoice-edit-addline" className="text-[11px] text-cyan-300 font-bold">+ Add line</button>
+            </div>
+            <div className="flex gap-2 mb-3">
+              <input type="date" value={editFor.due_date} onChange={(e) => setEditFor({ ...editFor, due_date: e.target.value })}
+                     data-testid="tc-invoice-edit-due" className="h-9 rounded-lg bg-slate-900 border border-white/15 px-2.5 text-xs text-slate-300" />
+              <input value={editFor.notes} onChange={(e) => setEditFor({ ...editFor, notes: e.target.value })} placeholder="Notes shown on the invoice"
+                     data-testid="tc-invoice-edit-notes" className="flex-1 h-9 rounded-lg bg-slate-900 border border-white/15 px-2.5 text-xs outline-none focus:border-amber-400" />
+            </div>
+            <div className="flex justify-between items-center">
+              <div className="text-xs font-mono text-slate-400">New total: <span className="text-amber-300 font-bold">${editFor.line_items.reduce((s, li) => s + (Number(li.amount) || 0), 0).toLocaleString()}</span></div>
+              <div className="flex gap-2">
+                <button onClick={() => setEditFor(null)} className="px-4 py-2 rounded-full border border-white/15 text-slate-300 text-xs font-bold">Cancel</button>
+                <button onClick={saveEdit} disabled={busy} data-testid="tc-invoice-edit-save"
+                        className="px-5 py-2 rounded-full bg-amber-500 text-black font-bold text-xs disabled:opacity-60">
+                  {busy ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
             </div>
           </Card>
         </div>

@@ -113,6 +113,8 @@ import HotShotSales from "@/pages/HotShotSales";
 import TenantCommand from "@/pages/TenantCommand";
 import PlatformReadiness from "@/pages/PlatformReadiness";
 import TruckCleaning from "@/pages/TruckCleaning";
+import WashLanding from "@/pages/WashLanding";
+import CrewPortal from "@/pages/CrewPortal";
 import BrokerAutopilot from "@/pages/BrokerAutopilot";
 import ResilienceCenter from "@/pages/ResilienceCenter";
 import TcOnboardPublic from "@/pages/TcOnboardPublic";
@@ -169,6 +171,8 @@ function AppRouter() {
       <Route path="/driver/:shipmentId" element={<DriverMobile />} />
       <Route path="/i/:token" element={<PublicIntake />} />
       <Route path="/tc/onboard/:token" element={<TcOnboardPublic />} />
+      <Route path="/wash" element={<WashLanding />} />
+      <Route path="/crew" element={<CrewPortal />} />
       <Route path="/tc/invoice/:invoiceId" element={<TcInvoicePublic />} />
       <Route path="/tc/reschedule/:token" element={<TcReschedulePublic />} />
       <Route path="/tc/proof/:token" element={<TcProofPublic />} />

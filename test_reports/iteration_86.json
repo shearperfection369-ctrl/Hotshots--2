@@ -1,0 +1,31 @@
+{
+  "summary": "Iter 84 — Comprehensive test of the new Truck Cleaning crew/admin features. Backend: 18/18 pytest passed (crew PIN issue+login, wrong PIN, rate-limit 429 after 12 attempts, clock in/out cycle with double-clock 400, ping, timesheets, crew-live map, updates CRUD, expenses+P&L, invalid category rejection, vehicle CRUD with tech assignment, gear listing, public booking + admin inbox + convert-to-client+job + duplicate-convert 400 + dismiss, crew job flow: claim → checklist toggles → completion blockers → photo upload before/after → complete success, invoice PUT). Frontend: /wash public landing loads with pricing tiers, booking form submits and shows success state; /crew mobile portal (390x844) — invalid PIN error, valid PIN login, clock-in flips to CLOCK OUT and back, tab navigation (today/guide/updates) works, logout returns to PIN screen; Admin /truck-cleaning — all new tabs (Crew Live w/ map, Bookings, Money/P&L, Company Vans, Gear & Supplies) load correctly, expense form present, vehicles list rendered w/ add button, Gear tab has Amazon + Harbor Freight external links, Bookings tab shows CONVERT action, Invoice edit pencils visible on non-paid invoices and edit modal opens with editable line items + live total recalc.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/crew mobile", "issues": ["Rate-limit error 'Too many attempts' remains visible on login screen but the input still accepts new PIN — acceptable but could auto-clear after 60s window."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter84_tc_crew_portal.py",
+    "/app/test_reports/pytest/iter84.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "truck_cleaning_crew.py:198 — rate-limit is per-IP for /crew/login only; note it is also applied to POST /public/booking (line 619) which shares the same key namespace `tc-crew-login:{ip}` — a genuine visitor spamming login could accidentally block their own /wash booking submission. Consider separate keys.",
+    "truck_cleaning_crew.py:210 — locked_until check compares ISO strings; correct because timestamps are UTC ISO-8601 fixed format, but risky if timezone offsets ever change. Consider parsing datetimes.",
+    "truck_cleaning_crew.py:404-405 — 'Upsell not checked: …' is emitted as a blocker for optional upsells; per problem statement all checklist items (core + upsell) must be done. Confirm this is intentional — it forces techs to check upsell tasks even if the customer declined at completion time.",
+    "truck_cleaning_crew.py:438 — asyncio.create_task fire-and-forget for AI note — no exception is re-raised; fine but a warning log would help diagnose LLM failures.",
+    "File truck_cleaning_crew.py is 673 lines, close to the 700-line threshold. Consider splitting (auth/clock/jobs/money/vehicles/public) into sub-modules soon."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter84_tc_crew_portal.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin: Bearer test_session_admin_1. Crew: generated fresh PIN via POST /crew-admin/{tech_id}/pin. Sample tech_ids: TECH-DD5AF9, TECH-605444, TECH-FE78AB.",
+  "seed_data_creation": "Created transient TEST_-prefixed bookings, jobs, expenses, updates, vehicles — most deleted in-test; a few converted bookings/jobs remain (needed for the completion-gate flow test) with TEST_ prefix.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 18 backend tests in /app/backend/tests/test_iter84_tc_crew_portal.py pass in ~12s. If re-running, note the login rate-limit test intentionally trips 429 — if run twice within 60s the second run's crew_pin fixture may hit the limit; wait ~70s between full runs. TECH-605444 (Tommy Nguyen) is the tech used for happy-path tests. Invoice edit modal (tc-invoice-edit-dialog) opens successfully; paid invoices have no pencil icon (verified: only 2 pencils on a page with many paid invoices).",
+  "rca of the issue": "N/A — no bugs found. Only advisory code-review items listed."
+}

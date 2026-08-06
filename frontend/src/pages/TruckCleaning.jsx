@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Topbar from "../components/Topbar";
 import { Card } from "../components/ui/card";
-import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp, UserPlus, FolderOpen, Receipt, CalendarDays, SprayCan, Truck, Megaphone, Boxes } from "lucide-react";
+import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp, UserPlus, FolderOpen, Receipt, CalendarDays, SprayCan, Truck, Megaphone, Boxes, MapPin, Inbox, BadgeDollarSign, Car, ShoppingCart } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -14,15 +14,25 @@ import { TcGuide } from "../components/truckcleaning/TcGuide";
 import { TcFleet } from "../components/truckcleaning/TcFleet";
 import { TcOffers } from "../components/truckcleaning/TcOffers";
 import { TcInventory } from "../components/truckcleaning/TcInventory";
+import { TcCrewLive } from "../components/truckcleaning/TcCrewLive";
+import { TcMoney } from "../components/truckcleaning/TcMoney";
+import { TcVehicles } from "../components/truckcleaning/TcVehicles";
+import { TcGear } from "../components/truckcleaning/TcGear";
+import { TcBookings } from "../components/truckcleaning/TcBookings";
 
 const TABS = [
   { id: "dashboard", label: "Command Deck", icon: Sparkles },
+  { id: "crewlive", label: "Crew Live", icon: MapPin },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
+  { id: "bookings", label: "Bookings", icon: Inbox },
   { id: "clients", label: "Clients", icon: Users },
   { id: "onboarding", label: "Onboarding", icon: UserPlus },
   { id: "jobs", label: "Jobs", icon: ClipboardList },
+  { id: "money", label: "Money / P&L", icon: BadgeDollarSign },
   { id: "fleet", label: "Fleet Registry", icon: Truck },
+  { id: "vehicles", label: "Company Vans", icon: Car },
   { id: "inventory", label: "Inventory", icon: Boxes },
+  { id: "gear", label: "Gear & Supplies", icon: ShoppingCart },
   { id: "offers", label: "AI Offers", icon: Megaphone },
   { id: "invoices", label: "Invoices", icon: Receipt },
   { id: "vault", label: "Doc Vault", icon: FolderOpen },
@@ -416,12 +426,17 @@ export default function TruckCleaning() {
         </div>
         <div className="relative">
           {tab === "dashboard" && <Dashboard metrics={metrics} qb={qb} onSync={sync} />}
+          {tab === "crewlive" && <TcCrewLive />}
           {tab === "scheduler" && <TcScheduler clients={clients} reloadAll={reload} />}
+          {tab === "bookings" && <TcBookings reloadAll={reload} />}
           {tab === "clients" && <Clients clients={clients} reload={reload} />}
           {tab === "onboarding" && <TcOnboarding reloadAll={reload} />}
           {tab === "jobs" && <Jobs jobs={jobs} clients={clients} reload={reload} />}
+          {tab === "money" && <TcMoney />}
           {tab === "fleet" && <TcFleet clients={clients} />}
+          {tab === "vehicles" && <TcVehicles />}
           {tab === "inventory" && <TcInventory />}
+          {tab === "gear" && <TcGear />}
           {tab === "offers" && <TcOffers />}
           {tab === "invoices" && <TcInvoices clients={clients} jobs={jobs} reloadAll={reload} />}
           {tab === "vault" && <TcVault clients={clients} />}

@@ -60,6 +60,12 @@ class InvoiceCreateIn(BaseModel):
     notes: str = Field("", max_length=500)
 
 
+class InvoiceEditIn(BaseModel):
+    line_items: List[Dict[str, Any]] = Field(default_factory=list)  # {desc, amount}
+    due_date: str = Field("", max_length=40)
+    notes: str = Field("", max_length=500)
+
+
 class InvoiceEmailIn(BaseModel):
     to_email: str = Field(..., min_length=5, max_length=200)
     message: str = Field("", max_length=800)
@@ -379,6 +385,28 @@ def build_truck_cleaning_biz_router(*, db, require_role: Callable) -> APIRouter:
             if r["status"] in ("draft", "sent") and (r.get("due_date") or "9999") < now:
                 r["status"] = "overdue"
         return {"invoices": rows}
+
+    @router.put("/invoices/{invoice_id}")
+    async def edit_invoice(invoice_id: str, payload: InvoiceEditIn, _=Depends(guard)) -> Dict[str, Any]:
+        inv = await db.tc_invoices.find_one({"invoice_id": invoice_id}, {"_id": 0})
+        if not inv:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        if inv["status"] == "paid":
+            raise HTTPException(status_code=400, detail="Paid invoices can't be edited")
+        items = []
+        for ci in payload.line_items:
+            desc, amount = str(ci.get("desc", "")).strip(), float(ci.get("amount", 0) or 0)
+            if desc and amount > 0:
+                items.append({"desc": desc[:200], "amount": round(amount, 2)})
+        if not items:
+            raise HTTPException(status_code=400, detail="Invoice needs at least one line item")
+        upd = {"line_items": items, "total": round(sum(i["amount"] for i in items), 2),
+               "notes": payload.notes, "updated_at": _now()}
+        if payload.due_date:
+            upd["due_date"] = payload.due_date
+        await db.tc_invoices.update_one({"invoice_id": invoice_id}, {"$set": upd})
+        fresh = await db.tc_invoices.find_one({"invoice_id": invoice_id}, {"_id": 0})
+        return {"ok": True, "invoice": fresh}
 
     @router.post("/invoices/{invoice_id}/mark-paid")
     async def mark_paid(invoice_id: str, _=Depends(guard)) -> Dict[str, Any]:
