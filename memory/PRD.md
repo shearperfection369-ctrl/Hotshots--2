@@ -2503,3 +2503,18 @@ retrains scoring weights from revealed preferences — making the intuitive
    TESTED: iteration_86.json — 18/18 backend pytest + full frontend flows = 100%/100%, no bugs.
    Advisory fix applied: rate-limit key namespaces split login vs booking.
    Mocked/pending: Resend email, Twilio SMS, QuickBooks OAuth. Stripe invoice pay works w/ env test key.
+13. TC ROUTER + AUTO-PROOF + PAYROLL (2026-08-06), all in truck_cleaning_crew.py:
+   - CREW JOB ROUTER: POST /router/auto-assign {date?} — routes unassigned scheduled jobs; scoring =
+     current load minutes (45/cab + 12/upsell) + 90 if off-clock + yard distance×4 (crew ping vs client
+     yard_lat/lng; +60 if tech unpinged when yard known). Lazy one-time yard geocode via
+     routing_svc._osm_geocode on first line of client notes (booking form captures yard address there;
+     caches yard_geo_tried). UI: tc-auto-assign-btn + tc-route-result panel in TcCrewLive.
+     Verified: Jaylen (1.7 mi from yard) preferred over unpinged techs.
+   - AUTO PROOF ON COMPLETE: /crew/jobs/{id}/complete now sets proof_token, returns proof_url, and
+     fire-forgets _auto_proof(): SMS proof link via truck_cleaning_field._send_sms (queued w/o Twilio)
+     + branded email via resend creds (outbound_emails kind tc_proof_auto, recorded_no_key fallback);
+     stamps proof_sent_at/to/status on job. Public gallery /tc/proof/{token} pre-existing. Verified
+     end-to-end: email recorded, sms queued, gallery served 2 photos.
+   - PAYROLL: GET /payroll?start&days (per-tech shifts/hours/gross at hourly_rate, totals) +
+     GET /payroll.csv download. UI: tc-payroll table + tc-payroll-export-btn in TcCrewLive.
+   Cleanup: TECH-DD5AF9 renamed back to Jaylen Brooks (testing agent had left TEST_UpdatedName).

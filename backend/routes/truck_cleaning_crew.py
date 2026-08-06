@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 import bcrypt
+import math
 from bson import ObjectId
 from fastapi import (APIRouter, Depends, File, Form, HTTPException, Request,
                      UploadFile)
@@ -180,6 +181,18 @@ class BookingIn(BaseModel):
     preferred_date: str = Field("", max_length=10)
     services: List[str] = Field(default_factory=list)
     notes: str = Field("", max_length=500)
+
+
+class AutoAssignIn(BaseModel):
+    date: str = Field("", max_length=10)
+
+
+def _haversine_mi(lat1, lng1, lat2, lng2) -> float:
+    r = 3958.8
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = math.radians(lat2 - lat1), math.radians(lng2 - lng1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
 
 
 def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter:
@@ -412,9 +425,59 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
             blockers.append("Upload at least 1 AFTER photo")
         if blockers:
             return {"ok": False, "blockers": blockers}
+        proof_token = j.get("proof_token") or uuid.uuid4().hex
         await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {
-            "status": "completed", "completed_at": _now(), "completed_by": crew["name"]}})
+            "status": "completed", "completed_at": _now(), "completed_by": crew["name"],
+            "proof_token": proof_token}})
+        from routes.truck_cleaning_field import _public_base
+        proof_url = f"{_public_base()}/tc/proof/{proof_token}"
         import asyncio as _aio
+
+        async def _auto_proof():
+            try:
+                client = await db.tc_clients.find_one({"client_id": j["client_id"]}, {"_id": 0}) or {}
+                # SMS the proof link (queued if Twilio unconfigured)
+                if client.get("phone"):
+                    from routes.truck_cleaning_field import _send_sms
+                    await _send_sms(db, client["phone"],
+                                    f"Orisei Truck Cleaning: your {j['cabs']}-cab job is done! "
+                                    f"Before/after photo proof: {proof_url}",
+                                    job_id=job_id, kind="proof_auto")
+                # Email the proof gallery (recorded if Resend unconfigured)
+                to = (client.get("email") or "").strip()
+                if to:
+                    from routes.connections import get_connection_credentials
+                    creds = await get_connection_credentials(db, "resend") or {}
+                    subject = f"Photo proof — {j.get('company', client.get('company', ''))} cab cleaning {j['date']}"
+                    html = (f"<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto'>"
+                            f"<div style='background:#0D1117;padding:18px 24px;border-bottom:4px solid #F59E0B'>"
+                            f"<span style='color:#F59E0B;font-weight:800;letter-spacing:2px'>ORISEI TRUCK CLEANING</span></div>"
+                            f"<div style='padding:22px 24px;border:1px solid #E2E8F0;border-top:none'>"
+                            f"<p>Job complete — {j['cabs']} cab(s) cleaned to the 45-minute showroom spec by {crew['name']}'s crew.</p>"
+                            f"<p style='text-align:center;margin:20px 0'><a href='{proof_url}' "
+                            f"style='background:#F59E0B;color:#0D1117;font-weight:800;padding:12px 26px;"
+                            f"border-radius:999px;text-decoration:none'>VIEW BEFORE / AFTER PHOTOS</a></p>"
+                            f"<p>— Orisei Truck Cleaning Solutions · (763) 443-4459</p></div></div>")
+                    sent = False
+                    if creds.get("api_key"):
+                        try:
+                            import resend as _r
+                            _r.api_key = creds["api_key"]
+                            _r.Emails.send({"from": creds.get("from_email") or
+                                            "Orisei Truck Cleaning <oliver@oriseifreightsolutions.com>",
+                                            "to": [to], "subject": subject, "html": html})
+                            sent = True
+                        except Exception:
+                            pass
+                    await db.outbound_emails.insert_one({
+                        "to": to, "subject": subject, "html": html,
+                        "status": "sent" if sent else "recorded_no_key",
+                        "kind": "tc_proof_auto", "job_id": job_id, "at": _now()})
+                    await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {
+                        "proof_sent_at": _now(), "proof_sent_to": to,
+                        "proof_send_status": "sent" if sent else "recorded_no_key"}})
+            except Exception:
+                pass
 
         async def _ai_note():
             try:
@@ -435,9 +498,10 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                 await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {"ai_quality_note": note[:400]}})
             except Exception:
                 pass
+        _aio.create_task(_auto_proof())
         _aio.create_task(_ai_note())
-        return {"ok": True, "status": "completed",
-                "message": "Job complete — photos and checklist locked in. Nice work."}
+        return {"ok": True, "status": "completed", "proof_url": proof_url,
+                "message": "Job complete — client gets their photo-proof link automatically. Nice work."}
 
     # ================= GEO PINGS + LIVE MAP =================
     @router.post("/crew/ping")
@@ -492,6 +556,115 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         total_h = round(sum(r.get("hours") or 0 for r in rows), 2)
         total_cost = round(sum((r.get("hours") or 0) * rate.get(r["tech_id"], 25) for r in rows), 2)
         return {"entries": rows, "total_hours": total_h, "labor_cost": total_cost, "dates": dates}
+
+    # ================= CREW JOB ROUTER (one-tap dispatch) =================
+    @router.post("/router/auto-assign")
+    async def auto_assign(payload: AutoAssignIn, _=Depends(guard)):
+        date = payload.date or _today()
+        jobs = await db.tc_jobs.find({"date": date}, {"_id": 0}).to_list(300)
+        unassigned = [j for j in jobs if j["status"] == "scheduled" and not j.get("tech_ids")]
+        techs = await db.tc_techs.find({"active": True}, {"_id": 0, "pin_hash": 0, "pin_lookup": 0}).to_list(100)
+        if not techs:
+            raise HTTPException(400, "No active crews to assign")
+        if not unassigned:
+            return {"ok": True, "date": date, "assigned": [], "message": "Nothing to route — every job already has a crew."}
+        pings = {p["tech_id"]: p for p in await db.tc_crew_pings.find({}, {"_id": 0}).to_list(100)}
+        on_clock = {s["tech_id"] for s in await db.tc_timeclock.find({"out_at": None}, {"_id": 0, "tech_id": 1}).to_list(100)}
+        clients = {c["client_id"]: c for c in await db.tc_clients.find({}, {"_id": 0}).to_list(500)}
+
+        def job_minutes(j):
+            return j["cabs"] * 45 + len(j.get("upsells", [])) * 12
+
+        load = {t["tech_id"]: 0 for t in techs}
+        for j in jobs:
+            for tid in (j.get("tech_ids") or []):
+                if tid in load:
+                    load[tid] += job_minutes(j)
+
+        # lazy one-time yard geocode from client notes (booking form captures yard address there)
+        from routes.routing_svc import _osm_geocode
+        for j in unassigned:
+            c = clients.get(j["client_id"]) or {}
+            if c and c.get("yard_lat") is None and not c.get("yard_geo_tried"):
+                addr = (c.get("notes") or "").split("\n")[0].strip()[:120]
+                coord = await _osm_geocode(addr) if len(addr) > 8 else None
+                upd = {"yard_geo_tried": True}
+                if coord:
+                    upd.update({"yard_lat": coord.lat, "yard_lng": coord.lng})
+                await db.tc_clients.update_one({"client_id": c["client_id"]}, {"$set": upd})
+                c.update(upd)
+
+        results = []
+        for j in sorted(unassigned, key=job_minutes, reverse=True):
+            c = clients.get(j["client_id"]) or {}
+            best, best_score = None, 1e12
+            for t in techs:
+                score = load[t["tech_id"]]
+                if t["tech_id"] not in on_clock:
+                    score += 90  # prefer crews already on the clock
+                p = pings.get(t["tech_id"])
+                if c.get("yard_lat") is not None:
+                    if p:
+                        score += _haversine_mi(p["lat"], p["lng"], c["yard_lat"], c["yard_lng"]) * 4
+                    else:
+                        score += 60  # unknown location — prefer a crew we can place near the yard
+                if score < best_score:
+                    best, best_score = t, score
+            load[best["tech_id"]] += job_minutes(j)
+            dist = None
+            p = pings.get(best["tech_id"])
+            if p and c.get("yard_lat") is not None:
+                dist = round(_haversine_mi(p["lat"], p["lng"], c["yard_lat"], c["yard_lng"]), 1)
+            await db.tc_jobs.update_one({"job_id": j["job_id"]}, {"$set": {
+                "tech_ids": [best["tech_id"]], "assigned_at": _now(), "auto_assigned": True}})
+            results.append({"job_id": j["job_id"], "company": c.get("company", j.get("company", "?")),
+                            "cabs": j["cabs"], "tech_id": best["tech_id"], "tech_name": best["name"],
+                            "distance_mi": dist, "est_minutes": job_minutes(j)})
+        crews_used = len({r["tech_id"] for r in results})
+        return {"ok": True, "date": date, "assigned": results,
+                "message": f"{len(results)} job(s) routed across {crews_used} crew(s) — "
+                           f"balanced by workload{', yard distance' if any(r['distance_mi'] is not None for r in results) else ''} and clock status."}
+
+    # ================= PAYROLL =================
+    async def _payroll_data(start: str, days: int):
+        try:
+            d0 = datetime.strptime(start, "%Y-%m-%d").date() if start \
+                else datetime.now(timezone.utc).date() - timedelta(days=6)
+        except ValueError:
+            raise HTTPException(400, "start must be YYYY-MM-DD")
+        dates = [(d0 + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(max(1, min(days, 31)))]
+        entries = await db.tc_timeclock.find({"date": {"$in": dates}}, {"_id": 0}).to_list(1000)
+        techs = await db.tc_techs.find({"active": True}, {"_id": 0, "pin_hash": 0, "pin_lookup": 0}).to_list(100)
+        rows = []
+        for t in techs:
+            mine = [e for e in entries if e["tech_id"] == t["tech_id"]]
+            hours = round(sum(e.get("hours") or 0 for e in mine), 2)
+            rate = t.get("hourly_rate", 25)
+            rows.append({"tech_id": t["tech_id"], "name": t["name"], "role": t["role"],
+                         "hourly_rate": rate, "shifts": len(mine), "hours": hours,
+                         "open_shift": any(e.get("out_at") is None for e in mine),
+                         "gross_pay": round(hours * rate, 2)})
+        rows.sort(key=lambda r: -r["gross_pay"])
+        return {"period_start": dates[0], "period_end": dates[-1], "rows": rows,
+                "total_hours": round(sum(r["hours"] for r in rows), 2),
+                "total_gross": round(sum(r["gross_pay"] for r in rows), 2)}
+
+    @router.get("/payroll")
+    async def payroll(start: str = "", days: int = 7, _=Depends(guard)):
+        return await _payroll_data(start, days)
+
+    @router.get("/payroll.csv")
+    async def payroll_csv(start: str = "", days: int = 7, _=Depends(guard)):
+        from fastapi.responses import Response as Resp
+        d = await _payroll_data(start, days)
+        lines = [f"Orisei Truck Cleaning Payroll,{d['period_start']} to {d['period_end']}",
+                 "Crew,Role,Hourly Rate,Shifts,Hours,Gross Pay,Open Shift"]
+        for r in d["rows"]:
+            lines.append(f"{r['name']},{r['role']},{r['hourly_rate']},{r['shifts']},{r['hours']},"
+                         f"{r['gross_pay']},{'YES' if r['open_shift'] else ''}")
+        lines.append(f"TOTAL,,,,{d['total_hours']},{d['total_gross']},")
+        return Resp("\n".join(lines), media_type="text/csv", headers={
+            "Content-Disposition": f'attachment; filename="Orisei-Payroll-{d["period_start"]}_{d["period_end"]}.csv"'})
 
     # ================= COMPANY UPDATES =================
     @router.post("/updates")

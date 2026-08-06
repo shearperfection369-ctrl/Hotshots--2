@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 import { Card } from "../ui/card";
-import { MapPin, KeyRound, Megaphone, Trash2, RefreshCw, Clock } from "lucide-react";
+import { MapPin, KeyRound, Megaphone, Trash2, RefreshCw, Clock, Zap, FileDown, BadgeDollarSign } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -20,13 +20,40 @@ export const TcCrewLive = () => {
   const [updates, setUpdates] = useState([]);
   const [uForm, setUForm] = useState({ title: "", body: "", pinned: false });
   const [pinFor, setPinFor] = useState(null);
+  const [routing, setRouting] = useState(false);
+  const [routeResult, setRouteResult] = useState(null);
+  const [payroll, setPayroll] = useState(null);
 
   const load = useCallback(() => {
     api.get("/truck-cleaning/crew-live").then(({ data }) => setLive(data)).catch(() => {});
     api.get("/truck-cleaning/timesheets").then(({ data }) => setSheets(data)).catch(() => {});
     api.get("/truck-cleaning/updates").then(({ data }) => setUpdates(data.updates || [])).catch(() => {});
+    api.get("/truck-cleaning/payroll").then(({ data }) => setPayroll(data)).catch(() => {});
   }, []);
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
+
+  const autoAssign = async () => {
+    setRouting(true);
+    try {
+      const { data } = await api.post("/truck-cleaning/router/auto-assign", {});
+      setRouteResult(data);
+      data.assigned.length ? toast.success(data.message) : toast.info(data.message);
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Routing failed"); }
+    finally { setRouting(false); }
+  };
+
+  const exportPayroll = async () => {
+    try {
+      const r = await api.get("/truck-cleaning/payroll.csv", { responseType: "blob" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(r.data);
+      a.download = `Orisei-Payroll-${payroll?.period_start || "week"}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success("Payroll CSV downloaded");
+    } catch { toast.error("Export failed"); }
+  };
 
   const genPin = async (tech) => {
     try {
@@ -59,6 +86,26 @@ export const TcCrewLive = () => {
             <span className="block text-[10px] font-mono text-amber-400/70 mt-1">Shown once — text it to them now. Crew portal: /crew</span>
           </div>
           <button onClick={() => setPinFor(null)} className="text-xs text-slate-400" data-testid="tc-pin-dismiss">Dismiss</button>
+        </div>
+      )}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <button onClick={autoAssign} disabled={routing} data-testid="tc-auto-assign-btn"
+          className="px-5 py-2.5 rounded-full bg-amber-500 text-black font-black text-xs inline-flex items-center gap-1.5 disabled:opacity-50">
+          <Zap size={14} /> {routing ? "ROUTING…" : "AUTO-ASSIGN TODAY'S JOBS"}
+        </button>
+        <span className="text-[10px] font-mono text-slate-500">One tap — unassigned jobs get routed by crew workload, yard distance & clock status</span>
+      </div>
+      {routeResult && routeResult.assigned.length > 0 && (
+        <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/[0.04]" data-testid="tc-route-result">
+          <div className="text-xs font-bold text-amber-300 mb-2">{routeResult.message}</div>
+          <div className="space-y-1">
+            {routeResult.assigned.map((r) => (
+              <div key={r.job_id} className="flex items-center justify-between text-[11px] font-mono">
+                <span className="text-slate-300">{r.company} · {r.cabs} cab{r.cabs > 1 ? "s" : ""} <span className="text-slate-600">({r.est_minutes}m)</span></span>
+                <span className="text-emerald-300">→ {r.tech_name}{r.distance_mi != null ? ` · ${r.distance_mi} mi away` : ""}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -147,6 +194,41 @@ export const TcCrewLive = () => {
           </div>
         </Card>
       </div>
+
+      <Card className="p-4 bg-slate-950/70 border-white/10" data-testid="tc-payroll">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2"><BadgeDollarSign size={14} className="text-emerald-400" /> Payroll — {payroll ? `${payroll.period_start} → ${payroll.period_end}` : "last 7 days"}</h3>
+          <button onClick={exportPayroll} data-testid="tc-payroll-export-btn"
+            className="px-4 py-2 rounded-full bg-emerald-500 text-black text-[10px] font-black inline-flex items-center gap-1.5">
+            <FileDown size={12} /> EXPORT PAYROLL CSV
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead><tr className="text-left text-[10px] font-mono uppercase text-slate-500 border-b border-white/10">
+              <th className="py-2 pr-3">Crew</th><th className="py-2 pr-3">Role</th><th className="py-2 pr-3">Rate</th><th className="py-2 pr-3">Shifts</th><th className="py-2 pr-3">Hours</th><th className="py-2">Gross Pay</th></tr></thead>
+            <tbody>
+              {(payroll?.rows || []).map((r) => (
+                <tr key={r.tech_id} className="border-b border-white/5" data-testid={`tc-payroll-row-${r.tech_id}`}>
+                  <td className="py-1.5 pr-3 text-slate-100">{r.name}{r.open_shift && <span className="ml-1.5 text-[8px] font-mono text-emerald-400">ON CLOCK</span>}</td>
+                  <td className="py-1.5 pr-3 font-mono text-slate-500 uppercase">{r.role}</td>
+                  <td className="py-1.5 pr-3 font-mono text-slate-400">${r.hourly_rate}/h</td>
+                  <td className="py-1.5 pr-3 font-mono text-slate-400">{r.shifts}</td>
+                  <td className="py-1.5 pr-3 font-mono text-amber-300">{r.hours}</td>
+                  <td className="py-1.5 font-black text-emerald-300">${r.gross_pay.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+            {payroll && (
+              <tfoot><tr className="border-t border-white/10">
+                <td colSpan={4} className="py-2 text-[10px] font-mono uppercase text-slate-500">Period totals</td>
+                <td className="py-2 font-black text-amber-300">{payroll.total_hours}</td>
+                <td className="py-2 font-black text-emerald-300" data-testid="tc-payroll-total">${payroll.total_gross.toLocaleString()}</td>
+              </tr></tfoot>
+            )}
+          </table>
+        </div>
+      </Card>
 
       <Card className="p-4 bg-slate-950/70 border-white/10" data-testid="tc-timesheets">
         <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><Clock size={14} className="text-amber-400" /> Timesheets — last 7 days</h3>
