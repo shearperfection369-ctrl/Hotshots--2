@@ -192,7 +192,7 @@ def build_truck_cleaning_sched_router(*, db, require_role: Callable) -> APIRoute
             client = await db.tc_clients.find_one({"client_id": job["client_id"]}, {"_id": 0}) or {}
             upd["cabs"] = cabs
             upd["upsells"] = ups
-            upd["price"] = round(cabs * client.get("rate", 150) + sum(UPSELLS[u] for u in ups), 2)
+            upd["price"] = round(cabs * client.get("rate", 175) + sum(UPSELLS[u] for u in ups), 2)
             upd["cogs"] = round(cabs * COGS_PER_CAB, 2)
         if not upd:
             raise HTTPException(status_code=400, detail="Nothing to update")
@@ -279,7 +279,7 @@ def build_truck_cleaning_sched_router(*, db, require_role: Callable) -> APIRoute
         if not 0 <= weekday <= 6:
             raise HTTPException(400, "weekday 0-6 (0=Mon)")
         cabs = max(1, min(int(payload.get("cabs", client.get("cabs", 1) or 1)), 200))
-        rate = 110.0 if freq == "weekly" else 120.0
+        rate = 110.0 if freq == "weekly" else 130.0
         doc = {"rule_id": f"REC-{uuid.uuid4().hex[:6].upper()}", "client_id": client_id,
                "company": client["company"], "frequency": freq, "weekday": weekday,
                "window": str(payload.get("window", "08:00-10:00"))[:20], "cabs": cabs,

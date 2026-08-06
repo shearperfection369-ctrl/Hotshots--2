@@ -121,7 +121,7 @@ export default function WashLanding() {
           <div className="mt-10 flex flex-wrap gap-6 text-xs font-mono text-slate-500">
             <span className="flex items-center gap-1.5"><ShieldCheck size={13} className="text-emerald-400" /> Insured crews</span>
             <span className="flex items-center gap-1.5"><Camera size={13} className="text-cyan-300" /> Photo proof on every job</span>
-            <span className="flex items-center gap-1.5"><Truck size={13} className="text-amber-400" /> Fleet rates from $110/cab</span>
+            <span className="flex items-center gap-1.5"><Truck size={13} className="text-amber-400" /> Lock-in rates from $110/cab</span>
           </div>
         </div>
         <div className="hidden lg:flex justify-center">
@@ -150,9 +150,9 @@ export default function WashLanding() {
         <h2 className="text-lg font-black mb-6">Simple, flat pricing</h2>
         <div className="grid sm:grid-cols-3 gap-4 max-w-4xl" data-testid="wash-pricing">
           {[
-            ["Single Cab", info ? `$${info.base_price}` : "$150", "One-time full 45-min showroom spec", false],
-            ["Bi-Weekly Lock-In", info ? `$${info.sub_price}` : "$120", "Per cab · locked slot every 2 weeks · every 10th clean free", true],
-            ["Fleet Rate", info ? `$${info.fleet_price}` : "$125", "Per cab · 10+ cabs · monthly billing", false],
+            ["Single Cab", info ? `$${info.base_price}` : "$175", "One-time full 45-min showroom spec", false],
+            ["Bi-Weekly Lock-In", info ? `$${info.sub_price}` : "$130", "Per cab · locked slot every 2 weeks · every 10th clean free", true],
+            ["Fleet Rate", info ? `$${info.fleet_price}` : "$150", "Per cab · 10+ cabs · monthly billing", false],
           ].map(([t, p, d, hot]) => (
             <div key={t} className={`relative p-6 rounded-2xl border backdrop-blur transition-transform hover:-translate-y-1 ${hot ? "border-amber-500/60 bg-gradient-to-b from-amber-500/10 to-transparent shadow-[0_0_30px_rgba(245,158,11,0.15)]" : "border-white/10 bg-white/[0.03]"}`}>
               {hot && <div className="absolute -top-3 left-5 px-3 py-1 rounded-full bg-amber-500 text-black text-[9px] font-black uppercase tracking-widest">Most popular</div>}

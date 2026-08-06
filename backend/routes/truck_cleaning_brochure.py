@@ -185,9 +185,9 @@ def _services_brochure() -> bytes:
     # pricing cards
     b.ensure(120)
     c = b.c
-    cards = [("ONE-TIME CLEAN", "$150", "per cab", AMBER, ["Full 45-minute showroom spec", "Before/after photo proof", "Perfect first-visit trial"]),
-             ("BI-WEEKLY SUB", "$120", "per cab / visit", CYAN, ["We manage the schedule", "SMS reminders + reschedule", "Every 10th clean FREE"]),
-             ("FLEET PROGRAM 10+", "$125", "per cab", EMERALD, ["Priority yard scheduling", "Monthly auto-billing", "Dedicated crew lead"])]
+    cards = [("ONE-TIME CLEAN", "$175", "per cab", AMBER, ["Full 45-minute showroom spec", "Before/after photo proof", "Perfect first-visit trial"]),
+             ("BI-WEEKLY SUB", "$130", "per cab / visit", CYAN, ["We manage the schedule", "SMS reminders + reschedule", "Every 10th clean FREE"]),
+             ("FLEET PROGRAM 10+", "$150", "per cab", EMERALD, ["Priority yard scheduling", "Monthly auto-billing", "Dedicated crew lead"])]
     cw = (W - 80 - 24) / 3
     for i, (name, price, per, color, feats) in enumerate(cards):
         x = 40 + i * (cw + 12)
@@ -255,10 +255,10 @@ def _yard_promo_brochure() -> bytes:
         b.step(n, t, EMERALD)
     b.y -= 6
     b.band("YARD PRICING — LOCK-IN RATES", AMBER)
-    b.price_row("Bi-Weekly Yard Lock-In", "Your slot every 2 weeks · most popular · every 10th clean FREE", "$120/cab", AMBER)
+    b.price_row("Bi-Weekly Yard Lock-In", "Your slot every 2 weeks · most popular · every 10th clean FREE", "$130/cab", AMBER)
     b.price_row("Weekly Yard Lock-In", "High-turn yards & lease fleets · priority crew", "$110/cab", AMBER)
-    b.price_row("Fleet Program 10+ cabs", "Monthly auto-billing · dedicated crew lead", "$125/cab", AMBER)
-    b.price_row("One-Time Trial", "Prove-it visit — full spec, photo proof", "$150/cab", AMBER)
+    b.price_row("Fleet Program 10+ cabs", "Monthly auto-billing · dedicated crew lead", "$150/cab", AMBER)
+    b.price_row("One-Time Trial", "Prove-it visit — full spec, photo proof", "$175/cab", AMBER)
     b.tint_panel(["FOUNDING YARD OFFER — first 3 yards to sign a lock-in schedule get their first 2 cabs cleaned "
                   "FREE on the pilot visit, plus the founding rate locked for 12 months. We're building our Twin "
                   "Cities route now: the yards that anchor it get the best slots and the best price, permanently."],

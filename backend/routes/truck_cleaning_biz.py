@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 LOGO_PATH = Path(__file__).resolve().parent / "_tc_logo_pdf.png"
 VAULT_CATEGORIES = ["Insurance / COI", "Signed Agreement", "W-9 / Tax", "Before-After Photos",
                     "Permits & Licenses", "Receipts", "Marketing Assets", "Other"]
-PLAN_RATES = {"one_time": 150.0, "biweekly_sub": 120.0, "fleet_sub": 125.0}
+PLAN_RATES = {"one_time": 175.0, "biweekly_sub": 130.0, "fleet_sub": 150.0}
 INK, AMBER, CYAN = colors.HexColor("#0D1117"), colors.HexColor("#F59E0B"), colors.HexColor("#22D3EE")
 SLATE, PAPER = colors.HexColor("#334155"), colors.HexColor("#FAFAF7")
 
@@ -138,7 +138,7 @@ def _welcome_packet_pdf(ob: Dict[str, Any]) -> bytes:
     c.setFont("Helvetica", 10); c.setFillColor(SLATE)
     for line in [
         f"Contact: {ob.get('contact') or '—'}   ·   {ob.get('email') or ''}   ·   {ob.get('phone') or ''}",
-        f"Fleet size: {ob.get('cabs', 1)} cab(s)   ·   Plan: {ob.get('plan', 'one_time').replace('_', ' ').title()}   ·   Rate: ${ob.get('rate', 150):.0f}/cab",
+        f"Fleet size: {ob.get('cabs', 1)} cab(s)   ·   Plan: {ob.get('plan', 'one_time').replace('_', ' ').title()}   ·   Rate: ${ob.get('rate', 175):.0f}/cab",
     ]:
         c.drawString(46, y, line); y -= 16
     y -= 12
@@ -314,7 +314,7 @@ def build_truck_cleaning_biz_router(*, db, require_role: Callable) -> APIRouter:
             raise HTTPException(status_code=404, detail="Onboarding not found")
         if ob["status"] != "submitted":
             raise HTTPException(status_code=400, detail=f"Cannot approve from status '{ob['status']}'")
-        rate = PLAN_RATES.get(ob.get("plan", "one_time"), 150.0)
+        rate = PLAN_RATES.get(ob.get("plan", "one_time"), 175.0)
         client = {"client_id": f"TC-{uuid.uuid4().hex[:6].upper()}", "company": ob["company"],
                   "contact": ob["contact"], "phone": ob.get("phone", ""), "email": ob.get("email", ""),
                   "cabs": ob.get("cabs", 1), "plan": ob.get("plan", "one_time"), "rate": rate,
@@ -339,7 +339,7 @@ def build_truck_cleaning_biz_router(*, db, require_role: Callable) -> APIRouter:
         ob = await db.tc_onboarding.find_one({"onboard_id": onboard_id}, {"_id": 0})
         if not ob:
             raise HTTPException(status_code=404, detail="Onboarding not found")
-        ob["rate"] = ob.get("rate") or PLAN_RATES.get(ob.get("plan", "one_time"), 150.0)
+        ob["rate"] = ob.get("rate") or PLAN_RATES.get(ob.get("plan", "one_time"), 175.0)
         pdf = _welcome_packet_pdf(ob)
         return Response(content=pdf, media_type="application/pdf",
                         headers={"Content-Disposition": f'attachment; filename="Orisei_Welcome_Packet_{onboard_id}.pdf"'})

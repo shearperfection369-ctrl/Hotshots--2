@@ -376,7 +376,7 @@ def build_truck_cleaning_field_router(*, db, require_role: Callable) -> APIRoute
         picks = [u for u in (payload.get("upsell_ids") or []) if u in valid_ids][:10]
         ups = sorted(set([u for u in job.get("upsells", []) if u not in valid_ids] + picks))
         client = await db.tc_clients.find_one({"client_id": job["client_id"]}, {"_id": 0}) or {}
-        price = round(job["cabs"] * client.get("rate", 150) + sum(UPSELLS[u] for u in ups), 2)
+        price = round(job["cabs"] * client.get("rate", 175) + sum(UPSELLS[u] for u in ups), 2)
         await db.tc_jobs.update_one({"scent_card_token": token},
                                     {"$set": {"upsells": ups, "price": price,
                                               "driver_prefs": {"scent": scent, "upsell_ids": picks,

@@ -182,7 +182,7 @@ YARD_PROSPECTS = [
      "angle": "Confirmed Eagan HQ. Mid-size = real ops leadership on site; pitch a 10-cab pilot pod."},
     {"name": "Dart Transit", "city": "Eagan", "address": "Eagan, MN (HQ yard)",
      "ptype": "Owner-operator network", "est_cabs": "100+ O/O cabs through yard", "tier": "C",
-     "angle": "GOLD: owner-operators pay for their OWN cabs. Set up a yard-day table — sell $150 cleans direct, no contract needed."},
+     "angle": "GOLD: owner-operators pay for their OWN cabs. Set up a yard-day table — sell $175 cleans direct, no contract needed."},
     {"name": "Koch Trucking", "city": "Minneapolis", "address": "Minneapolis, MN (HQ yard)",
      "ptype": "Large carrier HQ", "est_cabs": "100+ (large)", "tier": "C",
      "angle": "Big fleet — start with one division (e.g. specialized) and their yard on a weekly slot."},
@@ -852,9 +852,9 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         cabs_booked = sum(j["cabs"] for j in booked)
         cabs_target = 45
         # deal math: what closes the gap
-        biweekly_yard = round(4 * 120 * 2.17, 2)   # 4-cab yard, bi-weekly
+        biweekly_yard = round(4 * 130 * 2.17, 2)   # 4-cab yard, bi-weekly
         weekly_yard = round(4 * 110 * 4.33, 2)     # 4-cab yard, weekly
-        fleet_monthly = round(10 * 125 * 1, 2)     # 10-cab fleet, monthly
+        fleet_monthly = round(10 * 150 * 1, 2)     # 10-cab fleet, monthly
         days_in_month = ((datetime.strptime(next_month, "%Y-%m-01") - timedelta(days=1)).day)
         month_pct = round(now.day / days_in_month * 100)
         clients_active = len({j["client_id"] for j in jobs})
@@ -870,11 +870,11 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                 "cabs_gap": max(0, cabs_target - cabs_done - cabs_booked),
                 "clients_active": clients_active,
                 "gap_closers": [
-                    {"label": "Bi-weekly yard lock-ins (4 cabs @ $120)", "value_mo": biweekly_yard,
+                    {"label": "Bi-weekly yard lock-ins (4 cabs @ $130)", "value_mo": biweekly_yard,
                      "needed": math.ceil(gap / biweekly_yard) if gap else 0},
                     {"label": "Weekly yard lock-ins (4 cabs @ $110)", "value_mo": weekly_yard,
                      "needed": math.ceil(gap / weekly_yard) if gap else 0},
-                    {"label": "Fleet accounts (10 cabs monthly @ $125)", "value_mo": fleet_monthly,
+                    {"label": "Fleet accounts (10 cabs monthly @ $150)", "value_mo": fleet_monthly,
                      "needed": math.ceil(gap / fleet_monthly) if gap else 0},
                 ]}
 
@@ -1110,7 +1110,7 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
     # ================= PUBLIC BOOKING =================
     @router.get("/public/site-info")
     async def site_info():
-        return {"base_price": 150, "fleet_price": 125, "sub_price": 120,
+        return {"base_price": 175, "fleet_price": 150, "sub_price": 130,
                 "services": [{"id": u["id"], "label": u["label"], "price": u["price"],
                               "desc": u["desc"], "category": u["category"]} for u in UPSELL_META],
                 "phone": "(763) 443-4459", "email": "oliver@oriseifreightsolutions.com",
@@ -1144,14 +1144,14 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
             client = {"client_id": f"TCC-{uuid.uuid4().hex[:8].upper()}", "company": b["company"],
                       "contact": b.get("contact", ""), "phone": b.get("phone", ""),
                       "email": b.get("email", ""), "cabs": b["cabs"], "plan": "one_time",
-                      "rate": 150.0, "source": "booking_page", "notes": b.get("notes", ""),
+                      "rate": 175.0, "source": "booking_page", "notes": b.get("notes", ""),
                       "created_at": _now()}
             await db.tc_clients.insert_one(dict(client))
             client.pop("_id", None)
         job = {"job_id": f"TCJ-{uuid.uuid4().hex[:8].upper()}", "client_id": client["client_id"],
                "company": client["company"], "date": b.get("preferred_date") or _today(),
                "cabs": b["cabs"], "upsells": b.get("services", []),
-               "price": round(b["cabs"] * client.get("rate", 150) +
+               "price": round(b["cabs"] * client.get("rate", 175) +
                               sum(UPSELLS[u] for u in b.get("services", [])), 2),
                "cogs": round(b["cabs"] * 46.0, 2), "status": "scheduled",
                "notes": f"From booking {booking_id}. {b.get('notes', '')}".strip(),

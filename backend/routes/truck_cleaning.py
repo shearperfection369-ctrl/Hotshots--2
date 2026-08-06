@@ -15,7 +15,7 @@ from reportlab.pdfgen.canvas import Canvas
 from routes.connections import get_connection_credentials
 
 MODEL = ("anthropic", "claude-sonnet-4-5-20250929")
-PRICE_DEFAULT = 150.0
+PRICE_DEFAULT = 175.0
 COGS_PER_CAB = 46.0
 UPSELLS = {"engine_bay": 25.0, "tire_dressing": 20.0, "cabin_filter": 15.0,
            "leather_conditioning": 30.0, "headliner_spot": 20.0, "mattress_refresh": 25.0,
@@ -100,12 +100,12 @@ class AskIn(BaseModel):
 PLAYBOOK = {
     "business_plan": {
         "title": "Business Plan — Twin Cities Launch",
-        "summary": "Mobile semi-truck cab cleaning. $150/cab, 45-min standardized spec, 68-70% gross margin. Target: 100 recurring clients in the Twin Cities metro = $180K/yr single-territory run-rate; 5 territories = $750K+ at 40%+ net.",
+        "summary": "Mobile semi-truck cab cleaning. $175/cab, 45-min standardized spec, 68-70% gross margin. Target: 100 recurring clients in the Twin Cities metro = $180K/yr single-territory run-rate; 5 territories = $750K+ at 40%+ net.",
         "sections": [
             {"h": "The Math", "items": ["$150/cab retail · $125 fleet rate (10+ cabs) · $120 bi-weekly subscription", "COGS $45-48/cab (labor $35 + supplies $8-12) → 68-70% gross margin", "100 clients × $150 × 12 = $180K/yr per territory", "Break-even: ~14 cleanings/month covers fixed overhead"]},
             {"h": "Phase 1 · Foundation (Months 1-2)", "items": ["Lock first 20 clients from the 100+ referral lead list ($25-50 referral fee per close)", "Loyalty switch offer: 10% off first month", "Hire crew of 3: 1 senior lead + 2 juniors · $25/hr · Checkr background checks · 1099 on liability policy (~$50/mo)", "Equipment per worker ~$200: pressure washer, shop vac, microfiber kit, degreaser bulk"]},
             {"h": "Phase 2 · Marketing (Months 2-4)", "items": ["500 direct-mail postcards to fleets within 50 miles ($450 → 3-5 fleet accounts, payback ~1 week)", "Trucker Facebook groups: intro rate posts + before/after videos → 2-4 clients/week", "Partnerships: truck stops (10% referral), diesel mechanics, CDL schools", "YouTube transformation videos every 2 weeks — evergreen lead gen"]},
-            {"h": "Phase 3 · Scale (Months 4-12)", "items": ["Push subscriptions hard: 25 subs by month 3 = $3,000/mo locked", "Fleet packages: 10+ cabs at $125, auto-billed monthly", "Territory 2 launch at 80 clients; clone the ops playbook", "Senior lead promoted to territory manager at $32/hr + 5% territory bonus"]},
+            {"h": "Phase 3 · Scale (Months 4-12)", "items": ["Push subscriptions hard: 25 subs by month 3 = $3,000/mo locked", "Fleet packages: 10+ cabs at $150, auto-billed monthly", "Territory 2 launch at 80 clients; clone the ops playbook", "Senior lead promoted to territory manager at $32/hr + 5% territory bonus"]},
         ],
     },
     "cleaning_spec": {
@@ -115,7 +115,7 @@ PLAYBOOK = {
     "marketing_plan": {
         "title": "Twin Cities Marketing Plan",
         "channels": [
-            {"name": "Direct Mail — Fleet Postcards", "budget": "$450/500 cards", "expected": "10-15 inquiries → 3-5 fleet accounts → $1.5-2.5K MRR", "detail": "Front: before/after photo. Back: 'We clean 50+ cabs/month. Fleet rate $125. Free quote.' Target every trucking co. within 50 miles of the metro."},
+            {"name": "Direct Mail — Fleet Postcards", "budget": "$450/500 cards", "expected": "10-15 inquiries → 3-5 fleet accounts → $1.5-2.5K MRR", "detail": "Front: before/after photo. Back: 'We clean 50+ cabs/month. Fleet rate $150. Free quote.' Target every trucking co. within 50 miles of the metro."},
             {"name": "Facebook Trucker Groups", "budget": "$0 organic + $50-100/wk ads", "expected": "2-4 clients/week", "detail": "MN groups: 'Minnesota Truckers', 'Twin Cities CDL Drivers'. Rotate: intro-rate post → before/after video → 5-star testimonial. DM close."},
             {"name": "Google Business + LSA", "budget": "$300/mo", "expected": "5-8 booked calls/mo", "detail": "'truck cab cleaning Minneapolis' — near-zero competition. Photos weekly, reviews after every job."},
             {"name": "Partnerships", "budget": "10% referral", "expected": "5-10 clients/mo", "detail": "Truck stops (Sturgeon Lake, Clearwater), diesel shops, CDL schools (Interstate, St. Paul College), TA/Petro counters."},
@@ -158,9 +158,9 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
             return
         now = _now()
         seeds = [
-            ("Northstar Freight Lines", "Denny Olafson", "biweekly_sub", 8, 120.0, "Referral list"),
-            ("Twin Cities Haulers LLC", "Marcus Webb", "fleet_sub", 14, 125.0, "Postcard"),
-            ("Lakeville Owner-Ops Coop", "Rita Sanchez", "one_time", 3, 150.0, "Facebook group"),
+            ("Northstar Freight Lines", "Denny Olafson", "biweekly_sub", 8, 130.0, "Referral list"),
+            ("Twin Cities Haulers LLC", "Marcus Webb", "fleet_sub", 14, 150.0, "Postcard"),
+            ("Lakeville Owner-Ops Coop", "Rita Sanchez", "one_time", 3, 175.0, "Facebook group"),
         ]
         for company, contact, plan, cabs, rate, source in seeds:
             cid = f"TC-{uuid.uuid4().hex[:6].upper()}"
@@ -364,9 +364,9 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
             for item in PLAYBOOK["cleaning_spec"]["items"][:5]:
                 y = li(item, y)
             y -= 8; y = h2("FLEET PRICING", y)
-            y = li("$150 per cab retail — photo before/after proof on every job", y, "Single cab")
-            y = li("$125 per cab, priority scheduling, monthly auto-billing", y, "Fleet (10+ cabs)")
-            y = li("$120 per cab, we manage the schedule — you never book", y, "Bi-weekly subscription")
+            y = li("$175 per cab retail — photo before/after proof on every job", y, "Single cab")
+            y = li("$150 per cab, priority scheduling, monthly auto-billing", y, "Fleet (10+ cabs)")
+            y = li("$130 per cab, we manage the schedule — you never book", y, "Bi-weekly subscription")
             y = li("every 10th cleaning free", y, "Loyalty")
             y -= 8; y = h2("WHY FLEETS CHOOSE ORISEI", y)
             for b, t in [("Proof", "time-stamped before/after photos delivered after every clean"),
@@ -379,7 +379,7 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
             for h, lines in [
                 ("1 · SERVICES", ["Orisei will perform the standardized 45-minute cab cleaning specification on scheduled vehicles.",
                                   "Optional upsells (engine bay $25, tire dressing $20, cabin filter $15) only on written approval."]),
-                ("2 · PRICING & BILLING", ["Fleet rate $125/cab (10+ cabs) or subscription $120/cab bi-weekly.",
+                ("2 · PRICING & BILLING", ["Fleet rate $150/cab (10+ cabs) or subscription $130/cab bi-weekly.",
                                            "Invoices auto-generated on completion; Net 15. Card, ACH, or check accepted."]),
                 ("3 · SCHEDULING", ["Client provides yard access windows; Orisei provides 24h SMS confirmation.",
                                     "Missed access without 12h notice billed at 50% of scheduled value."]),

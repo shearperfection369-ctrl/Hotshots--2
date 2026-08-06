@@ -48,7 +48,7 @@ function LockInCard({ clients, onGenerated }) {
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div>
           <h3 className="text-sm font-bold text-white flex items-center gap-2"><Repeat size={14} className="text-emerald-400" /> Lock-In Schedule — weekly & bi-weekly yard slots</h3>
-          <div className="text-[10px] text-slate-500">Sign a yard once, we fill the calendar automatically. Weekly $110/cab · Bi-weekly $120/cab.</div>
+          <div className="text-[10px] text-slate-500">Sign a yard once, we fill the calendar automatically. Weekly $110/cab · Bi-weekly $130/cab.</div>
         </div>
         <div className="px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/5 text-[11px] font-mono text-emerald-300" data-testid="tc-lockin-runrate">
           run-rate ${runRate.toLocaleString()}/mo

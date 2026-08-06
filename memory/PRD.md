@@ -2574,3 +2574,10 @@ retrains scoring weights from revealed preferences — making the intuitive
    (blue/amber), vertical scan beam (11s), dashed SVG circuit traces, 6 blinking cyan nodes.
    CSS-only keyframes (washGridScroll/Scan/Drift/Blink/Dash) in scoped <style>. Content wrapped
    in relative z-10. Verified: backdrop + booking form both render.
+19. PRICE UPDATE (2026-08-06): one_time $150->$175, biweekly $120->$130, fleet $125->$150 (weekly
+   lock-in stays $110). Updated: truck_cleaning.py PRICE_DEFAULT/playbook/docs/seeds, biz PLAN_RATES
+   + fallbacks, brochure pricing cards + yard-promo rows, crew site-info/convert rate/target
+   gap_closers (biweekly $1128.4, fleet $1500), field+sched rate fallbacks, sched recurring biweekly
+   rate 130, WashLanding fallbacks + hero badge "Lock-in rates from $110/cab", LockInCard label.
+   Verified: site-info 175/150/130, target math, yard-promo PDF text, live pricing cards screenshot.
+   NOTE: pre-existing recurring rule(s) keep old stored rate until re-saved.
