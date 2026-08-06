@@ -2569,3 +2569,8 @@ retrains scoring weights from revealed preferences — making the intuitive
      booking header + footer, radial gradient bg, stats band (9-phase/45min/2x/50mi), lifted pricing
      cards w/ Most Popular ribbon, numbered how-it-works, FOUNDING YARD OFFER banner
      (wash-founding-offer), glass booking form card. All original testids preserved (regression-safe).
+18. WASH TECH BACKDROP (2026-08-06): TechBackdrop component in WashLanding.jsx — fixed z-0
+   pointer-events-none layers: scrolling 56px cyan grid (radial mask), 2 drifting glow orbs
+   (blue/amber), vertical scan beam (11s), dashed SVG circuit traces, 6 blinking cyan nodes.
+   CSS-only keyframes (washGridScroll/Scan/Drift/Blink/Dash) in scoped <style>. Content wrapped
+   in relative z-10. Verified: backdrop + booking form both render.

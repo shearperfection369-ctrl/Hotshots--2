@@ -18,6 +18,45 @@ const STATS = [
   ["50mi", "Twin Cities coverage"],
 ];
 
+function TechBackdrop() {
+  return (
+    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden="true" data-testid="wash-tech-backdrop">
+      <style>{`
+        @keyframes washGridScroll { from { background-position: 0 0; } to { background-position: 0 56px; } }
+        @keyframes washScan { 0% { top: -12%; opacity: 0; } 8% { opacity: 1; } 92% { opacity: 1; } 100% { top: 112%; opacity: 0; } }
+        @keyframes washDrift1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(70px,-50px) scale(1.15); } }
+        @keyframes washDrift2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-60px,40px) scale(0.9); } }
+        @keyframes washBlink { 0%,100% { opacity: .08; } 50% { opacity: .45; } }
+        @keyframes washDash { to { stroke-dashoffset: -400; } }
+      `}</style>
+      {/* slow-scrolling tech grid */}
+      <div className="absolute inset-0" style={{
+        backgroundImage: "linear-gradient(rgba(56,189,248,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.05) 1px, transparent 1px)",
+        backgroundSize: "56px 56px",
+        animation: "washGridScroll 14s linear infinite",
+        maskImage: "radial-gradient(ellipse 90% 70% at 50% 30%, black 30%, transparent 75%)",
+        WebkitMaskImage: "radial-gradient(ellipse 90% 70% at 50% 30%, black 30%, transparent 75%)",
+      }} />
+      {/* drifting glow orbs */}
+      <div className="absolute rounded-full" style={{ width: 420, height: 420, top: "8%", right: "6%", background: "radial-gradient(circle, rgba(37,99,235,0.14), transparent 65%)", filter: "blur(10px)", animation: "washDrift1 22s ease-in-out infinite" }} />
+      <div className="absolute rounded-full" style={{ width: 340, height: 340, bottom: "12%", left: "4%", background: "radial-gradient(circle, rgba(245,158,11,0.09), transparent 65%)", filter: "blur(10px)", animation: "washDrift2 28s ease-in-out infinite" }} />
+      {/* vertical scan beam */}
+      <div className="absolute left-0 right-0" style={{ height: 130, top: "-12%", background: "linear-gradient(180deg, transparent, rgba(56,189,248,0.045), transparent)", animation: "washScan 11s linear infinite" }} />
+      {/* circuit trace lines */}
+      <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.35 }}>
+        <path d="M -20 180 H 300 L 360 240 H 720 L 780 180 H 1200" fill="none" stroke="rgba(56,189,248,0.12)" strokeWidth="1"
+              strokeDasharray="8 14" style={{ animation: "washDash 20s linear infinite" }} />
+        <path d="M 1940 560 H 1500 L 1440 620 H 1000 L 940 560 H 500" fill="none" stroke="rgba(245,158,11,0.10)" strokeWidth="1"
+              strokeDasharray="6 16" style={{ animation: "washDash 26s linear infinite" }} />
+      </svg>
+      {/* blinking nodes */}
+      {[["12%", "22%", "0s"], ["78%", "14%", "1.2s"], ["64%", "58%", "2.4s"], ["22%", "72%", "0.8s"], ["88%", "78%", "1.8s"], ["42%", "36%", "2.9s"]].map(([l, t, d], i) => (
+        <span key={i} className="absolute w-1.5 h-1.5 rounded-full bg-cyan-300" style={{ left: l, top: t, animation: `washBlink 4s ease-in-out ${d} infinite`, boxShadow: "0 0 8px rgba(56,189,248,0.8)" }} />
+      ))}
+    </div>
+  );
+}
+
 export default function WashLanding() {
   const [info, setInfo] = useState(null);
   const [form, setForm] = useState({ company: "", contact: "", phone: "", email: "", cabs: 1, preferred_date: "", notes: "" });
@@ -43,6 +82,8 @@ export default function WashLanding() {
     <div className="min-h-screen bg-[#0B0F16] text-white overflow-x-hidden" data-testid="wash-landing"
          style={{ backgroundImage: "radial-gradient(ellipse 80% 50% at 70% -10%, rgba(37,99,235,0.18), transparent), radial-gradient(ellipse 60% 40% at 10% 110%, rgba(245,158,11,0.08), transparent)" }}>
       <Toaster richColors position="top-center" />
+      <TechBackdrop />
+      <div className="relative z-10">
       {/* nav */}
       <nav className="flex items-center justify-between px-6 md:px-12 py-3 border-b border-white/10 bg-[#0B0F16]/80 backdrop-blur sticky top-0 z-30">
         <div className="flex items-center gap-3">
@@ -216,6 +257,7 @@ export default function WashLanding() {
           <a href="/crew" className="text-slate-700 hover:text-slate-500 transition-colors" data-testid="wash-crew-link">Crew login</a>
         </span>
       </footer>
+      </div>
     </div>
   );
 }
