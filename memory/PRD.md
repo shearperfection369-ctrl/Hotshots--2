@@ -2651,3 +2651,11 @@ retrains scoring weights from revealed preferences — making the intuitive
 ## 2026-06 — Landing page cleaning links
 - Main TMS landing (/home, Landing.jsx): new "Orisei Truck Cleaning" section after hero with 3 link cards — Book a Cleaning (/wash), Crew Portal (/crew), Owner Dashboard (/truck-cleaning). Shield logo + gold/azure style. Screenshot verified.
 - Custom domain confirmed live: oriseifreightsolutions.com serves the deployed app (root + /wash + API all 200). User advised to re-download QR collateral from the domain so QRs embed branded URL.
+
+## 2026-06 — SECURITY: locked down app access (verified iteration_90)
+- BUG: (A) passwordless POST /api/auth/dev-session issued full ADMIN to anyone and was live on production (env flag leaked); (B) POST /api/auth/session let ANY Google account in as 'dispatcher'.
+- FIX A: dev_session now requires _is_preview_host(request) (host endswith .preview.emergentagent.com) AND ENABLE_DEV_LOGIN; 404/403 on production. Frontend Login.jsx renders Quick Sign In only on preview host.
+- FIX B: create_session now gated by _access_allowlist() (ADMIN_EMAILS + ALLOWED_EMAILS) — non-allowlisted email -> 403, NO user/session created (gate ordered before inserts). Allowlisted non-admins default to role 'owner'. First-user auto-admin removed.
+- Cleanup: revoked 43 non-allowlisted sessions, purged 37 @tennantco.com test users + orphaned sessions. Remaining users: shearperfection369 (admin), oliver/daniel/doug@oriseifreight.com (sessionless, can't log in until added to ALLOWED_EMAILS).
+- To authorize a teammate: add email to ALLOWED_EMAILS in backend/.env + restart.
+- NOTE: fix is in PREVIEW only until user REPUBLISHES — production still runs old code until redeploy.
