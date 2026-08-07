@@ -94,7 +94,7 @@ def build_truck_cleaning_fleet_router(*, db, require_role: Callable) -> APIRoute
                 mk, md, yr = specs[i % len(specs)]
                 ago = 5 + (i * 9) % 40
                 hist = [{"date": (today - timedelta(days=ago + cadence)).isoformat(), "job_id": "", "upsells": []},
-                        {"date": (today - timedelta(days=ago)).isoformat(), "job_id": "", "upsells": ["engine_bay"] if i % 3 == 0 else []}]
+                        {"date": (today - timedelta(days=ago)).isoformat(), "job_id": "", "upsells": ["tire_dressing"] if i % 3 == 0 else []}]
                 await db.tc_units.insert_one({
                     "unit_id": f"UNIT-{uuid.uuid4().hex[:6].upper()}", "client_id": c["client_id"],
                     "company": c["company"], "unit_number": f"{c['company'].split()[0][:3].upper()}-{100 + i}",
@@ -245,7 +245,7 @@ def build_truck_cleaning_fleet_router(*, db, require_role: Callable) -> APIRoute
                              "has_used_upsells": any(j.get("upsells") for j in cj)})
         prompt = (
             "Scrub this truck-cab-cleaning client registry and produce ONE targeted email offer per client. "
-            "Pricing: $175 one-time, $130/cab bi-weekly sub, $150/cab fleet (10+). Upsells: engine bay $25, tires $20, cabin filter $15. "
+            "Pricing: $175 one-time, $130/cab bi-weekly sub, $150/cab fleet (10+). Upsells: tire dressing $20, ozone odor bomb $35, bedding & scent menu. "
             "Pick the highest-value angle per client: win-back if inactive 30+ days, subscription upgrade for repeat one-timers, "
             "upsell bundle if never used upsells, referral ask for loyal subs, fleet-rate pitch if cabs>=10 and not on fleet plan. "
             "Return STRICT JSON array only, no markdown fences: "

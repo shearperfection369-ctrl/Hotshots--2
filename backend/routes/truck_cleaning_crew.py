@@ -19,7 +19,7 @@ from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from PIL import Image
 from pydantic import BaseModel, Field
 
-from routes.truck_cleaning import UPSELL_META, UPSELLS
+from routes.truck_cleaning import UPSELL_META, UPSELLS, SCENT_MENU
 from routes.truck_cleaning_sched import CLEANING_GUIDE
 
 UPSELL_LABEL = {u["id"]: u["label"] for u in UPSELL_META}
@@ -1272,6 +1272,7 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                 "services": [{"id": u["id"], "label": u["label"], "price": u["price"],
                               "desc": u["desc"], "category": u["category"]} for u in UPSELL_META],
                 "phone": "(763) 443-4459", "email": "oliver@oriseifreightsolutions.com",
+                "scents": SCENT_MENU,
                 "area": "Twin Cities metro — Minneapolis, St. Paul & every yard within 50 miles"}
 
     @router.post("/public/booking")
@@ -1282,8 +1283,40 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                "booking_id": f"BOOK-{uuid.uuid4().hex[:6].upper()}",
                "status": "new", "created_at": _now()}
         await db.tc_bookings.insert_one(dict(doc))
+        try:
+            await _booking_alert_email(doc)
+        except Exception:
+            pass
         return {"ok": True, "booking_id": doc["booking_id"],
                 "message": "Request received — we'll confirm your slot within one business day."}
+
+    async def _booking_alert_email(b: dict):
+        from routes.orisei_auto_digest import _resend_creds, _send_via_resend
+        to = "oliver@oriseifreightsolutions.com"
+        svc_labels = [u["label"] for u in UPSELL_META if u["id"] in b.get("services", [])]
+        rows = [("Company", b.get("company", "—")), ("Contact", b.get("contact") or "—"),
+                ("Phone", b.get("phone") or "—"), ("Email", b.get("email") or "—"),
+                ("Cabs", str(b.get("cabs", 1))), ("Preferred date", b.get("preferred_date") or "flexible"),
+                ("Add-ons", ", ".join(svc_labels) or "none"), ("Notes", b.get("notes") or "—"),
+                ("Booking ID", b.get("booking_id", ""))]
+        table = "".join(f"<tr><td style='padding:6px 14px 6px 0;color:#64748B;font-size:12px;white-space:nowrap'>{k}</td>"
+                        f"<td style='padding:6px 0;font-size:13px;font-weight:600'>{v}</td></tr>" for k, v in rows)
+        subject = f"NEW BOOKING — {b.get('company', 'Unknown')} · {b.get('cabs', 1)} cab(s)"
+        html = (f"<div style='font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#0D1117'>"
+                f"<div style='background:#0D1117;padding:18px 24px;border-bottom:4px solid #F59E0B'>"
+                f"<span style='color:#F59E0B;font-size:11px;letter-spacing:3px;font-family:Courier,monospace'>ORISEI TRUCK CLEANING</span>"
+                f"<div style='color:#fff;font-size:19px;font-weight:800;margin-top:6px'>Someone just booked a spot</div></div>"
+                f"<div style='padding:20px 24px;border:1px solid #E2E8F0;border-top:none'>"
+                f"<table style='border-collapse:collapse'>{table}</table>"
+                f"<p style='margin-top:16px;font-size:13px'>Open the TMS &rarr; Truck Cleaning &rarr; Bookings to convert it into a job.</p>"
+                f"</div></div>")
+        creds = await _resend_creds(db)
+        res = await _send_via_resend(creds, to=to, subject=subject, html=html) if creds \
+            else {"sent": False, "error": "no_resend_creds"}
+        status = "sent" if res.get("sent") else "recorded_no_key"
+        await db.outbound_emails.insert_one({
+            "to": to, "subject": subject, "html": html, "status": status, "error": res.get("error"),
+            "kind": "tc_booking_alert", "booking_id": b.get("booking_id"), "at": _now()})
 
     @router.get("/bookings")
     async def list_bookings(_=Depends(guard)):
@@ -1310,7 +1343,7 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                "company": client["company"], "date": b.get("preferred_date") or _today(),
                "cabs": b["cabs"], "upsells": b.get("services", []),
                "price": round(b["cabs"] * client.get("rate", 175) +
-                              sum(UPSELLS[u] for u in b.get("services", [])), 2),
+                              sum(UPSELLS.get(u, 0) for u in b.get("services", [])), 2),
                "cogs": round(b["cabs"] * 46.0, 2), "status": "scheduled",
                "notes": f"From booking {booking_id}. {b.get('notes', '')}".strip(),
                "checklist": _build_checklist(b.get("services", [])), "created_at": _now()}

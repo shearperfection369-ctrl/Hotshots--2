@@ -57,6 +57,71 @@ function TechBackdrop() {
   );
 }
 
+function ServicesMenu({ info }) {
+  const services = info?.services || [];
+  const groups = [
+    { key: "add_on", title: "Add-On Services", tag: "Detail extras", band: "bg-violet-500", border: "border-violet-500/30 hover:border-violet-400/60", price: "bg-violet-500/15 border-violet-500/50 text-violet-300", dot: "bg-violet-400" },
+    { key: "freshener", title: "Air Freshener Packages", tag: "Pick your scent", band: "bg-cyan-500", border: "border-cyan-500/30 hover:border-cyan-400/60", price: "bg-cyan-500/15 border-cyan-500/50 text-cyan-300", dot: "bg-cyan-400" },
+    { key: "bedding", title: "Bedding & Pillow Service", tag: "Sleep like a hotel", band: "bg-rose-500", border: "border-rose-500/30 hover:border-rose-400/60", price: "bg-rose-500/15 border-rose-500/50 text-rose-300", dot: "bg-rose-400" },
+  ];
+  const core = ["Dashboard, console & vents detailed", "Full-cab vacuum — floor to bunk",
+    "Seats deep-cleaned · stain & odor treatment", "Floor scrub — mats, pedals & undercarriage",
+    "Windows & mirrors, inside and out", "Finishing scent — driver's pick"];
+  return (
+    <section className="px-6 md:px-12 py-14 border-t border-white/10" data-testid="wash-services-menu">
+      <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-amber-400 mb-2">Full-color menu · everything we do</div>
+      <h2 className="text-lg font-black mb-6">Services & pricing</h2>
+      <div className="max-w-5xl p-5 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-transparent mb-5" data-testid="wash-core-spec">
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <span className="px-3 py-1 rounded-full bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest">Included in every clean</span>
+          <span className="text-sm font-black text-emerald-300">The 45-Minute Showroom Spec</span>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
+          {core.map((s) => (
+            <div key={s} className="flex items-start gap-2 text-xs text-slate-300">
+              <CheckCircle2 size={13} className="text-emerald-400 shrink-0 mt-0.5" />{s}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="grid md:grid-cols-3 gap-4 max-w-5xl">
+        {groups.map((g) => {
+          const items = services.filter((s) => s.category === g.key);
+          return (
+            <div key={g.key} className={`rounded-2xl border ${g.border} bg-white/[0.03] backdrop-blur overflow-hidden transition-colors`} data-testid={`wash-services-${g.key}`}>
+              <div className={`${g.band} px-4 py-2.5 flex items-center justify-between`}>
+                <span className="text-xs font-black text-white uppercase tracking-wider">{g.title}</span>
+                <span className="text-[9px] font-mono uppercase tracking-widest text-white/70">{g.tag}</span>
+              </div>
+              <div className="p-4 space-y-3">
+                {items.map((s) => (
+                  <div key={s.id} className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-white"><span className={`w-1.5 h-1.5 rounded-full ${g.dot}`} />{s.label}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{s.desc}</div>
+                    </div>
+                    <span className={`shrink-0 px-2.5 py-1 rounded-full border text-[11px] font-black ${g.price}`}>${s.price}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {(info?.scents || []).length > 0 && (
+        <div className="max-w-5xl mt-5" data-testid="wash-scent-menu">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-2">The scent menu — every driver picks</div>
+          <div className="flex flex-wrap gap-2">
+            {info.scents.map((s) => (
+              <span key={s} className="px-3 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-[11px] font-bold text-cyan-200">{s}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function WashLanding() {
   const [info, setInfo] = useState(null);
   const [form, setForm] = useState({ company: "", contact: "", phone: "", email: "", cabs: 1, preferred_date: "", notes: "" });
@@ -163,6 +228,9 @@ export default function WashLanding() {
           ))}
         </div>
       </section>
+
+      {/* full-color services menu */}
+      <ServicesMenu info={info} />
 
       {/* how it works */}
       <section className="px-6 md:px-12 py-12 border-t border-white/10">

@@ -17,19 +17,15 @@ from routes.connections import get_connection_credentials
 MODEL = ("anthropic", "claude-sonnet-4-5-20250929")
 PRICE_DEFAULT = 175.0
 COGS_PER_CAB = 46.0
-UPSELLS = {"engine_bay": 25.0, "tire_dressing": 20.0, "cabin_filter": 15.0,
+UPSELLS = {"tire_dressing": 20.0,
            "leather_conditioning": 30.0, "headliner_spot": 20.0, "mattress_refresh": 25.0,
            "chrome_polish": 30.0, "exterior_wash": 45.0, "odor_bomb": 35.0,
            "scent_single": 5.0, "scent_dual": 9.0, "vent_diffuser": 12.0, "scent_subscription": 8.0,
            "bed_change": 25.0, "bedding_starter": 59.0, "bedding_premium": 99.0,
            "pillow_memory": 29.0, "pillow_cooling": 39.0, "mattress_protector": 35.0}
 UPSELL_META = [
-    {"id": "engine_bay", "label": "Engine Bay Degrease", "price": 25.0, "category": "add_on",
-     "desc": "Full degrease of painted & plastic surfaces, dressed matte. Adds 15 min."},
     {"id": "tire_dressing", "label": "Tire Dressing", "price": 20.0, "category": "add_on",
      "desc": "Sidewalls washed and dressed with no-sling water-based finish. Adds 10 min."},
-    {"id": "cabin_filter", "label": "Cabin Air Filter Swap", "price": 15.0, "category": "add_on",
-     "desc": "New filter installed, old one photographed for proof. Adds 5 min."},
     {"id": "leather_conditioning", "label": "Leather Deep Conditioning", "price": 30.0, "category": "add_on",
      "desc": "PH-balanced clean + conditioner on all leather surfaces. Adds 15 min."},
     {"id": "headliner_spot", "label": "Headliner Spot Clean", "price": 20.0, "category": "add_on",
@@ -110,7 +106,7 @@ PLAYBOOK = {
     },
     "cleaning_spec": {
         "title": "The 45-Minute Cleaning Spec",
-        "items": ["Dashboard wipe + full vacuum", "Seat deep clean — stain removal + odor treatment", "Floor scrub: mats, undercarriage, pedals", "Windows inside + out", "Air freshener + odor eliminator", "UPSELL — Engine bay degrease $25", "UPSELL — Tire dressing $20", "UPSELL — Cabin air filter $15"],
+        "items": ["Dashboard wipe + full vacuum", "Seat deep clean — stain removal + odor treatment", "Floor scrub: mats, undercarriage, pedals", "Windows inside + out", "Air freshener + odor eliminator", "UPSELL — Tire dressing $20", "UPSELL — Ozone odor bomb $35", "UPSELL — Bedding & pillow service"],
     },
     "marketing_plan": {
         "title": "Twin Cities Marketing Plan",
@@ -169,7 +165,7 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
                                             "source": source, "notes": "", "is_sample": True, "created_at": now})
             await db.tc_jobs.insert_one({"job_id": f"TJ-{uuid.uuid4().hex[:6].upper()}", "client_id": cid,
                                          "company": company, "date": now[:10], "cabs": min(cabs, 4),
-                                         "upsells": ["engine_bay"] if plan != "one_time" else [],
+                                         "upsells": ["tire_dressing"] if plan != "one_time" else [],
                                          "price": round(min(cabs, 4) * rate + (25 if plan != "one_time" else 0), 2),
                                          "cogs": round(min(cabs, 4) * COGS_PER_CAB, 2),
                                          "status": "completed", "qb_synced": False, "notes": "", "created_at": now})
@@ -296,7 +292,7 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
         ctx = (f"Live business state: {len(clients_all)} clients "
                f"({sum(1 for c in clients_all if c['plan'] != 'one_time')} subscriptions), "
                f"{len(done)} completed jobs, revenue ${sum(j['price'] for j in done):,.0f}, "
-               f"COGS/cab $46, retail $150, fleet $125, bi-weekly sub $120. Upsells: engine bay $25, tires $20, cabin filter $15.")
+               f"COGS/cab $46, retail $150, fleet $125, bi-weekly sub $120. Upsells: tire dressing $20, ozone odor bomb $35, bedding & scent menu.")
         system = ("You are the Orisei Truck Cleaning profit advisor — a sharp, no-fluff operator coach for a semi-truck "
                   "cab cleaning business in the Twin Cities. Ground every answer in the playbook economics "
                   "(68-70% gross margin target, $180K/yr/territory goal, subscription lock-in strategy) and the live "
@@ -378,7 +374,7 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
             c.setFont("Helvetica-Bold", 18); c.setFillColor(INK); c.drawString(46, y, "Fleet Services Agreement"); y -= 30
             for h, lines in [
                 ("1 · SERVICES", ["Orisei will perform the standardized 45-minute cab cleaning specification on scheduled vehicles.",
-                                  "Optional upsells (engine bay $25, tire dressing $20, cabin filter $15) only on written approval."]),
+                                  "Optional add-ons (tire dressing $20, ozone odor bomb $35, bedding & scent services) only on written approval."]),
                 ("2 · PRICING & BILLING", ["Fleet rate $150/cab (10+ cabs) or subscription $130/cab bi-weekly.",
                                            "Invoices auto-generated on completion; Net 15. Card, ACH, or check accepted."]),
                 ("3 · SCHEDULING", ["Client provides yard access windows; Orisei provides 24h SMS confirmation.",

@@ -2597,3 +2597,9 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Download card added to Branded Docs tab in `TruckCleaning.jsx` (`tc-doc-one-pager-btn`).
 - Verified: exactly 1 page, all content present, rendered visually, button live on /truck-cleaning.
 - Pending user-requested features (deferred by user until brochure review): Merch Store Page, Contract E-Sign, Before/After Gallery, Prospect Call Log.
+
+## 2026-06 — Add-on cleanup, landing services menu, booking email alerts
+- Removed Engine Bay Degrease + Cabin Air Filter Swap from UPSELLS/UPSELL_META (truck_cleaning.py) and all references (sched guide, fleet sample data, AI prompts, agreement PDF text). Booking convert now uses UPSELLS.get() for legacy safety.
+- /wash landing: new full-color "Services & pricing" menu (ServicesMenu in WashLanding.jsx) — core spec panel, violet/cyan/rose category cards with prices, scent menu chips. site-info now returns scents.
+- Booking email alert: POST /public/booking now emails oliver@oriseifreightsolutions.com via Resend (_booking_alert_email in truck_cleaning_crew.py); falls back to recorded_no_key in outbound_emails until Resend key is configured. VERIFIED via curl + DB check.
+- GO-LIVE GAPS: Resend API key needed for real email delivery; Stripe account claim for live payments; app deployment.

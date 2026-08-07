@@ -97,9 +97,7 @@ CLEANING_GUIDE = {
     ],
     "upsells": [
         {"name": "Bunk Bed Change — $25 service + bedding products (add 10 min)", "steps": ["Strip old bedding, bag it for the driver (or swap into our laundry rotation)", "Vacuum + enzyme-treat the mattress while it's bare", "Install the new set: protector first, fitted sheet, flat sheet hotel-corner tucked, pillow", "Upsell the product: Fresh Start set $59, Premium Sleep Kit $99, pillows $29-39 — installed free with the service"]},
-        {"name": "Engine Bay Degrease — $25 (add 15 min)", "steps": ["Engine cool + battery covered", "Dry-brush loose debris", "Degreaser on painted/plastic surfaces, agitate, low-PSI rinse AVOIDING alternator/fuse box/intake", "Dress plastics matte"]},
         {"name": "Tire Dressing — $20 (add 10 min)", "steps": ["Wash sidewalls with APC + brush", "Dry fully", "Water-based dressing, two thin coats", "No sling: wipe excess before rolling"]},
-        {"name": "Cabin Air Filter — $15 (add 5 min)", "steps": ["Locate housing (usually behind glovebox/under dash)", "Photo the old filter next to the new one — instant visual upsell proof", "Install airflow-arrow correct", "Log filter size on the client record for reorder"]},
     ],
     "safety": ["Three points of contact climbing in/out — always", "Chock check + parking brake before working around a cab", "No wet products on pedals, wheel or shifter grip surfaces", "Ventilate when using solvents; nitrile gloves on chemical steps", "Never run cords/hoses across a live yard lane"],
     "quality_bar": ["Zero streaks on glass at eye level", "No product glare on dash or wheel", "Cup holders pass the fingertip test", "Cab smells neutral-clean, not perfumed", "BEFORE/AFTER photos uploaded before you leave the yard"],
