@@ -2641,3 +2641,9 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Win notification: contract sign emails oliver@ + gmail (kind tc_contract_won).
 - Job cleanup: DELETE /truck-cleaning/jobs/{id} (removes photos + unpaid invoices) + POST /jobs/purge-test-data (regex on test company names). Purge EXECUTED: 77 fake jobs, 31 test clients, 10 bookings, 13 invoices removed. Per-row trash button + Purge Test Data button in Jobs tab.
 - Testing: iteration_89 all pass (backend 4/4 pytest + full frontend flows). Delete/purge self-tested via curl + screenshot.
+
+## 2026-06 — Same-day cutoff + Crew Tomorrow view
+- Autopilot date logic: no preferred date -> same-day if before noon America/Chicago, else tomorrow (zoneinfo).
+- GET /crew/tomorrow (X-Crew-Token): my_jobs + open (claimable) jobs for tomorrow with upsell_labels, est_minutes (45/cab + 12/add-on), totals. _job_view now includes upsell_labels + est_minutes.
+- CrewPortal Tomorrow tab: workload summary, job cards w/ add-on chips, NAVIGATE (Google Maps) + CALL CLIENT buttons, claim for unassigned. Verified via curl + mobile screenshot (Marcus Reyes saw his auto-assigned job).
+- test_credentials.md corrected: TECH-FE78AB=Marcus Reyes, TECH-DD5AF9=Jaylen Brooks, TECH-605444=Tommy Nguyen.

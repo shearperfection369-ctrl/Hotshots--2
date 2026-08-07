@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
-import { Droplets, Clock, Camera, CheckCircle2, ClipboardList, BookOpenText, Megaphone, LogOut, MapPin, Loader2, ChevronDown, ChevronUp, Trophy, Star } from "lucide-react";
+import { Droplets, Clock, Camera, CheckCircle2, ClipboardList, BookOpenText, Megaphone, LogOut, MapPin, Loader2, ChevronDown, ChevronUp, Trophy, Star, CalendarDays, Phone, Navigation } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api/truck-cleaning`;
 const tokenStore = {
@@ -191,6 +191,79 @@ function TodayTab({ api }) {
   );
 }
 
+function TomorrowTab({ api }) {
+  const [data, setData] = useState(null);
+  const refresh = useCallback(() => {
+    api.get("/crew/tomorrow").then(({ data: d }) => setData(d)).catch(() => {});
+  }, [api]);
+  useEffect(() => { refresh(); }, [refresh]);
+  const claim = async (id) => {
+    try { await api.post(`/crew/jobs/${id}/claim`); toast.success("Job claimed — it's yours"); refresh(); }
+    catch { toast.error("Couldn't claim"); }
+  };
+  if (!data) return <div className="text-slate-500 text-sm font-mono p-4">Loading…</div>;
+  const hrs = Math.floor(data.total_minutes / 60), mins = data.total_minutes % 60;
+  return (
+    <div className="space-y-3" data-testid="crew-tomorrow-tab">
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Tomorrow's run · {data.date}</div>
+        {data.my_jobs.length > 0 && (
+          <span className="text-[10px] font-mono text-cyan-300">{data.total_cabs} cabs · ~{hrs ? `${hrs}h ` : ""}{mins}m</span>
+        )}
+      </div>
+      {data.my_jobs.map((j) => (
+        <div key={j.job_id} className="p-4 rounded-2xl border border-cyan-500/25 bg-slate-900/60 space-y-2.5" data-testid={`crew-tmrw-job-${j.job_id}`}>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="text-sm font-black text-white">{j.company}</div>
+              <div className="text-[10px] font-mono text-slate-500">{j.window || "anytime"} · {j.cabs} cab{j.cabs > 1 ? "s" : ""} · ~{j.est_minutes} min</div>
+            </div>
+            <span className="px-2 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 text-[9px] font-black shrink-0">SCHEDULED</span>
+          </div>
+          {j.upsell_labels?.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {j.upsell_labels.map((u) => (
+                <span key={u} className="px-2 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/40 text-violet-300 text-[9px] font-bold">{u}</span>
+              ))}
+            </div>
+          )}
+          {j.notes && <div className="text-[11px] text-slate-400 leading-snug">{j.notes}</div>}
+          <div className="flex gap-2">
+            {j.address && (
+              <a href={`https://maps.google.com/?q=${encodeURIComponent(j.address.split("\n")[0])}`} target="_blank" rel="noreferrer"
+                 className="flex-1 h-10 rounded-xl bg-cyan-500 text-black text-xs font-black flex items-center justify-center gap-1.5" data-testid={`crew-tmrw-nav-${j.job_id}`}>
+                <Navigation size={13} /> NAVIGATE
+              </a>
+            )}
+            {j.phone && (
+              <a href={`tel:${j.phone.replace(/[^0-9+]/g, "")}`}
+                 className="flex-1 h-10 rounded-xl border border-white/15 text-slate-200 text-xs font-black flex items-center justify-center gap-1.5" data-testid={`crew-tmrw-call-${j.job_id}`}>
+                <Phone size={13} /> CALL {j.contact ? j.contact.split(" ")[0].toUpperCase() : "CLIENT"}
+              </a>
+            )}
+          </div>
+        </div>
+      ))}
+      {!data.my_jobs.length && <div className="p-6 rounded-2xl border border-white/10 bg-slate-900/50 text-center text-slate-500 text-sm">Nothing assigned for tomorrow yet — check back after tonight's routing.</div>}
+      {data.open_jobs.length > 0 && (
+        <>
+          <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500 pt-2">Unassigned tomorrow ({data.open_jobs.length})</div>
+          {data.open_jobs.map((j) => (
+            <div key={j.job_id} className="p-4 rounded-2xl border border-dashed border-amber-500/30 bg-amber-500/[0.03] flex items-center justify-between" data-testid={`crew-tmrw-open-${j.job_id}`}>
+              <div>
+                <div className="text-sm font-bold text-white">{j.company}</div>
+                <div className="text-[10px] font-mono text-slate-500">{j.cabs} cab{j.cabs > 1 ? "s" : ""} · ~{j.est_minutes} min</div>
+              </div>
+              <button onClick={() => claim(j.job_id)} data-testid={`crew-tmrw-claim-${j.job_id}`}
+                className="h-9 px-4 rounded-full bg-amber-500 text-black text-xs font-black">CLAIM</button>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 function GuideTab({ api }) {
   const [g, setG] = useState(null);
   const [openPhase, setOpenPhase] = useState(0);
@@ -331,6 +404,7 @@ export default function CrewPortal() {
 
   const TABS = [
     { id: "today", label: "Today", icon: ClipboardList },
+    { id: "tomorrow", label: "Tomorrow", icon: CalendarDays },
     { id: "score", label: "Score", icon: Trophy },
     { id: "guide", label: "Guide", icon: BookOpenText },
     { id: "updates", label: "Updates", icon: Megaphone },
@@ -354,6 +428,7 @@ export default function CrewPortal() {
       <div className="p-4 space-y-4 max-w-lg mx-auto">
         {me && <ClockCard me={me} onToggle={toggleClock} busy={clockBusy} />}
         {tab === "today" && <TodayTab api={api} />}
+        {tab === "tomorrow" && <TomorrowTab api={api} />}
         {tab === "score" && <ScoreTab api={api} />}
         {tab === "guide" && <GuideTab api={api} />}
         {tab === "updates" && <UpdatesTab api={api} />}

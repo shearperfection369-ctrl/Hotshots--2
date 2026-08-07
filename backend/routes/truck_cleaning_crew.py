@@ -490,6 +490,8 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                 "contact": c.get("contact", ""), "phone": c.get("phone", ""),
                 "date": j["date"], "window": j.get("window", ""), "cabs": j["cabs"],
                 "status": j["status"], "upsells": j.get("upsells", []),
+                "upsell_labels": [UPSELL_LABEL.get(u, u) for u in j.get("upsells", [])],
+                "est_minutes": j["cabs"] * 45 + len(j.get("upsells", [])) * 12,
                 "checklist": j["checklist"], "progress_pct": round(done / max(len(j["checklist"]), 1) * 100),
                 "photos_before": sum(1 for p in photos_meta if (p.get("metadata") or {}).get("kind") == "before"),
                 "photos_after": sum(1 for p in photos_meta if (p.get("metadata") or {}).get("kind") == "after"),
@@ -510,6 +512,19 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                 open_jobs.append(v)
         mine.sort(key=lambda x: x.get("window") or "99")
         return {"date": today, "my_jobs": mine, "open_jobs": open_jobs}
+
+    @router.get("/crew/tomorrow")
+    async def crew_tomorrow(crew=Depends(get_crew)):
+        tomorrow = (datetime.now(timezone.utc).date() + timedelta(days=1)).isoformat()
+        jobs = await db.tc_jobs.find({"date": tomorrow, "status": "scheduled"}, {"_id": 0}).to_list(200)
+        clients = await db.tc_clients.find({}, {"_id": 0}).to_list(500)
+        cmap = {c["client_id"]: c for c in clients}
+        mine = [await _job_view(j, cmap) for j in jobs if crew["tech_id"] in (j.get("tech_ids") or [])]
+        open_jobs = [await _job_view(j, cmap) for j in jobs if not j.get("tech_ids")]
+        mine.sort(key=lambda x: x.get("window") or "99")
+        total_min = sum(j["est_minutes"] for j in mine)
+        return {"date": tomorrow, "my_jobs": mine, "open_jobs": open_jobs,
+                "total_cabs": sum(j["cabs"] for j in mine), "total_minutes": total_min}
 
     @router.post("/crew/jobs/{job_id}/claim")
     async def claim_job(job_id: str, crew=Depends(get_crew)):
@@ -1403,7 +1418,9 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         except ValueError:
             date = ""
         if not date:
-            date = (datetime.now(timezone.utc).date() + timedelta(days=1)).isoformat()
+            from zoneinfo import ZoneInfo
+            now_ct = datetime.now(ZoneInfo("America/Chicago"))
+            date = now_ct.date().isoformat() if now_ct.hour < 12 else (now_ct.date() + timedelta(days=1)).isoformat()
         scent_note = f" Scent: {b['scent']}." if b.get("scent") else ""
         job = {"job_id": f"TCJ-{uuid.uuid4().hex[:8].upper()}", "client_id": client["client_id"],
                "company": client["company"], "date": date, "cabs": b["cabs"],
