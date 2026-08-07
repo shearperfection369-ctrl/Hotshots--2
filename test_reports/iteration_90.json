@@ -1,0 +1,43 @@
+{
+  "summary": "Security regression tests for auth hardening (dev-session host guard + Google session allowlist gate). 11 passed, 1 skipped due to platform ingress behavior. Code inspection confirmed allowlist gate is correctly ordered before user creation and session issuance.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth_security.py",
+    "/app/test_reports/pytest/iter90.xml"
+  ],
+  "test_results": {
+    "dev_session_preview_founder_admin": "PASS — POST /api/auth/dev-session returns email=shearperfection369@gmail.com, role=admin; token authenticates GET /api/auth/me (200, same email/role).",
+    "host_header_production_spoof": "PASS — Host: oriseifreightsolutions.com and Host: clean-logistics-dash.emergent.host both return 403 at the Emergent ingress edge (blocked BEFORE reaching backend). 403 provides equivalent security to the app-level 404 guard.",
+    "host_header_preview_allowed": "PASS — Host: clean-logistics-dash.preview.emergentagent.com returns 200.",
+    "xforwarded_host_spoof": "SKIPPED (inconclusive) — Emergent ingress overwrites client-supplied X-Forwarded-Host with the legitimate preview host before forwarding to backend, so the spoof cannot reach the app to be tested end-to-end. However code inspection of _is_preview_host() (server.py:237-241) confirms XFH is checked FIRST and requires .preview.emergentagent.com suffix — the guard is present and correct.",
+    "google_session_bogus_id": "PASS — POST /api/auth/session {session_id: 'bogus-invalid-id'} returns 401 (rejected at OAuth provider fetch step). Missing session_id returns 400.",
+    "google_session_allowlist_code_inspection": "PASS — server.py:272-277 shows `if email.lower() not in allowlist: raise HTTPException(403, ...)` placed BEFORE db.users.insert_one (line 297) and session_token insert (line 307). _access_allowlist() (line 244-247) merges ADMIN_EMAILS + ALLOWED_EMAILS from env. Gate is correctly ordered — no user record or session is created for non-allowlisted emails.",
+    "protected_endpoint_no_auth": "PASS — GET /api/auth/me with no header → 401; with bogus Bearer token → 401.",
+    "admin_regression": "PASS — Founder admin token still accesses GET /api/truck-cleaning/bookings (200, returns {bookings:[...], new:N}) and GET /api/shipments (200, list)."
+  },
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Allowlist gate ordering in create_session is correct: allowlist check (line 273-277) precedes both db.users.insert_one (line 297) and db.user_sessions.insert_one (line 307). No user/session leakage for non-allowlisted Google accounts.",
+    "dev_session has proper defense-in-depth: _is_preview_host() check (line 361) AND ENABLE_DEV_LOGIN env flag (line 363). Either failing returns 404. Production deploys won't have ENABLE_DEV_LOGIN set AND won't be on *.preview.emergentagent.com — dual protection.",
+    "Minor observation: _is_preview_host uses .split(':')[0] which splits on port separator but not on comma. If a proxy chain appends multiple XFH values (rare), the endswith check would fail closed (safe default — returns 404). Behavior is acceptable.",
+    "server.py is very large (~5000+ lines based on the seed_partner_logins section shown). Should be split into modules (auth.py, shipments.py, documents.py, etc.) — pre-existing tech debt, not part of this fix."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth_security.py (new)"
+  ],
+  "success_rate": {"backend": "100% (11/11 executed passed; 1 skipped due to platform limitation)", "frontend": "n/a (backend-only per request)"},
+  "test_credentials": "Founder admin: obtained via POST /api/auth/dev-session (preview only) → email shearperfection369@gmail.com, role admin",
+  "seed_data_creation": "None. Only ephemeral dev_ session tokens for founder account (harmless, expire in 7 days).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Security hardening for /api/auth/dev-session and /api/auth/session is verified. The Emergent preview ingress blocks Host-header spoofing at 403 (before backend) and silently overrides client X-Forwarded-Host, so end-to-end spoofing of production hosts from the preview URL cannot be tested — this is a good thing (defense in depth). The app-level guards (_is_preview_host + ENABLE_DEV_LOGIN + allowlist gate before user creation) are verified via code inspection and behavioral tests where possible. When production is redeployed the founder should verify by hitting oriseifreightsolutions.com/api/auth/dev-session directly and confirming a 404.",
+  "rca_of_the_issue": "Original security holes: (1) /api/auth/dev-session issued admin sessions to anyone with no credentials and was live on production; (2) /api/auth/session accepted any valid Google account as a dispatcher. Fix verified: dev-session now guarded by _is_preview_host() (must be *.preview.emergentagent.com) AND ENABLE_DEV_LOGIN env flag (not set on production). Google session now checks _access_allowlist() (ADMIN_EMAILS + ALLOWED_EMAILS) BEFORE any db insert or session creation — non-allowlisted emails receive 403 with no side effects."
+}

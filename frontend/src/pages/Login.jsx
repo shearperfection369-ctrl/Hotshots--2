@@ -43,10 +43,11 @@ export default function Login() {
     }
   };
 
-  // One-click dev sign-in — hidden on production. Eliminates the Google OAuth
-  // round-trip on preview when backend session tokens rotate between forks.
-  const isProduction = typeof window !== "undefined" &&
-                          window.location.hostname.includes("livecleans.com");
+  // One-click dev sign-in — PREVIEW ONLY. The backend hard-blocks this on any
+  // non-preview host, and we only render the button on the preview domain so it
+  // never appears on the deployed production app.
+  const isPreview = typeof window !== "undefined" &&
+                          window.location.hostname.endsWith(".preview.emergentagent.com");
   const handleDevSignIn = async () => {
     try {
       const r = await fetch(`${BACKEND_URL}/api/auth/dev-session`, {
@@ -128,7 +129,7 @@ export default function Login() {
             Continue with Google
           </Button>
 
-          {!isProduction && (
+          {isPreview && (
             <Button
               onClick={handleDevSignIn}
               data-testid="dev-signin-btn"

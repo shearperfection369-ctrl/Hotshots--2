@@ -234,6 +234,19 @@ def _shared_cookie_domain(request: Request) -> Optional[str]:
         return None
 
 
+def _is_preview_host(request: Request) -> bool:
+    """True only on the Emergent PREVIEW environment (never production)."""
+    host = (request.headers.get("x-forwarded-host")
+            or request.headers.get("host") or "").split(":")[0].strip().lower()
+    return host.endswith(".preview.emergentagent.com")
+
+
+def _access_allowlist() -> set:
+    """Emails permitted to sign in to the TMS (admins + explicitly allowed users)."""
+    raw = (os.environ.get("ADMIN_EMAILS", "") or "") + "," + (os.environ.get("ALLOWED_EMAILS", "") or "")
+    return {e.strip().lower() for e in raw.split(",") if e.strip()}
+
+
 @api_router.post("/auth/session")
 async def create_session(request: Request, response: Response):
     body = await request.json()
@@ -253,9 +266,15 @@ async def create_session(request: Request, response: Response):
     picture = data.get("picture")
     session_token = data["session_token"]
 
-    # Admin allow-list: scalable to 250 users — admins defined by env var, all
-    # other accounts default to dispatcher. The first user ever to sign in also
-    # becomes admin so the system is never adminless.
+    # ACCESS CONTROL: only allow-listed emails may enter. Any other Google
+    # account is rejected outright — no user record, no session. Add trusted
+    # teammates via ADMIN_EMAILS / ALLOWED_EMAILS in backend/.env.
+    allowlist = _access_allowlist()
+    if email.lower() not in allowlist:
+        raise HTTPException(
+            status_code=403,
+            detail="This account is not authorized to access this application."
+        )
     admin_emails = {
         e.strip().lower()
         for e in (os.environ.get("ADMIN_EMAILS", "") or "").split(",")
@@ -273,11 +292,8 @@ async def create_session(request: Request, response: Response):
         await db.users.update_one({"user_id": user_id}, {"$set": update_fields})
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
-        user_count = await db.users.count_documents({})
-        if is_allowlisted_admin or user_count == 0:
-            initial_role = "admin"
-        else:
-            initial_role = "dispatcher"
+        # Allow-listed non-admins default to owner (trusted teammate).
+        initial_role = "admin" if is_allowlisted_admin else "owner"
         await db.users.insert_one({
             "user_id": user_id,
             "email": email,
@@ -338,6 +354,12 @@ async def dev_session(request: Request, response: Response):
     # Production guard — must be explicitly enabled via env. Production
     # deployments won't have ENABLE_DEV_LOGIN set, so this endpoint will
     # always return 404 there. Preview .env sets it to "true".
+    # Production guard (defense-in-depth): this passwordless admin shortcut is
+    # ONLY ever available on the Emergent preview host. On the deployed app
+    # (custom domain or *.emergent.host) it always 404s, even if an env flag
+    # leaks through — because the request host will not be *.preview.emergentagent.com.
+    if not _is_preview_host(request):
+        raise HTTPException(status_code=404, detail="Not available")
     if (os.environ.get("ENABLE_DEV_LOGIN") or "").lower() not in ("1", "true", "yes"):
         raise HTTPException(status_code=404, detail="Not available")
 
