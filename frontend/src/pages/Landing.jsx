@@ -107,6 +107,39 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Truck Cleaning division quick links */}
+      <section className="border-y border-white/5 bg-[#0E1830]/60" data-testid="landing-cleaning-links">
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="flex items-center gap-3 mb-6">
+            <img src="/tc-logo.png" alt="Orisei Truck Cleaning" className="h-12 w-auto" />
+            <div>
+              <div className="font-display font-black text-xl text-white">Orisei <span style={{ color: gold }}>Truck Cleaning</span></div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-slate-400">Mobile semi-cab cleaning · Twin Cities division</div>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <Link to="/wash" data-testid="landing-link-wash"
+              className="group p-5 rounded-xl border border-white/10 hover:border-[#C9A24A]/60 bg-white/[0.03] transition-colors">
+              <div className="font-bold text-sm text-white flex items-center gap-2">Book a Cleaning <ArrowRight size={13} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: gold }} /></div>
+              <div className="text-xs text-slate-400 mt-1">Clients pick services, see pricing, and get a crew auto-scheduled — 60 seconds.</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider mt-3" style={{ color: gold }}>/wash</div>
+            </Link>
+            <Link to="/crew" data-testid="landing-link-crew"
+              className="group p-5 rounded-xl border border-white/10 hover:border-[#C9A24A]/60 bg-white/[0.03] transition-colors">
+              <div className="font-bold text-sm text-white flex items-center gap-2">Crew Portal <ArrowRight size={13} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: gold }} /></div>
+              <div className="text-xs text-slate-400 mt-1">PIN sign-in for field crews — today's & tomorrow's runs, checklists, photo proof.</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider mt-3" style={{ color: gold }}>/crew</div>
+            </Link>
+            <Link to="/truck-cleaning" data-testid="landing-link-tc-owner"
+              className="group p-5 rounded-xl border border-white/10 hover:border-[#C9A24A]/60 bg-white/[0.03] transition-colors">
+              <div className="font-bold text-sm text-white flex items-center gap-2">Owner Dashboard <ArrowRight size={13} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: gold }} /></div>
+              <div className="text-xs text-slate-400 mt-1">Jobs, crews, money, prospects, contracts & branded docs. Operator sign-in required.</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider mt-3" style={{ color: gold }}>/truck-cleaning</div>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Services */}
       <section id="services" className="relative border-y border-white/5 bg-[#0E1830]/40">
         <div className="max-w-7xl mx-auto px-6 py-20">

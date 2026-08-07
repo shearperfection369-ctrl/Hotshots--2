@@ -2647,3 +2647,7 @@ retrains scoring weights from revealed preferences — making the intuitive
 - GET /crew/tomorrow (X-Crew-Token): my_jobs + open (claimable) jobs for tomorrow with upsell_labels, est_minutes (45/cab + 12/add-on), totals. _job_view now includes upsell_labels + est_minutes.
 - CrewPortal Tomorrow tab: workload summary, job cards w/ add-on chips, NAVIGATE (Google Maps) + CALL CLIENT buttons, claim for unassigned. Verified via curl + mobile screenshot (Marcus Reyes saw his auto-assigned job).
 - test_credentials.md corrected: TECH-FE78AB=Marcus Reyes, TECH-DD5AF9=Jaylen Brooks, TECH-605444=Tommy Nguyen.
+
+## 2026-06 — Landing page cleaning links
+- Main TMS landing (/home, Landing.jsx): new "Orisei Truck Cleaning" section after hero with 3 link cards — Book a Cleaning (/wash), Crew Portal (/crew), Owner Dashboard (/truck-cleaning). Shield logo + gold/azure style. Screenshot verified.
+- Custom domain confirmed live: oriseifreightsolutions.com serves the deployed app (root + /wash + API all 200). User advised to re-download QR collateral from the domain so QRs embed branded URL.
