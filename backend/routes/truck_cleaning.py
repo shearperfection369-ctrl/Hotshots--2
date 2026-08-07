@@ -235,6 +235,36 @@ def build_truck_cleaning_router(*, db, require_role: Callable) -> APIRouter:
                 await db.tc_jobs.update_one({"job_id": job_id}, {"$set": {"inventory_consumed": True}})
         return {"ok": True}
 
+    @router.delete("/jobs/{job_id}")
+    async def delete_job(job_id: str, _=Depends(guard)) -> Dict[str, Any]:
+        job = await db.tc_jobs.find_one({"job_id": job_id}, {"_id": 0})
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        await db.tc_jobs.delete_one({"job_id": job_id})
+        photos = await db["tc_photos.files"].find({"metadata.job_id": job_id}, {"_id": 1}).to_list(100)
+        for f in photos:
+            await db["tc_photos.chunks"].delete_many({"files_id": f["_id"]})
+            await db["tc_photos.files"].delete_one({"_id": f["_id"]})
+        await db.tc_invoices.delete_many({"job_id": job_id, "status": {"$ne": "paid"}})
+        return {"ok": True, "deleted": job_id, "photos_removed": len(photos)}
+
+    TEST_COMPANY_RE = r"^(TEST_|QA |Router Test|Smoke Fleet|SMS Test|AutoInv Test|Test Yard|scsxc|Demo Yard|Dual Alert Test|Booking Alert Live Test|Resend Live Test|E-Sign Flow Test)"
+
+    @router.post("/jobs/purge-test-data")
+    async def purge_test_data(_=Depends(guard)) -> Dict[str, Any]:
+        q = {"company": {"$regex": TEST_COMPANY_RE, "$options": "i"}}
+        job_ids = [j["job_id"] async for j in db.tc_jobs.find(q, {"_id": 0, "job_id": 1})]
+        for f in await db["tc_photos.files"].find({"metadata.job_id": {"$in": job_ids}}, {"_id": 1}).to_list(1000):
+            await db["tc_photos.chunks"].delete_many({"files_id": f["_id"]})
+            await db["tc_photos.files"].delete_one({"_id": f["_id"]})
+        counts = {}
+        for col in ("tc_jobs", "tc_clients", "tc_bookings", "tc_invoices", "tc_agreements", "tc_recurring"):
+            r = await db[col].delete_many(q)
+            counts[col] = r.deleted_count
+        return {"ok": True, "removed": counts,
+                "message": f"Purged {counts['tc_jobs']} test jobs, {counts['tc_clients']} test clients, "
+                           f"{counts['tc_bookings']} bookings, {counts['tc_invoices']} invoices."}
+
     # ---------- Revenue metrics ----------
     @router.get("/metrics")
     async def metrics(_=Depends(guard)) -> Dict[str, Any]:

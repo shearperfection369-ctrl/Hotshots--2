@@ -2632,3 +2632,12 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Business Card print PDF (_business_card in truck_cleaning_brochure.py, doc id business-card): 3.5x2 front/back, scan-to-book QR, crop marks, printer notes. In Branded Docs tab.
 - Testing: iteration_88.json — frontend 100% pass, no issues. Demo agreement 'Demo Yard (UI preview)' left in DB for user preview.
 - Yard Blast requires user to enter real yard-manager emails (never guessed).
+
+## 2026-06 — Detailed booking + AI Autopilot + callbacks/gallery/win-email + job cleanup
+- /wash booking rebuilt: plan picker ($175/$130/$150), full itemized service picker (all add-ons/fresheners/bedding with prices+desc), free scent picker, live estimated total, AI-scheduled success state (date + crew chips).
+- AI AUTOPILOT (truck_cleaning_crew.py _booking_autopilot): public booking auto-creates client + scheduled job (preferred date or tomorrow), routes best tech via shared _route_date (refactored from /router/auto-assign), booking->converted, alert email includes job+crew. BookingIn extended with plan+scent.
+- Callback Reminders card + LOG CALL panel per prospect (TcBookings.jsx) using existing call-log backend.
+- Before/After gallery section on /wash (public/gallery + public/photo endpoints, pre-existing backend).
+- Win notification: contract sign emails oliver@ + gmail (kind tc_contract_won).
+- Job cleanup: DELETE /truck-cleaning/jobs/{id} (removes photos + unpaid invoices) + POST /jobs/purge-test-data (regex on test company names). Purge EXECUTED: 77 fake jobs, 31 test clients, 10 bookings, 13 invoices removed. Per-row trash button + Purge Test Data button in Jobs tab.
+- Testing: iteration_89 all pass (backend 4/4 pytest + full frontend flows). Delete/purge self-tested via curl + screenshot.

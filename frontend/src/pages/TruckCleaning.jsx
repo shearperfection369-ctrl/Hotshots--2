@@ -196,9 +196,21 @@ function Jobs({ jobs, clients, reload }) {
     catch (e2) { toast.error(errTxt(e2)); }
   };
   const setStatus = async (id, status) => { try { await api.post(`/truck-cleaning/jobs/${id}/status`, { status }); reload(); } catch (e2) { toast.error(errTxt(e2)); } };
+  const delJob = async (j) => {
+    if (!window.confirm(`Delete job ${j.job_id} (${j.company})? This also removes its photos and unpaid invoices.`)) return;
+    try { await api.delete(`/truck-cleaning/jobs/${j.job_id}`); toast.success(`Job ${j.job_id} deleted`); reload(); }
+    catch (e2) { toast.error(errTxt(e2)); }
+  };
+  const purgeTest = async () => {
+    if (!window.confirm("Purge ALL test/fake data? This deletes every job, client, booking, invoice and agreement whose company name matches test patterns (TEST_, QA, Router Test, Smoke Fleet, Demo Yard, etc). Real clients are untouched.")) return;
+    try { const { data } = await api.post("/truck-cleaning/jobs/purge-test-data"); toast.success(data.message); reload(); }
+    catch (e2) { toast.error(errTxt(e2)); }
+  };
   return (
     <div>
       <div className="flex justify-end gap-2 mb-3">
+        <button onClick={purgeTest} data-testid="tc-purge-test-btn" title="Delete all jobs/clients/bookings with test company names — real data untouched"
+                className="px-4 py-2 rounded-full border border-red-500/50 text-red-300 font-bold text-xs inline-flex items-center gap-1.5 hover:bg-red-500/10"><Trash2 size={13} /> Purge Test Data</button>
         <button onClick={runReminders} data-testid="tc-run-reminders-btn" title="SMS every client with a job tomorrow — includes one-tap reschedule link"
                 className="px-4 py-2 rounded-full border border-cyan-500/50 text-cyan-300 font-bold text-xs inline-flex items-center gap-1.5 hover:bg-cyan-500/10"><Send size={13} /> Text Tomorrow's Reminders</button>
         <button onClick={() => setOpen(!open)} data-testid="tc-add-job-btn" className="px-4 py-2 rounded-full bg-amber-500 text-black font-bold text-xs inline-flex items-center gap-1.5"><Plus size={13} /> Schedule Job</button>
@@ -258,7 +270,15 @@ function Jobs({ jobs, clients, reload }) {
                     <option value="scheduled">scheduled</option><option value="completed">completed</option><option value="paid">paid</option>
                   </select>
                 </td>
-                <td className="p-3"><TcJobActions job={j} reload={reload} /></td>
+                <td className="p-3">
+                  <div className="flex items-center gap-1">
+                    <TcJobActions job={j} reload={reload} />
+                    <button onClick={() => delJob(j)} data-testid={`tc-job-delete-${j.job_id}`} title="Delete this job"
+                            className="h-8 w-8 grid place-items-center rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
