@@ -2616,5 +2616,5 @@ retrains scoring weights from revealed preferences — making the intuitive
 ## 2026-06 — Resend domain VERIFIED, client-facing email live
 - User verified oriseifreightsolutions.com in Resend. from_email switched to bookings@oriseifreightsolutions.com in Connections.
 - Verified live send to a non-account-owner recipient (oliver@oriseifreightsolutions.com) — sent:True with message_id. Yard promo, invoices, review requests can now email anyone.
-- Booking alerts still route to shearperfection369@gmail.com.
+- Booking alerts now route to oliver@oriseifreightsolutions.com (changed on user request, live-send verified).
 - NOTE: Connections creds live in each environment's DB — production deployment needs the Resend key entered in its own Connections screen.
