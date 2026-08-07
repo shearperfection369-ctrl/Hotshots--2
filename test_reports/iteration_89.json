@@ -1,0 +1,28 @@
+{
+  "summary": "Comprehensive E2E test of new Orisei Truck Cleaning batch (Callback Reminders, LOG CALL panel, Before/After Gallery, Win Notification email, Detailed /wash booking with plan/services/scent pickers + live total, AI Autopilot). ALL BACKEND AND FRONTEND TESTS PASS. Backend pytest: 4/4 passed (autopilot booking creates client+job+converted booking+tech assignment (Marcus Reyes) with price=$280 & upsells=['tire_dressing'], invalid plan defaults to one_time, past preferred_date falls back to tomorrow, win email fires — 2 outbound_emails kind='tc_contract_won' status='sent' to oliver@ and shearperfection369@). Frontend /wash: gallery shows 4 pairs (8 imgs, natural width > 0, all loaded from /api/truck-cleaning/public/photo/{id}); plan picker toggles (default one_time $175 → biweekly + 2 cabs + tire_dressing = $280 live-updated in wash-booking-total); scent chip (wash-scent-black-ice) toggles; submit shows wash-booking-success with date chip=tomorrow (2026-08-08) and crew chip='CREW: MARCUS REYES'. Frontend /truck-cleaning Bookings tab: LOG CALL panel for YP-03 opens with outcome/notes/callback-date, SAVE CALL persists; after reload CALLBACKS DUE card (tc-callback-reminders) renders at top with tc-callback-YP-03 showing 'DUE TODAY' badge + last_call_outcome=spoke + stage=pitched; tc-callback-log-YP-03 button re-opens the call panel. Regression OK: share-link card, yard-blast, CONTRACT flow, prospect list all render; converted auto-booking (QA UI Booking Co) shows in list. Cleanup done: deleted QA Autopilot Yard/QA UI Booking Co/QA Win Yard artifacts + reset YP-03.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_tc_new_batch.py", "/app/test_reports/pytest/tc_new_batch.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "public_booking wraps _booking_autopilot in a bare try/except (line 1368) — swallows all failures silently. Consider logging inner exception so autopilot regressions are visible in backend logs.",
+    "_booking_autopilot doesn't dedupe by phone — two bookings from the same yard would create two clients (matches only on company name). If same company signs up with typo variants, duplicates will pile up. Low priority for MVP but worth a normalization step (strip/case-insensitive lookup) later.",
+    "_booking_alert_email sends 2 real emails per public booking (both oliver@ and shearperfection369@). This is by design per task, but at scale it's noisy — consider making the second recipient a config value.",
+    "sign_agreement win email loop (line 1281-1287) uses same subject/html for both recipients — fine, but note that outbound_emails records duplicate html blobs (~1KB each). Minor storage concern.",
+    "Frontend WashLanding scent testid uses `s.replace(/[^a-z0-9]+/gi,'-').toLowerCase()` so 'Black Ice' → 'black-ice'. Works, but if the SCENT_MENU ever has trailing punctuation the testid becomes fragile (e.g. 'Cool Breeze!' → 'cool-breeze-'). Consider stripping trailing hyphens.",
+    "public_booking response returns tech_name as empty string when no active tech — UI hides crew chip correctly (`{sent.tech_name && …}`), good defensive rendering.",
+    "Some console 401s observed on /wash and /truck-cleaning page loads (likely /api/auth/me or similar polling endpoints hit before token is applied). Non-blocking but adds noise to production error logs — consider suppressing or short-circuiting when no session token is present."
+  ],
+  "updated_files": ["/app/backend/tests/test_tc_new_batch.py"],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100%"},
+  "test_credentials": "localStorage tms_session_token=test_session_admin_1 / Bearer test_session_admin_1",
+  "seed_data_creation": "Created and cleaned up: QA Autopilot Yard (booking+job+client), QA Autopilot Yard Bad (booking+job+client for invalid-input test), QA UI Booking Co (UI-submitted booking+job+client), QA Win Yard (agreement+client+recurring — signed, sent 2 REAL emails to oliver@oriseifreightsolutions.com and shearperfection369@gmail.com per intended behavior), 1 prospect_call for YP-03 (deleted + reset stage/callback_date/last_call_outcome).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Full batch (autopilot, callback reminders, LOG CALL, win email, detailed wash booking, gallery) verified end-to-end. Backend regression suite at /app/backend/tests/test_tc_new_batch.py — run with `pytest backend/tests/test_tc_new_batch.py -v`. Note that each run will send REAL Resend emails for the win notification test (2 emails/run) — task says this is intended. tc_prospect_calls collection is used for call history. Callback reminders card renders when any prospect has callback_date <= today AND stage not in dead/signed.",
+  "rca of the issue": "n/a — no functional issues found."
+}

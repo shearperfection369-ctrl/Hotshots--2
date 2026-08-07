@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 import { Card } from "../ui/card";
-import { Inbox, CheckCircle2, X, ExternalLink, Crosshair, Send, Link as LinkIcon, Copy, Download, PenLine } from "lucide-react";
+import { Inbox, CheckCircle2, X, ExternalLink, Crosshair, Send, Link as LinkIcon, Copy, Download, PenLine, PhoneCall } from "lucide-react";
 
 const STATUS_STYLE = {
   new: "bg-amber-500/15 text-amber-300 border-amber-500/30",
@@ -98,6 +98,37 @@ function YardBlast({ prospects, reload }) {
   );
 }
 
+function CallbackReminders({ prospects, onJump }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const due = (prospects || []).filter((p) => p.callback_date && p.callback_date <= today && !["signed", "dead"].includes(p.stage));
+  if (!due.length) return null;
+  return (
+    <Card className="p-4 bg-slate-950/70 border-rose-500/40" data-testid="tc-callback-reminders">
+      <h3 className="text-sm font-black text-rose-300 flex items-center gap-2 mb-2">
+        <PhoneCall size={15} /> CALLBACKS DUE — DON'T LET A YARD SLIP
+        <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black">{due.length}</span>
+      </h3>
+      <div className="space-y-1.5">
+        {due.map((p) => (
+          <div key={p.prospect_id} className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-white/10 bg-white/[0.02] flex-wrap" data-testid={`tc-callback-${p.prospect_id}`}>
+            <div className="min-w-0">
+              <span className="text-xs font-bold text-white">{p.name}</span>
+              <span className={`ml-2 text-[9px] font-mono uppercase px-1.5 py-0.5 rounded ${p.callback_date < today ? "bg-rose-500/20 text-rose-300" : "bg-amber-500/20 text-amber-300"}`}>
+                {p.callback_date < today ? `OVERDUE · ${p.callback_date}` : "DUE TODAY"}
+              </span>
+              <div className="text-[10px] font-mono text-slate-500">
+                {p.phone || "no phone on file"}{p.last_call_outcome ? ` · last call: ${p.last_call_outcome.replace("_", " ")}` : ""} · stage: {p.stage}
+              </div>
+            </div>
+            <button onClick={() => onJump(p.prospect_id)} data-testid={`tc-callback-log-${p.prospect_id}`}
+              className="px-4 py-1.5 rounded-full bg-rose-500 text-white text-[10px] font-black shrink-0">LOG THE CALL</button>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function ProspectList() {
   const [data, setData] = useState(null);
   const [emailFor, setEmailFor] = useState(null);
@@ -106,6 +137,10 @@ function ProspectList() {
   const [contractFor, setContractFor] = useState(null);
   const [cCabs, setCCabs] = useState(4);
   const [cFreq, setCFreq] = useState("biweekly");
+  const [callFor, setCallFor] = useState(null);
+  const [callOutcome, setCallOutcome] = useState("spoke");
+  const [callNotes, setCallNotes] = useState("");
+  const [callbackDate, setCallbackDate] = useState("");
   const load = () => api.get("/truck-cleaning/yard-prospects").then(({ data: d }) => setData(d)).catch(() => {});
   useEffect(() => { load(); }, []);
   const setStage = async (p, stage) => {
@@ -136,8 +171,21 @@ function ProspectList() {
     } catch (e2) { toast.error(e2?.response?.data?.detail || "Could not create contract"); }
     finally { setSending(false); }
   };
+  const submitCall = async (p) => {
+    setSending(true);
+    try {
+      const { data: r } = await api.post(`/truck-cleaning/yard-prospects/${p.prospect_id}/call`,
+        { outcome: callOutcome, notes: callNotes, callback_date: callbackDate });
+      toast.success(`Call logged — ${r.call.outcome.replace("_", " ")}${callbackDate ? ` · callback ${callbackDate}` : ""}`);
+      setCallFor(null); setCallNotes(""); setCallbackDate("");
+      load();
+    } catch (e2) { toast.error(e2?.response?.data?.detail || "Could not log call"); }
+    finally { setSending(false); }
+  };
   if (!data) return null;
   return (
+    <>
+    <CallbackReminders prospects={data.prospects} onJump={(id) => { setCallFor(id); setContractFor(null); setEmailFor(null); }} />
     <Card className="p-4 bg-slate-950/70 border-amber-500/25" data-testid="tc-prospects">
       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -179,6 +227,11 @@ function ProspectList() {
                   data-testid={`tc-prospect-contract-${p.prospect_id}`}>
                   <PenLine size={11} /> CONTRACT
                 </button>
+                <button onClick={() => { setCallFor(callFor === p.prospect_id ? null : p.prospect_id); setEmailFor(null); setContractFor(null); }}
+                  className="h-8 px-3 rounded-full bg-cyan-500 text-black text-[10px] font-black flex items-center gap-1"
+                  data-testid={`tc-prospect-call-${p.prospect_id}`}>
+                  <PhoneCall size={11} /> LOG CALL{p.call_count ? ` (${p.call_count})` : ""}
+                </button>
               </div>
             </div>
             {emailFor === p.prospect_id && (
@@ -213,10 +266,35 @@ function ProspectList() {
                 {p.email && <span className="text-[9px] font-mono text-emerald-400">will also email {p.email}</span>}
               </div>
             )}
+            {callFor === p.prospect_id && (
+              <div className="flex flex-wrap items-center gap-2 mt-2" data-testid={`tc-call-panel-${p.prospect_id}`}>
+                <select value={callOutcome} onChange={(e) => setCallOutcome(e.target.value)}
+                  className="h-8 px-2 rounded-lg bg-[#11151F] border border-cyan-500/40 text-[10px] font-mono text-cyan-300"
+                  data-testid={`tc-call-outcome-${p.prospect_id}`}>
+                  <option value="spoke">SPOKE TO SOMEONE</option>
+                  <option value="meeting_set">MEETING SET</option>
+                  <option value="voicemail">LEFT VOICEMAIL</option>
+                  <option value="no_answer">NO ANSWER</option>
+                  <option value="not_interested">NOT INTERESTED</option>
+                </select>
+                <input value={callNotes} onChange={(e) => setCallNotes(e.target.value)} placeholder="notes — who, what, objections…"
+                  className="h-8 px-3 rounded-full bg-[#11151F] border border-cyan-500/40 text-[11px] text-white flex-1 min-w-[180px] outline-none focus:border-cyan-300"
+                  data-testid={`tc-call-notes-${p.prospect_id}`} />
+                <input type="date" value={callbackDate} onChange={(e) => setCallbackDate(e.target.value)}
+                  className="h-8 px-2 rounded-lg bg-[#11151F] border border-cyan-500/40 text-[10px] text-slate-300 outline-none"
+                  data-testid={`tc-call-callback-${p.prospect_id}`} />
+                <button onClick={() => submitCall(p)} disabled={sending}
+                  className="h-8 px-4 rounded-full bg-cyan-500 text-black text-[10px] font-black disabled:opacity-50"
+                  data-testid={`tc-call-save-${p.prospect_id}`}>
+                  {sending ? "SAVING…" : "SAVE CALL"}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
     </Card>
+    </>
   );
 }
 

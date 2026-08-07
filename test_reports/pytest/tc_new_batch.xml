@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="4" time="0.231" timestamp="2026-08-07T19:02:09.967249+00:00" hostname="agent-env-76fe2d30-fcd7-45b5-8fb4-0ddf9ce5af8c"><testcase classname="backend.tests.test_tc_new_batch" name="test_public_booking_autopilot" time="0.001"><failure message="requests.exceptions.MissingSchema: Invalid URL '/api/truck-cleaning/public/booking': No scheme supplied. Perhaps you meant https:///api/truck-cleaning/public/booking?">backend/tests/test_tc_new_batch.py:35: in test_public_booking_autopilot
+    r = sess.post(f"{BASE_URL}/api/truck-cleaning/public/booking", json=payload)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:640: in post
+    return self.request("POST", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:578: in request
+    prep = self.prepare_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:487: in prepare_request
+    p.prepare(
+/root/.venv/lib/python3.11/site-packages/requests/models.py:369: in prepare
+    self.prepare_url(url, params)
+/root/.venv/lib/python3.11/site-packages/requests/models.py:440: in prepare_url
+    raise MissingSchema(
+E   requests.exceptions.MissingSchema: Invalid URL '/api/truck-cleaning/public/booking': No scheme supplied. Perhaps you meant https:///api/truck-cleaning/public/booking?</failure></testcase><testcase classname="backend.tests.test_tc_new_batch" name="test_invalid_plan_and_past_date" time="0.001"><failure message="requests.exceptions.MissingSchema: Invalid URL '/api/truck-cleaning/public/booking': No scheme supplied. Perhaps you meant https:///api/truck-cleaning/public/booking?">backend/tests/test_tc_new_batch.py:80: in test_invalid_plan_and_past_date
+    r = sess.post(f"{BASE_URL}/api/truck-cleaning/public/booking", json=payload)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:640: in post
+    return self.request("POST", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:578: in request
+    prep = self.prepare_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:487: in prepare_request
+    p.prepare(
+/root/.venv/lib/python3.11/site-packages/requests/models.py:369: in prepare
+    self.prepare_url(url, params)
+/root/.venv/lib/python3.11/site-packages/requests/models.py:440: in prepare_url
+    raise MissingSchema(
+E   requests.exceptions.MissingSchema: Invalid URL '/api/truck-cleaning/public/booking': No scheme supplied. Perhaps you meant https:///api/truck-cleaning/public/booking?</failure></testcase><testcase classname="backend.tests.test_tc_new_batch" name="test_win_notification_email" time="0.001"><failure message="requests.exceptions.MissingSchema: Invalid URL '/api/truck-cleaning/agreements': No scheme supplied. Perhaps you meant https:///api/truck-cleaning/agreements?">backend/tests/test_tc_new_batch.py:100: in test_win_notification_email
+    r = sess.post(f"{BASE_URL}/api/truck-cleaning/agreements",
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:640: in post
+    return self.request("POST", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:578: in request
+    prep = self.prepare_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:487: in prepare_request
+    p.prepare(
+/root/.venv/lib/python3.11/site-packages/requests/models.py:369: in prepare
+    self.prepare_url(url, params)
+/root/.venv/lib/python3.11/site-packages/requests/models.py:440: in prepare_url
+    raise MissingSchema(
+E   requests.exceptions.MissingSchema: Invalid URL '/api/truck-cleaning/agreements': No scheme supplied. Perhaps you meant https:///api/truck-cleaning/agreements?</failure></testcase><testcase classname="backend.tests.test_tc_new_batch" name="test_zzz_cleanup" time="0.096" /></testsuite></testsuites>

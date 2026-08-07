@@ -343,6 +343,8 @@ class BookingIn(BaseModel):
     cabs: int = Field(1, ge=1, le=200)
     preferred_date: str = Field("", max_length=10)
     services: List[str] = Field(default_factory=list)
+    plan: str = Field("one_time", max_length=20)
+    scent: str = Field("", max_length=60)
     notes: str = Field("", max_length=500)
 
 
@@ -727,11 +729,17 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
     @router.post("/router/auto-assign")
     async def auto_assign(payload: AutoAssignIn, _=Depends(guard)):
         date = payload.date or _today()
+        techs = await db.tc_techs.find({"active": True}, {"_id": 0, "pin_hash": 0, "pin_lookup": 0}).to_list(100)
+        if not techs:
+            raise HTTPException(400, "No active crews to assign")
+        return await _route_date(date)
+
+    async def _route_date(date: str):
         jobs = await db.tc_jobs.find({"date": date}, {"_id": 0}).to_list(300)
         unassigned = [j for j in jobs if j["status"] == "scheduled" and not j.get("tech_ids")]
         techs = await db.tc_techs.find({"active": True}, {"_id": 0, "pin_hash": 0, "pin_lookup": 0}).to_list(100)
         if not techs:
-            raise HTTPException(400, "No active crews to assign")
+            return {"ok": False, "date": date, "assigned": [], "message": "No active crews in the system yet."}
         if not unassigned:
             return {"ok": True, "date": date, "assigned": [], "message": "Nothing to route — every job already has a crew."}
         pings = {p["tech_id"]: p for p in await db.tc_crew_pings.find({}, {"_id": 0}).to_list(100)}
@@ -1257,6 +1265,28 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         if a.get("prospect_id"):
             await db.tc_yard_prospects.update_one({"prospect_id": a["prospect_id"]},
                                                   {"$set": {"stage": "signed", "last_touch": _now()}})
+        try:
+            from routes.orisei_auto_digest import _resend_creds, _send_via_resend
+            subject = f"CONTRACT SIGNED — {a['company']} · {a['cabs']} cabs {a['frequency']} · ${a['monthly_value']:,.0f}/mo"
+            html = (f"<div style='font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#0D1117'>"
+                    f"<div style='background:#059669;padding:18px 24px'>"
+                    f"<span style='color:#fff;font-size:11px;letter-spacing:3px;font-family:Courier,monospace'>ORISEI TRUCK CLEANING</span>"
+                    f"<div style='color:#fff;font-size:20px;font-weight:800;margin-top:6px'>You just won a yard.</div></div>"
+                    f"<div style='padding:20px 24px;border:1px solid #E2E8F0;border-top:none;font-size:14px;line-height:1.7'>"
+                    f"<p><b>{a['company']}</b> signed the {a['frequency']} lock-in.</p>"
+                    f"<p>Signed by: <b>{sig['name']}</b>{(' — ' + sig['title']) if sig.get('title') else ''}<br>"
+                    f"Cabs: <b>{a['cabs']}</b> · Rate: <b>${a['rate']:.0f}/cab</b> · Est. monthly: <b>${a['monthly_value']:,.0f}</b></p>"
+                    f"<p>The client + recurring yard slot were created automatically. Call to confirm their first yard day.</p></div></div>")
+            creds = await _resend_creds(db)
+            for to in ("oliver@oriseifreightsolutions.com", "shearperfection369@gmail.com"):
+                res = await _send_via_resend(creds, to=to, subject=subject, html=html) if creds \
+                    else {"sent": False, "error": "no_resend_creds"}
+                await db.outbound_emails.insert_one({
+                    "to": to, "subject": subject, "html": html,
+                    "status": "sent" if res.get("sent") else "recorded_no_key", "error": res.get("error"),
+                    "kind": "tc_contract_won", "company": a["company"], "at": _now()})
+        except Exception:  # noqa: BLE001
+            pass
         return {"ok": True, "message": f"Signed — welcome aboard, {a['company']}! Your lock-in slot is reserved; "
                                        "we'll call to confirm your yard day."}
 
@@ -1326,16 +1356,71 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
     async def public_booking(payload: BookingIn, request: Request):
         await _rate_limit(request, scope="booking")
         services = [s for s in payload.services if s in UPSELLS]
-        doc = {**payload.model_dump(), "services": services,
+        plan = payload.plan if payload.plan in ("one_time", "fleet", "biweekly") else "one_time"
+        doc = {**payload.model_dump(), "services": services, "plan": plan,
                "booking_id": f"BOOK-{uuid.uuid4().hex[:6].upper()}",
                "status": "new", "created_at": _now()}
         await db.tc_bookings.insert_one(dict(doc))
+        # ---- AI autopilot: create client + job, pick the date, route a crew ----
+        try:
+            auto = await _booking_autopilot(doc)
+            doc.update(auto)
+        except Exception:  # noqa: BLE001
+            pass
         try:
             await _booking_alert_email(doc)
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
+        if doc.get("job_id"):
+            when = doc.get("scheduled_date", "")
+            crew = f" Crew {doc['tech_name']} is on it." if doc.get("tech_name") else ""
+            return {"ok": True, "booking_id": doc["booking_id"], "scheduled_date": when,
+                    "tech_name": doc.get("tech_name", ""),
+                    "message": f"You're booked for {when}!{crew} We'll call to confirm the yard window."}
         return {"ok": True, "booking_id": doc["booking_id"],
                 "message": "Request received — we'll confirm your slot within one business day."}
+
+    async def _booking_autopilot(b: dict) -> dict:
+        """Auto-convert a public booking: client + scheduled job + crew routing."""
+        rates = {"one_time": 175.0, "fleet": 150.0, "biweekly": 130.0}
+        plans = {"one_time": "one_time", "fleet": "fleet_sub", "biweekly": "biweekly_sub"}
+        rate = rates[b["plan"]]
+        client = await db.tc_clients.find_one({"company": b["company"]}, {"_id": 0})
+        if not client:
+            client = {"client_id": f"TCC-{uuid.uuid4().hex[:8].upper()}", "company": b["company"],
+                      "contact": b.get("contact", ""), "phone": b.get("phone", ""),
+                      "email": b.get("email", ""), "cabs": b["cabs"], "plan": plans[b["plan"]],
+                      "rate": rate, "source": "booking_autopilot", "notes": b.get("notes", ""),
+                      "created_at": _now()}
+            await db.tc_clients.insert_one(dict(client))
+            client.pop("_id", None)
+        today = _today()
+        date = b.get("preferred_date") or ""
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+            if date < today:
+                date = ""
+        except ValueError:
+            date = ""
+        if not date:
+            date = (datetime.now(timezone.utc).date() + timedelta(days=1)).isoformat()
+        scent_note = f" Scent: {b['scent']}." if b.get("scent") else ""
+        job = {"job_id": f"TCJ-{uuid.uuid4().hex[:8].upper()}", "client_id": client["client_id"],
+               "company": client["company"], "date": date, "cabs": b["cabs"],
+               "upsells": b.get("services", []),
+               "price": round(b["cabs"] * rate + sum(UPSELLS.get(u, 0) for u in b.get("services", [])), 2),
+               "cogs": round(b["cabs"] * 46.0, 2), "status": "scheduled",
+               "notes": f"AI-booked from {b['booking_id']} ({b['plan']}).{scent_note} {b.get('notes', '')}".strip(),
+               "checklist": _build_checklist(b.get("services", [])), "created_at": _now()}
+        await db.tc_jobs.insert_one(dict(job))
+        routing = await _route_date(date)
+        tech_name = next((r["tech_name"] for r in routing.get("assigned", []) if r["job_id"] == job["job_id"]), "")
+        await db.tc_bookings.update_one({"booking_id": b["booking_id"]}, {"$set": {
+            "status": "converted", "converted_at": _now(), "auto_piloted": True,
+            "client_id": client["client_id"], "job_id": job["job_id"],
+            "scheduled_date": date, "tech_name": tech_name}})
+        return {"client_id": client["client_id"], "job_id": job["job_id"],
+                "scheduled_date": date, "tech_name": tech_name}
 
     async def _booking_alert_email(b: dict):
         from routes.orisei_auto_digest import _resend_creds, _send_via_resend
@@ -1343,9 +1428,15 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         svc_labels = [u["label"] for u in UPSELL_META if u["id"] in b.get("services", [])]
         rows = [("Company", b.get("company", "—")), ("Contact", b.get("contact") or "—"),
                 ("Phone", b.get("phone") or "—"), ("Email", b.get("email") or "—"),
-                ("Cabs", str(b.get("cabs", 1))), ("Preferred date", b.get("preferred_date") or "flexible"),
-                ("Add-ons", ", ".join(svc_labels) or "none"), ("Notes", b.get("notes") or "—"),
+                ("Cabs", str(b.get("cabs", 1))),
+                ("Plan", {"one_time": "One-Time $175", "fleet": "Fleet $150", "biweekly": "Bi-Weekly $130"}.get(b.get("plan", ""), b.get("plan") or "—")),
+                ("Preferred date", b.get("preferred_date") or "flexible"),
+                ("Add-ons", ", ".join(svc_labels) or "none"),
+                ("Scent", b.get("scent") or "—"), ("Notes", b.get("notes") or "—"),
                 ("Booking ID", b.get("booking_id", ""))]
+        if b.get("job_id"):
+            rows += [("AI AUTOPILOT", f"Job {b['job_id']} scheduled for {b.get('scheduled_date', '?')}"),
+                     ("Crew assigned", b.get("tech_name") or "NO ACTIVE CREW — assign in the TMS")]
         table = "".join(f"<tr><td style='padding:6px 14px 6px 0;color:#64748B;font-size:12px;white-space:nowrap'>{k}</td>"
                         f"<td style='padding:6px 0;font-size:13px;font-weight:600'>{v}</td></tr>" for k, v in rows)
         subject = f"NEW BOOKING — {b.get('company', 'Unknown')} · {b.get('cabs', 1)} cab(s)"

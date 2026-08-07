@@ -122,27 +122,64 @@ function ServicesMenu({ info }) {
   );
 }
 
+function BeforeAfterGallery() {
+  const [pairs, setPairs] = useState([]);
+  useEffect(() => { axios.get(`${API}/public/gallery`).then(({ data }) => setPairs((data.pairs || []).slice(0, 4))).catch(() => {}); }, []);
+  if (!pairs.length) return null;
+  return (
+    <section className="px-6 md:px-12 py-14 border-t border-white/10" data-testid="wash-gallery">
+      <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-emerald-300 mb-2">Straight off our crews' phones · no staging</div>
+      <h2 className="text-lg font-black mb-6">Real cabs. Real results.</h2>
+      <div className="grid sm:grid-cols-2 gap-4 max-w-5xl">
+        {pairs.map((p) => (
+          <div key={p.job_id} className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden backdrop-blur hover:border-emerald-500/40 transition-colors" data-testid={`wash-gallery-pair-${p.job_id}`}>
+            <div className="grid grid-cols-2">
+              {[["BEFORE", p.before, "bg-rose-500"], ["AFTER", p.after, "bg-emerald-500"]].map(([label, id, chip]) => (
+                <div key={label} className="relative">
+                  <img src={`${API}/public/photo/${id}`} alt={`${label} — cab cleaning`} loading="lazy"
+                    className="w-full h-44 object-cover" />
+                  <span className={`absolute top-2 left-2 px-2 py-0.5 rounded ${chip} text-white text-[9px] font-black tracking-widest`}>{label}</span>
+                </div>
+              ))}
+            </div>
+            <div className="px-4 py-2.5 flex items-center justify-between text-[10px] font-mono text-slate-500">
+              <span className="flex items-center gap-1.5"><Camera size={11} className="text-cyan-300" /> Time-stamped crew photo proof</span>
+              <span>{p.date}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function WashLanding() {
   const [info, setInfo] = useState(null);
   const [form, setForm] = useState({ company: "", contact: "", phone: "", email: "", cabs: 1, preferred_date: "", notes: "" });
+  const [plan, setPlan] = useState("one_time");
+  const [scent, setScent] = useState("");
   const [sel, setSel] = useState([]);
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState(null);
   useEffect(() => { axios.get(`${API}/public/site-info`).then(({ data }) => setInfo(data)).catch(() => {}); }, []);
 
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
     try {
-      const { data } = await axios.post(`${API}/public/booking`, { ...form, cabs: Number(form.cabs) || 1, services: sel });
+      const { data } = await axios.post(`${API}/public/booking`, { ...form, cabs: Number(form.cabs) || 1, services: sel, plan, scent });
       toast.success(data.message);
-      setSent(true);
+      setSent(data);
     } catch (e2) {
       toast.error(e2?.response?.data?.detail || "Something went wrong — call us at (763) 443-4459");
     } finally { setBusy(false); }
   };
 
-  const addons = (info?.services || []).filter((s) => s.category === "add_on").slice(0, 6);
+  const services = info?.services || [];
+  const planRates = { one_time: info?.base_price ?? 175, fleet: info?.fleet_price ?? 150, biweekly: info?.sub_price ?? 130 };
+  const cabsN = Number(form.cabs) || 1;
+  const addonTotal = services.filter((s) => sel.includes(s.id)).reduce((a, s) => a + s.price, 0);
+  const total = cabsN * planRates[plan] + addonTotal;
   return (
     <div className="min-h-screen bg-[#0B0F16] text-white overflow-x-hidden" data-testid="wash-landing"
          style={{ backgroundImage: "radial-gradient(ellipse 80% 50% at 70% -10%, rgba(37,99,235,0.18), transparent), radial-gradient(ellipse 60% 40% at 10% 110%, rgba(245,158,11,0.08), transparent)" }}>
@@ -259,56 +296,131 @@ export default function WashLanding() {
         </div>
       </section>
 
+      {/* before/after gallery */}
+      <BeforeAfterGallery />
+
       {/* booking */}
       <section id="book" className="px-6 md:px-12 py-16 border-t border-white/10 bg-gradient-to-b from-white/[0.02] to-transparent">
-        <div className="max-w-2xl">
+        <div className="max-w-3xl">
           <div className="flex items-center gap-3 mb-1">
             <img src="/tc-logo.png" alt="" className="h-10 w-auto" />
-            <h2 className="text-2xl font-black">Book your cleaning</h2>
+            <h2 className="text-2xl font-black">Build your cleaning & book it</h2>
           </div>
-          <p className="text-xs text-slate-500 mt-1 mb-6">Tell us about your trucks — we confirm your slot within one business day.</p>
+          <p className="text-xs text-slate-500 mt-1 mb-6">Pick your plan, choose exactly what you want done, and our system schedules a crew instantly.</p>
           {sent ? (
             <div className="p-8 rounded-2xl border border-emerald-500/40 bg-emerald-500/5 text-center" data-testid="wash-booking-success">
               <CheckCircle2 size={36} className="text-emerald-400 mx-auto mb-3" />
-              <div className="font-black text-lg">Request received!</div>
-              <div className="text-sm text-slate-400 mt-1">We'll confirm your slot within one business day. Need it faster? Call (763) 443-4459.</div>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="space-y-3 p-6 rounded-2xl border border-white/10 bg-[#0D1320]/80 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.4)]" data-testid="wash-booking-form">
-              <div className="grid sm:grid-cols-2 gap-3">
-                <input required value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Company / owner-operator name *"
-                  className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-company" />
-                <input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} placeholder="Contact name"
-                  className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-contact" />
-                <input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone *"
-                  className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-phone" />
-                <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email"
-                  className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-email" />
-                <input type="number" min="1" max="200" value={form.cabs} onChange={(e) => setForm({ ...form, cabs: e.target.value })} placeholder="Number of cabs"
-                  className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-cabs" />
-                <input type="date" value={form.preferred_date} onChange={(e) => setForm({ ...form, preferred_date: e.target.value })}
-                  className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors text-slate-400" data-testid="wash-book-date" />
-              </div>
-              {addons.length > 0 && (
-                <div>
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-2">Popular add-ons (optional)</div>
-                  <div className="flex flex-wrap gap-2">
-                    {addons.map((s) => (
-                      <button type="button" key={s.id} onClick={() => setSel(sel.includes(s.id) ? sel.filter((x) => x !== s.id) : [...sel, s.id])}
-                        data-testid={`wash-addon-${s.id}`}
-                        className={`px-3 py-2 rounded-full border text-xs font-bold transition-colors ${sel.includes(s.id) ? "border-amber-500 bg-amber-500/15 text-amber-300" : "border-white/15 text-slate-400 hover:border-white/40"}`}>
-                        {s.label} +${s.price}
-                      </button>
-                    ))}
-                  </div>
+              <div className="font-black text-lg">{sent.scheduled_date ? "You're on the schedule!" : "Request received!"}</div>
+              <div className="text-sm text-slate-400 mt-1">{sent.message}</div>
+              {sent.scheduled_date && (
+                <div className="inline-flex flex-wrap justify-center gap-3 mt-4">
+                  <span className="px-4 py-2 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-black" data-testid="wash-booked-date">
+                    {sent.scheduled_date}
+                  </span>
+                  {sent.tech_name && <span className="px-4 py-2 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 text-xs font-black" data-testid="wash-booked-crew">
+                    CREW: {sent.tech_name.toUpperCase()}
+                  </span>}
                 </div>
               )}
-              <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Yard address, gate codes, anything we should know…"
+              <div className="text-xs text-slate-500 mt-4">Need to change anything? Call (763) 443-4459.</div>
+            </div>
+          ) : (
+            <form onSubmit={submit} className="space-y-5 p-6 rounded-2xl border border-white/10 bg-[#0D1320]/80 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.4)]" data-testid="wash-booking-form">
+              {/* 1 · plan */}
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 mb-2">1 · Pick your plan</div>
+                <div className="grid sm:grid-cols-3 gap-3" data-testid="wash-plan-picker">
+                  {[["one_time", "One-Time Clean", "Full 45-min spec · perfect trial"],
+                    ["biweekly", "Bi-Weekly Lock-In", "Every 2 weeks · 10th clean FREE"],
+                    ["fleet", "Fleet Program 10+", "Priority slots · monthly billing"]].map(([id, t, d]) => (
+                    <button type="button" key={id} onClick={() => setPlan(id)} data-testid={`wash-plan-${id}`}
+                      className={`p-4 rounded-xl border text-left transition-colors ${plan === id ? "border-amber-500 bg-amber-500/10" : "border-white/10 bg-white/[0.02] hover:border-white/30"}`}>
+                      <div className="text-lg font-black">{`$${planRates[id]}`}<span className="text-[10px] text-slate-500 font-mono">/cab</span></div>
+                      <div className="text-xs font-bold mt-0.5">{t}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{d}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* 2 · details */}
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 mb-2">2 · Your yard & contact</div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <input required value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Company / owner-operator name *"
+                    className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-company" />
+                  <input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} placeholder="Contact name"
+                    className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-contact" />
+                  <input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone *"
+                    className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-phone" />
+                  <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email"
+                    className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-email" />
+                  <div className="flex items-center gap-3 h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15">
+                    <span className="text-xs text-slate-500 shrink-0">Cabs</span>
+                    <input type="number" min="1" max="200" value={form.cabs} onChange={(e) => setForm({ ...form, cabs: e.target.value })}
+                      className="bg-transparent text-sm outline-none w-full" data-testid="wash-book-cabs" />
+                  </div>
+                  <div className="flex items-center gap-3 h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15">
+                    <span className="text-xs text-slate-500 shrink-0">Preferred day</span>
+                    <input type="date" value={form.preferred_date} onChange={(e) => setForm({ ...form, preferred_date: e.target.value })}
+                      className="bg-transparent text-sm outline-none w-full text-slate-300" data-testid="wash-book-date" />
+                  </div>
+                </div>
+              </div>
+              {/* 3 · services */}
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 mb-2">3 · Choose your extras <span className="text-slate-600">(the full 45-min showroom spec is always included)</span></div>
+                <div className="space-y-4" data-testid="wash-services-picker">
+                  {[["add_on", "Add-On Services", "text-violet-300 border-violet-500/40"],
+                    ["freshener", "Air Fresheners", "text-cyan-300 border-cyan-500/40"],
+                    ["bedding", "Bedding & Pillows", "text-rose-300 border-rose-500/40"]].map(([cat, title, style]) => (
+                    <div key={cat}>
+                      <div className={`text-[10px] font-mono uppercase tracking-widest mb-1.5 ${style.split(" ")[0]}`}>{title}</div>
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        {services.filter((s) => s.category === cat).map((s) => {
+                          const on = sel.includes(s.id);
+                          return (
+                            <button type="button" key={s.id} data-testid={`wash-svc-${s.id}`}
+                              onClick={() => setSel(on ? sel.filter((x) => x !== s.id) : [...sel, s.id])}
+                              className={`flex items-start justify-between gap-2 p-3 rounded-xl border text-left transition-colors ${on ? `bg-white/[0.06] ${style.split(" ")[1]}` : "border-white/10 bg-white/[0.02] hover:border-white/25"}`}>
+                              <span>
+                                <span className={`text-xs font-bold ${on ? "text-white" : "text-slate-300"}`}>{on ? "✓ " : ""}{s.label}</span>
+                                <span className="block text-[10px] text-slate-500 mt-0.5 leading-snug">{s.desc}</span>
+                              </span>
+                              <span className={`shrink-0 text-xs font-black ${on ? style.split(" ")[0] : "text-slate-500"}`}>+${s.price}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* 4 · scent */}
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 mb-2">4 · Finishing scent <span className="text-slate-600">(included free)</span></div>
+                <div className="flex flex-wrap gap-2" data-testid="wash-scent-picker">
+                  {(info?.scents || []).map((s) => (
+                    <button type="button" key={s} onClick={() => setScent(scent === s ? "" : s)} data-testid={`wash-scent-${s.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`}
+                      className={`px-3 py-1.5 rounded-full border text-[11px] font-bold transition-colors ${scent === s ? "border-cyan-400 bg-cyan-500/15 text-cyan-200" : "border-white/15 text-slate-400 hover:border-white/40"}`}>
+                      {scent === s ? "✓ " : ""}{s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Yard address (helps us route the closest crew), gate codes, anything we should know…"
                 className="w-full min-h-[80px] p-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-notes" />
-              <button disabled={busy} data-testid="wash-book-submit"
-                className="w-full sm:w-auto px-9 py-3.5 rounded-full bg-amber-500 hover:bg-amber-400 transition-colors text-black font-black text-sm disabled:opacity-50 shadow-[0_0_24px_rgba(245,158,11,0.3)]">
-                {busy ? "Sending…" : "REQUEST MY SLOT"}
-              </button>
+              {/* total + submit */}
+              <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.06]" data-testid="wash-booking-total">
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Estimated per visit</div>
+                  <div className="text-2xl font-black text-amber-400">${total.toLocaleString()}</div>
+                  <div className="text-[10px] text-slate-500">{cabsN} cab{cabsN > 1 ? "s" : ""} × ${planRates[plan]}{addonTotal > 0 ? ` + $${addonTotal} extras` : ""} · pay after the clean</div>
+                </div>
+                <button disabled={busy} data-testid="wash-book-submit"
+                  className="px-9 py-3.5 rounded-full bg-amber-500 hover:bg-amber-400 transition-colors text-black font-black text-sm disabled:opacity-50 shadow-[0_0_24px_rgba(245,158,11,0.3)]">
+                  {busy ? "BOOKING…" : "BOOK IT — CREW AUTO-SCHEDULED"}
+                </button>
+              </div>
             </form>
           )}
         </div>
