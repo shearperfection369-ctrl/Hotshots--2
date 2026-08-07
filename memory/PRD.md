@@ -2659,3 +2659,9 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Cleanup: revoked 43 non-allowlisted sessions, purged 37 @tennantco.com test users + orphaned sessions. Remaining users: shearperfection369 (admin), oliver/daniel/doug@oriseifreight.com (sessionless, can't log in until added to ALLOWED_EMAILS).
 - To authorize a teammate: add email to ALLOWED_EMAILS in backend/.env + restart.
 - NOTE: fix is in PREVIEW only until user REPUBLISHES — production still runs old code until redeploy.
+
+## 2026-06 — Full Car Detail package ($150/car)
+- New bookable plan "car_detail" at $150/car on /wash. Added to autopilot rates + BookingIn plan validation + site-info (car_detail_price). Flows through AI autopilot (client+job+crew), verified price math (150 + addons = correct).
+- 8 car-detail add-ons (category car_detail_addon): clay_bar $40, wax_sealant $50, ceramic_spray $75, headlight_restore $45, shampoo_seats $60, pet_hair $30, engine_bay_car $35, ozone_car $40. Added to UPSELLS + UPSELL_META.
+- /wash: 4th plan card (emerald, "Full Car Detail $150/car"), dynamic unit label (cars vs cabs), plan-aware extras (car detail shows detail add-ons + fresheners; cab plans unchanged), sel resets on plan switch. Public ServicesMenu shows a Full Car Detail package card + Detail Add-Ons group.
+- Self-tested via curl (booking $240 correct) + screenshot. PREVIEW only until republish.

@@ -1360,7 +1360,7 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
 
     @router.get("/public/site-info")
     async def site_info():
-        return {"base_price": 175, "fleet_price": 150, "sub_price": 130,
+        return {"base_price": 175, "fleet_price": 150, "sub_price": 130, "car_detail_price": 150,
                 "services": [{"id": u["id"], "label": u["label"], "price": u["price"],
                               "desc": u["desc"], "category": u["category"]} for u in UPSELL_META],
                 "phone": "(763) 443-4459", "email": "oliver@oriseifreightsolutions.com",
@@ -1371,7 +1371,7 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
     async def public_booking(payload: BookingIn, request: Request):
         await _rate_limit(request, scope="booking")
         services = [s for s in payload.services if s in UPSELLS]
-        plan = payload.plan if payload.plan in ("one_time", "fleet", "biweekly") else "one_time"
+        plan = payload.plan if payload.plan in ("one_time", "fleet", "biweekly", "car_detail") else "one_time"
         doc = {**payload.model_dump(), "services": services, "plan": plan,
                "booking_id": f"BOOK-{uuid.uuid4().hex[:6].upper()}",
                "status": "new", "created_at": _now()}
@@ -1397,8 +1397,8 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
 
     async def _booking_autopilot(b: dict) -> dict:
         """Auto-convert a public booking: client + scheduled job + crew routing."""
-        rates = {"one_time": 175.0, "fleet": 150.0, "biweekly": 130.0}
-        plans = {"one_time": "one_time", "fleet": "fleet_sub", "biweekly": "biweekly_sub"}
+        rates = {"one_time": 175.0, "fleet": 150.0, "biweekly": 130.0, "car_detail": 150.0}
+        plans = {"one_time": "one_time", "fleet": "fleet_sub", "biweekly": "biweekly_sub", "car_detail": "car_detail"}
         rate = rates[b["plan"]]
         client = await db.tc_clients.find_one({"company": b["company"]}, {"_id": 0})
         if not client:
@@ -1446,7 +1446,7 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         rows = [("Company", b.get("company", "—")), ("Contact", b.get("contact") or "—"),
                 ("Phone", b.get("phone") or "—"), ("Email", b.get("email") or "—"),
                 ("Cabs", str(b.get("cabs", 1))),
-                ("Plan", {"one_time": "One-Time $175", "fleet": "Fleet $150", "biweekly": "Bi-Weekly $130"}.get(b.get("plan", ""), b.get("plan") or "—")),
+                ("Plan", {"one_time": "One-Time $175", "fleet": "Fleet $150", "biweekly": "Bi-Weekly $130", "car_detail": "Full Car Detail $150"}.get(b.get("plan", ""), b.get("plan") or "—")),
                 ("Preferred date", b.get("preferred_date") or "flexible"),
                 ("Add-ons", ", ".join(svc_labels) or "none"),
                 ("Scent", b.get("scent") or "—"), ("Notes", b.get("notes") or "—"),

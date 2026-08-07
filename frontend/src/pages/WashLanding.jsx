@@ -60,31 +60,53 @@ function TechBackdrop() {
 function ServicesMenu({ info }) {
   const services = info?.services || [];
   const groups = [
-    { key: "add_on", title: "Add-On Services", tag: "Detail extras", band: "bg-violet-500", border: "border-violet-500/30 hover:border-violet-400/60", price: "bg-violet-500/15 border-violet-500/50 text-violet-300", dot: "bg-violet-400" },
+    { key: "car_detail_addon", title: "Full Car Detail Add-Ons", tag: "$150/car base", band: "bg-emerald-500", border: "border-emerald-500/30 hover:border-emerald-400/60", price: "bg-emerald-500/15 border-emerald-500/50 text-emerald-300", dot: "bg-emerald-400" },
+    { key: "add_on", title: "Cab Add-On Services", tag: "Detail extras", band: "bg-violet-500", border: "border-violet-500/30 hover:border-violet-400/60", price: "bg-violet-500/15 border-violet-500/50 text-violet-300", dot: "bg-violet-400" },
     { key: "freshener", title: "Air Freshener Packages", tag: "Pick your scent", band: "bg-cyan-500", border: "border-cyan-500/30 hover:border-cyan-400/60", price: "bg-cyan-500/15 border-cyan-500/50 text-cyan-300", dot: "bg-cyan-400" },
     { key: "bedding", title: "Bedding & Pillow Service", tag: "Sleep like a hotel", band: "bg-rose-500", border: "border-rose-500/30 hover:border-rose-400/60", price: "bg-rose-500/15 border-rose-500/50 text-rose-300", dot: "bg-rose-400" },
   ];
   const core = ["Dashboard, console & vents detailed", "Full-cab vacuum — floor to bunk",
     "Seats deep-cleaned · stain & odor treatment", "Floor scrub — mats, pedals & undercarriage",
     "Windows & mirrors, inside and out", "Finishing scent — driver's pick"];
+  const carCore = ["Full interior vacuum & wipe-down", "Exterior hand wash & dry",
+    "Windows & mirrors, in and out", "Door jambs & console detailed",
+    "Tire shine & wheel clean", "Finishing air freshener"];
   return (
     <section className="px-6 md:px-12 py-14 border-t border-white/10" data-testid="wash-services-menu">
       <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-amber-400 mb-2">Full-color menu · everything we do</div>
       <h2 className="text-lg font-black mb-6">Services & pricing</h2>
-      <div className="max-w-5xl p-5 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-transparent mb-5" data-testid="wash-core-spec">
-        <div className="flex flex-wrap items-center gap-3 mb-3">
-          <span className="px-3 py-1 rounded-full bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest">Included in every clean</span>
-          <span className="text-sm font-black text-emerald-300">The 45-Minute Showroom Spec</span>
+      <div className="grid md:grid-cols-2 gap-4 max-w-5xl mb-5">
+        <div className="p-5 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-transparent" data-testid="wash-core-spec">
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            <span className="px-3 py-1 rounded-full bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest">Included in every clean</span>
+            <span className="text-sm font-black text-emerald-300">The 45-Minute Showroom Spec</span>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
+            {core.map((s) => (
+              <div key={s} className="flex items-start gap-2 text-xs text-slate-300">
+                <CheckCircle2 size={13} className="text-emerald-400 shrink-0 mt-0.5" />{s}
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
-          {core.map((s) => (
-            <div key={s} className="flex items-start gap-2 text-xs text-slate-300">
-              <CheckCircle2 size={13} className="text-emerald-400 shrink-0 mt-0.5" />{s}
-            </div>
-          ))}
+        <div className="p-5 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 to-transparent" data-testid="wash-car-detail-package">
+          <div className="flex flex-wrap items-center gap-3 mb-1">
+            <span className="px-3 py-1 rounded-full bg-amber-500 text-black text-[10px] font-black uppercase tracking-widest">New</span>
+            <span className="text-sm font-black text-amber-300">Full Car Detail</span>
+            <span className="ml-auto text-2xl font-black text-white">$150<span className="text-[11px] text-slate-500 font-mono">/car</span></span>
+          </div>
+          <div className="text-[11px] text-slate-400 mb-3">Not just trucks — we detail personal vehicles too. Complete inside &amp; out, base price includes:</div>
+          <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
+            {carCore.map((s) => (
+              <div key={s} className="flex items-start gap-2 text-xs text-slate-300">
+                <CheckCircle2 size={13} className="text-amber-400 shrink-0 mt-0.5" />{s}
+              </div>
+            ))}
+          </div>
+          <a href="#book" className="inline-block mt-3 text-[11px] font-black text-amber-300 hover:text-amber-200" data-testid="wash-car-detail-book">Book a full detail →</a>
         </div>
       </div>
-      <div className="grid md:grid-cols-3 gap-4 max-w-5xl">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl">
         {groups.map((g) => {
           const items = services.filter((s) => s.category === g.key);
           return (
@@ -176,8 +198,10 @@ export default function WashLanding() {
   };
 
   const services = info?.services || [];
-  const planRates = { one_time: info?.base_price ?? 175, fleet: info?.fleet_price ?? 150, biweekly: info?.sub_price ?? 130 };
+  const planRates = { one_time: info?.base_price ?? 175, fleet: info?.fleet_price ?? 150, biweekly: info?.sub_price ?? 130, car_detail: info?.car_detail_price ?? 150 };
   const cabsN = Number(form.cabs) || 1;
+  const isCar = plan === "car_detail";
+  const unit = isCar ? "car" : "cab";
   const addonTotal = services.filter((s) => sel.includes(s.id)).reduce((a, s) => a + s.price, 0);
   const total = cabsN * planRates[plan] + addonTotal;
   return (
@@ -329,13 +353,14 @@ export default function WashLanding() {
               {/* 1 · plan */}
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 mb-2">1 · Pick your plan</div>
-                <div className="grid sm:grid-cols-3 gap-3" data-testid="wash-plan-picker">
-                  {[["one_time", "One-Time Clean", "Full 45-min spec · perfect trial"],
-                    ["biweekly", "Bi-Weekly Lock-In", "Every 2 weeks · 10th clean FREE"],
-                    ["fleet", "Fleet Program 10+", "Priority slots · monthly billing"]].map(([id, t, d]) => (
-                    <button type="button" key={id} onClick={() => setPlan(id)} data-testid={`wash-plan-${id}`}
-                      className={`p-4 rounded-xl border text-left transition-colors ${plan === id ? "border-amber-500 bg-amber-500/10" : "border-white/10 bg-white/[0.02] hover:border-white/30"}`}>
-                      <div className="text-lg font-black">{`$${planRates[id]}`}<span className="text-[10px] text-slate-500 font-mono">/cab</span></div>
+                <div className="grid sm:grid-cols-2 gap-3" data-testid="wash-plan-picker">
+                  {[["one_time", "One-Time Cab Clean", "Full 45-min spec · perfect trial", "cab"],
+                    ["biweekly", "Bi-Weekly Lock-In", "Every 2 weeks · 10th clean FREE", "cab"],
+                    ["fleet", "Fleet Program 10+", "Priority slots · monthly billing", "cab"],
+                    ["car_detail", "Full Car Detail", "Complete interior + exterior detail", "car"]].map(([id, t, d, u]) => (
+                    <button type="button" key={id} onClick={() => { setPlan(id); setSel([]); }} data-testid={`wash-plan-${id}`}
+                      className={`p-4 rounded-xl border text-left transition-colors ${plan === id ? (id === "car_detail" ? "border-emerald-500 bg-emerald-500/10" : "border-amber-500 bg-amber-500/10") : "border-white/10 bg-white/[0.02] hover:border-white/30"}`}>
+                      <div className="text-lg font-black">{`$${planRates[id]}`}<span className="text-[10px] text-slate-500 font-mono">/{u}</span></div>
                       <div className="text-xs font-bold mt-0.5">{t}</div>
                       <div className="text-[10px] text-slate-500 mt-0.5">{d}</div>
                     </button>
@@ -355,7 +380,7 @@ export default function WashLanding() {
                   <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email"
                     className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-email" />
                   <div className="flex items-center gap-3 h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15">
-                    <span className="text-xs text-slate-500 shrink-0">Cabs</span>
+                    <span className="text-xs text-slate-500 shrink-0 capitalize" data-testid="wash-unit-label">{unit}s</span>
                     <input type="number" min="1" max="200" value={form.cabs} onChange={(e) => setForm({ ...form, cabs: e.target.value })}
                       className="bg-transparent text-sm outline-none w-full" data-testid="wash-book-cabs" />
                   </div>
@@ -368,11 +393,15 @@ export default function WashLanding() {
               </div>
               {/* 3 · services */}
               <div>
-                <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 mb-2">3 · Choose your extras <span className="text-slate-600">(the full 45-min showroom spec is always included)</span></div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 mb-2">3 · Choose your extras <span className="text-slate-600">({isCar ? "the full interior + exterior detail is always included" : "the full 45-min showroom spec is always included"})</span></div>
                 <div className="space-y-4" data-testid="wash-services-picker">
-                  {[["add_on", "Add-On Services", "text-violet-300 border-violet-500/40"],
-                    ["freshener", "Air Fresheners", "text-cyan-300 border-cyan-500/40"],
-                    ["bedding", "Bedding & Pillows", "text-rose-300 border-rose-500/40"]].map(([cat, title, style]) => (
+                  {(isCar
+                    ? [["car_detail_addon", "Detail Add-Ons", "text-emerald-300 border-emerald-500/40"],
+                       ["freshener", "Air Fresheners", "text-cyan-300 border-cyan-500/40"]]
+                    : [["add_on", "Add-On Services", "text-violet-300 border-violet-500/40"],
+                       ["freshener", "Air Fresheners", "text-cyan-300 border-cyan-500/40"],
+                       ["bedding", "Bedding & Pillows", "text-rose-300 border-rose-500/40"]]
+                  ).map(([cat, title, style]) => (
                     <div key={cat}>
                       <div className={`text-[10px] font-mono uppercase tracking-widest mb-1.5 ${style.split(" ")[0]}`}>{title}</div>
                       <div className="grid sm:grid-cols-2 gap-2">
@@ -414,7 +443,7 @@ export default function WashLanding() {
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Estimated per visit</div>
                   <div className="text-2xl font-black text-amber-400">${total.toLocaleString()}</div>
-                  <div className="text-[10px] text-slate-500">{cabsN} cab{cabsN > 1 ? "s" : ""} × ${planRates[plan]}{addonTotal > 0 ? ` + $${addonTotal} extras` : ""} · pay after the clean</div>
+                  <div className="text-[10px] text-slate-500">{cabsN} {unit}{cabsN > 1 ? "s" : ""} × ${planRates[plan]}{addonTotal > 0 ? ` + $${addonTotal} extras` : ""} · pay after the {isCar ? "detail" : "clean"}</div>
                 </div>
                 <button disabled={busy} data-testid="wash-book-submit"
                   className="px-9 py-3.5 rounded-full bg-amber-500 hover:bg-amber-400 transition-colors text-black font-black text-sm disabled:opacity-50 shadow-[0_0_24px_rgba(245,158,11,0.3)]">

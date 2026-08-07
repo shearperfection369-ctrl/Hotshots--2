@@ -22,7 +22,9 @@ UPSELLS = {"tire_dressing": 20.0,
            "chrome_polish": 30.0, "exterior_wash": 45.0, "odor_bomb": 35.0,
            "scent_single": 5.0, "scent_dual": 9.0, "vent_diffuser": 12.0, "scent_subscription": 8.0,
            "bed_change": 25.0, "bedding_starter": 59.0, "bedding_premium": 99.0,
-           "pillow_memory": 29.0, "pillow_cooling": 39.0, "mattress_protector": 35.0}
+           "pillow_memory": 29.0, "pillow_cooling": 39.0, "mattress_protector": 35.0,
+           "clay_bar": 40.0, "wax_sealant": 50.0, "ceramic_spray": 75.0, "headlight_restore": 45.0,
+           "shampoo_seats": 60.0, "pet_hair": 30.0, "engine_bay_car": 35.0, "ozone_car": 40.0}
 UPSELL_META = [
     {"id": "tire_dressing", "label": "Tire Dressing", "price": 20.0, "category": "add_on",
      "desc": "Sidewalls washed and dressed with no-sling water-based finish. Adds 10 min."},
@@ -58,6 +60,22 @@ UPSELL_META = [
      "desc": "Gel-infused foam that stays cool on summer hauls. Washable cover included."},
     {"id": "mattress_protector", "label": "Waterproof Mattress Protector", "price": 35.0, "category": "bedding",
      "desc": "Quiet, breathable, bunk-sized protector — doubles mattress life. Installed on the spot."},
+    {"id": "clay_bar", "label": "Clay Bar Treatment", "price": 40.0, "category": "car_detail_addon",
+     "desc": "Removes bonded contaminants for a glass-smooth finish before wax. Adds 30 min."},
+    {"id": "wax_sealant", "label": "Hand Wax & Paint Sealant", "price": 50.0, "category": "car_detail_addon",
+     "desc": "Hand-applied carnauba wax + sealant — deep gloss and 3-month protection. Adds 30 min."},
+    {"id": "ceramic_spray", "label": "Ceramic Spray Coating", "price": 75.0, "category": "car_detail_addon",
+     "desc": "SiO2 spray coating for months of slick, hydrophobic, easy-clean shine. Adds 40 min."},
+    {"id": "headlight_restore", "label": "Headlight Restoration", "price": 45.0, "category": "car_detail_addon",
+     "desc": "Sand, polish and seal foggy headlights back to clear. Adds 30 min."},
+    {"id": "shampoo_seats", "label": "Seat & Carpet Shampoo", "price": 60.0, "category": "car_detail_addon",
+     "desc": "Hot-water extraction on all seats and carpets — lifts stains and odor. Adds 40 min."},
+    {"id": "pet_hair", "label": "Pet Hair Removal", "price": 30.0, "category": "car_detail_addon",
+     "desc": "Specialized rubber-tool + extraction to pull embedded pet hair. Adds 20 min."},
+    {"id": "engine_bay_car", "label": "Engine Bay Detail", "price": 35.0, "category": "car_detail_addon",
+     "desc": "Safe degrease, rinse and dress of the engine bay plastics. Adds 25 min."},
+    {"id": "ozone_car", "label": "Ozone Odor Treatment", "price": 40.0, "category": "car_detail_addon",
+     "desc": "Sealed-cabin ozone kills smoke, pet and mildew odor at the source. Adds 30 min."},
 ]
 SCENT_MENU = ["New Truck Smell", "Black Ice", "Leather & Cedar", "Pine Forest",
               "Citrus Shop", "Cool Breeze", "Vanilla Cab", "Odor-Neutral (unscented)"]
