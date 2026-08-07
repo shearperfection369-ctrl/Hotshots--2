@@ -2607,3 +2607,8 @@ retrains scoring weights from revealed preferences — making the intuitive
 ## 2026-06 — Resend LIVE
 - Resend API key saved via Connections (provider `resend`, from_email onboarding@resend.dev). Booking alert emails now DELIVER live to shearperfection369@gmail.com (account owner) — verified end-to-end, status "sent".
 - LIMITATION: Resend test mode only sends to the account owner's email. To email yard managers/clients (yard promo, invoices, review requests), user must verify a domain at resend.com/domains and switch from_email to that domain.
+
+## 2026-06 — Stripe LIVE key installed
+- backend/.env STRIPE_SECRET_KEY swapped to user's live key (account acct_1TZZiyL77W3cc1mV "JadeOS", charges+payouts enabled), STRIPE_MODE="live". Backend restarted.
+- Verified: live checkout session (cs_live_...) created on real invoice INV-TC-860E64 via POST /api/truck-cleaning/pay/{id}/checkout.
+- NOTE: payments are REAL MONEY now; test card 4242 no longer works. TC invoice settlement uses status polling (no webhook needed). STRIPE_WEBHOOK_SECRET still the old test value — only tenant_platform webhook path would need a live webhook endpoint+secret if used in production.
