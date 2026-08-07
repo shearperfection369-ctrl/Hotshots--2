@@ -2612,3 +2612,9 @@ retrains scoring weights from revealed preferences — making the intuitive
 - backend/.env STRIPE_SECRET_KEY swapped to user's live key (account acct_1TZZiyL77W3cc1mV "JadeOS", charges+payouts enabled), STRIPE_MODE="live". Backend restarted.
 - Verified: live checkout session (cs_live_...) created on real invoice INV-TC-860E64 via POST /api/truck-cleaning/pay/{id}/checkout.
 - NOTE: payments are REAL MONEY now; test card 4242 no longer works. TC invoice settlement uses status polling (no webhook needed). STRIPE_WEBHOOK_SECRET still the old test value — only tenant_platform webhook path would need a live webhook endpoint+secret if used in production.
+
+## 2026-06 — Resend domain VERIFIED, client-facing email live
+- User verified oriseifreightsolutions.com in Resend. from_email switched to bookings@oriseifreightsolutions.com in Connections.
+- Verified live send to a non-account-owner recipient (oliver@oriseifreightsolutions.com) — sent:True with message_id. Yard promo, invoices, review requests can now email anyone.
+- Booking alerts still route to shearperfection369@gmail.com.
+- NOTE: Connections creds live in each environment's DB — production deployment needs the Resend key entered in its own Connections screen.
