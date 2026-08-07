@@ -2603,3 +2603,7 @@ retrains scoring weights from revealed preferences — making the intuitive
 - /wash landing: new full-color "Services & pricing" menu (ServicesMenu in WashLanding.jsx) — core spec panel, violet/cyan/rose category cards with prices, scent menu chips. site-info now returns scents.
 - Booking email alert: POST /public/booking now emails oliver@oriseifreightsolutions.com via Resend (_booking_alert_email in truck_cleaning_crew.py); falls back to recorded_no_key in outbound_emails until Resend key is configured. VERIFIED via curl + DB check.
 - GO-LIVE GAPS: Resend API key needed for real email delivery; Stripe account claim for live payments; app deployment.
+
+## 2026-06 — Resend LIVE
+- Resend API key saved via Connections (provider `resend`, from_email onboarding@resend.dev). Booking alert emails now DELIVER live to shearperfection369@gmail.com (account owner) — verified end-to-end, status "sent".
+- LIMITATION: Resend test mode only sends to the account owner's email. To email yard managers/clients (yard promo, invoices, review requests), user must verify a domain at resend.com/domains and switch from_email to that domain.

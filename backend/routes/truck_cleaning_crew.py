@@ -1292,7 +1292,7 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
 
     async def _booking_alert_email(b: dict):
         from routes.orisei_auto_digest import _resend_creds, _send_via_resend
-        to = "oliver@oriseifreightsolutions.com"
+        to = "shearperfection369@gmail.com"
         svc_labels = [u["label"] for u in UPSELL_META if u["id"] in b.get("services", [])]
         rows = [("Company", b.get("company", "—")), ("Contact", b.get("contact") or "—"),
                 ("Phone", b.get("phone") or "—"), ("Email", b.get("email") or "—"),
