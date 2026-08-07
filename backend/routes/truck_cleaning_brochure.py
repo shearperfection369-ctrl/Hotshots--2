@@ -595,6 +595,82 @@ def _merch_package() -> bytes:
     return buf.getvalue()
 
 
+def _business_card(base_url: str = "") -> bytes:
+    """Print-ready 3.5x2in business card — front + back with scan-to-book QR, crop marks."""
+    buf = io.BytesIO()
+    c = Canvas(buf, pagesize=letter)
+    c.setFillColor(colors.HexColor("#EDEDEA")); c.rect(0, 0, W, H, fill=1, stroke=0)
+    CW, CH = 252, 144  # 3.5in x 2in
+    cx = (W - CW) / 2
+
+    def crops(x, y):
+        c.setStrokeColor(colors.HexColor("#94A3B8")); c.setLineWidth(0.6)
+        for px, py in [(x, y), (x + CW, y), (x, y + CH), (x + CW, y + CH)]:
+            c.line(px - 14, py, px - 4, py) if px == x else c.line(px + 4, py, px + 14, py)
+            c.line(px, py - 14, px, py - 4) if py == y else c.line(px, py + 4, px, py + 14)
+
+    c.setFont("Helvetica-Bold", 16); c.setFillColor(INK)
+    c.drawString(60, H - 70, "ORISEI TRUCK CLEANING — BUSINESS CARD (PRINT-READY)")
+    c.setFont("Helvetica", 9); c.setFillColor(SLATE)
+    c.drawString(60, H - 88, 'Standard 3.5" × 2" · print at 100% scale · PMS 1235C amber on ink #0D1117 · 300dpi art')
+
+    # FRONT
+    fy = H - 320
+    c.setFont("Helvetica-Bold", 9); c.setFillColor(SLATE); c.drawString(cx, fy + CH + 10, "FRONT")
+    crops(cx, fy)
+    c.setFillColor(INK); c.rect(cx, fy, CW, CH, fill=1, stroke=0)
+    c.setFillColor(AMBER); c.rect(cx, fy + CH - 6, CW, 6, fill=1, stroke=0)
+    if LOGO.exists():
+        c.drawImage(str(LOGO), cx + 12, fy + CH - 76, width=62, height=62, preserveAspectRatio=True, mask="auto")
+    tx = cx + 84
+    c.setFont("Helvetica-Bold", 12.5); c.setFillColor(colors.white); c.drawString(tx, fy + CH - 34, "ORISEI")
+    c.setFillColor(AMBER); c.drawString(tx + c.stringWidth("ORISEI ", "Helvetica-Bold", 12.5), fy + CH - 34, "TRUCK CLEANING")
+    c.setFont("Helvetica", 7); c.setFillColor(colors.HexColor("#22D3EE"))
+    c.drawString(tx, fy + CH - 47, "YOUR CAB. SHOWROOM CLEAN. EVERY TIME.")
+    c.setFont("Helvetica-Bold", 10); c.setFillColor(colors.white); c.drawString(tx, fy + CH - 70, "Oliver Cummins")
+    c.setFont("Helvetica", 7.5); c.setFillColor(GREY); c.drawString(tx, fy + CH - 82, "Founder · Fleet Cleaning Programs")
+    c.setFont("Helvetica-Bold", 9); c.setFillColor(AMBER); c.drawString(cx + 14, fy + 30, "(763) 443-4459")
+    c.setFont("Helvetica", 7.5); c.setFillColor(colors.white); c.drawString(cx + 14, fy + 17, "oliver@oriseifreightsolutions.com")
+    c.setFont("Helvetica", 7); c.setFillColor(GREY); c.drawRightString(cx + CW - 12, fy + 17, "Twin Cities · mobile · insured")
+
+    # BACK
+    by = fy - CH - 90
+    c.setFont("Helvetica-Bold", 9); c.setFillColor(SLATE); c.drawString(cx, by + CH + 10, "BACK")
+    crops(cx, by)
+    c.setFillColor(colors.white); c.rect(cx, by, CW, CH, fill=1, stroke=0)
+    c.setFillColor(AMBER); c.rect(cx, by, CW, 6, fill=1, stroke=0)
+    if base_url:
+        try:
+            import qrcode
+            from reportlab.lib.utils import ImageReader
+            q = qrcode.QRCode(box_size=10, border=1, error_correction=qrcode.constants.ERROR_CORRECT_M)
+            q.add_data(f"{base_url.rstrip('/')}/wash")
+            q.make(fit=True)
+            qimg = q.make_image(fill_color="#0D1117", back_color="white").get_image()
+            c.drawImage(ImageReader(qimg), cx + 14, by + 32, width=92, height=92)
+        except Exception:  # noqa: BLE001
+            pass
+    c.setFont("Helvetica-Bold", 11); c.setFillColor(INK); c.drawString(cx + 118, by + CH - 34, "SCAN TO BOOK")
+    c.setFont("Helvetica", 7.5); c.setFillColor(SLATE)
+    for i, t in enumerate(["45-minute showroom spec", "Before/after photo proof", "We come to your yard"]):
+        c.setFillColor(AMBER); c.circle(cx + 121, by + CH - 52 - i * 13 + 2, 2, fill=1, stroke=0)
+        c.setFillColor(SLATE); c.drawString(cx + 128, by + CH - 52 - i * 13, t)
+    c.setFont("Helvetica-Bold", 8); c.setFillColor(INK)
+    c.drawString(cx + 118, by + 20, "$175 one-time · $130 bi-weekly")
+    c.setFont("Helvetica", 6.5); c.setFillColor(GREY); c.drawString(cx + 14, by + 20, "book in 60 sec")
+
+    # printer notes
+    ny = by - 46
+    c.setFont("Helvetica-Bold", 9); c.setFillColor(INK); c.drawString(60, ny, "PRINTER NOTES")
+    c.setFont("Helvetica", 8); c.setFillColor(SLATE)
+    for i, t in enumerate(["16pt matte or soft-touch stock · full bleed navy front (extend #0D1117 to trim)",
+                           "Test the QR from a printed proof before the full run — it must scan from 12 inches",
+                           "Colors: ink #0D1117 · amber PMS 1235C (#F59E0B) · cyan accent #22D3EE"]):
+        c.drawString(60, ny - 14 - i * 12, t)
+    c.save()
+    return buf.getvalue()
+
+
 def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRouter:
     router = APIRouter(prefix="/truck-cleaning", tags=["truck-cleaning-brochures"])
     guard = require_role("admin", "owner", "dispatcher")
@@ -602,6 +678,7 @@ def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRo
     @router.get("/brochures/{doc_id}.pdf")
     async def brochure(doc_id: str, base: str = "", _=Depends(guard)) -> Response:
         builders = {"one-pager": (_one_pager, "Orisei_Truck_Cleaning_One_Pager"),
+                    "business-card": (_business_card, "Orisei_Business_Card_Print"),
                     "cleaning-guide": (_guide_brochure, "Orisei_Cleaning_Guide_Brochure"),
                     "services": (_services_brochure, "Orisei_Services_Pricing_Brochure"),
                     "yard-promo": (_yard_promo_brochure, "Orisei_Yard_Manager_Package"),
@@ -609,7 +686,7 @@ def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRo
         if doc_id not in builders:
             raise HTTPException(status_code=404, detail="Unknown brochure")
         fn, name = builders[doc_id]
-        content = _one_pager(base.strip()[:200]) if doc_id == "one-pager" else fn()
+        content = fn(base.strip()[:200]) if doc_id in ("one-pager", "business-card") else fn()
         return Response(content=content, media_type="application/pdf",
                         headers={"Content-Disposition": f'attachment; filename="{name}.pdf"'})
 

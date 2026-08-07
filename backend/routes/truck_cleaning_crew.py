@@ -1183,8 +1183,37 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                "monthly_value": round(cabs * rate * (4.33 if freq == "weekly" else 2.17), 2),
                "status": "sent", "created_at": _now(), "signed_at": None, "signature": None}
         await db.tc_agreements.insert_one(dict(doc))
-        from routes.truck_cleaning_field import _public_base
-        return {"ok": True, "token": doc["token"], "sign_url": f"{_public_base()}/tc/sign/{doc['token']}"}
+        base = str(payload.get("base", "")).strip()[:200]
+        if not base.startswith("http"):
+            from routes.truck_cleaning_field import _public_base
+            base = _public_base()
+        sign_url = f"{base.rstrip('/')}/tc/sign/{doc['token']}"
+        emailed = False
+        if "@" in doc["email"]:
+            try:
+                from routes.orisei_auto_digest import _resend_creds, _send_via_resend
+                subject = f"Orisei Truck Cleaning — your lock-in agreement for {company}"
+                html = (f"<div style='font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#0D1117'>"
+                        f"<div style='background:#0D1117;padding:18px 24px;border-bottom:4px solid #F59E0B'>"
+                        f"<span style='color:#F59E0B;font-size:11px;letter-spacing:3px;font-family:Courier,monospace'>ORISEI TRUCK CLEANING</span>"
+                        f"<div style='color:#fff;font-size:19px;font-weight:800;margin-top:6px'>Your yard's lock-in agreement is ready</div></div>"
+                        f"<div style='padding:20px 24px;border:1px solid #E2E8F0;border-top:none;font-size:14px;line-height:1.6'>"
+                        f"<p>{company} — {cabs} cab(s), {'weekly' if freq == 'weekly' else 'bi-weekly'} at ${rate:.0f}/cab.</p>"
+                        f"<p>Review and sign from your phone in under a minute:</p>"
+                        f"<p><a href='{sign_url}' style='display:inline-block;background:#F59E0B;color:#0D1117;font-weight:800;"
+                        f"padding:12px 26px;border-radius:999px;text-decoration:none'>REVIEW &amp; SIGN</a></p>"
+                        f"<p style='font-size:12px;color:#64748B'>Questions? Call or text Oliver: (763) 443-4459</p></div></div>")
+                creds = await _resend_creds(db)
+                res = await _send_via_resend(creds, to=doc["email"], subject=subject, html=html) if creds \
+                    else {"sent": False, "error": "no_resend_creds"}
+                emailed = bool(res.get("sent"))
+                await db.outbound_emails.insert_one({
+                    "to": doc["email"], "subject": subject, "html": html,
+                    "status": "sent" if emailed else "recorded_no_key", "error": res.get("error"),
+                    "kind": "tc_agreement_link", "company": company, "at": _now()})
+            except Exception:  # noqa: BLE001
+                pass
+        return {"ok": True, "token": doc["token"], "sign_url": sign_url, "emailed": emailed}
 
     @router.get("/agreements")
     async def list_agreements(_=Depends(guard)):

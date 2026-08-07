@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 import { Card } from "../ui/card";
-import { Inbox, CheckCircle2, X, ExternalLink, Crosshair, Send, Link as LinkIcon, Copy, Download } from "lucide-react";
+import { Inbox, CheckCircle2, X, ExternalLink, Crosshair, Send, Link as LinkIcon, Copy, Download, PenLine } from "lucide-react";
 
 const STATUS_STYLE = {
   new: "bg-amber-500/15 text-amber-300 border-amber-500/30",
@@ -48,11 +48,64 @@ function ShareBookingLink() {
   );
 }
 
+function YardBlast({ prospects, reload }) {
+  const top5 = prospects.filter((p) => !["signed", "dead"].includes(p.stage)).slice(0, 5);
+  const [emails, setEmails] = useState({});
+  const [busy, setBusy] = useState(false);
+  const val = (p) => emails[p.prospect_id] ?? p.email ?? "";
+  const ready = top5.filter((p) => val(p).includes("@")).length;
+  const sendAll = async () => {
+    const targets = top5.filter((p) => val(p).includes("@"));
+    if (!targets.length) { toast.error("Enter at least one yard manager email first"); return; }
+    setBusy(true);
+    let ok = 0;
+    for (const p of targets) {
+      try {
+        await api.post("/truck-cleaning/brochures/yard-promo/send", { email: val(p).trim(), company: p.name });
+        await api.patch(`/truck-cleaning/yard-prospects/${p.prospect_id}`, { email: val(p).trim(), stage: p.stage === "prospect" ? "pitched" : p.stage });
+        ok += 1;
+      } catch { /* keep going */ }
+    }
+    setBusy(false);
+    toast.success(`Yard blast complete — ${ok}/${targets.length} packages sent`);
+    reload();
+  };
+  if (!top5.length) return null;
+  return (
+    <div className="p-3 rounded-xl border border-amber-500/40 bg-amber-500/[0.06] mb-3" data-testid="tc-yard-blast">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+        <div>
+          <div className="text-xs font-black text-amber-300 flex items-center gap-1.5"><Send size={12} /> TOP 5 YARD BLAST</div>
+          <div className="text-[10px] text-slate-500">Punch in each yard manager's email, fire all five Yard Manager Packages at once.</div>
+        </div>
+        <button onClick={sendAll} disabled={busy || !ready} data-testid="tc-yard-blast-send"
+          className="px-5 py-2 rounded-full bg-amber-500 text-black text-[10px] font-black disabled:opacity-40">
+          {busy ? "SENDING…" : `BLAST ${ready || ""} PACKAGE${ready === 1 ? "" : "S"}`}
+        </button>
+      </div>
+      <div className="space-y-1.5">
+        {top5.map((p) => (
+          <div key={p.prospect_id} className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-slate-500 w-6 shrink-0">#{p.rank}</span>
+            <span className="text-[11px] font-bold text-white truncate w-52 shrink-0">{p.name}</span>
+            <input value={val(p)} onChange={(e) => setEmails({ ...emails, [p.prospect_id]: e.target.value })}
+              placeholder="yard manager email…" data-testid={`tc-blast-email-${p.prospect_id}`}
+              className={`h-8 px-3 rounded-full bg-[#11151F] border text-[11px] text-white flex-1 min-w-[160px] outline-none ${val(p).includes("@") ? "border-emerald-500/50" : "border-white/10 focus:border-amber-400"}`} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ProspectList() {
   const [data, setData] = useState(null);
   const [emailFor, setEmailFor] = useState(null);
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
+  const [contractFor, setContractFor] = useState(null);
+  const [cCabs, setCCabs] = useState(4);
+  const [cFreq, setCFreq] = useState("biweekly");
   const load = () => api.get("/truck-cleaning/yard-prospects").then(({ data: d }) => setData(d)).catch(() => {});
   useEffect(() => { load(); }, []);
   const setStage = async (p, stage) => {
@@ -70,6 +123,19 @@ function ProspectList() {
     } catch { toast.error("Send failed"); }
     finally { setSending(false); }
   };
+  const createContract = async (p) => {
+    setSending(true);
+    try {
+      const { data: r } = await api.post("/truck-cleaning/agreements", {
+        company: p.name, contact: p.contact || "", email: (p.email || email || "").trim(),
+        prospect_id: p.prospect_id, cabs: Number(cCabs) || 4, frequency: cFreq,
+        base: window.location.origin });
+      try { await navigator.clipboard.writeText(r.sign_url); } catch { /* noop */ }
+      toast.success(r.emailed ? "Contract emailed to the yard + sign link copied" : "Sign link copied — text it to the yard manager", { description: r.sign_url });
+      setContractFor(null);
+    } catch (e2) { toast.error(e2?.response?.data?.detail || "Could not create contract"); }
+    finally { setSending(false); }
+  };
   if (!data) return null;
   return (
     <Card className="p-4 bg-slate-950/70 border-amber-500/25" data-testid="tc-prospects">
@@ -84,6 +150,7 @@ function ProspectList() {
         </div>
       </div>
       <div className="text-[10px] text-slate-500 mb-3">Tier A = 10–30 cab agile fleets & drayage yards (start here) · Tier B = LTL service centers (nightly day cabs) · Tier C = anchors & owner-op networks. Cab counts are field estimates — verify on the call.</div>
+      <YardBlast prospects={data.prospects} reload={load} />
       <div className="space-y-1.5 max-h-[520px] overflow-y-auto pr-1">
         {data.prospects.map((p) => (
           <div key={p.prospect_id} className="p-3 rounded-xl border border-white/10 bg-white/[0.02]" data-testid={`tc-prospect-${p.prospect_id}`}>
@@ -102,10 +169,15 @@ function ProspectList() {
                   data-testid={`tc-prospect-stage-${p.prospect_id}`}>
                   {data.stages.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <button onClick={() => { setEmailFor(emailFor === p.prospect_id ? null : p.prospect_id); setEmail(p.email || ""); }}
+                <button onClick={() => { setEmailFor(emailFor === p.prospect_id ? null : p.prospect_id); setEmail(p.email || ""); setContractFor(null); }}
                   className="h-8 px-3 rounded-full bg-amber-500 text-black text-[10px] font-black flex items-center gap-1"
                   data-testid={`tc-prospect-send-${p.prospect_id}`}>
                   <Send size={11} /> PACKAGE
+                </button>
+                <button onClick={() => { setContractFor(contractFor === p.prospect_id ? null : p.prospect_id); setEmailFor(null); }}
+                  className="h-8 px-3 rounded-full bg-violet-500 text-white text-[10px] font-black flex items-center gap-1"
+                  data-testid={`tc-prospect-contract-${p.prospect_id}`}>
+                  <PenLine size={11} /> CONTRACT
                 </button>
               </div>
             </div>
@@ -119,6 +191,26 @@ function ProspectList() {
                   data-testid={`tc-prospect-email-send-${p.prospect_id}`}>
                   {sending ? "SENDING…" : "EMAIL IT"}
                 </button>
+              </div>
+            )}
+            {contractFor === p.prospect_id && (
+              <div className="flex flex-wrap items-center gap-2 mt-2" data-testid={`tc-contract-panel-${p.prospect_id}`}>
+                <select value={cFreq} onChange={(e) => setCFreq(e.target.value)}
+                  className="h-8 px-2 rounded-lg bg-[#11151F] border border-violet-500/40 text-[10px] font-mono text-violet-300"
+                  data-testid={`tc-contract-freq-${p.prospect_id}`}>
+                  <option value="biweekly">BI-WEEKLY · $130/cab</option>
+                  <option value="weekly">WEEKLY · $110/cab</option>
+                </select>
+                <input type="number" min="1" max="200" value={cCabs} onChange={(e) => setCCabs(e.target.value)}
+                  className="h-8 w-20 px-3 rounded-full bg-[#11151F] border border-violet-500/40 text-[11px] text-white outline-none"
+                  data-testid={`tc-contract-cabs-${p.prospect_id}`} />
+                <span className="text-[10px] font-mono text-slate-500">cabs</span>
+                <button onClick={() => createContract(p)} disabled={sending}
+                  className="h-8 px-4 rounded-full bg-violet-500 text-white text-[10px] font-black disabled:opacity-50"
+                  data-testid={`tc-contract-create-${p.prospect_id}`}>
+                  {sending ? "CREATING…" : "CREATE + COPY SIGN LINK"}
+                </button>
+                {p.email && <span className="text-[9px] font-mono text-emerald-400">will also email {p.email}</span>}
               </div>
             )}
           </div>
