@@ -2618,3 +2618,10 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Verified live send to a non-account-owner recipient (oliver@oriseifreightsolutions.com) — sent:True with message_id. Yard promo, invoices, review requests can now email anyone.
 - Booking alerts now route to oliver@oriseifreightsolutions.com (changed on user request, live-send verified).
 - NOTE: Connections creds live in each environment's DB — production deployment needs the Resend key entered in its own Connections screen.
+
+## 2026-06 — Booking link sharing + email deliverability fix
+- Booking alerts now send to BOTH oliver@oriseifreightsolutions.com AND shearperfection369@gmail.com (both verified 'sent'). Root cause of missing emails: inbox is Microsoft 365 behind Proofpoint Essentials (GoDaddy Advanced Email Security) — same-domain external mail (bookings@ → oliver@) gets quarantined. User must whitelist bookings@ in Proofpoint/Junk.
+- New public endpoint GET /api/truck-cleaning/public/booking-qr.png?url=&download= (qrcode lib installed, in requirements.txt).
+- ShareBookingLink card in Bookings tab (TcBookings.jsx): copy link, open, QR preview + download. Uses window.location.origin.
+- One-pager brochure now embeds SCAN TO BOOK QR (base passed from frontend origin via ?base= param on brochure download).
+- All verified: QR endpoint 200, brochure 1 page w/ QR rendered, share card screenshot, dual alert send.

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 import { Card } from "../ui/card";
-import { Inbox, CheckCircle2, X, ExternalLink, Crosshair, Send } from "lucide-react";
+import { Inbox, CheckCircle2, X, ExternalLink, Crosshair, Send, Link as LinkIcon, Copy, Download } from "lucide-react";
 
 const STATUS_STYLE = {
   new: "bg-amber-500/15 text-amber-300 border-amber-500/30",
@@ -16,6 +16,37 @@ const TIER_STYLE = {
   C: "bg-violet-500/15 text-violet-300 border-violet-500/40",
 };
 const STAGE_COLOR = { prospect: "text-slate-400", pitched: "text-amber-300", meeting: "text-cyan-300", pilot: "text-violet-300", signed: "text-emerald-300", dead: "text-red-400" };
+
+function ShareBookingLink() {
+  const url = `${window.location.origin}/wash`;
+  const qrBase = `${process.env.REACT_APP_BACKEND_URL}/api/truck-cleaning/public/booking-qr.png?url=${encodeURIComponent(url)}`;
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(url); toast.success("Booking link copied — paste it anywhere"); }
+    catch { toast.error("Copy failed — long-press the link to copy"); }
+  };
+  return (
+    <Card className="p-4 bg-slate-950/70 border-emerald-500/30" data-testid="tc-share-booking-link">
+      <div className="flex flex-wrap items-center gap-4">
+        <img src={qrBase} alt="Booking page QR code" className="w-24 h-24 rounded-lg bg-white p-1 shrink-0" data-testid="tc-booking-qr-img" />
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <LinkIcon size={15} className="text-emerald-300" /> Your Client Booking Link
+          </h3>
+          <div className="text-[10px] text-slate-500 mt-0.5 mb-2">Text it, email it, put it on cards — or let clients scan the QR. Every booking emails Oliver instantly.</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="px-3 py-1.5 rounded-full bg-[#11151F] border border-white/10 text-[11px] text-emerald-300 font-mono truncate max-w-full" data-testid="tc-booking-url">{url}</code>
+            <button onClick={copy} data-testid="tc-copy-booking-link-btn"
+              className="px-4 py-1.5 rounded-full bg-emerald-500 text-black text-[10px] font-black flex items-center gap-1"><Copy size={11} /> COPY LINK</button>
+            <a href={url} target="_blank" rel="noreferrer" data-testid="tc-open-booking-link"
+              className="px-4 py-1.5 rounded-full border border-white/15 text-slate-300 text-[10px] font-bold flex items-center gap-1"><ExternalLink size={11} /> Open</a>
+            <a href={`${qrBase}&download=1`} data-testid="tc-download-qr-btn"
+              className="px-4 py-1.5 rounded-full border border-emerald-500/40 text-emerald-300 text-[10px] font-bold flex items-center gap-1"><Download size={11} /> Download QR</a>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 function ProspectList() {
   const [data, setData] = useState(null);
@@ -118,6 +149,7 @@ export const TcBookings = ({ reloadAll }) => {
 
   return (
     <div className="space-y-4">
+    <ShareBookingLink />
     <Card className="p-4 bg-slate-950/70 border-white/10" data-testid="tc-bookings">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-white flex items-center gap-2">

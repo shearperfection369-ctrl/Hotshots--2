@@ -280,7 +280,7 @@ def _yard_promo_brochure() -> bytes:
 MERCH_DIR = "/app/frontend/public/merch"
 
 
-def _one_pager() -> bytes:
+def _one_pager(base_url: str = "") -> bytes:
     """Clean one-page branded brochure — split layout: photos left, services/pricing/CTA right."""
     import os as _os
     buf = io.BytesIO()
@@ -389,11 +389,30 @@ def _one_pager() -> bytes:
     c.drawString(40, cta_y + 36, "BOOK YOUR YARD'S PILOT DAY — ONE TEXT DOES IT")
     c.setFont("Helvetica-Bold", 10.5)
     c.drawString(40, cta_y + 16, "Call / text Oliver: (763) 443-4459   ·   oliver@oriseifreightsolutions.com")
-    c.setFont("Helvetica-Bold", 9); c.drawRightString(W - 40, cta_y + 16, "Book online in 60 seconds")
     c.setFillColor(INK); c.rect(0, 0, W, cta_y, fill=1, stroke=0)
     c.setFont("Helvetica", 7.5); c.setFillColor(GREY)
     c.drawString(40, 15, "Orisei Truck Cleaning Solutions · Minneapolis–St. Paul, MN · Insured & background-checked crews")
-    c.setFillColor(AMBER); c.setFont("Helvetica-Bold", 8); c.drawRightString(W - 40, 15, "ORISEITRUCKCLEANING")
+    qr_drawn = False
+    if base_url:
+        try:
+            import qrcode
+            from reportlab.lib.utils import ImageReader
+            q = qrcode.QRCode(box_size=10, border=1, error_correction=qrcode.constants.ERROR_CORRECT_M)
+            q.add_data(f"{base_url.rstrip('/')}/wash")
+            q.make(fit=True)
+            qimg = q.make_image(fill_color="#0D1117", back_color="white").get_image()
+            bx, bw = W - 40 - 88, 88
+            c.setFillColor(colors.white); c.roundRect(bx, 10, bw, 96, 8, fill=1, stroke=0)
+            c.drawImage(ImageReader(qimg), bx + 8, 30, width=72, height=72)
+            c.setFont("Helvetica-Bold", 8); c.setFillColor(INK)
+            c.drawCentredString(bx + bw / 2, 17, "SCAN TO BOOK")
+            qr_drawn = True
+        except Exception:  # noqa: BLE001
+            pass
+    if not qr_drawn:
+        c.setFillColor(INK); c.setFont("Helvetica-Bold", 9); c.drawRightString(W - 40, cta_y + 16, "Book online in 60 seconds")
+    c.setFillColor(AMBER); c.setFont("Helvetica-Bold", 8)
+    c.drawRightString((W - 40 - 100) if qr_drawn else (W - 40), 15, "ORISEITRUCKCLEANING")
 
     c.save()
     return buf.getvalue()
@@ -581,7 +600,7 @@ def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRo
     guard = require_role("admin", "owner", "dispatcher")
 
     @router.get("/brochures/{doc_id}.pdf")
-    async def brochure(doc_id: str, _=Depends(guard)) -> Response:
+    async def brochure(doc_id: str, base: str = "", _=Depends(guard)) -> Response:
         builders = {"one-pager": (_one_pager, "Orisei_Truck_Cleaning_One_Pager"),
                     "cleaning-guide": (_guide_brochure, "Orisei_Cleaning_Guide_Brochure"),
                     "services": (_services_brochure, "Orisei_Services_Pricing_Brochure"),
@@ -590,7 +609,8 @@ def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRo
         if doc_id not in builders:
             raise HTTPException(status_code=404, detail="Unknown brochure")
         fn, name = builders[doc_id]
-        return Response(content=fn(), media_type="application/pdf",
+        content = _one_pager(base.strip()[:200]) if doc_id == "one-pager" else fn()
+        return Response(content=content, media_type="application/pdf",
                         headers={"Content-Disposition": f'attachment; filename="{name}.pdf"'})
 
     @router.post("/brochures/yard-promo/send")

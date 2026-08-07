@@ -1266,6 +1266,24 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                     headers={"Cache-Control": "public, max-age=3600"})
 
     # ================= PUBLIC BOOKING =================
+    @router.get("/public/booking-qr.png")
+    async def booking_qr(url: str = "", download: int = 0):
+        from fastapi.responses import Response as Resp
+        import qrcode
+        target = url.strip()[:300]
+        if not target.startswith("http"):
+            target = (os.environ.get("PUBLIC_FRONTEND_URL") or "").rstrip("/") + "/wash"
+        qr = qrcode.QRCode(box_size=10, border=2, error_correction=qrcode.constants.ERROR_CORRECT_H)
+        qr.add_data(target)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="#0D1117", back_color="white")
+        b = io.BytesIO()
+        img.save(b, format="PNG")
+        headers = {"Cache-Control": "public, max-age=3600"}
+        if download:
+            headers["Content-Disposition"] = 'attachment; filename="Orisei_Booking_QR.png"'
+        return Resp(b.getvalue(), media_type="image/png", headers=headers)
+
     @router.get("/public/site-info")
     async def site_info():
         return {"base_price": 175, "fleet_price": 150, "sub_price": 130,
@@ -1292,7 +1310,7 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
 
     async def _booking_alert_email(b: dict):
         from routes.orisei_auto_digest import _resend_creds, _send_via_resend
-        to = "oliver@oriseifreightsolutions.com"
+        recipients = ["oliver@oriseifreightsolutions.com", "shearperfection369@gmail.com"]
         svc_labels = [u["label"] for u in UPSELL_META if u["id"] in b.get("services", [])]
         rows = [("Company", b.get("company", "—")), ("Contact", b.get("contact") or "—"),
                 ("Phone", b.get("phone") or "—"), ("Email", b.get("email") or "—"),
@@ -1311,12 +1329,13 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                 f"<p style='margin-top:16px;font-size:13px'>Open the TMS &rarr; Truck Cleaning &rarr; Bookings to convert it into a job.</p>"
                 f"</div></div>")
         creds = await _resend_creds(db)
-        res = await _send_via_resend(creds, to=to, subject=subject, html=html) if creds \
-            else {"sent": False, "error": "no_resend_creds"}
-        status = "sent" if res.get("sent") else "recorded_no_key"
-        await db.outbound_emails.insert_one({
-            "to": to, "subject": subject, "html": html, "status": status, "error": res.get("error"),
-            "kind": "tc_booking_alert", "booking_id": b.get("booking_id"), "at": _now()})
+        for to in recipients:
+            res = await _send_via_resend(creds, to=to, subject=subject, html=html) if creds \
+                else {"sent": False, "error": "no_resend_creds"}
+            status = "sent" if res.get("sent") else "recorded_no_key"
+            await db.outbound_emails.insert_one({
+                "to": to, "subject": subject, "html": html, "status": status, "error": res.get("error"),
+                "kind": "tc_booking_alert", "booking_id": b.get("booking_id"), "at": _now()})
 
     @router.get("/bookings")
     async def list_bookings(_=Depends(guard)):

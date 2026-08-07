@@ -323,7 +323,7 @@ function Docs() {
   const [sending, setSending] = useState(false);
   const download = async (id, name, brochure = false) => {
     try {
-      const r = await api.get(`/truck-cleaning/${brochure ? "brochures" : "docs"}/${id}.pdf`, { responseType: "blob" });
+      const r = await api.get(`/truck-cleaning/${brochure ? "brochures" : "docs"}/${id}.pdf${brochure ? `?base=${encodeURIComponent(window.location.origin)}` : ""}`, { responseType: "blob" });
       const url = URL.createObjectURL(r.data);
       const a = document.createElement("a"); a.href = url; a.download = `${name}.pdf`; a.click(); URL.revokeObjectURL(url);
     } catch (_) { toast.error("Failed to generate document"); }
