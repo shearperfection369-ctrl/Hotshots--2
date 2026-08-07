@@ -177,6 +177,12 @@ def _guide_brochure() -> bytes:
     b.tint_panel(g["safety"], ROSE)
     b.band("QUALITY BAR — BEFORE YOU LEAVE THE YARD", AMBER)
     b.tint_panel(g["quality_bar"], AMBER)
+    b.band("FULL CAR DETAIL — $150 / CAR (PERSONAL VEHICLES)", EMERALD, chip="~90 MIN")
+    b.tint_panel(["Base includes: full interior vacuum & wipe-down → exterior two-bucket hand wash & dry → "
+                  "windows in & out → door jambs & console detailed → tire shine & wheel clean → finishing air freshener. "
+                  "Offer the detail add-ons (clay bar, wax/sealant, ceramic spray, headlight restore, seat/carpet shampoo, "
+                  "pet hair, engine bay, ozone) on every car job — photograph before/after just like a cab."],
+                 EMERALD, title="CAR DETAIL PROCEDURE")
     return b.finish()
 
 
@@ -214,6 +220,13 @@ def _services_brochure() -> bytes:
     b.band("BEDDING & PILLOW SERVICE — SLEEP LIKE A HOTEL, PARK LIKE A TRUCKER", ROSE)
     for u in [u for u in UPSELL_META if u["category"] == "bedding"]:
         b.price_row(u["label"], u["desc"], f"${u['price']:.0f}", ROSE)
+    b.tint_panel(["Not just trucks — we detail personal vehicles too. Base $150/car includes full interior "
+                  "vacuum & wipe-down, exterior hand wash, windows in & out, door jambs & console, "
+                  "tire shine, and a finishing air freshener. Add anything below."],
+                 EMERALD, title="FULL CAR DETAIL — $150 / CAR")
+    b.band("CAR DETAIL ADD-ONS", EMERALD)
+    for u in [u for u in UPSELL_META if u["category"] == "car_detail_addon"]:
+        b.price_row(u["label"], u["desc"], f"${u['price']:.0f}", EMERALD)
     b.ensure(58)
     c.setFont("Helvetica-Bold", 10); c.setFillColor(INK); c.drawString(44, b.y, "THE SCENT MENU")
     b.y -= 20
@@ -259,6 +272,7 @@ def _yard_promo_brochure() -> bytes:
     b.price_row("Weekly Yard Lock-In", "High-turn yards & lease fleets · priority crew", "$110/cab", AMBER)
     b.price_row("Fleet Program 10+ cabs", "Monthly auto-billing · dedicated crew lead", "$150/cab", AMBER)
     b.price_row("One-Time Trial", "Prove-it visit — full spec, photo proof", "$175/cab", AMBER)
+    b.price_row("Full Car Detail", "Personal vehicles — complete inside & out, per car", "$150/car", AMBER)
     b.tint_panel(["FOUNDING YARD OFFER — first 3 yards to sign a lock-in schedule get their first 2 cabs cleaned "
                   "FREE on the pilot visit, plus the founding rate locked for 12 months. We're building our Twin "
                   "Cities route now: the yards that anchor it get the best slots and the best price, permanently."],
@@ -349,16 +363,17 @@ def _one_pager(base_url: str = "") -> bytes:
         c.setFont("Helvetica", 9.3); c.setFillColor(SLATE); c.drawString(rx + 18, y, s)
         y -= 16
     y -= 10
-    y = rband(y, "SIMPLE PRICING — PER CAB", AMBER)
-    for label, sub, price, color in [("One-Time Clean", "Full spec + photo proof — perfect trial", "$175", AMBER),
+    y = rband(y, "SIMPLE PRICING", AMBER)
+    for label, sub, price, color in [("One-Time Cab Clean", "Full spec + photo proof — perfect trial", "$175", AMBER),
                                      ("Fleet Program 10+", "Priority scheduling · one monthly invoice", "$150", EMERALD),
-                                     ("Bi-Weekly Lock-In", "Your slot, every 2 weeks · 10th clean FREE", "$130", CYAN)]:
-        c.setFont("Helvetica-Bold", 10); c.setFillColor(INK); c.drawString(rx + 4, y, label)
-        c.setFillColor(color); c.roundRect(rx + rw - 56, y - 5, 56, 19, 9, fill=1, stroke=0)
-        c.setFont("Helvetica-Bold", 10); c.setFillColor(colors.white); c.drawCentredString(rx + rw - 28, y, price)
-        c.setFont("Helvetica", 8); c.setFillColor(colors.HexColor("#64748B")); c.drawString(rx + 4, y - 12, sub)
-        c.setStrokeColor(colors.HexColor("#E2E8F0")); c.setLineWidth(1); c.line(rx, y - 20, rx + rw, y - 20)
-        y -= 34
+                                     ("Bi-Weekly Lock-In", "Your slot, every 2 weeks · 10th clean FREE", "$130", CYAN),
+                                     ("Full Car Detail", "Personal vehicles — inside & out, per car", "$150", VIOLET)]:
+        c.setFont("Helvetica-Bold", 9.5); c.setFillColor(INK); c.drawString(rx + 4, y, label)
+        c.setFillColor(color); c.roundRect(rx + rw - 56, y - 5, 56, 18, 9, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 9.5); c.setFillColor(colors.white); c.drawCentredString(rx + rw - 28, y, price)
+        c.setFont("Helvetica", 7.6); c.setFillColor(colors.HexColor("#64748B")); c.drawString(rx + 4, y - 11, sub)
+        c.setStrokeColor(colors.HexColor("#E2E8F0")); c.setLineWidth(1); c.line(rx, y - 18, rx + rw, y - 18)
+        y -= 28
     y -= 2
     fh = 58
     c.setFillColor(TINTS[ROSE]); c.roundRect(rx, y - fh + 8, rw, fh, 10, fill=1, stroke=0)
@@ -652,11 +667,11 @@ def _business_card(base_url: str = "") -> bytes:
             pass
     c.setFont("Helvetica-Bold", 11); c.setFillColor(INK); c.drawString(cx + 118, by + CH - 34, "SCAN TO BOOK")
     c.setFont("Helvetica", 7.5); c.setFillColor(SLATE)
-    for i, t in enumerate(["45-minute showroom spec", "Before/after photo proof", "We come to your yard"]):
+    for i, t in enumerate(["45-min cab spec · $150 car detail", "Before/after photo proof", "We come to your yard"]):
         c.setFillColor(AMBER); c.circle(cx + 121, by + CH - 52 - i * 13 + 2, 2, fill=1, stroke=0)
         c.setFillColor(SLATE); c.drawString(cx + 128, by + CH - 52 - i * 13, t)
     c.setFont("Helvetica-Bold", 8); c.setFillColor(INK)
-    c.drawString(cx + 118, by + 20, "$175 one-time · $130 bi-weekly")
+    c.drawString(cx + 118, by + 20, "$175 cab · $150 car · $130 bi-wk")
     c.setFont("Helvetica", 6.5); c.setFillColor(GREY); c.drawString(cx + 14, by + 20, "book in 60 sec")
 
     # printer notes

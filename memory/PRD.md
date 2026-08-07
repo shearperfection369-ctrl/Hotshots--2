@@ -2665,3 +2665,7 @@ retrains scoring weights from revealed preferences — making the intuitive
 - 8 car-detail add-ons (category car_detail_addon): clay_bar $40, wax_sealant $50, ceramic_spray $75, headlight_restore $45, shampoo_seats $60, pet_hair $30, engine_bay_car $35, ozone_car $40. Added to UPSELLS + UPSELL_META.
 - /wash: 4th plan card (emerald, "Full Car Detail $150/car"), dynamic unit label (cars vs cabs), plan-aware extras (car detail shows detail add-ons + fresheners; cab plans unchanged), sel resets on plan switch. Public ServicesMenu shows a Full Car Detail package card + Detail Add-Ons group.
 - Self-tested via curl (booking $240 correct) + screenshot. PREVIEW only until republish.
+
+## 2026-06 — Car Detail package added to all brochures/docs
+- Updated truck_cleaning_brochure.py builders: services (new FULL CAR DETAIL $150/car panel + Car Detail Add-Ons section), one-pager (added Full Car Detail $150 pricing row, header now "SIMPLE PRICING", rows tightened to fit 1 page), cleaning-guide (Car Detail Procedure section + ~90 min band), yard-promo (Full Car Detail $150/car price row), business-card (back now "$175 cab · $150 car · $130 bi-wk" + "45-min cab spec · $150 car detail").
+- All 5 PDFs verified: correct page counts (one-pager still 1 page), car content present via text extract, visually inspected one-pager pricing + services p2.
