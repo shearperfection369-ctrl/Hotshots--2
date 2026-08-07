@@ -1107,6 +1107,164 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         fresh = await db.tc_yard_prospects.find_one({"prospect_id": prospect_id}, {"_id": 0})
         return {"ok": True, "prospect": fresh}
 
+    # ================= MERCH STORE (crew size requests) =================
+    MERCH_ITEMS = [
+        {"id": "tee", "name": "Crew Tee (navy)", "img": "/merch/tee_women.jpg", "cuts": ["women", "unisex"]},
+        {"id": "hoodie", "name": "Crew Hoodie (navy)", "img": "/merch/hoodie.jpg", "cuts": ["women", "unisex"]},
+        {"id": "cap", "name": "Trucker Cap", "img": "/merch/cap.jpg", "cuts": ["one-size"]},
+        {"id": "beanie", "name": "Cuffed Beanie", "img": "/merch/beanie.jpg", "cuts": ["one-size"]},
+        {"id": "vest", "name": "ANSI Safety Vest", "img": "/merch/vest.jpg", "cuts": ["s-m", "l-xl", "2xl-3xl"]},
+    ]
+    MERCH_SIZES = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "one-size"]
+
+    @router.get("/crew/merch")
+    async def crew_merch(crew=Depends(get_crew)):
+        mine = await db.tc_merch_requests.find({"tech_id": crew["tech_id"]}, {"_id": 0}).sort("at", -1).to_list(50)
+        return {"items": MERCH_ITEMS, "sizes": MERCH_SIZES, "my_requests": mine}
+
+    @router.post("/crew/merch-request")
+    async def merch_request(payload: Dict[str, Any], crew=Depends(get_crew)):
+        item = str(payload.get("item", ""))
+        if item not in {i["id"] for i in MERCH_ITEMS}:
+            raise HTTPException(400, "Unknown item")
+        size = str(payload.get("size", "M"))[:10]
+        cut = str(payload.get("cut", ""))[:12]
+        doc = {"request_id": f"MR-{uuid.uuid4().hex[:6].upper()}", "tech_id": crew["tech_id"],
+               "tech_name": crew["name"], "item": item, "size": size, "cut": cut,
+               "status": "requested", "at": _now()}
+        await db.tc_merch_requests.insert_one(dict(doc))
+        doc.pop("_id", None)
+        return {"ok": True, "request": doc}
+
+    @router.get("/merch-requests")
+    async def merch_requests(_=Depends(guard)):
+        rows = await db.tc_merch_requests.find({}, {"_id": 0}).sort("at", -1).to_list(300)
+        return {"requests": rows}
+
+    # ================= PROSPECT CALL LOG =================
+    @router.post("/yard-prospects/{prospect_id}/call")
+    async def log_call(prospect_id: str, payload: Dict[str, Any], _=Depends(guard)):
+        p = await db.tc_yard_prospects.find_one({"prospect_id": prospect_id}, {"_id": 0})
+        if not p:
+            raise HTTPException(404, "Prospect not found")
+        outcome = str(payload.get("outcome", "no_answer"))
+        if outcome not in ("no_answer", "voicemail", "spoke", "meeting_set", "not_interested"):
+            raise HTTPException(400, "Bad outcome")
+        doc = {"call_id": f"CL-{uuid.uuid4().hex[:6].upper()}", "prospect_id": prospect_id,
+               "outcome": outcome, "notes": str(payload.get("notes", ""))[:400],
+               "callback_date": str(payload.get("callback_date", ""))[:10], "at": _now()}
+        await db.tc_prospect_calls.insert_one(dict(doc))
+        upd = {"last_touch": _now(), "last_call_outcome": outcome}
+        if doc["callback_date"]:
+            upd["callback_date"] = doc["callback_date"]
+        if outcome == "meeting_set" and p["stage"] in ("prospect", "pitched"):
+            upd["stage"] = "meeting"
+        elif outcome in ("spoke", "voicemail") and p["stage"] == "prospect":
+            upd["stage"] = "pitched"
+        elif outcome == "not_interested":
+            upd["stage"] = "dead"
+        await db.tc_yard_prospects.update_one({"prospect_id": prospect_id}, {"$set": upd, "$inc": {"call_count": 1}})
+        doc.pop("_id", None)
+        return {"ok": True, "call": doc, "stage": upd.get("stage", p["stage"])}
+
+    # ================= CONTRACT E-SIGN =================
+    @router.post("/agreements")
+    async def create_agreement(payload: Dict[str, Any], _=Depends(guard)):
+        company = str(payload.get("company", "")).strip()
+        if len(company) < 2:
+            raise HTTPException(400, "Company required")
+        freq = payload.get("frequency", "biweekly")
+        cabs = max(1, min(int(payload.get("cabs", 4)), 200))
+        rate = 110.0 if freq == "weekly" else 130.0
+        doc = {"token": uuid.uuid4().hex, "company": company,
+               "contact": str(payload.get("contact", ""))[:100], "email": str(payload.get("email", ""))[:200],
+               "prospect_id": str(payload.get("prospect_id", ""))[:20],
+               "frequency": freq, "cabs": cabs, "rate": rate,
+               "monthly_value": round(cabs * rate * (4.33 if freq == "weekly" else 2.17), 2),
+               "status": "sent", "created_at": _now(), "signed_at": None, "signature": None}
+        await db.tc_agreements.insert_one(dict(doc))
+        from routes.truck_cleaning_field import _public_base
+        return {"ok": True, "token": doc["token"], "sign_url": f"{_public_base()}/tc/sign/{doc['token']}"}
+
+    @router.get("/agreements")
+    async def list_agreements(_=Depends(guard)):
+        rows = await db.tc_agreements.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+        return {"agreements": rows}
+
+    @router.get("/public/agreement/{token}")
+    async def public_agreement(token: str):
+        a = await db.tc_agreements.find_one({"token": token}, {"_id": 0})
+        if not a:
+            raise HTTPException(404, "Agreement not found")
+        return a
+
+    @router.post("/public/agreement/{token}/sign")
+    async def sign_agreement(token: str, payload: Dict[str, Any], request: Request):
+        a = await db.tc_agreements.find_one({"token": token}, {"_id": 0})
+        if not a:
+            raise HTTPException(404, "Agreement not found")
+        if a["status"] == "signed":
+            raise HTTPException(400, "Already signed")
+        name = str(payload.get("name", "")).strip()
+        if len(name) < 3:
+            raise HTTPException(400, "Type your full legal name to sign")
+        sig = {"name": name[:100], "title": str(payload.get("title", ""))[:100],
+               "ip": request.client.host if request.client else "", "at": _now()}
+        await db.tc_agreements.update_one({"token": token}, {"$set": {
+            "status": "signed", "signed_at": _now(), "signature": sig}})
+        client = await db.tc_clients.find_one({"company": a["company"]}, {"_id": 0})
+        if not client:
+            client = {"client_id": f"TCC-{uuid.uuid4().hex[:8].upper()}", "company": a["company"],
+                      "contact": a.get("contact") or name, "phone": "", "email": a.get("email", ""),
+                      "cabs": a["cabs"], "plan": "biweekly_sub" if a["frequency"] == "biweekly" else "fleet_sub",
+                      "rate": a["rate"], "source": "esign", "notes": "Signed lock-in agreement",
+                      "created_at": _now()}
+            await db.tc_clients.insert_one(dict(client))
+        await db.tc_recurring.replace_one({"client_id": client["client_id"]}, {
+            "rule_id": f"REC-{uuid.uuid4().hex[:6].upper()}", "client_id": client["client_id"],
+            "company": a["company"], "frequency": a["frequency"], "weekday": 1,
+            "window": "08:00-10:00", "cabs": a["cabs"], "rate": a["rate"],
+            "monthly_value": a["monthly_value"], "created_at": _now()}, upsert=True)
+        if a.get("prospect_id"):
+            await db.tc_yard_prospects.update_one({"prospect_id": a["prospect_id"]},
+                                                  {"$set": {"stage": "signed", "last_touch": _now()}})
+        return {"ok": True, "message": f"Signed — welcome aboard, {a['company']}! Your lock-in slot is reserved; "
+                                       "we'll call to confirm your yard day."}
+
+    # ================= PUBLIC GALLERY =================
+    @router.get("/public/gallery")
+    async def public_gallery():
+        jobs = await db.tc_jobs.find({"status": {"$in": ["completed", "paid"]}},
+                                     {"_id": 0, "job_id": 1, "company": 1, "date": 1}).sort("completed_at", -1).to_list(40)
+        pairs = []
+        for j in jobs:
+            pm = await db["tc_photos.files"].find({"metadata.job_id": j["job_id"]}).to_list(10)
+            before = next((str(p["_id"]) for p in pm if (p.get("metadata") or {}).get("kind") == "before"), None)
+            after = next((str(p["_id"]) for p in pm if (p.get("metadata") or {}).get("kind") == "after"), None)
+            if before and after:
+                pairs.append({"job_id": j["job_id"], "before": before, "after": after, "date": j["date"]})
+            if len(pairs) >= 6:
+                break
+        return {"pairs": pairs}
+
+    @router.get("/public/photo/{photo_id}")
+    async def public_photo(photo_id: str):
+        from fastapi.responses import Response as Resp
+        try:
+            oid = ObjectId(photo_id)
+        except Exception:
+            raise HTTPException(404, "Not found")
+        f = await db["tc_photos.files"].find_one({"_id": oid})
+        if not f:
+            raise HTTPException(404, "Not found")
+        job = await db.tc_jobs.find_one({"job_id": (f.get("metadata") or {}).get("job_id"),
+                                         "status": {"$in": ["completed", "paid"]}}, {"_id": 1})
+        if not job:
+            raise HTTPException(404, "Not found")
+        stream = await photos.open_download_stream(oid)
+        return Resp(await stream.read(), media_type="image/jpeg",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
     # ================= PUBLIC BOOKING =================
     @router.get("/public/site-info")
     async def site_info():

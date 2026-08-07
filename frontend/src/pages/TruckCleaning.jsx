@@ -339,6 +339,7 @@ function Docs() {
     finally { setSending(false); }
   };
   const docs = [
+    ["one-pager", "One-Page Brochure", "Clean single-page handout: real photos, 45-min spec, pricing + Founding Yard Offer — print & go", true],
     ["yard-promo", "Yard Manager Package", "The door-opener: full-color pitch — 45-min spec, lock-in pricing, FOUNDING YARD OFFER (2 free pilot cabs)", true],
     ["merch-package", "Crew Apparel Printer Package", "Send to printers: tees, hoodies, caps, beanies + ANSI vests — mockups, PMS colors, women-majority size curve", true],
     ["services", "Services & Pricing Brochure", "Full-color client brochure: plans, add-on menu, air freshener packages + scent menu", true],

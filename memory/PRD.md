@@ -2591,3 +2591,9 @@ retrains scoring weights from revealed preferences — making the intuitive
    20 crew), ANSI/ISEA 107 Class 2 compliance notes, printer checklist. GET /brochures/
    merch-package.pdf registered; Docs tab card added. Verified: 3 pages, all probes, endpoint 200,
    rendered pages inspected.
+
+## 2026-06 — One-Page Brochure (Truck Cleaning)
+- Added `one-pager` builder in `backend/routes/truck_cleaning_brochure.py`: single-page, print-ready split layout — real crew/cab photos (frontend/public/merch/ts_crew.jpg, ts_cab.jpg) left; 45-min spec, add-ons, pricing ($175/$150/$130 per cab), Founding Yard Offer right; "How a Pilot Works" strip + CTA band (763) 443-4459.
+- Download card added to Branded Docs tab in `TruckCleaning.jsx` (`tc-doc-one-pager-btn`).
+- Verified: exactly 1 page, all content present, rendered visually, button live on /truck-cleaning.
+- Pending user-requested features (deferred by user until brochure review): Merch Store Page, Contract E-Sign, Before/After Gallery, Prospect Call Log.

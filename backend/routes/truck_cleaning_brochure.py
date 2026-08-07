@@ -280,6 +280,125 @@ def _yard_promo_brochure() -> bytes:
 MERCH_DIR = "/app/frontend/public/merch"
 
 
+def _one_pager() -> bytes:
+    """Clean one-page branded brochure — split layout: photos left, services/pricing/CTA right."""
+    import os as _os
+    buf = io.BytesIO()
+    c = Canvas(buf, pagesize=letter)
+    c.setFillColor(PAPER); c.rect(0, 0, W, H, fill=1, stroke=0)
+
+    # header
+    hh = 96
+    c.setFillColor(INK); c.rect(0, H - hh, W, hh, fill=1, stroke=0)
+    c.setFillColor(AMBER); c.rect(0, H - hh - 5, W, 5, fill=1, stroke=0)
+    x = 40
+    if LOGO.exists():
+        c.drawImage(str(LOGO), 40, H - hh + 12, width=72, height=72, preserveAspectRatio=True, mask="auto")
+        x = 126
+    c.setFont("Helvetica-Bold", 26); c.setFillColor(colors.white); c.drawString(x, H - 46, "ORISEI")
+    c.setFillColor(AMBER); c.drawString(x + c.stringWidth("ORISEI ", "Helvetica-Bold", 26), H - 46, "TRUCK CLEANING")
+    c.setFont("Helvetica-Bold", 11); c.setFillColor(colors.HexColor("#22D3EE"))
+    c.drawString(x, H - 66, "YOUR CAB. SHOWROOM CLEAN. ZERO DOWNTIME.")
+    c.setFont("Helvetica", 9); c.setFillColor(GREY)
+    c.drawString(x, H - 82, "Mobile semi-cab cleaning — we come to your yard, Twin Cities & 50 miles out")
+
+    top = H - hh - 22
+
+    # left column: photos
+    lx, lw = 40, 252
+    ih = lw / 1264 * 848
+    for i, (fn, cap) in enumerate([("ts_crew.jpg", "Uniformed 2-person crews · battery-powered gear"),
+                                   ("ts_cab.jpg", "Every interior finished to the 45-minute spec")]):
+        y = top - ih - i * (ih + 34)
+        p = f"{MERCH_DIR}/{fn}"
+        if _os.path.exists(p):
+            c.drawImage(p, lx, y, width=lw, height=ih, preserveAspectRatio=True, anchor="c")
+        c.setStrokeColor(AMBER); c.setLineWidth(2); c.rect(lx, y, lw, ih, stroke=1, fill=0)
+        c.setFont("Helvetica-Oblique", 7.5); c.setFillColor(SLATE)
+        c.drawCentredString(lx + lw / 2, y - 12, cap)
+    py = top - 2 * ih - 34 - 34
+    ph_ = 74
+    c.setFillColor(TINTS[CYAN]); c.roundRect(lx, py - ph_, lw, ph_, 10, fill=1, stroke=0)
+    c.setFillColor(CYAN); c.rect(lx, py - ph_, 5, ph_, fill=1, stroke=0)
+    c.setFont("Helvetica-Bold", 9.5); c.setFillColor(CYAN); c.drawString(lx + 14, py - 18, "PHOTO PROOF, EVERY TRUCK")
+    c.setFont("Helvetica", 8); c.setFillColor(SLATE)
+    for i, ln in enumerate(["Time-stamped before/after photos of", "every unit, sent the moment it's done.", "Insured · background-checked crews."]):
+        c.drawString(lx + 14, py - 33 - i * 12, ln)
+
+    # right column
+    rx, rw = 316, W - 316 - 40
+
+    def rband(y, text, color):
+        c.setFillColor(color); c.roundRect(rx, y - 6, rw, 22, 7, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 10.5); c.setFillColor(colors.white); c.drawString(rx + 12, y, text)
+        return y - 24
+
+    y = top - 8
+    y = rband(y, "THE 45-MINUTE SHOWROOM SPEC", INK)
+    for s in ["Dashboard, console & vents detailed", "Full-cab vacuum — floor to bunk",
+              "Seats deep-cleaned · stain & odor treatment", "Floor scrub — mats, pedals & undercarriage",
+              "Windows & mirrors, inside and out", "Finishing scent — driver picks from our menu"]:
+        c.setFillColor(AMBER); c.circle(rx + 8, y + 3, 2.6, fill=1, stroke=0)
+        c.setFont("Helvetica", 9.3); c.setFillColor(SLATE); c.drawString(rx + 18, y, s)
+        y -= 16
+    y -= 10
+    y = rband(y, "POPULAR ADD-ONS", VIOLET)
+    for s in ["Bedding & pillow service — hotel-fresh bunk", "Premium air freshener packages",
+              "Fridge / cooler clean-out"]:
+        c.setFillColor(VIOLET); c.circle(rx + 8, y + 3, 2.6, fill=1, stroke=0)
+        c.setFont("Helvetica", 9.3); c.setFillColor(SLATE); c.drawString(rx + 18, y, s)
+        y -= 16
+    y -= 10
+    y = rband(y, "SIMPLE PRICING — PER CAB", AMBER)
+    for label, sub, price, color in [("One-Time Clean", "Full spec + photo proof — perfect trial", "$175", AMBER),
+                                     ("Fleet Program 10+", "Priority scheduling · one monthly invoice", "$150", EMERALD),
+                                     ("Bi-Weekly Lock-In", "Your slot, every 2 weeks · 10th clean FREE", "$130", CYAN)]:
+        c.setFont("Helvetica-Bold", 10); c.setFillColor(INK); c.drawString(rx + 4, y, label)
+        c.setFillColor(color); c.roundRect(rx + rw - 56, y - 5, 56, 19, 9, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 10); c.setFillColor(colors.white); c.drawCentredString(rx + rw - 28, y, price)
+        c.setFont("Helvetica", 8); c.setFillColor(colors.HexColor("#64748B")); c.drawString(rx + 4, y - 12, sub)
+        c.setStrokeColor(colors.HexColor("#E2E8F0")); c.setLineWidth(1); c.line(rx, y - 20, rx + rw, y - 20)
+        y -= 34
+    y -= 2
+    fh = 58
+    c.setFillColor(TINTS[ROSE]); c.roundRect(rx, y - fh + 8, rw, fh, 10, fill=1, stroke=0)
+    c.setFillColor(ROSE); c.rect(rx, y - fh + 8, 5, fh, fill=1, stroke=0)
+    c.setFont("Helvetica-Bold", 9.5); c.setFillColor(ROSE); c.drawString(rx + 14, y - 8, "FOUNDING YARD OFFER")
+    c.setFont("Helvetica", 8); c.setFillColor(SLATE)
+    for i, ln in enumerate(["First 3 yards to lock a schedule get 2 cabs", "cleaned FREE on the pilot visit + founding", "rate locked for 12 months."]):
+        c.drawString(rx + 14, y - 22 - i * 11, ln)
+
+    # pilot steps strip
+    sy = 168
+    c.setFillColor(INK); c.roundRect(40, sy - 52, W - 80, 74, 12, fill=1, stroke=0)
+    c.setFont("Helvetica-Bold", 10.5); c.setFillColor(AMBER); c.drawString(56, sy + 4, "HOW A PILOT WORKS — ZERO RISK")
+    steps = [("1", "Pick a day —", "we come to you"), ("2", "2 cabs cleaned", "FREE on the pilot"),
+             ("3", "Walk the cabs +", "photo-proof links"), ("4", "Love it? Lock your", "slot on the spot")]
+    sw = (W - 112) / 4
+    for i, (n, l1, l2) in enumerate(steps):
+        x = 56 + i * sw
+        c.setFillColor(AMBER); c.circle(x + 8, sy - 20, 8, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 9); c.setFillColor(INK); c.drawCentredString(x + 8, sy - 23, n)
+        c.setFont("Helvetica-Bold", 8); c.setFillColor(colors.white)
+        c.drawString(x + 22, sy - 17, l1); c.drawString(x + 22, sy - 28, l2)
+
+    # CTA band
+    cta_y = 40
+    c.setFillColor(AMBER); c.rect(0, cta_y, W, 62, fill=1, stroke=0)
+    c.setFont("Helvetica-Bold", 15); c.setFillColor(INK)
+    c.drawString(40, cta_y + 36, "BOOK YOUR YARD'S PILOT DAY — ONE TEXT DOES IT")
+    c.setFont("Helvetica-Bold", 10.5)
+    c.drawString(40, cta_y + 16, "Call / text Oliver: (763) 443-4459   ·   oliver@oriseifreightsolutions.com")
+    c.setFont("Helvetica-Bold", 9); c.drawRightString(W - 40, cta_y + 16, "Book online in 60 seconds")
+    c.setFillColor(INK); c.rect(0, 0, W, cta_y, fill=1, stroke=0)
+    c.setFont("Helvetica", 7.5); c.setFillColor(GREY)
+    c.drawString(40, 15, "Orisei Truck Cleaning Solutions · Minneapolis–St. Paul, MN · Insured & background-checked crews")
+    c.setFillColor(AMBER); c.setFont("Helvetica-Bold", 8); c.drawRightString(W - 40, 15, "ORISEITRUCKCLEANING")
+
+    c.save()
+    return buf.getvalue()
+
+
 def _merch_package() -> bytes:
     """Printer-ready apparel & merch spec package — light layout for print shops."""
     import io as _io
@@ -463,7 +582,8 @@ def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRo
 
     @router.get("/brochures/{doc_id}.pdf")
     async def brochure(doc_id: str, _=Depends(guard)) -> Response:
-        builders = {"cleaning-guide": (_guide_brochure, "Orisei_Cleaning_Guide_Brochure"),
+        builders = {"one-pager": (_one_pager, "Orisei_Truck_Cleaning_One_Pager"),
+                    "cleaning-guide": (_guide_brochure, "Orisei_Cleaning_Guide_Brochure"),
                     "services": (_services_brochure, "Orisei_Services_Pricing_Brochure"),
                     "yard-promo": (_yard_promo_brochure, "Orisei_Yard_Manager_Package"),
                     "merch-package": (_merch_package, "Orisei_Crew_Apparel_Printer_Package")}
