@@ -2625,3 +2625,10 @@ retrains scoring weights from revealed preferences — making the intuitive
 - ShareBookingLink card in Bookings tab (TcBookings.jsx): copy link, open, QR preview + download. Uses window.location.origin.
 - One-pager brochure now embeds SCAN TO BOOK QR (base passed from frontend origin via ?base= param on brochure download).
 - All verified: QR endpoint 200, brochure 1 page w/ QR rendered, share card screenshot, dual alert send.
+
+## 2026-06 — Yard Blast + Contract E-Sign frontend + Business Card
+- Top-5 Yard Blast panel in Bookings tab (YardBlast in TcBookings.jsx): email inputs per top-5 prospect, one-click blast of Yard Manager Package + auto stage->pitched.
+- Contract E-Sign frontend complete: per-prospect CONTRACT button creates agreement (POST /agreements now accepts base + emails sign link when prospect has email); public mobile sign page /tc/sign/:token (TcSignPublic.jsx) — summary, terms, type-to-sign, creates client + recurring rule + stage->signed (backend pre-existed).
+- Business Card print PDF (_business_card in truck_cleaning_brochure.py, doc id business-card): 3.5x2 front/back, scan-to-book QR, crop marks, printer notes. In Branded Docs tab.
+- Testing: iteration_88.json — frontend 100% pass, no issues. Demo agreement 'Demo Yard (UI preview)' left in DB for user preview.
+- Yard Blast requires user to enter real yard-manager emails (never guessed).
