@@ -2679,3 +2679,11 @@ retrains scoring weights from revealed preferences — making the intuitive
 - 3 branded ad images composited (PIL, real logo+photos+pricing) in /app/frontend/public/ads/: fb_fleet_1080.png, fb_cardetail_1080.png (squares), ad_wide_1200x628.png (banner). New car-detail photo saved at merch/ts_car_detail.jpg. Builder script /app/backend/build_ads.py (rerun to regenerate).
 - New "ad-kit" PDF in Branded Docs (_ad_kit in truck_cleaning_brochure.py): paste-ready Craigslist ads (fleet + car detail: titles+bodies), 2 Facebook group posts, posting playbook, embedded image previews + /ads/ URLs. Verified 200, 3 pages, content + visual check.
 - Ads served at {site}/ads/*.png (ship with frontend on deploy).
+
+## 2026-06 — Service address + vehicle location capture
+- BookingIn: new address (required on form) + vehicle_location fields. Autopilot saves address on client + job, appends vehicle note to job notes, updates client address on change. Alert email includes both.
+- Crew router geocoding now prefers structured client.address over notes (verified: geocoded 44.978,-93.263 for Minneapolis test address).
+- _job_view exposes address (job > client.address > notes) + vehicle_location -> crew Today/Tomorrow NAVIGATE uses real address.
+- /wash form: "Service address *" (required) + "Where will the vehicles be?" inputs; notes placeholder simplified.
+- TMS Jobs table: address shown under client as clickable Google Maps link (tc-job-location-{id}) + "Vehicles: ..." line.
+- Verified: curl end-to-end (job/client/email/geocode) + screenshots of form and jobs table.

@@ -341,6 +341,8 @@ class BookingIn(BaseModel):
     phone: str = Field("", max_length=40)
     email: str = Field("", max_length=200)
     cabs: int = Field(1, ge=1, le=200)
+    address: str = Field("", max_length=250)
+    vehicle_location: str = Field("", max_length=250)
     preferred_date: str = Field("", max_length=10)
     services: List[str] = Field(default_factory=list)
     plan: str = Field("one_time", max_length=20)
@@ -486,7 +488,9 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
             j["checklist"] = checklist
         done = sum(1 for t in j["checklist"] if t["done"])
         photos_meta = await db["tc_photos.files"].find({"metadata.job_id": j["job_id"]}).to_list(20)
-        return {"job_id": j["job_id"], "company": c.get("company", "?"), "address": c.get("notes", ""),
+        return {"job_id": j["job_id"], "company": c.get("company", "?"),
+                "address": j.get("address") or c.get("address") or c.get("notes", ""),
+                "vehicle_location": j.get("vehicle_location", ""),
                 "contact": c.get("contact", ""), "phone": c.get("phone", ""),
                 "date": j["date"], "window": j.get("window", ""), "cabs": j["cabs"],
                 "status": j["status"], "upsells": j.get("upsells", []),
@@ -770,12 +774,12 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                 if tid in load:
                     load[tid] += job_minutes(j)
 
-        # lazy one-time yard geocode from client notes (booking form captures yard address there)
+        # lazy one-time yard geocode — prefer the structured address field, fall back to notes
         from routes.routing_svc import _osm_geocode
         for j in unassigned:
             c = clients.get(j["client_id"]) or {}
             if c and c.get("yard_lat") is None and not c.get("yard_geo_tried"):
-                addr = (c.get("notes") or "").split("\n")[0].strip()[:120]
+                addr = (c.get("address") or "").strip()[:120] or (c.get("notes") or "").split("\n")[0].strip()[:120]
                 coord = await _osm_geocode(addr) if len(addr) > 8 else None
                 upd = {"yard_geo_tried": True}
                 if coord:
@@ -1406,9 +1410,13 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                       "contact": b.get("contact", ""), "phone": b.get("phone", ""),
                       "email": b.get("email", ""), "cabs": b["cabs"], "plan": plans[b["plan"]],
                       "rate": rate, "source": "booking_autopilot", "notes": b.get("notes", ""),
-                      "created_at": _now()}
+                      "address": b.get("address", ""), "created_at": _now()}
             await db.tc_clients.insert_one(dict(client))
             client.pop("_id", None)
+        elif b.get("address") and b["address"] != client.get("address"):
+            await db.tc_clients.update_one({"client_id": client["client_id"]},
+                                           {"$set": {"address": b["address"]}})
+            client["address"] = b["address"]
         today = _today()
         date = b.get("preferred_date") or ""
         try:
@@ -1422,12 +1430,15 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
             now_ct = datetime.now(ZoneInfo("America/Chicago"))
             date = now_ct.date().isoformat() if now_ct.hour < 12 else (now_ct.date() + timedelta(days=1)).isoformat()
         scent_note = f" Scent: {b['scent']}." if b.get("scent") else ""
+        veh_note = f" Vehicles: {b['vehicle_location']}." if b.get("vehicle_location") else ""
         job = {"job_id": f"TCJ-{uuid.uuid4().hex[:8].upper()}", "client_id": client["client_id"],
                "company": client["company"], "date": date, "cabs": b["cabs"],
+               "address": b.get("address", "") or client.get("address", ""),
+               "vehicle_location": b.get("vehicle_location", ""),
                "upsells": b.get("services", []),
                "price": round(b["cabs"] * rate + sum(UPSELLS.get(u, 0) for u in b.get("services", [])), 2),
                "cogs": round(b["cabs"] * 46.0, 2), "status": "scheduled",
-               "notes": f"AI-booked from {b['booking_id']} ({b['plan']}).{scent_note} {b.get('notes', '')}".strip(),
+               "notes": f"AI-booked from {b['booking_id']} ({b['plan']}).{scent_note}{veh_note} {b.get('notes', '')}".strip(),
                "checklist": _build_checklist(b.get("services", [])), "created_at": _now()}
         await db.tc_jobs.insert_one(dict(job))
         routing = await _route_date(date)
@@ -1446,6 +1457,8 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         rows = [("Company", b.get("company", "—")), ("Contact", b.get("contact") or "—"),
                 ("Phone", b.get("phone") or "—"), ("Email", b.get("email") or "—"),
                 ("Cabs", str(b.get("cabs", 1))),
+                ("Service address", b.get("address") or "—"),
+                ("Vehicle location", b.get("vehicle_location") or "—"),
                 ("Plan", {"one_time": "One-Time $175", "fleet": "Fleet $150", "biweekly": "Bi-Weekly $130", "car_detail": "Full Car Detail $150"}.get(b.get("plan", ""), b.get("plan") or "—")),
                 ("Preferred date", b.get("preferred_date") or "flexible"),
                 ("Add-ons", ", ".join(svc_labels) or "none"),

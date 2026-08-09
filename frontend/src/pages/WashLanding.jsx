@@ -177,7 +177,7 @@ function BeforeAfterGallery() {
 
 export default function WashLanding() {
   const [info, setInfo] = useState(null);
-  const [form, setForm] = useState({ company: "", contact: "", phone: "", email: "", cabs: 1, preferred_date: "", notes: "" });
+  const [form, setForm] = useState({ company: "", contact: "", phone: "", email: "", cabs: 1, preferred_date: "", address: "", vehicle_location: "", notes: "" });
   const [plan, setPlan] = useState("one_time");
   const [scent, setScent] = useState("");
   const [sel, setSel] = useState([]);
@@ -389,6 +389,12 @@ export default function WashLanding() {
                     <input type="date" value={form.preferred_date} onChange={(e) => setForm({ ...form, preferred_date: e.target.value })}
                       className="bg-transparent text-sm outline-none w-full text-slate-300" data-testid="wash-book-date" />
                   </div>
+                  <input required value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    placeholder="Service address — yard / driveway / lot *"
+                    className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors sm:col-span-2" data-testid="wash-book-address" />
+                  <input value={form.vehicle_location} onChange={(e) => setForm({ ...form, vehicle_location: e.target.value })}
+                    placeholder="Where will the vehicles be? (row, gate code, 'behind shop'…)"
+                    className="h-12 px-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors sm:col-span-2" data-testid="wash-book-vehicle-location" />
                 </div>
               </div>
               {/* 3 · services */}
@@ -436,7 +442,7 @@ export default function WashLanding() {
                   ))}
                 </div>
               </div>
-              <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Yard address (helps us route the closest crew), gate codes, anything we should know…"
+              <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Anything else we should know…"
                 className="w-full min-h-[80px] p-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-notes" />
               {/* total + submit */}
               <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.06]" data-testid="wash-booking-total">

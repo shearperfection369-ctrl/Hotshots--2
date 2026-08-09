@@ -259,7 +259,16 @@ function Jobs({ jobs, clients, reload }) {
             {jobs.map((j) => (
               <tr key={j.job_id} className="border-b border-white/5" data-testid={`tc-job-row-${j.job_id}`}>
                 <td className="p-3 font-mono text-[11px] text-amber-300">{j.job_id}<div className="text-slate-600">{j.date}</div></td>
-                <td className="p-3 text-slate-200 text-xs">{j.company}</td>
+                <td className="p-3 text-slate-200 text-xs">
+                  {j.company}
+                  {j.address && (
+                    <a href={`https://maps.google.com/?q=${encodeURIComponent(j.address)}`} target="_blank" rel="noreferrer"
+                       className="flex items-center gap-1 mt-0.5 text-[10px] text-cyan-300 hover:text-cyan-200" data-testid={`tc-job-location-${j.job_id}`}>
+                      <Crosshair size={10} /> {j.address}
+                    </a>
+                  )}
+                  {j.vehicle_location && <div className="text-[10px] text-slate-500 mt-0.5">Vehicles: {j.vehicle_location}</div>}
+                </td>
                 <td className="p-3 tabular-nums">{j.cabs}</td>
                 <td className="p-3 tabular-nums font-bold">${j.price.toLocaleString()}</td>
                 <td className="p-3 tabular-nums text-emerald-400">${(j.price - j.cogs).toLocaleString()}</td>
