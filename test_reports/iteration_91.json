@@ -1,0 +1,24 @@
+{
+  "summary": "Verified Resend env-var fallback fix. Fired ONE real public booking (QA EmailFix Yard). Both outbound_emails tc_booking_alert rows (oliver@ and shearperfection369@) have status='sent' with error=None — no more 'recorded_no_key'. Env fallback in _resend_creds returns a re_-prefixed api_key + bookings@oriseifreightsolutions.com from RESEND_* env vars when DB creds absent. Code inspection confirmed DB creds are preferred (checked before env), and 'import os' is present. Autopilot regression clean: booking status='converted' with job_id and scheduled_date populated. QA records cleaned up (tc_bookings/tc_jobs/tc_clients where company='QA EmailFix Yard'). Connections DB record and .env untouched.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_email_fix_iter91.py",
+    "/app/test_reports/pytest/iter91.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "_booking_alert_email in truck_cleaning_crew.py stores full raw HTML per outbound email row — over time outbound_emails will bloat MongoDB. Consider storing a digest/link or capping html length.",
+    "_send_via_resend swallows exceptions and returns truncated error strings; consider logging with logger.exception so failures are traceable in prod."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_email_fix_iter91.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "n/a"},
+  "test_credentials": "Used none (public booking endpoint); backend/.env for MONGO_URL & RESEND_*",
+  "seed_data_creation": "Created & then deleted tc_bookings/tc_jobs/tc_clients for company='QA EmailFix Yard'.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Fix confirmed in preview env. To validate in production, redeploy and repeat the single public booking test — outbound_emails.status should be 'sent' (previously 'recorded_no_key' because production DB had no Resend connection record). No further action required for this iteration.",
+  "rca of the issue": "Resend credentials were only persisted in the preview MongoDB (connections collection). Production MongoDB had no such record, so _resend_creds() returned None and _booking_alert_email marked emails as 'recorded_no_key'. FIX: _resend_creds now falls back to RESEND_API_KEY / RESEND_FROM_EMAIL / RESEND_FROM_NAME environment variables (shipped in backend/.env) when the DB lookup returns nothing. Tests confirm the fallback path returns valid creds and real emails are dispatched (status='sent')."
+}

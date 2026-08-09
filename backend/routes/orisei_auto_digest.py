@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
@@ -43,11 +44,22 @@ def _iso(d: datetime) -> str:
 
 
 async def _resend_creds(db) -> Optional[Dict[str, str]]:
+    creds = None
     try:
         from .connections import get_connection_credentials
-        return await get_connection_credentials(db, "resend")
+        creds = await get_connection_credentials(db, "resend")
     except Exception:
-        return None
+        creds = None
+    if creds and creds.get("api_key"):
+        return creds
+    # Env fallback so deployed environments work without re-entering the key
+    # in the Connections screen (DB credentials are per-environment).
+    env_key = os.environ.get("RESEND_API_KEY", "").strip()
+    if env_key:
+        return {"api_key": env_key,
+                "from_email": os.environ.get("RESEND_FROM_EMAIL", "").strip() or "onboarding@resend.dev",
+                "from_name": os.environ.get("RESEND_FROM_NAME", "").strip() or "Orisei Truck Cleaning"}
+    return None
 
 
 async def _send_via_resend(creds: Dict[str, str], *, to: str, subject: str,
