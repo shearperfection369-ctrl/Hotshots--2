@@ -2669,3 +2669,8 @@ retrains scoring weights from revealed preferences — making the intuitive
 ## 2026-06 — Car Detail package added to all brochures/docs
 - Updated truck_cleaning_brochure.py builders: services (new FULL CAR DETAIL $150/car panel + Car Detail Add-Ons section), one-pager (added Full Car Detail $150 pricing row, header now "SIMPLE PRICING", rows tightened to fit 1 page), cleaning-guide (Car Detail Procedure section + ~90 min band), yard-promo (Full Car Detail $150/car price row), business-card (back now "$175 cab · $150 car · $130 bi-wk" + "45-min cab spec · $150 car detail").
 - All 5 PDFs verified: correct page counts (one-pager still 1 page), car content present via text extract, visually inspected one-pager pricing + services p2.
+
+## 2026-06 — BUG FIX: production booking alerts not emailing (verified iteration_91)
+- Cause: Resend creds were only in preview DB (Connections). Production DB had none -> recorded_no_key.
+- Fix: _resend_creds() env fallback (RESEND_API_KEY/RESEND_FROM_EMAIL/RESEND_FROM_NAME added to backend/.env; DB creds still preferred). Testing agent confirmed booking alert status 'sent' to both owner inboxes + autopilot regression clean.
+- User must REPUBLISH for production emails to work (env ships with deploy). The missed alert email for their real production booking was never sent — user should check that booking in the TMS.
