@@ -686,6 +686,94 @@ def _business_card(base_url: str = "") -> bytes:
     return buf.getvalue()
 
 
+AD_DIR = "/app/frontend/public/ads"
+
+CL_CAB_TITLE = "Mobile Semi-Cab & Fleet Cleaning — We Come To Your Yard (Twin Cities)"
+CL_CAB_BODY = [
+    "Your drivers live in that cab. We make it showroom clean — at YOUR yard, zero downtime.",
+    "THE 45-MINUTE SHOWROOM SPEC (every clean): dashboard, console & vents detailed / full-cab",
+    "vacuum floor to bunk / seats deep-cleaned with stain & odor treatment / floor scrub /",
+    "windows in & out / finishing scent — driver's pick.",
+    "PRICING: $175 one-time cab clean · $150/cab fleet program (10+) · $130/cab bi-weekly",
+    "lock-in (every 10th clean FREE). Add-ons: tire dressing, ozone odor bomb, bedding service.",
+    "Every truck gets time-stamped BEFORE/AFTER photo proof sent to you. Insured,",
+    "background-checked, uniformed crews. Battery-powered gear — no yard hookups needed.",
+    "FOUNDING YARD OFFER: first yards to lock a schedule get 2 cabs cleaned FREE on the",
+    "pilot visit + rate locked for 12 months.",
+    "Call/text Oliver: (763) 443-4459 · Book online in 60 seconds:",
+    "https://oriseifreightsolutions.com/wash",
+]
+CL_CAR_TITLE = "Full Mobile Car Detail $150 — Inside & Out, We Come To You (Twin Cities)"
+CL_CAR_BODY = [
+    "Skip the detail-shop line. We bring the full detail to your driveway or office parking lot.",
+    "$150 FULL DETAIL INCLUDES: complete interior vacuum & wipe-down / exterior hand wash",
+    "& dry / windows & mirrors in and out / door jambs & console detailed / tire shine &",
+    "wheel clean / finishing air freshener.",
+    "ADD-ONS: ceramic spray coating $75 · seat & carpet shampoo $60 · hand wax & sealant $50 ·",
+    "headlight restoration $45 · ozone odor treatment $40 · engine bay $35 · pet hair removal $30.",
+    "Insured & background-checked. Before/after photos on every job.",
+    "Call/text: (763) 443-4459 · Book online: https://oriseifreightsolutions.com/wash",
+]
+FB_FLEET_POST = [
+    "TWIN CITIES FLEET OWNERS & OWNER-OPS — your drivers sit in that cab 11 hours a day.",
+    "When did it last get a REAL clean?",
+    "We bring a 2-person crew to YOUR yard and turn every cab showroom-clean in 45 minutes —",
+    "while your trucks are parked anyway. Zero downtime. Before/after photo proof on every unit.",
+    "$175 one-time · $150/cab for fleets 10+ · $130/cab bi-weekly lock-in (10th clean FREE).",
+    "First yards to lock a schedule: 2 cabs FREE on the pilot visit.",
+    "Call/text (763) 443-4459 or book in 60 seconds: oriseifreightsolutions.com/wash",
+]
+FB_CAR_POST = [
+    "$150 FULL CAR DETAIL — WE COME TO YOU (Twin Cities + 50 miles).",
+    "Inside & out: interior vacuum + wipe-down, hand wash, windows, door jambs, tire shine,",
+    "air freshener. Add ceramic coating, seat shampoo, pet hair removal & more.",
+    "Insured crews · before/after photos · book from your phone in 60 seconds.",
+    "(763) 443-4459 · oriseifreightsolutions.com/wash",
+]
+POST_TIPS = [
+    "Craigslist: post under Services > Automotive. Repost every 48 hours (delete + repost keeps you on top).",
+    "Craigslist: attach ad_wide_1200x628.png first (it becomes the thumbnail), then the square ads.",
+    "Facebook: post the square images in local trucking groups, owner-operator groups, and neighborhood",
+    "groups (Nextdoor works too for car details). Post 8-10am or 7-9pm for best reach.",
+    "Always reply to comments with the booking link — the algorithm boosts posts with replies.",
+    "Rotate headlines weekly. Track which ad each caller mentions so you know what pulls.",
+]
+
+
+def _ad_kit() -> bytes:
+    b = Brochure("Craigslist & Facebook Ad Kit", "Paste-ready copy + where to find the ad images")
+    b.tint_panel(["Ad images live at oriseifreightsolutions.com/ads/ — download all three:",
+                  "fb_fleet_1080.png (Facebook square, fleet/cab) · fb_cardetail_1080.png (Facebook square,",
+                  "car detail) · ad_wide_1200x628.png (Craigslist header / FB link post)."],
+                 CYAN, title="YOUR AD IMAGES")
+    for img in ("fb_fleet_1080.png", "ad_wide_1200x628.png"):
+        p = f"{AD_DIR}/{img}"
+        try:
+            ih = 150
+            iw = ih if "1080" in img else ih * 1200 / 628
+            b.ensure(ih + 26)
+            b.c.drawImage(p, 44, b.y - ih, width=iw, height=ih, preserveAspectRatio=True, anchor="sw")
+            b.c.setFont("Helvetica", 7.5)
+            b.c.setFillColor(SLATE)
+            b.c.drawString(44, b.y - ih - 11, img)
+            b.y -= ih + 26
+        except Exception:  # noqa: BLE001
+            pass
+    b.band("CRAIGSLIST AD 1 — FLEET / SEMI-CAB CLEANING", AMBER)
+    b.tint_panel([f'TITLE: {CL_CAB_TITLE}'], AMBER, title="COPY EVERYTHING BELOW")
+    b.tint_panel(CL_CAB_BODY, AMBER, title="BODY")
+    b.band("CRAIGSLIST AD 2 — FULL CAR DETAIL", EMERALD)
+    b.tint_panel([f'TITLE: {CL_CAR_TITLE}'], EMERALD, title="COPY EVERYTHING BELOW")
+    b.tint_panel(CL_CAR_BODY, EMERALD, title="BODY")
+    b.band("FACEBOOK GROUP POST 1 — FLEET / OWNER-OPS", CYAN)
+    b.tint_panel(FB_FLEET_POST, CYAN, title="PASTE AS THE POST TEXT · ATTACH fb_fleet_1080.png")
+    b.band("FACEBOOK GROUP POST 2 — CAR DETAIL", VIOLET)
+    b.tint_panel(FB_CAR_POST, VIOLET, title="PASTE AS THE POST TEXT · ATTACH fb_cardetail_1080.png")
+    b.band("POSTING PLAYBOOK — GET THE PHONE RINGING", ROSE)
+    b.tint_panel(POST_TIPS, ROSE)
+    return b.finish()
+
+
 def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRouter:
     router = APIRouter(prefix="/truck-cleaning", tags=["truck-cleaning-brochures"])
     guard = require_role("admin", "owner", "dispatcher")
@@ -694,6 +782,7 @@ def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRo
     async def brochure(doc_id: str, base: str = "", _=Depends(guard)) -> Response:
         builders = {"one-pager": (_one_pager, "Orisei_Truck_Cleaning_One_Pager"),
                     "business-card": (_business_card, "Orisei_Business_Card_Print"),
+                    "ad-kit": (_ad_kit, "Orisei_Craigslist_Facebook_Ad_Kit"),
                     "cleaning-guide": (_guide_brochure, "Orisei_Cleaning_Guide_Brochure"),
                     "services": (_services_brochure, "Orisei_Services_Pricing_Brochure"),
                     "yard-promo": (_yard_promo_brochure, "Orisei_Yard_Manager_Package"),

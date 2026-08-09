@@ -2674,3 +2674,8 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Cause: Resend creds were only in preview DB (Connections). Production DB had none -> recorded_no_key.
 - Fix: _resend_creds() env fallback (RESEND_API_KEY/RESEND_FROM_EMAIL/RESEND_FROM_NAME added to backend/.env; DB creds still preferred). Testing agent confirmed booking alert status 'sent' to both owner inboxes + autopilot regression clean.
 - User must REPUBLISH for production emails to work (env ships with deploy). The missed alert email for their real production booking was never sent — user should check that booking in the TMS.
+
+## 2026-06 — Craigslist/Facebook Ad Kit
+- 3 branded ad images composited (PIL, real logo+photos+pricing) in /app/frontend/public/ads/: fb_fleet_1080.png, fb_cardetail_1080.png (squares), ad_wide_1200x628.png (banner). New car-detail photo saved at merch/ts_car_detail.jpg. Builder script /app/backend/build_ads.py (rerun to regenerate).
+- New "ad-kit" PDF in Branded Docs (_ad_kit in truck_cleaning_brochure.py): paste-ready Craigslist ads (fleet + car detail: titles+bodies), 2 Facebook group posts, posting playbook, embedded image previews + /ads/ URLs. Verified 200, 3 pages, content + visual check.
+- Ads served at {site}/ads/*.png (ship with frontend on deploy).
