@@ -323,6 +323,46 @@ function ProspectList() {
   );
 }
 
+function SentEmailsLog() {
+  const [data, setData] = useState(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => { api.get("/truck-cleaning/emails").then(({ data: d }) => setData(d)).catch(() => {}); }, []);
+  if (!data) return null;
+  const KIND = { tc_yard_promo: "Yard package", tc_agreement_link: "Contract link", tc_contract_won: "Contract won", tc_booking_alert: "Booking alert", tc_gear_kit: "Gear kit" };
+  return (
+    <Card className="p-4 bg-slate-950/70 border-white/10" data-testid="tc-sent-emails">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between" data-testid="tc-sent-emails-toggle">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <Send size={15} className="text-cyan-300" /> Sent Emails
+          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[10px] font-black">{data.sent} sent</span>
+          {data.failed > 0 && <span className="px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/40 text-rose-300 text-[10px] font-black">{data.failed} failed</span>}
+        </h3>
+        <span className="text-[10px] font-mono text-slate-500">{open ? "HIDE" : "SHOW"}</span>
+      </button>
+      <div className="text-[10px] text-slate-500 mt-0.5">Every email this system sends, with delivery status. Outreach emails are also BCC'd to your inbox. Note: emails go out via Resend from bookings@ — they won't show in your Outlook Sent folder.</div>
+      {open && (
+        <div className="mt-3 space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
+          {(data.emails || []).map((e, i) => (
+            <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl border border-white/10 bg-white/[0.02] flex-wrap" data-testid={`tc-email-row-${i}`}>
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black shrink-0 ${e.status === "sent" ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40" : "bg-rose-500/15 text-rose-300 border border-rose-500/40"}`}>
+                {e.status === "sent" ? "SENT" : "FAILED"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] text-white font-semibold truncate">{e.subject}</div>
+                <div className="text-[10px] font-mono text-slate-500 truncate">
+                  to {e.to}{e.company ? ` · ${e.company}` : ""}{e.kind ? ` · ${KIND[e.kind] || e.kind}` : ""}{e.error ? ` · ${e.error}` : ""}
+                </div>
+              </div>
+              <span className="text-[9px] font-mono text-slate-600 shrink-0">{(e.at || "").slice(0, 16).replace("T", " ")}</span>
+            </div>
+          ))}
+          {!data.emails?.length && <div className="py-6 text-center text-slate-500 text-sm">No emails sent yet.</div>}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export const TcBookings = ({ reloadAll }) => {
   const [rows, setRows] = useState([]);
   const load = useCallback(() => {
@@ -392,6 +432,7 @@ export const TcBookings = ({ reloadAll }) => {
       </div>
     </Card>
     <AdSourceStats rows={rows} />
+    <SentEmailsLog />
     <ProspectList />
     </div>
   );

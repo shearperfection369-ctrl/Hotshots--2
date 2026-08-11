@@ -820,7 +820,8 @@ def build_truck_cleaning_brochure_router(*, db, require_role: Callable) -> APIRo
         creds = await _resend_creds(db)
         res = await _send_via_resend(creds, to=to, subject=subject, html=html,
                                      pdf_bytes=_yard_promo_brochure(),
-                                     pdf_filename="Orisei_Yard_Manager_Package.pdf") \
+                                     pdf_filename="Orisei_Yard_Manager_Package.pdf",
+                                     bcc="oliver@oriseifreightsolutions.com") \
             if creds else {"sent": False, "error": "no_resend_creds"}
         status = "sent" if res.get("sent") else "recorded_no_key"
         from datetime import datetime, timezone

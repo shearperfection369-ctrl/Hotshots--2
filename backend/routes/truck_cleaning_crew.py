@@ -360,8 +360,8 @@ def _is_test_booking(b: dict) -> bool:
     """Suppress real alert emails for QA/test bookings (e.g. company 'TEST …')."""
     name = str(b.get("company", "")).strip().lower()
     email = str(b.get("email", "")).strip().lower()
-    return (name.startswith("test") or name.startswith("qa ") or "@test." in email
-            or email.endswith("@example.com") or email == "qa@test.com")
+    return (name.startswith(("test", "qa ", "ui_test")) or "_test" in name or "test_" in name
+            or "@test." in email or email.endswith("@example.com") or email == "qa@test.com")
 
 
 def _haversine_mi(lat1, lng1, lat2, lng2) -> float:
@@ -1241,7 +1241,8 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                         f"padding:12px 26px;border-radius:999px;text-decoration:none'>REVIEW &amp; SIGN</a></p>"
                         f"<p style='font-size:12px;color:#64748B'>Questions? Call or text Oliver: (763) 443-4459</p></div></div>")
                 creds = await _resend_creds(db)
-                res = await _send_via_resend(creds, to=doc["email"], subject=subject, html=html) if creds \
+                res = await _send_via_resend(creds, to=doc["email"], subject=subject, html=html,
+                                             bcc="oliver@oriseifreightsolutions.com") if creds \
                     else {"sent": False, "error": "no_resend_creds"}
                 emailed = bool(res.get("sent"))
                 await db.outbound_emails.insert_one({
@@ -1352,6 +1353,16 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         stream = await photos.open_download_stream(oid)
         return Resp(await stream.read(), media_type="image/jpeg",
                     headers={"Cache-Control": "public, max-age=3600"})
+
+    # ================= SENT EMAIL LOG =================
+    @router.get("/emails")
+    async def sent_emails(limit: int = 100, _=Depends(guard)):
+        rows = await db.outbound_emails.find(
+            {}, {"_id": 0, "to": 1, "subject": 1, "status": 1, "error": 1, "kind": 1,
+                 "company": 1, "at": 1}).sort("at", -1).to_list(min(limit, 300))
+        return {"emails": rows,
+                "sent": sum(1 for r in rows if r.get("status") == "sent"),
+                "failed": sum(1 for r in rows if r.get("status") != "sent")}
 
     # ================= JOBS MAP =================
     @router.get("/jobs-map")

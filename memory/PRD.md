@@ -2701,3 +2701,10 @@ retrains scoring weights from revealed preferences — making the intuitive
 - POST /api/carrier-search/ai-contacts: LlmChat (openai gpt-5.4, EMERGENT_LLM_KEY) returns strict JSON — likely domains w/ confidence, 2-4 decision-maker roles (owner/fleet/ops/terminal/safety) each with 2-3 realistic email guesses, email patterns, one-line outreach tip + disclaimer. No invented personal names unless carrier is famous/public.
 - UI: AiContacts panel in TcCarrierSearch.jsx — "FIND CONTACTS (AI)" button per carrier card (tc-cs-ai-{dot}), result panel (tc-cs-ai-result-{dot}) with confidence-colored domain chips and tap-to-copy email chips.
 - Self-tested: curl (Dart Transit → real dart.net domain, high confidence) + UI screenshot. Uses Emergent LLM key credits per lookup. PREVIEW only until republish.
+
+## 2026-06 — Outreach BCC + Sent Emails log (user couldn't find sent prospect email in Outlook)
+- Root cause of confusion: TMS emails go out server-side via Resend from bookings@ — they never appear in the user's Outlook Sent folder. Their self-test not arriving is likely Proofpoint/junk quarantine (seen before) — production log will confirm after redeploy.
+- _send_via_resend now takes optional bcc (skipped if bcc==to). Yard-promo package sends + agreement sign-link emails now BCC oliver@oriseifreightsolutions.com so a copy lands in his inbox.
+- New GET /api/truck-cleaning/emails (admin): last N outbound_emails (to/subject/status/kind/company/at). SentEmailsLog collapsible card in Bookings tab (tc-sent-emails) with SENT/FAILED chips + counts.
+- Widened _is_test_booking to catch UI_TEST/_test/test_ prefixes; purged leftover UI_TEST booking + 20 test rows from outbound_emails log.
+- Self-tested: endpoint curl + UI screenshot. PREVIEW only until republish.
