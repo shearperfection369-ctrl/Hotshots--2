@@ -2,9 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Activity, Wifi } from "lucide-react";
 import ThemeSwitcher from "./ThemeSwitcher";
 import GlobalSearch from "./GlobalSearch";
+import { useBranding } from "../lib/branding";
 
 export default function Topbar({ title, subtitle }) {
   const [now, setNow] = useState(new Date());
+  const { brand } = useBranding();
+  const isDefault = !brand || brand.is_default || brand.brand_id === "orisei-freight";
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
@@ -16,10 +19,15 @@ export default function Topbar({ title, subtitle }) {
         <div className="shrink-0 min-w-0 flex items-center gap-3">
           <div className="hidden md:flex items-center gap-2 pr-3 border-r border-white/10">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center font-orisei text-xl shadow-[0_0_18px_rgba(224,184,92,0.4)]"
-                 style={{ background: "linear-gradient(135deg,#E0B85C,#B08A36)", color: "#0A2D55" }}>
-              O
+                 style={isDefault
+                   ? { background: "linear-gradient(135deg,#E0B85C,#B08A36)", color: "#0A2D55" }
+                   : { background: `linear-gradient(135deg,${brand.primary_color || "#3B82F6"},${brand.secondary_color || "#60A5FA"})`, color: "#0B0E14" }}>
+              {isDefault ? "O" : (brand.logo_letter || (brand.short_name || "B")[0]).toUpperCase()}
             </div>
-            <div className="font-orisei text-lg leading-none text-amber-300" data-testid="topbar-brand">Orisei</div>
+            <div className="font-orisei text-lg leading-none" data-testid="topbar-brand"
+                 style={{ color: isDefault ? "#FCD34D" : (brand.primary_color || "#3B82F6") }}>
+              {isDefault ? "Orisei" : (brand.short_name || brand.company_name)}
+            </div>
           </div>
           <div className="min-w-0">
             <h1 className="font-display text-xl md:text-2xl font-bold tracking-tight text-white truncate" data-testid="topbar-title">{title}</h1>

@@ -2714,3 +2714,10 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Prospect package PDF download: "PACKAGE PDF" button on Yard Hit List header (tc-download-package-btn) + per-prospect "PDF" button (tc-prospect-pdf-{id}) — downloads Orisei_Yard_Package[_Company].pdf via existing /brochures/yard-promo.pdf endpoint (blob).
 - Verified: curl 200/294KB + Playwright download event fired ("Orisei_Yard_Package.pdf") + screenshot. NOTE for future testing: the fixed DataStatusBanner ("GO LIVE · LAUNCH RUNWAY" <a href=/launch-plan>) intercepts coordinate clicks in Playwright — use JS element.click() instead of page.click when testing /truck-cleaning.
 - PREVIEW only until republish.
+
+## 2026-06 — Saffer Trading Co demo brand (for Jordan Foster demo)
+- SAFFER_BRAND seeded in branding.py (auto-upserts on GET /branding/all → appears in production after republish + opening Admin Settings). Real data: MC-222262, USDOT 2214616, 1123 E Jackson St Medford OR, tagline "Navigating Freight with Ease", BBB A+/TIA, blue palette (#3B82F6/#60A5FA/#F59E0B), broker services/lanes (Pacific NW), 3 facilities (Medford HQ / Townsend MT / Tacoma WA), M&T Logistics in carrier pool.
+- branding/manual now generates monogram logo too (was AI-path only). Saffer logo at /frontend/public/brand/logos/saffer.png (ships with deploy).
+- Topbar.jsx now brand-aware: non-default brand shows its logo letter + short_name in brand colors (was hardcoded "O · Orisei").
+- Demo flow: Admin → Settings → Company Theme → click Saffer Trading Company → whole TMS reskins live. Tested: activate → /dashboard + /shipments screenshots show SAFFER skin; reverted to orisei-freight (Saffer left inactive, ready to flip).
+- REQUIRES REPUBLISH before the live demo.

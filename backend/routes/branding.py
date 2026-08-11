@@ -76,6 +76,36 @@ DEFAULT_BRAND = {
     "is_default": True,
 }
 
+# Demo brand seeded on first Admin Settings visit (real FMCSA authority data).
+SAFFER_BRAND = {
+    "brand_id": "saffer",
+    "company_name": "Saffer Trading Company",
+    "short_name": "Saffer",
+    "tagline": "Navigating Freight with Ease",
+    "industry": "Freight Brokerage · MC-222262 · USDOT 2214616 · BBB A+ · TIA Member",
+    "headquarters": "1123 E Jackson St, Medford, OR 97504",
+    "primary_color": "#3B82F6",
+    "secondary_color": "#60A5FA",
+    "accent_color": "#F59E0B",
+    "logo_letter": "S",
+    "logo_url": "/brand/logos/saffer.png",
+    "catalog_label": "Freight Services",
+    "sample_products": ["Flatbed & Step Deck", "Machinery & Rigging Freight", "Oversize / Tarped Loads",
+                        "Dry Van FTL", "LTL & Partials", "Reefer", "Single Dedicated Account Manager"],
+    "sample_suppliers": ["FMCSA-Vetted Flatbed Network", "M & T Logistics LLC", "Pacific NW Regional Carriers",
+                         "TIA Member Carrier Pool", "Machinery Movers Alliance"],
+    "sample_lanes": ["Medford OR → Portland OR", "Medford OR → Sacramento CA", "Tacoma WA → Boise ID",
+                     "Townsend MT → Salt Lake City UT", "Portland OR → Reno NV", "Eugene OR → Seattle WA"],
+    "facilities": [{"name": "HQ · 1123 E Jackson St", "city": "Medford, OR"},
+                   {"name": "Montana Desk", "city": "Townsend, MT"},
+                   {"name": "Puget Sound Desk", "city": "Tacoma, WA"}],
+    "shipments": [],
+    "is_default": False,
+    "is_active": False,
+    "is_manual": True,
+    "created_at": "2026-06-01T00:00:00+00:00",
+}
+
 
 class BrandGenerateIn(BaseModel):
     company_name: str
@@ -153,6 +183,9 @@ def build_branding_router(
     @router.get("/branding/all")
     async def branding_list(_=Depends(require_role("admin"))):
         """List every brand the admin has generated."""
+        if not await db.company_brand.find_one({"brand_id": SAFFER_BRAND["brand_id"]}, {"_id": 1}):
+            await db.company_brand.update_one(
+                {"brand_id": SAFFER_BRAND["brand_id"]}, {"$setOnInsert": dict(SAFFER_BRAND)}, upsert=True)
         rows = await db.company_brand.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
         return {"brands": rows, "default": DEFAULT_BRAND}
 
@@ -304,6 +337,7 @@ def build_branding_router(
             "created_by": user.user_id,
             "created_by_name": user.name,
         }
+        doc.update(_generate_brand_logo(doc))
         await db.company_brand.update_one({"brand_id": brand_id}, {"$set": doc}, upsert=True)
 
         if payload.activate:
