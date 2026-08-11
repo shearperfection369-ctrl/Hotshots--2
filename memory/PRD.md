@@ -2721,3 +2721,11 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Topbar.jsx now brand-aware: non-default brand shows its logo letter + short_name in brand colors (was hardcoded "O · Orisei").
 - Demo flow: Admin → Settings → Company Theme → click Saffer Trading Company → whole TMS reskins live. Tested: activate → /dashboard + /shipments screenshots show SAFFER skin; reverted to orisei-freight (Saffer left inactive, ready to flip).
 - REQUIRES REPUBLISH before the live demo.
+
+## 2026-06 — Saffer demo sample loads
+- _saffer_demo_shipments() in branding.py: 8 realistic flatbed/machinery loads in Saffer lanes (Medford→Portland/Sacramento, Tacoma→Boise, Townsend→SLC, Portland→Reno, White City→Stockton, Eugene→Seattle, Medford→Spokane) with real PNW shippers (Roseburg, Timber Products, Cascade Steel, Knife River, ESCO, Pacific Machinery), flatbed carriers (Central Oregon Truck, System Transport, TMC, Melton, Maverick, M&T Logistics), mixed statuses (2 in_transit w/ mid-route coords, 1 delayed, 1 at_origin, 2 pending, 2 delivered), dates relative to today, material_controller = real Saffer AMs (Jordan Foster x4, Matt Glanz, Scott Randol, Sally Dundas, Theo Krause). References SAFF-841xx.
+- Seeded automatically on first POST /branding/activate {saffer} — so in production the loads appear the moment user clicks Saffer during the demo.
+- Loads tagged demo_brand_id='saffer'; list_shipments now filters demo_brand_id in [None, active_brand] → loads visible ONLY while Saffer skin active (verified 8 visible under saffer / 0 under orisei). _overlay_shipment skips demo-tagged rows so curated commodities stay intact.
+- SAFFER_BRAND products/suppliers rewritten: commodities (CAT excavator, lumber, steel beams…) + PNW shippers (drives overlay of the other board rows too). Preview brand doc reseeded.
+- Bonus verified: AI Load Sentinel auto-flags the delayed SAFF-84123 load with an action brief — great demo beat.
+- REQUIRES REPUBLISH before the demo.

@@ -90,10 +90,13 @@ SAFFER_BRAND = {
     "logo_letter": "S",
     "logo_url": "/brand/logos/saffer.png",
     "catalog_label": "Freight Services",
-    "sample_products": ["Flatbed & Step Deck", "Machinery & Rigging Freight", "Oversize / Tarped Loads",
-                        "Dry Van FTL", "LTL & Partials", "Reefer", "Single Dedicated Account Manager"],
-    "sample_suppliers": ["FMCSA-Vetted Flatbed Network", "M & T Logistics LLC", "Pacific NW Regional Carriers",
-                         "TIA Member Carrier Pool", "Machinery Movers Alliance"],
+    "sample_products": ["CAT 320 Excavator · Tarped", "Sawmill Line Machinery (Skidded)",
+                        "Structural Steel Beams · 40 ft", "Kiln-Dried Lumber Units",
+                        "John Deere 9R Tractor", "Transformer Skid · 28k lbs",
+                        "Rock Crusher Components", "Pallet-Wrapped Millwork"],
+    "sample_suppliers": ["Pacific Machinery & Tractor", "Roseburg Forest Products", "Timber Products Company",
+                         "Knife River Materials", "Cascade Steel Rolling Mills", "Boise Cascade",
+                         "ESCO Group · Portland", "Medford Fabrication"],
     "sample_lanes": ["Medford OR → Portland OR", "Medford OR → Sacramento CA", "Tacoma WA → Boise ID",
                      "Townsend MT → Salt Lake City UT", "Portland OR → Reno NV", "Eugene OR → Seattle WA"],
     "facilities": [{"name": "HQ · 1123 E Jackson St", "city": "Medford, OR"},
@@ -105,6 +108,63 @@ SAFFER_BRAND = {
     "is_manual": True,
     "created_at": "2026-06-01T00:00:00+00:00",
 }
+
+
+def _saffer_demo_shipments() -> List[Dict[str, Any]]:
+    """Realistic Saffer flatbed/machinery loads, dated relative to today.
+    Tagged demo_brand_id='saffer' so they only show while the Saffer brand is active."""
+    from datetime import timedelta
+    today = datetime.now(timezone.utc)
+    d = lambda off: (today + timedelta(days=off)).date().isoformat()  # noqa: E731
+    iso = lambda off, h=0: (today + timedelta(days=off, hours=h)).isoformat()  # noqa: E731
+    C = {
+        "Medford, OR": (42.3265, -122.8756), "Portland, OR": (45.5152, -122.6784),
+        "Sacramento, CA": (38.5816, -121.4944), "Tacoma, WA": (47.2529, -122.4443),
+        "Boise, ID": (43.6150, -116.2023), "Townsend, MT": (46.3191, -111.5208),
+        "Salt Lake City, UT": (40.7608, -111.8910), "Reno, NV": (39.5296, -119.8138),
+        "Eugene, OR": (44.0521, -123.0868), "Seattle, WA": (47.6062, -122.3321),
+        "White City, OR": (42.4373, -122.8590), "Stockton, CA": (37.9577, -121.2908),
+        "Spokane, WA": (47.6588, -117.4260),
+    }
+    def ep(city):
+        lat, lng = C[city]
+        return {"name": city, "city": city, "lat": lat, "lng": lng}
+    def mid(a, b, t):
+        (la, lo), (lb, lg) = C[a], C[b]
+        return {"lat": round(la + (lb - la) * t, 4), "lng": round(lo + (lg - lo) * t, 4), "city": f"en route · I-5 corridor"}
+    rows = [
+        ("SAFF-84121", "Medford, OR", "Portland, OR", "Central Oregon Truck Company", "in_transit", 0.62,
+         "CAT 320 Excavator · Tarped", 48500, 1, 1, 6400, -1, 0, "Pacific Machinery & Tractor", "Jordan Foster"),
+        ("SAFF-84122", "Medford, OR", "Sacramento, CA", "System Transport", "in_transit", 0.38,
+         "Kiln-Dried Lumber Units", 46200, 22, 22, 3900, 0, 1, "Timber Products Company", "Jordan Foster"),
+        ("SAFF-84123", "Tacoma, WA", "Boise, ID", "TMC Transportation", "delayed", 0.55,
+         "Structural Steel Beams · 40 ft", 47800, 18, 18, 5200, -1, 1, "Cascade Steel Rolling Mills", "Scott Randol"),
+        ("SAFF-84124", "Townsend, MT", "Salt Lake City, UT", "Melton Truck Lines", "at_origin", 0.0,
+         "Transformer Skid · 28k lbs", 28400, 1, 1, 7800, 0, 2, "Knife River Materials", "Sally Dundas"),
+        ("SAFF-84125", "Portland, OR", "Reno, NV", "Maverick Transportation", "pending", 0.0,
+         "Sawmill Line Machinery (Skidded)", 31200, 4, 4, 8900, 2, 3, "ESCO Group · Portland", "Jordan Foster"),
+        ("SAFF-84126", "White City, OR", "Stockton, CA", "M & T Logistics LLC", "pending", 0.0,
+         "Rock Crusher Components", 42600, 6, 6, 6100, 3, 4, "Knife River Materials", "Matt Glanz"),
+        ("SAFF-84127", "Eugene, OR", "Seattle, WA", "Central Oregon Truck Company", "delivered", 1.0,
+         "Pallet-Wrapped Millwork", 38900, 16, 16, 3400, -4, -3, "Roseburg Forest Products", "Jordan Foster"),
+        ("SAFF-84128", "Medford, OR", "Spokane, WA", "System Transport", "delivered", 1.0,
+         "John Deere 9R Tractor", 39400, 1, 1, 5600, -6, -5, "Pacific Machinery & Tractor", "Theo Krause"),
+    ]
+    out = []
+    for (ref, o, dest, car, st, prog, com, lbs, pieces, skids, val, pick_off, eta_off, shipper, am) in rows:
+        loc = ep(dest) if st == "delivered" else (ep(o) if prog == 0 else mid(o, dest, prog))
+        out.append({
+            "shipment_id": f"SHP-{ref[5:]}SF", "reference": ref, "mode": "TL", "carrier": car,
+            "status": st, "origin": ep(o), "destination": ep(dest),
+            "current_location": {"lat": loc["lat"], "lng": loc["lng"], "city": loc.get("city", dest)},
+            "eta": iso(eta_off, 15), "pickup_date": d(pick_off), "ship_date": d(pick_off),
+            "weight_lbs": float(lbs), "pieces": pieces, "skids": skids, "commodity": com,
+            "value_usd": float(val), "progress": prog, "direction": "outbound", "hazmat": False,
+            "supplier": shipper, "consignee": dest.split(",")[0] + " receiving yard",
+            "material_controller": am, "extras": "Tarps · straps · chains" if "Tarped" in com or "Steel" in com else None,
+            "demo_brand_id": "saffer", "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    return out
 
 
 class BrandGenerateIn(BaseModel):
@@ -385,6 +445,8 @@ def build_branding_router(
             raise HTTPException(404, "brand_id not found")
         await db.company_brand.update_many({}, {"$set": {"is_active": False}})
         await db.company_brand.update_one({"brand_id": payload.brand_id}, {"$set": {"is_active": True}})
+        if payload.brand_id == "saffer" and not await db.shipments.find_one({"demo_brand_id": "saffer"}, {"_id": 1}):
+            await db.shipments.insert_many([dict(s) for s in _saffer_demo_shipments()])
         found.pop("_id", None)
         found["is_active"] = True
         await _ensure_brand_erp_stub(found)

@@ -619,7 +619,7 @@ def _swap_strings(value: Any, replacements: Dict[str, str]) -> Any:
 
 
 def _overlay_shipment(s: Dict[str, Any], brand: Dict[str, Any]) -> Dict[str, Any]:
-    if not brand or brand.get("brand_id") == "orisei-freight":
+    if not brand or brand.get("brand_id") == "orisei-freight" or s.get("demo_brand_id"):
         return s
     out = dict(s)
     seed = out.get("shipment_id") or out.get("reference") or ""
@@ -711,8 +711,10 @@ async def list_shipments(user: User = Depends(get_current_user), mode: Optional[
     # Scope: carriers only see their own loads
     if user.role == "carrier" and user.carrier_company:
         q["carrier"] = user.carrier_company
-    docs = await db.shipments.find(q, {"_id": 0}).limit(limit).to_list(limit)
     brand = await _active_brand_doc()
+    active_bid = (brand or {}).get("brand_id") or "orisei-freight"
+    q["demo_brand_id"] = {"$in": [None, active_bid]}
+    docs = await db.shipments.find(q, {"_id": 0}).limit(limit).to_list(limit)
     if brand:
         docs = [_overlay_shipment(d, brand) for d in docs]
     return [Shipment(**d) for d in docs]
