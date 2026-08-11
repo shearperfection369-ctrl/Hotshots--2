@@ -1308,7 +1308,7 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                     f"Cabs: <b>{a['cabs']}</b> · Rate: <b>${a['rate']:.0f}/cab</b> · Est. monthly: <b>${a['monthly_value']:,.0f}</b></p>"
                     f"<p>The client + recurring yard slot were created automatically. Call to confirm their first yard day.</p></div></div>")
             creds = await _resend_creds(db)
-            for to in ("oliver@oriseifreightsolutions.com", "shearperfection369@gmail.com"):
+            for to in ("oliver@oriseifreightsolutions.com",):
                 res = await _send_via_resend(creds, to=to, subject=subject, html=html) if creds \
                     else {"sent": False, "error": "no_resend_creds"}
                 await db.outbound_emails.insert_one({
@@ -1513,7 +1513,7 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
 
     async def _booking_alert_email(b: dict):
         from routes.orisei_auto_digest import _resend_creds, _send_via_resend
-        recipients = ["oliver@oriseifreightsolutions.com", "shearperfection369@gmail.com"]
+        recipients = ["oliver@oriseifreightsolutions.com"]
         svc_labels = [u["label"] for u in UPSELL_META if u["id"] in b.get("services", [])]
         rows = [("Company", b.get("company", "—")), ("Contact", b.get("contact") or "—"),
                 ("Phone", b.get("phone") or "—"), ("Email", b.get("email") or "—"),

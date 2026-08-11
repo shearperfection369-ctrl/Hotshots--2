@@ -207,6 +207,18 @@ function ProspectList() {
     } catch (e2) { toast.error(e2?.response?.data?.detail || "Could not log call"); }
     finally { setSending(false); }
   };
+  const downloadPackage = async (name) => {
+    try {
+      const r = await api.get("/truck-cleaning/brochures/yard-promo.pdf", { responseType: "blob" });
+      const u = URL.createObjectURL(r.data);
+      const a = document.createElement("a");
+      a.href = u;
+      a.download = `Orisei_Yard_Package${name ? "_" + name.replace(/[^a-z0-9]+/gi, "_") : ""}.pdf`;
+      a.click();
+      URL.revokeObjectURL(u);
+      toast.success("Prospect package PDF downloaded");
+    } catch { toast.error("Download failed"); }
+  };
   if (!data) return null;
   return (
     <>
@@ -216,10 +228,16 @@ function ProspectList() {
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
           <Crosshair size={15} className="text-amber-400" /> Twin Cities Yard Hit List — 20 ranked prospects
         </h3>
-        <div className="flex gap-1.5 text-[9px] font-mono">
-          {Object.entries(data.counts).filter(([, v]) => v > 0).map(([s, v]) => (
-            <span key={s} className={`px-2 py-0.5 rounded-full border border-white/10 ${STAGE_COLOR[s]}`}>{s}: {v}</span>
-          ))}
+        <div className="flex items-center gap-2">
+          <button onClick={() => downloadPackage("")} data-testid="tc-download-package-btn"
+            className="h-8 px-3 rounded-full border border-amber-500/50 text-amber-300 text-[10px] font-black flex items-center gap-1 hover:bg-amber-500/10">
+            <Download size={11} /> PACKAGE PDF
+          </button>
+          <div className="flex gap-1.5 text-[9px] font-mono">
+            {Object.entries(data.counts).filter(([, v]) => v > 0).map(([s, v]) => (
+              <span key={s} className={`px-2 py-0.5 rounded-full border border-white/10 ${STAGE_COLOR[s]}`}>{s}: {v}</span>
+            ))}
+          </div>
         </div>
       </div>
       <div className="text-[10px] text-slate-500 mb-3">Tier A = 10–30 cab agile fleets & drayage yards (start here) · Tier B = LTL service centers (nightly day cabs) · Tier C = anchors & owner-op networks. Cab counts are field estimates — verify on the call.</div>
@@ -246,6 +264,11 @@ function ProspectList() {
                   className="h-8 px-3 rounded-full bg-amber-500 text-black text-[10px] font-black flex items-center gap-1"
                   data-testid={`tc-prospect-send-${p.prospect_id}`}>
                   <Send size={11} /> PACKAGE
+                </button>
+                <button onClick={() => downloadPackage(p.name)} title="Download the Yard Manager Package PDF"
+                  className="h-8 px-3 rounded-full border border-amber-500/50 text-amber-300 text-[10px] font-black flex items-center gap-1 hover:bg-amber-500/10"
+                  data-testid={`tc-prospect-pdf-${p.prospect_id}`}>
+                  <Download size={11} /> PDF
                 </button>
                 <button onClick={() => { setContractFor(contractFor === p.prospect_id ? null : p.prospect_id); setEmailFor(null); }}
                   className="h-8 px-3 rounded-full bg-violet-500 text-white text-[10px] font-black flex items-center gap-1"

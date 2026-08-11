@@ -2708,3 +2708,9 @@ retrains scoring weights from revealed preferences — making the intuitive
 - New GET /api/truck-cleaning/emails (admin): last N outbound_emails (to/subject/status/kind/company/at). SentEmailsLog collapsible card in Bookings tab (tc-sent-emails) with SENT/FAILED chips + counts.
 - Widened _is_test_booking to catch UI_TEST/_test/test_ prefixes; purged leftover UI_TEST booking + 20 test rows from outbound_emails log.
 - Self-tested: endpoint curl + UI screenshot. PREVIEW only until republish.
+
+## 2026-06 — Owner email routing + prospect package download
+- All owner notification emails (booking alerts, contract-won) now go ONLY to oliver@oriseifreightsolutions.com (shearperfection369@gmail.com removed from all backend recipient lists — grep-verified 0 remaining). User asked "route all emails to oliver for now".
+- Prospect package PDF download: "PACKAGE PDF" button on Yard Hit List header (tc-download-package-btn) + per-prospect "PDF" button (tc-prospect-pdf-{id}) — downloads Orisei_Yard_Package[_Company].pdf via existing /brochures/yard-promo.pdf endpoint (blob).
+- Verified: curl 200/294KB + Playwright download event fired ("Orisei_Yard_Package.pdf") + screenshot. NOTE for future testing: the fixed DataStatusBanner ("GO LIVE · LAUNCH RUNWAY" <a href=/launch-plan>) intercepts coordinate clicks in Playwright — use JS element.click() instead of page.click when testing /truck-cleaning.
+- PREVIEW only until republish.
