@@ -1,0 +1,35 @@
+{
+  "summary": "Iter92 tested Booking Map, Ad Tracker, Detail Tiers, and FMCSA Carrier Search on the Truck Cleaning module. 11/11 backend pytest tests PASSED (carrier search by name+state, by DOT=44110=Greyhound, add-prospect + duplicate detection, enrichment-status=configured:false, public booking gold@$295 with heard_from=Facebook, platinum@$300 flat with included add-on stripped, jobs-map returns geocoded pins + date filter works, plus regression on one_time $175 plan). Frontend UI verified end-to-end via Playwright: /wash tier picker (silver/gold/platinum) toggles on 'Full Car Detail', total updates to $220 for gold, heard-from chips (Facebook/Craigslist/Referral/Google/Saw the crew/Yard flyer/Other) all render and are selectable. /truck-cleaning Jobs tab renders Work Location Map with pin count '1 pinned' and date-filter. Bookings tab shows the AdSourceStats 'Where bookings come from' card with Facebook bar. Carrier Search tab searches live FMCSA, renders result cards, ADD PROSPECT button transitions to ADDED state and toast confirms YP-21, prospect appears in Yard Hit List. ONE UI GAP FOUND: per-booking-row 'via {heard_from}' and 'tier {gold/platinum}' badges (data-testid tc-booking-heard-* / tc-booking-tier-*) are NOT rendered in TcBookings.jsx booking-row template even though the data is present on the booking doc (verified BOOK-50C11E has heard_from=Facebook, tier=gold in MongoDB).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "TcBookings.jsx booking row (lines 360-386)",
+        "issue": "Per-booking-row heard-from and tier badges are missing. Review batch asked for data-testid tc-booking-heard-{booking_id} showing 'via Facebook' and tc-booking-tier-{booking_id} showing tier chip; they are not rendered. Only the aggregate AdSourceStats card renders heard_from data.",
+        "selector": "[data-testid^=\"tc-booking-heard-\"], [data-testid^=\"tc-booking-tier-\"]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter92_tc_new_batch.py",
+    "/app/test_reports/pytest/iter92.xml"
+  ],
+  "action_items": [
+    "Add per-row badges in /app/frontend/src/components/truckcleaning/TcBookings.jsx (~line 365-370): render <span data-testid={`tc-booking-heard-${b.booking_id}`}>via {b.heard_from}</span> when b.heard_from present, and <span data-testid={`tc-booking-tier-${b.booking_id}`}>{b.tier}</span> when b.tier present (typically for car_detail plan)."
+  ],
+  "critical_code_review_comments": [
+    "carrier_search.py _int() has a subtle bug: `n if n not in (0, 99999) else (0 if n == 0 else None)` returns 0 for 0 (fine) and None for 99999 (fine), but the intent to treat 0 as 'unknown' is inconsistent with returning 0. Consider `return None if n in (0, 99999) else n`.",
+    "_booking_autopilot silently swallows all exceptions (`except Exception: pass` on line 1420). If geocoding, client creation, or job creation ever fails, the public caller still gets ok=True with no scheduled_date — hard to debug. Recommend logging the exception.",
+    "truck_cleaning_crew.py is 1578 lines — well over the 700-line guideline. Split public booking, jobs, photos, crew endpoints into separate modules."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter92_tc_new_batch.py"],
+  "success_rate": {"backend": "100%", "frontend": "90% (all critical flows pass; per-row heard/tier badges missing)"},
+  "test_credentials": "POST /api/auth/dev-session → session_token (admin). Preview-host gated.",
+  "seed_data_creation": "None persistent — all TEST-prefixed bookings/jobs/clients/prospects created during pytest were cleaned up in-fixture. One prospect (Dart Transit Company YP-21) was added via Playwright UI test and remains — recommend main agent delete if desired.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend for iter92 fully green. If TcBookings badge gap is fixed, only need to reload /truck-cleaning bookings tab and confirm data-testid tc-booking-heard-BOOK-50C11E and tc-booking-tier-BOOK-50C11E render. Existing test file test_iter92_tc_new_batch.py can be reused for regression on carrier search + detail tiers + jobs-map."
+}

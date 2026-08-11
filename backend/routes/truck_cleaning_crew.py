@@ -346,12 +346,22 @@ class BookingIn(BaseModel):
     preferred_date: str = Field("", max_length=10)
     services: List[str] = Field(default_factory=list)
     plan: str = Field("one_time", max_length=20)
+    tier: str = Field("", max_length=20)
+    heard_from: str = Field("", max_length=60)
     scent: str = Field("", max_length=60)
     notes: str = Field("", max_length=500)
 
 
 class AutoAssignIn(BaseModel):
     date: str = Field("", max_length=10)
+
+
+def _is_test_booking(b: dict) -> bool:
+    """Suppress real alert emails for QA/test bookings (e.g. company 'TEST …')."""
+    name = str(b.get("company", "")).strip().lower()
+    email = str(b.get("email", "")).strip().lower()
+    return (name.startswith("test") or name.startswith("qa ") or "@test." in email
+            or email.endswith("@example.com") or email == "qa@test.com")
 
 
 def _haversine_mi(lat1, lng1, lat2, lng2) -> float:
@@ -1343,6 +1353,37 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         return Resp(await stream.read(), media_type="image/jpeg",
                     headers={"Cache-Control": "public, max-age=3600"})
 
+    # ================= JOBS MAP =================
+    @router.get("/jobs-map")
+    async def jobs_map(date: str = "", _=Depends(guard)):
+        q: Dict[str, Any] = {"status": {"$in": ["scheduled", "in_progress"]}}
+        if date:
+            q["date"] = date
+        jobs = await db.tc_jobs.find(q, {"_id": 0}).to_list(300)
+        clients = {c["client_id"]: c async for c in db.tc_clients.find({}, {"_id": 0})}
+        from routes.routing_svc import _osm_geocode
+        pins, geocoded = [], 0
+        for j in jobs:
+            c = clients.get(j.get("client_id")) or {}
+            lat, lng = c.get("yard_lat"), c.get("yard_lng")
+            if lat is None and geocoded < 5 and not c.get("yard_geo_tried"):
+                addr = (j.get("address") or c.get("address") or "").strip()[:120]
+                coord = await _osm_geocode(addr) if len(addr) > 8 else None
+                upd: Dict[str, Any] = {"yard_geo_tried": True}
+                if coord:
+                    upd.update({"yard_lat": coord.lat, "yard_lng": coord.lng})
+                    lat, lng = coord.lat, coord.lng
+                if c.get("client_id"):
+                    await db.tc_clients.update_one({"client_id": c["client_id"]}, {"$set": upd})
+                geocoded += 1
+            if lat is None:
+                continue
+            pins.append({"job_id": j["job_id"], "company": j.get("company", ""), "date": j.get("date", ""),
+                         "cabs": j.get("cabs", 1), "price": j.get("price", 0), "status": j.get("status", ""),
+                         "address": j.get("address") or c.get("address") or "",
+                         "vehicle_location": j.get("vehicle_location", ""), "lat": lat, "lng": lng})
+        return {"pins": pins, "total_jobs": len(jobs)}
+
     # ================= PUBLIC BOOKING =================
     @router.get("/public/booking-qr.png")
     async def booking_qr(url: str = "", download: int = 0):
@@ -1387,7 +1428,8 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         except Exception:  # noqa: BLE001
             pass
         try:
-            await _booking_alert_email(doc)
+            if not _is_test_booking(doc):
+                await _booking_alert_email(doc)
         except Exception:  # noqa: BLE001
             pass
         if doc.get("job_id"):
@@ -1404,6 +1446,13 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
         rates = {"one_time": 175.0, "fleet": 150.0, "biweekly": 130.0, "car_detail": 150.0}
         plans = {"one_time": "one_time", "fleet": "fleet_sub", "biweekly": "biweekly_sub", "car_detail": "car_detail"}
         rate = rates[b["plan"]]
+        tier = ""
+        if b["plan"] == "car_detail":
+            from routes.truck_cleaning import CAR_TIERS
+            tier = b.get("tier") if b.get("tier") in CAR_TIERS else "silver"
+            rate = CAR_TIERS[tier]["price"]
+            included = set(CAR_TIERS[tier]["includes"])
+            b["services"] = [s for s in b.get("services", []) if s not in included]
         client = await db.tc_clients.find_one({"company": b["company"]}, {"_id": 0})
         if not client:
             client = {"client_id": f"TCC-{uuid.uuid4().hex[:8].upper()}", "company": b["company"],
@@ -1431,14 +1480,15 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
             date = now_ct.date().isoformat() if now_ct.hour < 12 else (now_ct.date() + timedelta(days=1)).isoformat()
         scent_note = f" Scent: {b['scent']}." if b.get("scent") else ""
         veh_note = f" Vehicles: {b['vehicle_location']}." if b.get("vehicle_location") else ""
+        tier_note = f"/{tier}" if tier else ""
         job = {"job_id": f"TCJ-{uuid.uuid4().hex[:8].upper()}", "client_id": client["client_id"],
                "company": client["company"], "date": date, "cabs": b["cabs"],
                "address": b.get("address", "") or client.get("address", ""),
-               "vehicle_location": b.get("vehicle_location", ""),
+               "vehicle_location": b.get("vehicle_location", ""), "tier": tier,
                "upsells": b.get("services", []),
                "price": round(b["cabs"] * rate + sum(UPSELLS.get(u, 0) for u in b.get("services", [])), 2),
                "cogs": round(b["cabs"] * 46.0, 2), "status": "scheduled",
-               "notes": f"AI-booked from {b['booking_id']} ({b['plan']}).{scent_note}{veh_note} {b.get('notes', '')}".strip(),
+               "notes": f"AI-booked from {b['booking_id']} ({b['plan']}{tier_note}).{scent_note}{veh_note} {b.get('notes', '')}".strip(),
                "checklist": _build_checklist(b.get("services", [])), "created_at": _now()}
         await db.tc_jobs.insert_one(dict(job))
         routing = await _route_date(date)
@@ -1459,7 +1509,9 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
                 ("Cabs", str(b.get("cabs", 1))),
                 ("Service address", b.get("address") or "—"),
                 ("Vehicle location", b.get("vehicle_location") or "—"),
-                ("Plan", {"one_time": "One-Time $175", "fleet": "Fleet $150", "biweekly": "Bi-Weekly $130", "car_detail": "Full Car Detail $150"}.get(b.get("plan", ""), b.get("plan") or "—")),
+                ("Plan", {"one_time": "One-Time $175", "fleet": "Fleet $150", "biweekly": "Bi-Weekly $130", "car_detail": "Full Car Detail"}.get(b.get("plan", ""), b.get("plan") or "—")),
+                ("Detail tier", (b.get("tier") or "—").title()),
+                ("Heard about us", b.get("heard_from") or "—"),
                 ("Preferred date", b.get("preferred_date") or "flexible"),
                 ("Add-ons", ", ".join(svc_labels) or "none"),
                 ("Scent", b.get("scent") or "—"), ("Notes", b.get("notes") or "—"),

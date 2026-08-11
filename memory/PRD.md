@@ -2687,3 +2687,12 @@ retrains scoring weights from revealed preferences — making the intuitive
 - /wash form: "Service address *" (required) + "Where will the vehicles be?" inputs; notes placeholder simplified.
 - TMS Jobs table: address shown under client as clickable Google Maps link (tc-job-location-{id}) + "Vehicles: ..." line.
 - Verified: curl end-to-end (job/client/email/geocode) + screenshots of form and jobs table.
+
+## 2026-06 — Booking Map + Ad Tracker + Detail Tiers + FMCSA Carrier Search (iteration_92: 11/11 backend PASS, frontend verified)
+- Booking Map: GET /api/truck-cleaning/jobs-map (geocodes up to 5 new client addresses/call, cached yard_lat/lng) -> TcJobsMap.jsx dark Leaflet map in Jobs tab (amber=scheduled, cyan=in-progress pins, date filter, Google Maps link in popup).
+- Ad Tracker: heard_from on BookingIn + /wash chips (Facebook/Craigslist/Referral/Google/Saw the crew/Yard flyer/Other); shown in alert email, per-row "via X" badge + tier badge in TcBookings rows, aggregate AdSourceStats bar card ("Where bookings come from").
+- Detail Tiers (car_detail only): CAR_TIERS silver $150 / gold $220 (incl wax_sealant+shampoo_seats) / platinum $300 (incl ceramic+shampoo+headlights+ozone). Autopilot strips included add-ons so no double charge (gold+ceramic=$295, platinum+shampoo=$300 verified).
+- Carrier Search: new backend/routes/carrier_search.py (FMCSA Socrata census az4n-8mr2, free, no key) — search by name/USDOT/MC + state + min_units, ADD PROSPECT into tc_yard_prospects w/ dupe detection, /enrichment-status + /enrich slot (activates when APOLLO_API_KEY/SNOV_API_KEY/SKRAPP_API_KEY set in backend/.env; currently unconfigured by design). New "Carrier Search" tab in /truck-cleaning (TcCarrierSearch.jsx).
+- Bugs fixed during batch: TcCarrierSearch imported api from lib/auth (should be lib/api) — compile error; missing Search icon import in TruckCleaning.jsx — blank page crash.
+- TEST-booking email suppression: _is_test_booking() in truck_cleaning_crew.py skips the owner alert email when company starts with "test"/"qa " or email is a test address (verified: 0 emails recorded). User was getting test notification emails from QA runs — no more.
+- All TEST data purged (bookings/jobs/clients + YP-21 prospect). PREVIEW only until republish.

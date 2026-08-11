@@ -8768,6 +8768,12 @@ api_router.include_router(build_truck_cleaning_crew_router(
     require_role=require_role,
 ))
 
+from routes.carrier_search import build_carrier_search_router  # noqa: E402
+api_router.include_router(build_carrier_search_router(
+    db=db,
+    require_role=require_role,
+))
+
 
 @app.on_event("startup")
 async def _start_tc_reminders():

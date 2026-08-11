@@ -77,6 +77,16 @@ UPSELL_META = [
     {"id": "ozone_car", "label": "Ozone Odor Treatment", "price": 40.0, "category": "car_detail_addon",
      "desc": "Sealed-cabin ozone kills smoke, pet and mildew odor at the source. Adds 30 min."},
 ]
+CAR_TIERS = {
+    "silver": {"label": "Silver", "price": 150.0, "includes": [],
+               "desc": "The full base detail — inside & out"},
+    "gold": {"label": "Gold", "price": 220.0, "includes": ["wax_sealant", "shampoo_seats"],
+             "desc": "Base + hand wax & sealant + seat/carpet shampoo — save $40"},
+    "platinum": {"label": "Platinum", "price": 300.0,
+                 "includes": ["ceramic_spray", "shampoo_seats", "headlight_restore", "ozone_car"],
+                 "desc": "Base + ceramic coating + shampoo + headlights + ozone — save $70"},
+}
+
 SCENT_MENU = ["New Truck Smell", "Black Ice", "Leather & Cedar", "Pine Forest",
               "Citrus Shop", "Cool Breeze", "Vanilla Cab", "Odor-Neutral (unscented)"]
 PRODUCT_IDS = [u["id"] for u in UPSELL_META if u["category"] in ("freshener", "bedding") and u["id"] != "bed_change"]

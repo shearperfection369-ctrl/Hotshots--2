@@ -129,6 +129,31 @@ function CallbackReminders({ prospects, onJump }) {
   );
 }
 
+function AdSourceStats({ rows }) {
+  const counts = {};
+  rows.forEach((b) => { const k = b.heard_from || "Not asked"; counts[k] = (counts[k] || 0) + 1; });
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const total = rows.length;
+  if (!total) return null;
+  return (
+    <Card className="p-4 bg-slate-950/70 border-violet-500/30" data-testid="tc-ad-sources">
+      <h3 className="text-sm font-bold text-white mb-1">Where bookings come from</h3>
+      <div className="text-[10px] text-slate-500 mb-3">"How did you hear about us?" answers — put your ad dollars where the bookings are.</div>
+      <div className="space-y-1.5">
+        {entries.map(([src, n]) => (
+          <div key={src} className="flex items-center gap-2" data-testid={`tc-ad-source-${src.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`}>
+            <span className="text-[11px] text-slate-300 w-40 truncate shrink-0">{src}</span>
+            <div className="flex-1 h-2.5 rounded-full bg-white/[0.04] overflow-hidden">
+              <div className="h-full rounded-full bg-violet-500" style={{ width: `${Math.max(6, (n / total) * 100)}%` }} />
+            </div>
+            <span className="text-[10px] font-mono text-violet-300 w-14 text-right shrink-0">{n} · {Math.round((n / total) * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function ProspectList() {
   const [data, setData] = useState(null);
   const [emailFor, setEmailFor] = useState(null);
@@ -341,6 +366,10 @@ export const TcBookings = ({ reloadAll }) => {
                   {b.contact && `${b.contact} · `}{b.phone}{b.email ? ` · ${b.email}` : ""}{b.preferred_date ? ` · wants ${b.preferred_date}` : ""}
                 </div>
                 {b.services?.length > 0 && <div className="text-[10px] text-cyan-300 mt-0.5">add-ons: {b.services.join(", ")}</div>}
+                {(b.tier || b.heard_from) && <div className="flex flex-wrap gap-1 mt-1">
+                  {b.tier && <span className="px-1.5 py-0.5 rounded border border-amber-500/40 text-amber-300 text-[9px] font-mono uppercase" data-testid={`tc-booking-tier-${b.booking_id}`}>{b.tier} detail</span>}
+                  {b.heard_from && <span className="px-1.5 py-0.5 rounded border border-violet-500/40 text-violet-300 text-[9px] font-mono" data-testid={`tc-booking-heard-${b.booking_id}`}>via {b.heard_from}</span>}
+                </div>}
                 {b.notes && <div className="text-[10px] text-slate-500 mt-0.5">{b.notes}</div>}
               </div>
               <span className={`px-2 py-0.5 rounded-full border text-[9px] font-mono uppercase shrink-0 ${STATUS_STYLE[b.status]}`}>{b.status}</span>
@@ -362,6 +391,7 @@ export const TcBookings = ({ reloadAll }) => {
         {!rows.length && <div className="py-8 text-center text-slate-500 text-sm">No booking requests yet — share <b>/wash</b> with clients and watch this inbox fill up.</div>}
       </div>
     </Card>
+    <AdSourceStats rows={rows} />
     <ProspectList />
     </div>
   );

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Topbar from "../components/Topbar";
 import { Card } from "../components/ui/card";
-import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp, UserPlus, FolderOpen, Receipt, CalendarDays, SprayCan, Truck, Megaphone, Boxes, MapPin, Inbox, BadgeDollarSign, Car, ShoppingCart, Crosshair } from "lucide-react";
+import { Droplets, Sparkles, Users, ClipboardList, BookOpenText, FileDown, Bot, Plus, Trash2, Loader2, RefreshCw, Send, TrendingUp, UserPlus, FolderOpen, Receipt, CalendarDays, SprayCan, Truck, Megaphone, Boxes, MapPin, Inbox, BadgeDollarSign, Car, ShoppingCart, Crosshair, Search } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -19,6 +19,8 @@ import { TcMoney } from "../components/truckcleaning/TcMoney";
 import { TcVehicles } from "../components/truckcleaning/TcVehicles";
 import { TcGear } from "../components/truckcleaning/TcGear";
 import { TcBookings } from "../components/truckcleaning/TcBookings";
+import { TcJobsMap } from "../components/truckcleaning/TcJobsMap";
+import { TcCarrierSearch } from "../components/truckcleaning/TcCarrierSearch";
 import { TcTarget } from "../components/truckcleaning/TcTarget";
 
 const TABS = [
@@ -27,6 +29,7 @@ const TABS = [
   { id: "crewlive", label: "Crew Live", icon: MapPin },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
   { id: "bookings", label: "Bookings", icon: Inbox },
+  { id: "carriers", label: "Carrier Search", icon: Search },
   { id: "clients", label: "Clients", icon: Users },
   { id: "onboarding", label: "Onboarding", icon: UserPlus },
   { id: "jobs", label: "Jobs", icon: ClipboardList },
@@ -208,6 +211,7 @@ function Jobs({ jobs, clients, reload }) {
   };
   return (
     <div>
+      <TcJobsMap api={api} />
       <div className="flex justify-end gap-2 mb-3">
         <button onClick={purgeTest} data-testid="tc-purge-test-btn" title="Delete all jobs/clients/bookings with test company names — real data untouched"
                 className="px-4 py-2 rounded-full border border-red-500/50 text-red-300 font-bold text-xs inline-flex items-center gap-1.5 hover:bg-red-500/10"><Trash2 size={13} /> Purge Test Data</button>
@@ -494,6 +498,7 @@ export default function TruckCleaning() {
           {tab === "crewlive" && <TcCrewLive />}
           {tab === "scheduler" && <TcScheduler clients={clients} reloadAll={reload} />}
           {tab === "bookings" && <TcBookings reloadAll={reload} />}
+          {tab === "carriers" && <TcCarrierSearch />}
           {tab === "clients" && <Clients clients={clients} reload={reload} />}
           {tab === "onboarding" && <TcOnboarding reloadAll={reload} />}
           {tab === "jobs" && <Jobs jobs={jobs} clients={clients} reload={reload} />}

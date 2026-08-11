@@ -179,6 +179,8 @@ export default function WashLanding() {
   const [info, setInfo] = useState(null);
   const [form, setForm] = useState({ company: "", contact: "", phone: "", email: "", cabs: 1, preferred_date: "", address: "", vehicle_location: "", notes: "" });
   const [plan, setPlan] = useState("one_time");
+  const [tier, setTier] = useState("silver");
+  const [heard, setHeard] = useState("");
   const [scent, setScent] = useState("");
   const [sel, setSel] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -189,7 +191,7 @@ export default function WashLanding() {
     e.preventDefault();
     setBusy(true);
     try {
-      const { data } = await axios.post(`${API}/public/booking`, { ...form, cabs: Number(form.cabs) || 1, services: sel, plan, scent });
+      const { data } = await axios.post(`${API}/public/booking`, { ...form, cabs: Number(form.cabs) || 1, services: sel, plan, scent, tier: plan === "car_detail" ? tier : "", heard_from: heard });
       toast.success(data.message);
       setSent(data);
     } catch (e2) {
@@ -202,8 +204,10 @@ export default function WashLanding() {
   const cabsN = Number(form.cabs) || 1;
   const isCar = plan === "car_detail";
   const unit = isCar ? "car" : "cab";
+  const tierRates = { silver: 150, gold: 220, platinum: 300 };
+  const unitRate = isCar ? tierRates[tier] : planRates[plan];
   const addonTotal = services.filter((s) => sel.includes(s.id)).reduce((a, s) => a + s.price, 0);
-  const total = cabsN * planRates[plan] + addonTotal;
+  const total = cabsN * unitRate + addonTotal;
   return (
     <div className="min-h-screen bg-[#0B0F16] text-white overflow-x-hidden" data-testid="wash-landing"
          style={{ backgroundImage: "radial-gradient(ellipse 80% 50% at 70% -10%, rgba(37,99,235,0.18), transparent), radial-gradient(ellipse 60% 40% at 10% 110%, rgba(245,158,11,0.08), transparent)" }}>
@@ -367,6 +371,26 @@ export default function WashLanding() {
                   ))}
                 </div>
               </div>
+              {/* 1b · car detail tier */}
+              {isCar && (
+                <div data-testid="wash-tier-picker">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 mb-2">Pick your detail package</div>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    {[["silver", "Silver", 150, "The full base detail — inside & out"],
+                      ["gold", "Gold", 220, "+ hand wax & sealant + seat/carpet shampoo · save $40"],
+                      ["platinum", "Platinum", 300, "+ ceramic + shampoo + headlights + ozone · save $70"]].map(([id, t, price, d]) => (
+                      <button type="button" key={id} onClick={() => setTier(id)} data-testid={`wash-tier-${id}`}
+                        className={`p-4 rounded-xl border text-left transition-colors ${tier === id ? "border-emerald-500 bg-emerald-500/10" : "border-white/10 bg-white/[0.02] hover:border-white/30"}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase tracking-wider" style={{ color: id === "platinum" ? "#E5E7EB" : id === "gold" ? "#FBBF24" : "#94A3B8" }}>{t}</span>
+                          <span className="text-lg font-black text-white">${price}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-1 leading-snug">{d}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* 2 · details */}
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 mb-2">2 · Your yard & contact</div>
@@ -442,6 +466,18 @@ export default function WashLanding() {
                   ))}
                 </div>
               </div>
+              <div data-testid="wash-heard-from">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 mb-2">How did you hear about us?</div>
+                <div className="flex flex-wrap gap-2">
+                  {["Facebook", "Craigslist", "Referral", "Google", "Saw the crew", "Yard flyer", "Other"].map((h) => (
+                    <button type="button" key={h} onClick={() => setHeard(heard === h ? "" : h)}
+                      data-testid={`wash-heard-${h.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`}
+                      className={`px-3 py-1.5 rounded-full border text-[11px] font-bold transition-colors ${heard === h ? "border-amber-400 bg-amber-500/15 text-amber-200" : "border-white/15 text-slate-400 hover:border-white/40"}`}>
+                      {heard === h ? "✓ " : ""}{h}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Anything else we should know…"
                 className="w-full min-h-[80px] p-4 rounded-xl bg-[#0B0F16] border border-white/15 text-sm outline-none focus:border-amber-500 transition-colors" data-testid="wash-book-notes" />
               {/* total + submit */}
@@ -449,7 +485,7 @@ export default function WashLanding() {
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Estimated per visit</div>
                   <div className="text-2xl font-black text-amber-400">${total.toLocaleString()}</div>
-                  <div className="text-[10px] text-slate-500">{cabsN} {unit}{cabsN > 1 ? "s" : ""} × ${planRates[plan]}{addonTotal > 0 ? ` + $${addonTotal} extras` : ""} · pay after the {isCar ? "detail" : "clean"}</div>
+                  <div className="text-[10px] text-slate-500">{cabsN} {unit}{cabsN > 1 ? "s" : ""} × ${unitRate}{addonTotal > 0 ? ` + $${addonTotal} extras` : ""} · pay after the {isCar ? "detail" : "clean"}</div>
                 </div>
                 <button disabled={busy} data-testid="wash-book-submit"
                   className="px-9 py-3.5 rounded-full bg-amber-500 hover:bg-amber-400 transition-colors text-black font-black text-sm disabled:opacity-50 shadow-[0_0_24px_rgba(245,158,11,0.3)]">
