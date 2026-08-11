@@ -120,6 +120,46 @@ def build_carrier_search_router(*, db, require_role: Callable) -> APIRouter:
         await db.tc_yard_prospects.insert_one(dict(doc))
         return {"ok": True, "prospect_id": pid, "message": f"{name} added to your hit list as {pid}."}
 
+    @router.post("/ai-contacts")
+    async def ai_contacts(payload: Dict[str, Any], _=Depends(guard)):
+        import json as _json
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        key = os.environ.get("EMERGENT_LLM_KEY", "").strip()
+        if not key:
+            raise HTTPException(500, "AI key not configured")
+        name = str(payload.get("legal_name") or payload.get("dba_name") or "").strip()
+        if len(name) < 2:
+            raise HTTPException(400, "Carrier name required")
+        facts = {k: payload.get(k) for k in ("legal_name", "dba_name", "city", "state", "phone",
+                                             "address", "power_units", "cargo", "dot_number") if payload.get(k)}
+        chat = LlmChat(
+            api_key=key, session_id=f"carrier-contacts-{uuid.uuid4().hex[:8]}",
+            system_message=(
+                "You are a B2B sales-research assistant for a freight TMS. Given facts about a US trucking "
+                "company, suggest how to reach its decision-makers. Return STRICT JSON only, no markdown, schema: "
+                '{"domains":[{"domain":str,"confidence":"high|medium|low","reason":str}],'
+                '"contacts":[{"role":str,"likely_title":str,"email_guesses":[str],"note":str}],'
+                '"email_patterns":[str],"outreach_tip":str}. '
+                "Rules: domains = most plausible company website domains (use real domain if the company is well "
+                "known, otherwise plausible guesses clearly marked medium/low). contacts = 2-4 decision-maker roles "
+                "relevant to fleet washing / freight services (owner, fleet manager, operations manager, terminal "
+                "manager, safety director) with 2-3 realistic email guesses each built from the domains and common "
+                "patterns (first@, first.last@, flast@, info@, dispatch@). Never invent personal names unless the "
+                "company is a well-known carrier whose executives are public. Keep outreach_tip to one sentence "
+                "tailored to this company. These are best-effort guesses — reflect uncertainty in confidence."),
+        ).with_model("openai", "gpt-5.4")
+        resp = await chat.send_message(UserMessage(text=_json.dumps(facts)))
+        text = str(resp).strip()
+        if text.startswith("```"):
+            text = text.strip("`").lstrip("json").strip()
+        try:
+            data = _json.loads(text)
+        except ValueError:
+            raise HTTPException(502, "AI returned an unreadable answer — try again")
+        data["company"] = name
+        data["disclaimer"] = "AI best-effort research — verify an address before emailing (bounces hurt your domain)."
+        return data
+
     @router.get("/enrichment-status")
     async def enrichment_status(_=Depends(guard)):
         providers = {"apollo": "APOLLO_API_KEY", "snov": "SNOV_API_KEY", "skrapp": "SKRAPP_API_KEY"}

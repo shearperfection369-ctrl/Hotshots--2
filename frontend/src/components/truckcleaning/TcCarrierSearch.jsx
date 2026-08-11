@@ -2,7 +2,53 @@ import React, { useState } from "react";
 import { api } from "../../lib/api";
 import { Card } from "../ui/card";
 import { toast } from "sonner";
-import { Search, Building2, Phone, MapPin, Truck, UserPlus, Loader2, Sparkles } from "lucide-react";
+import { Search, Building2, Phone, MapPin, Truck, UserPlus, Loader2, Sparkles, Copy } from "lucide-react";
+
+function AiContacts({ carrier }) {
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState(null);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const { data } = await api.post("/carrier-search/ai-contacts", carrier);
+      setRes(data);
+    } catch (e2) { toast.error(e2?.response?.data?.detail || "AI research failed — try again"); }
+    finally { setBusy(false); }
+  };
+  const copy = async (t) => { try { await navigator.clipboard.writeText(t); toast.success(`Copied ${t}`); } catch { toast.error("Copy failed"); } };
+  if (!res) return (
+    <button onClick={run} disabled={busy} data-testid={`tc-cs-ai-${carrier.dot_number || "x"}`}
+      className="mt-2 h-8 px-3 rounded-full border border-violet-500/50 text-violet-300 text-[10px] font-black flex items-center gap-1.5 hover:bg-violet-500/10 disabled:opacity-50">
+      {busy ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />} {busy ? "RESEARCHING…" : "FIND CONTACTS (AI)"}
+    </button>
+  );
+  return (
+    <div className="mt-2 p-3 rounded-xl border border-violet-500/30 bg-violet-500/[0.05] space-y-2" data-testid={`tc-cs-ai-result-${carrier.dot_number || "x"}`}>
+      <div className="flex flex-wrap gap-1.5">
+        {(res.domains || []).map((d) => (
+          <span key={d.domain} title={d.reason} className={`px-2 py-0.5 rounded-full text-[9px] font-mono border ${d.confidence === "high" ? "border-emerald-500/50 text-emerald-300" : d.confidence === "medium" ? "border-amber-500/40 text-amber-300" : "border-white/15 text-slate-400"}`}>
+            {d.domain} · {d.confidence}
+          </span>
+        ))}
+      </div>
+      {(res.contacts || []).map((c) => (
+        <div key={c.role} className="text-[11px]">
+          <span className="font-bold text-white">{c.likely_title || c.role}</span>
+          {c.note && <span className="text-slate-500"> — {c.note}</span>}
+          <div className="flex flex-wrap gap-1 mt-1">
+            {(c.email_guesses || []).map((em) => (
+              <button key={em} onClick={() => copy(em)} className="px-2 py-0.5 rounded-full bg-[#11151F] border border-violet-500/30 text-violet-200 text-[10px] font-mono flex items-center gap-1 hover:border-violet-400">
+                {em} <Copy size={9} />
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {res.outreach_tip && <div className="text-[10px] text-cyan-200/80 italic">Tip: {res.outreach_tip}</div>}
+      <div className="text-[9px] font-mono text-slate-500">{res.disclaimer}</div>
+    </div>
+  );
+}
 
 export const TcCarrierSearch = () => {
   const [q, setQ] = useState("");
@@ -88,6 +134,7 @@ export const TcCarrierSearch = () => {
                   ))}
                   {c.status && <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${String(c.status).toUpperCase() === "A" ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-500/15 text-slate-400"}`}>{String(c.status).toUpperCase() === "A" ? "ACTIVE" : c.status}</span>}
                 </div>
+                <AiContacts carrier={c} />
               </Card>
             );
           })}

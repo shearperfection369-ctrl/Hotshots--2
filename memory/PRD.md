@@ -2696,3 +2696,8 @@ retrains scoring weights from revealed preferences — making the intuitive
 - Bugs fixed during batch: TcCarrierSearch imported api from lib/auth (should be lib/api) — compile error; missing Search icon import in TruckCleaning.jsx — blank page crash.
 - TEST-booking email suppression: _is_test_booking() in truck_cleaning_crew.py skips the owner alert email when company starts with "test"/"qa " or email is a test address (verified: 0 emails recorded). User was getting test notification emails from QA runs — no more.
 - All TEST data purged (bookings/jobs/clients + YP-21 prospect). PREVIEW only until republish.
+
+## 2026-06 — Carrier Email Finder (AI)
+- POST /api/carrier-search/ai-contacts: LlmChat (openai gpt-5.4, EMERGENT_LLM_KEY) returns strict JSON — likely domains w/ confidence, 2-4 decision-maker roles (owner/fleet/ops/terminal/safety) each with 2-3 realistic email guesses, email patterns, one-line outreach tip + disclaimer. No invented personal names unless carrier is famous/public.
+- UI: AiContacts panel in TcCarrierSearch.jsx — "FIND CONTACTS (AI)" button per carrier card (tc-cs-ai-{dot}), result panel (tc-cs-ai-result-{dot}) with confidence-colored domain chips and tap-to-copy email chips.
+- Self-tested: curl (Dart Transit → real dart.net domain, high confidence) + UI screenshot. Uses Emergent LLM key credits per lookup. PREVIEW only until republish.
