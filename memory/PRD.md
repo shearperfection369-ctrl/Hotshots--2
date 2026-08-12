@@ -2729,3 +2729,9 @@ retrains scoring weights from revealed preferences — making the intuitive
 - SAFFER_BRAND products/suppliers rewritten: commodities (CAT excavator, lumber, steel beams…) + PNW shippers (drives overlay of the other board rows too). Preview brand doc reseeded.
 - Bonus verified: AI Load Sentinel auto-flags the delayed SAFF-84123 load with an action brief — great demo beat.
 - REQUIRES REPUBLISH before the demo.
+
+## 2026-06 — "Booking doesn't show" investigation (user report, production)
+- Verified PREVIEW booking flow fully works: POST /public/booking → tc_bookings insert → autopilot → shows first in GET /bookings. /wash only shows confirmation on successful save. No stranger bookings in preview DB.
+- Ruled out: wipe-sample (no tc_* collections tracked by data_status.py), purge-test-data (targeted regex), email suppression (email-only, doesn't hide bookings).
+- Conclusion: customer's booking is in the PRODUCTION DB (customer saw confirmation). User must check live TMS → Truck Cleaning → Bookings. Cannot inspect prod DB from preview.
+- Hardening shipped: rate limiter now honors X-Forwarded-For (prod visitors share ingress IP); Bookings header shows "N total · last received <time> UTC" (tc-bookings-meta) so DB truth is visible at a glance.

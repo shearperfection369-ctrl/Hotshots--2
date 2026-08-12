@@ -379,7 +379,8 @@ def build_truck_cleaning_crew_router(*, db, require_role: Callable) -> APIRouter
 
     # ================= CREW AUTH =================
     async def _rate_limit(request: Request, scope: str = "login"):
-        ip = request.client.host if request.client else "unknown"
+        fwd = request.headers.get("x-forwarded-for", "")
+        ip = (fwd.split(",")[0].strip() if fwd else "") or (request.client.host if request.client else "unknown")
         t = datetime.now(timezone.utc)
         key = f"tc-{scope}:{ip}"
         doc = await db.tc_login_attempts.find_one({"_id": key})

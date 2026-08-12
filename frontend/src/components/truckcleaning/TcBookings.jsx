@@ -414,6 +414,9 @@ export const TcBookings = ({ reloadAll }) => {
           <Inbox size={15} className="text-cyan-300" /> Booking Requests from the public page
           {rows.filter((r) => r.status === "new").length > 0 &&
             <span className="px-2 py-0.5 rounded-full bg-amber-500 text-black text-[10px] font-black">{rows.filter((r) => r.status === "new").length} NEW</span>}
+          <span className="text-[9px] font-mono text-slate-500 font-normal" data-testid="tc-bookings-meta">
+            {rows.length} total{rows[0]?.created_at ? ` · last received ${rows[0].created_at.slice(0, 16).replace("T", " ")} UTC` : ""}
+          </span>
         </h3>
         <a href="/wash" target="_blank" rel="noreferrer" className="text-[10px] font-mono text-cyan-300 flex items-center gap-1" data-testid="tc-bookings-page-link">
           view booking page <ExternalLink size={10} />
